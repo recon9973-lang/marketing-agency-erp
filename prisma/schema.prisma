@@ -1,0 +1,552 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MARKETER
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+enum WorkCategory {
+  BRAND_BLOG
+  BLOG_DISTRIBUTION
+  BLOG_SEO
+  RECEIPT_REVIEW
+  PLACE_RANKING
+  SNS_MANAGEMENT
+  ACCOUNT_MANAGEMENT
+  MONTHLY_REPORT
+  PERFORMANCE_COLLECTION
+}
+
+enum WorkStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  WAITING
+  REVIEW_NEEDED
+  COMPLETED
+  BLOCKED
+}
+
+enum BillingStatus {
+  DRAFT
+  ISSUED
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELED
+}
+
+enum ExpenseReviewStatus {
+  UNREVIEWED
+  REVIEWED
+  EXCLUDED
+  NEEDS_FOLLOW_UP
+}
+
+enum LeaveStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  CANCELED
+}
+
+enum LeaveType {
+  ANNUAL
+  HALF_DAY_AM
+  HALF_DAY_PM
+  SICK
+  OTHER
+}
+
+enum ReportStatus {
+  DRAFT
+  REVIEW_NEEDED
+  APPROVED
+  DELIVERED
+}
+
+enum CalendarProvider {
+  INTERNAL
+  GOOGLE
+  NAVER
+}
+
+enum CalendarEventKind {
+  TASK
+  CLIENT_MEETING
+  REPORT_DEADLINE
+  LEAVE
+  INTERNAL_INSTRUCTION
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CARD
+  CASH
+  VIRTUAL_ACCOUNT
+  OTHER
+}
+
+enum PaymentProvider {
+  MANUAL
+  KAKAOPAY
+  TOSSPAYMENTS
+  INICIS
+  OTHER
+}
+
+enum FinancialAccountType {
+  BANK
+  CARD
+}
+
+enum ConnectionStatus {
+  DISCONNECTED
+  CONNECTED
+  ERROR
+}
+
+enum ClientAccountPlatform {
+  BLOG
+  SNS
+  PLACE
+  RECEIPT_REVIEW
+  ANALYTICS
+  OTHER
+}
+
+model User {
+  id                      String           @id @default(cuid())
+  name                    String
+  email                   String           @unique
+  role                    Role
+  status                  UserStatus       @default(ACTIVE)
+  image                   String?
+  kakaoId                 String?          @unique
+  timezone                String           @default("Asia/Seoul")
+  isActive                Boolean          @default(true)
+  googleCalendarConnected Boolean          @default(false)
+  naverCalendarConnected  Boolean          @default(false)
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  adminScopes             AccessScope[]    @relation("AdminScopes")
+  scopedMarketers         AccessScope[]    @relation("ScopedMarketers")
+  ownedClients            Client[]         @relation("AssignedMarketer")
+  managedAccounts         ClientAccount[]  @relation("AccountManager")
+  workTemplates           WorkTemplate[]   @relation("TemplateCreator")
+  ownedWorkItems          WorkItem[]       @relation("WorkOwner")
+  createdWorkItems        WorkItem[]       @relation("WorkCreator")
+  createdEvents           CalendarEvent[]  @relation("EventCreator")
+  billingsIssued          BillingRecord[]  @relation("BillingIssuer")
+  paymentsRecorded        PaymentRecord[]  @relation("PaymentRecorder")
+  expensesSubmitted       ExpenseRecord[]  @relation("ExpenseSubmitter")
+  expensesReviewed        ExpenseRecord[]  @relation("ExpenseReviewer")
+  leavePolicies           LeavePolicy[]
+  leaveRequests           LeaveRequest[]   @relation("LeaveRequester")
+  leaveApprovals          LeaveRequest[]   @relation("LeaveApprover")
+  authoredReports         Report[]         @relation("ReportAuthor")
+  reviewedReports         Report[]         @relation("ReportReviewer")
+  auditLogs               AuditLog[]       @relation("AuditActor")
+  accounts                Account[]
+  sessions                Session[]
+}
+
+model AccessScope {
+  id           String   @id @default(cuid())
+  adminId      String
+  marketerId   String?
+  clientId     String?
+  allMarketers Boolean  @default(false)
+  allClients   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  admin    User    @relation("AdminScopes", fields: [adminId], references: [id])
+  marketer User?   @relation("ScopedMarketers", fields: [marketerId], references: [id])
+  client   Client? @relation(fields: [clientId], references: [id])
+
+  @@index([adminId])
+  @@index([marketerId])
+  @@index([clientId])
+}
+
+model Client {
+  id                  String          @id @default(cuid())
+  name                String
+  code                String          @unique
+  businessNumber      String?
+  contactName         String?
+  contactEmail        String?
+  contactPhone        String?
+  contractStartDate   DateTime?
+  contractEndDate     DateTime?
+  monthlyContractFee  Decimal?        @db.Decimal(12, 2)
+  serviceNotes        String?
+  active              Boolean         @default(true)
+  assignedMarketerId  String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  assignedMarketer    User?           @relation("AssignedMarketer", fields: [assignedMarketerId], references: [id])
+  accessScopes        AccessScope[]
+  accounts            ClientAccount[]
+  workItems           WorkItem[]
+  calendarEvents      CalendarEvent[]
+  billingRecords      BillingRecord[]
+  expenseRecords      ExpenseRecord[]
+  reports             Report[]
+
+  @@index([assignedMarketerId])
+}
+
+model ClientAccount {
+  id                String                @id @default(cuid())
+  clientId          String
+  managerId         String?
+  platform          ClientAccountPlatform
+  label             String
+  handle            String?
+  loginReference    String?
+  credentialHint    String?
+  externalUrl       String?
+  isPrimary         Boolean               @default(false)
+  isActive          Boolean               @default(true)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  client            Client                @relation(fields: [clientId], references: [id])
+  manager           User?                 @relation("AccountManager", fields: [managerId], references: [id])
+
+  @@index([clientId, platform])
+  @@index([managerId])
+}
+
+model WorkTemplate {
+  id                 String        @id @default(cuid())
+  title              String
+  description        String?
+  category           WorkCategory
+  defaultPriority    Int           @default(3)
+  estimatedHours     Decimal?      @db.Decimal(6, 2)
+  cadenceDays        Int?
+  active             Boolean       @default(true)
+  createdById        String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  createdBy          User?         @relation("TemplateCreator", fields: [createdById], references: [id])
+  workItems          WorkItem[]
+
+  @@index([category, active])
+  @@index([createdById])
+}
+
+model WorkItem {
+  id               String         @id @default(cuid())
+  clientId         String
+  ownerId          String
+  createdById      String?
+  templateId       String?
+  title            String
+  category         WorkCategory
+  status           WorkStatus     @default(NOT_STARTED)
+  priority         Int            @default(3)
+  dueDate          DateTime?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  progressNotes    String?
+  resultSummary    String?
+  attachmentUrl    String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  client           Client         @relation(fields: [clientId], references: [id])
+  owner            User           @relation("WorkOwner", fields: [ownerId], references: [id])
+  createdBy        User?          @relation("WorkCreator", fields: [createdById], references: [id])
+  template         WorkTemplate?  @relation(fields: [templateId], references: [id])
+  calendarEvents   CalendarEvent[]
+  reports          Report[]
+
+  @@index([clientId, status, dueDate])
+  @@index([ownerId, status, dueDate])
+  @@index([templateId])
+  @@index([createdById])
+}
+
+model CalendarEvent {
+  id                String             @id @default(cuid())
+  title             String
+  description       String?
+  startsAt          DateTime
+  endsAt            DateTime
+  provider          CalendarProvider   @default(INTERNAL)
+  kind              CalendarEventKind
+  syncStatus        ConnectionStatus   @default(DISCONNECTED)
+  syncError         String?
+  externalEventId   String?
+  externalCalendarId String?
+  lastSyncedAt      DateTime?
+  clientId          String?
+  workItemId        String?
+  leaveRequestId    String?            @unique
+  reportId          String?
+  createdById       String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  client            Client?            @relation(fields: [clientId], references: [id])
+  workItem          WorkItem?          @relation(fields: [workItemId], references: [id])
+  leaveRequest      LeaveRequest?       @relation("LeaveRequestEvent", fields: [leaveRequestId], references: [id])
+  report            Report?            @relation(fields: [reportId], references: [id])
+  createdBy         User?              @relation("EventCreator", fields: [createdById], references: [id])
+
+  @@index([startsAt, endsAt])
+  @@index([clientId])
+  @@index([workItemId])
+  @@index([reportId])
+  @@index([createdById])
+}
+
+model BillingRecord {
+  id                    String          @id @default(cuid())
+  clientId              String
+  issuedById            String?
+  billingMonth          DateTime
+  contractAmount        Decimal         @db.Decimal(12, 2)
+  issuedAmount          Decimal         @db.Decimal(12, 2)
+  paidAmount            Decimal         @default(0) @db.Decimal(12, 2)
+  currency              String          @default("KRW")
+  status                BillingStatus   @default(DRAFT)
+  invoiceNumber         String?         @unique
+  dueDate               DateTime?
+  issuedAt              DateTime?
+  canceledAt            DateTime?
+  pgProvider            PaymentProvider?
+  pgCustomerReference   String?
+  webhookStatus         String?
+  reconciliationStatus  String?
+  metadata              Json?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  client                Client          @relation(fields: [clientId], references: [id])
+  issuedBy              User?           @relation("BillingIssuer", fields: [issuedById], references: [id])
+  payments              PaymentRecord[]
+
+  @@unique([clientId, billingMonth])
+  @@index([status, dueDate])
+  @@index([issuedById])
+}
+
+model PaymentRecord {
+  id                    String          @id @default(cuid())
+  billingRecordId       String
+  recordedById          String?
+  amount                Decimal         @db.Decimal(12, 2)
+  currency              String          @default("KRW")
+  method                PaymentMethod
+  provider              PaymentProvider @default(MANUAL)
+  transactionId         String?
+  providerPaymentId     String?
+  virtualAccountNumber  String?
+  webhookStatus         String?
+  reconciliationStatus  String?
+  receivedAt            DateTime
+  metadata              Json?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  billingRecord         BillingRecord   @relation(fields: [billingRecordId], references: [id])
+  recordedBy            User?           @relation("PaymentRecorder", fields: [recordedById], references: [id])
+
+  @@index([billingRecordId, receivedAt])
+  @@index([recordedById])
+}
+
+model ExpenseRecord {
+  id                   String               @id @default(cuid())
+  clientId             String?
+  submittedById        String?
+  reviewedById         String?
+  financialAccountId   String?
+  category             String
+  vendor               String?
+  memo                 String?
+  amount               Decimal              @db.Decimal(12, 2)
+  taxAmount            Decimal?             @db.Decimal(12, 2)
+  paymentMethod        PaymentMethod
+  reviewStatus         ExpenseReviewStatus  @default(UNREVIEWED)
+  paidAt               DateTime?
+  reviewedAt           DateTime?
+  excludedReason       String?
+  syncProvider         String?
+  externalTransactionId String?
+  externalReference    String?
+  rawPayload           Json?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  client               Client?              @relation(fields: [clientId], references: [id])
+  submittedBy          User?                @relation("ExpenseSubmitter", fields: [submittedById], references: [id])
+  reviewedBy           User?                @relation("ExpenseReviewer", fields: [reviewedById], references: [id])
+  financialAccount     FinancialAccount?    @relation(fields: [financialAccountId], references: [id])
+
+  @@index([clientId])
+  @@index([financialAccountId])
+  @@index([reviewStatus, paidAt])
+  @@index([submittedById])
+  @@index([reviewedById])
+}
+
+model FinancialAccount {
+  id                 String              @id @default(cuid())
+  type               FinancialAccountType
+  displayName        String
+  institutionName    String?
+  accountLast4       String?
+  cardLast4          String?
+  currency           String              @default("KRW")
+  isActive           Boolean             @default(true)
+  connectionStatus   ConnectionStatus    @default(DISCONNECTED)
+  provider           String?
+  externalAccountId  String?
+  syncCursor         String?
+  lastSyncedAt       DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  expenseRecords     ExpenseRecord[]
+
+  @@index([type, isActive])
+}
+
+model LeavePolicy {
+  id             String         @id @default(cuid())
+  userId         String
+  year           Int
+  annualDays     Decimal        @db.Decimal(5, 2)
+  carryOverDays  Decimal        @default(0) @db.Decimal(5, 2)
+  usedDays       Decimal        @default(0) @db.Decimal(5, 2)
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  user           User           @relation(fields: [userId], references: [id])
+  leaveRequests  LeaveRequest[]
+
+  @@unique([userId, year])
+  @@index([year])
+}
+
+model LeaveRequest {
+  id               String        @id @default(cuid())
+  requesterId      String
+  approverId       String?
+  leavePolicyId    String?
+  type             LeaveType
+  status           LeaveStatus   @default(REQUESTED)
+  startDate        DateTime
+  endDate          DateTime
+  daysRequested    Decimal       @db.Decimal(5, 2)
+  reason           String?
+  reviewedAt       DateTime?
+  canceledAt       DateTime?
+  approvalNotes    String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  requester        User          @relation("LeaveRequester", fields: [requesterId], references: [id])
+  approver         User?         @relation("LeaveApprover", fields: [approverId], references: [id])
+  leavePolicy      LeavePolicy?  @relation(fields: [leavePolicyId], references: [id])
+  calendarEvent    CalendarEvent?       @relation("LeaveRequestEvent")
+
+  @@index([requesterId, status, startDate])
+  @@index([approverId])
+  @@index([leavePolicyId])
+}
+
+model Report {
+  id                String          @id @default(cuid())
+  clientId          String
+  authorId          String
+  reviewerId        String?
+  workItemId        String?
+  reportingMonth    DateTime
+  title             String
+  status            ReportStatus    @default(DRAFT)
+  metrics           Json?
+  notes             String?
+  attachmentUrl     String?
+  reviewedAt        DateTime?
+  deliveredAt       DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  client            Client          @relation(fields: [clientId], references: [id])
+  author            User            @relation("ReportAuthor", fields: [authorId], references: [id])
+  reviewer          User?           @relation("ReportReviewer", fields: [reviewerId], references: [id])
+  workItem          WorkItem?       @relation(fields: [workItemId], references: [id])
+  calendarEvents    CalendarEvent[]
+
+  @@unique([clientId, reportingMonth])
+  @@index([authorId])
+  @@index([reviewerId])
+  @@index([status])
+  @@index([workItemId])
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  actorId     String?
+  action      String
+  targetType  String
+  targetId    String
+  beforeState Json?
+  afterState  Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+  actor       User?     @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
