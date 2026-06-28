@@ -15,6 +15,11 @@ type AdminScope = {
   allMarketers: boolean;
 };
 
+type ClientWhere =
+  | Record<string, never>
+  | { id: { in: string[] } }
+  | { OR: Array<{ id: { in: string[] } } | { assignedMarketerId: { in: string[] } | { not: null } }> };
+
 function hasRecords(values: string[]) {
   return values.length > 0;
 }
@@ -23,22 +28,45 @@ function unique(values: Array<string | null>) {
   return [...new Set(values.filter((value): value is string => Boolean(value)))];
 }
 
-function buildAdminClientWhere(scopes: AdminScope[]) {
+function buildAdminClientWhere(scopes: AdminScope[]): ClientWhere {
   if (scopes.some((scope) => scope.allClients)) {
     return {};
   }
 
   const clientIds = unique(scopes.map((scope) => scope.clientId));
-  return hasRecords(clientIds) ? { clientId: { in: clientIds } } : { id: { in: [] } };
-}
+  const marketerIds = unique(scopes.map((scope) => scope.marketerId));
+  const allMarketers = scopes.some((scope) => scope.allMarketers);
+  const clauses = [];
 
-function buildAdminClientOwnedWhere(scopes: AdminScope[]) {
-  if (scopes.some((scope) => scope.allClients)) {
-    return { clientId: { not: null } };
+  if (hasRecords(clientIds)) {
+    clauses.push({ id: { in: clientIds } });
   }
 
-  const clientIds = unique(scopes.map((scope) => scope.clientId));
-  return hasRecords(clientIds) ? { clientId: { in: clientIds } } : { id: { in: [] } };
+  if (allMarketers) {
+    clauses.push({ assignedMarketerId: { not: null } });
+  } else if (hasRecords(marketerIds)) {
+    clauses.push({ assignedMarketerId: { in: marketerIds } });
+  }
+
+  return clauses.length > 0 ? { OR: clauses } : { id: { in: [] } };
+}
+
+function buildAdminClientRecordWhere(scopes: AdminScope[]) {
+  const clientWhere = buildAdminClientWhere(scopes);
+
+  if ("OR" in clientWhere) {
+    return {
+      OR: clientWhere.OR.map((clause) =>
+        "id" in clause ? { clientId: clause.id } : { client: { assignedMarketerId: clause.assignedMarketerId } }
+      )
+    };
+  }
+
+  if ("id" in clientWhere) {
+    return { clientId: clientWhere.id };
+  }
+
+  return {};
 }
 
 function buildAdminWorkWhere(scopes: AdminScope[]) {
@@ -112,13 +140,13 @@ async function buildWhereForUser(user: CurrentUser) {
 
   const scopes = await getAdminScopes(user.id);
   const clientWhere = buildAdminClientWhere(scopes);
-  const clientOwnedWhere = buildAdminClientOwnedWhere(scopes);
+  const clientRecordWhere = buildAdminClientRecordWhere(scopes);
 
   return {
-    client: "clientId" in clientWhere ? { id: clientWhere.clientId } : clientWhere,
+    client: clientWhere,
     work: buildAdminWorkWhere(scopes),
-    billing: clientWhere,
-    expense: clientOwnedWhere,
+    billing: clientRecordWhere,
+    expense: clientRecordWhere,
     leave: buildAdminLeaveWhere(scopes)
   };
 }

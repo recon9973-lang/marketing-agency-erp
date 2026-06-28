@@ -63,12 +63,12 @@ describe("fetchDashboardInput", () => {
     );
 
     expect(workItemFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { OR: [{ clientId: { in: ["client-1"] } }, { ownerId: { in: ["marketer-1"] } }] } }));
-    expect(billingFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { clientId: { in: ["client-1"] } } }));
-    expect(expenseFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { clientId: { in: ["client-1"] } } }));
+    expect(billingFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { OR: [{ clientId: { in: ["client-1"] } }, { client: { assignedMarketerId: { in: ["marketer-1"] } } }] } }));
+    expect(expenseFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { OR: [{ clientId: { in: ["client-1"] } }, { client: { assignedMarketerId: { in: ["marketer-1"] } } }] } }));
     expect(leaveRequestFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { requesterId: { in: ["marketer-1"] } } }));
   });
 
-  it("does not show all expenses to admins with only marketer scopes", async () => {
+  it("shows client-owned expenses for admins with marketer scopes", async () => {
     accessScopeFindManyMock.mockResolvedValue([
       { clientId: null, marketerId: "marketer-1", allClients: false, allMarketers: false }
     ]);
@@ -79,7 +79,7 @@ describe("fetchDashboardInput", () => {
       { today: "2026-06-28", timeZone: "Asia/Seoul" }
     );
 
-    expect(expenseFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: { in: [] } } }));
+    expect(expenseFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { OR: [{ client: { assignedMarketerId: { in: ["marketer-1"] } } }] } }));
   });
 
   it("uses the dashboard business year for leave balance", async () => {
