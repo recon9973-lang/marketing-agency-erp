@@ -30,8 +30,7 @@ function buildUserLookup(user?: SessionUserLike | null) {
   const provider = user?.authProvider?.trim();
   const providerAccountId = user?.authProviderAccountId?.trim();
 
-  const or = [
-    email ? { email } : null,
+  const identityWhere =
     provider && providerAccountId
       ? {
           accounts: {
@@ -41,17 +40,18 @@ function buildUserLookup(user?: SessionUserLike | null) {
             }
           }
         }
-      : null
-  ].filter((value): value is NonNullable<typeof value> => value !== null);
+      : email
+        ? { email }
+        : null;
 
-  if (or.length === 0) {
+  if (!identityWhere) {
     return null;
   }
 
   return {
     isActive: true,
     status: UserStatus.ACTIVE,
-    ...(or.length === 1 ? or[0] : { OR: or })
+    ...identityWhere
   };
 }
 

@@ -2,6 +2,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { NextAuthConfig } from "next-auth";
 import NextAuth from "next-auth";
 import Kakao from "next-auth/providers/kakao";
+import { buildSessionUser, mergeJwtToken } from "@/server/auth-helpers";
 import { db } from "@/server/db";
 
 const kakaoConfigured = Boolean(process.env.AUTH_KAKAO_ID && process.env.AUTH_KAKAO_SECRET);
@@ -25,27 +26,12 @@ export const authConfig = {
     : [],
   callbacks: {
     jwt({ token, user, account }) {
-      if (typeof user?.role === "string") {
-        token.role = user.role;
-      }
-
-      if (account?.provider) {
-        token.authProvider = account.provider;
-      }
-
-      if (account?.providerAccountId) {
-        token.authProviderAccountId = account.providerAccountId;
-      }
-
-      return token;
+      return mergeJwtToken({ token, user, account });
     },
     session({ session, user, token }) {
       session.user = {
         ...session.user,
-        id: user?.id ?? token.sub ?? "",
-        role: typeof user?.role === "string" ? user.role : undefined,
-        authProvider: typeof token.authProvider === "string" ? token.authProvider : undefined,
-        authProviderAccountId: typeof token.authProviderAccountId === "string" ? token.authProviderAccountId : undefined
+        ...buildSessionUser({ user, token })
       };
 
       return session;

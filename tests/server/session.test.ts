@@ -98,6 +98,45 @@ describe("getCurrentUser", () => {
     });
   });
 
+  it("prefers provider identity over email when both are present", async () => {
+    authMock.mockResolvedValue({
+      user: {
+        email: "shared@agency.test",
+        authProvider: "kakao",
+        authProviderAccountId: "kakao-777"
+      }
+    });
+    findFirstMock.mockResolvedValue({
+      id: "user-3",
+      name: "Linked Staff",
+      email: "other@agency.test",
+      role: "ADMIN"
+    });
+
+    const { getCurrentUser } = await import("@/server/session");
+    const user = await getCurrentUser();
+
+    expect(findFirstMock).toHaveBeenCalledWith({
+      where: {
+        accounts: {
+          some: {
+            provider: "kakao",
+            providerAccountId: "kakao-777"
+          }
+        },
+        isActive: true,
+        status: "ACTIVE"
+      },
+      select: expect.any(Object)
+    });
+    expect(user).toEqual({
+      id: "user-3",
+      name: "Linked Staff",
+      email: "other@agency.test",
+      role: "ADMIN"
+    });
+  });
+
   it("returns null for authenticated users without a matching active staff record", async () => {
     authMock.mockResolvedValue({
       user: {
