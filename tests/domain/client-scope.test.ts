@@ -20,4 +20,14 @@ describe("client filtering", () => {
 
     expect(result.map((client) => client.id)).toEqual(["client-1"]);
   });
+
+  it("does not treat all-marketers scope as unassigned client access", () => {
+    const result = filterClientsForUser(
+      { id: "admin-1", role: Role.ADMIN },
+      [...clients, { id: "client-3", assignedMarketerId: null, name: "미배정 업체" }],
+      [{ adminId: "admin-1", marketerId: null, clientId: null, allMarketers: true, allClients: false }]
+    );
+
+    expect(result.map((client) => client.id)).toEqual(["client-1", "client-2"]);
+  });
 });

@@ -26,7 +26,8 @@ export function filterClientsForUser(
     return scopes.some(
       (scope) =>
         scope.adminId === user.id &&
-        (scope.allMarketers || (client.assignedMarketerId !== null && scope.marketerId === client.assignedMarketerId))
+        client.assignedMarketerId !== null &&
+        (scope.allMarketers || scope.marketerId === client.assignedMarketerId)
     );
   });
 }
