@@ -32,6 +32,15 @@ function buildAdminClientWhere(scopes: AdminScope[]) {
   return hasRecords(clientIds) ? { clientId: { in: clientIds } } : { id: { in: [] } };
 }
 
+function buildAdminClientOwnedWhere(scopes: AdminScope[]) {
+  if (scopes.some((scope) => scope.allClients)) {
+    return { clientId: { not: null } };
+  }
+
+  const clientIds = unique(scopes.map((scope) => scope.clientId));
+  return hasRecords(clientIds) ? { clientId: { in: clientIds } } : { id: { in: [] } };
+}
+
 function buildAdminWorkWhere(scopes: AdminScope[]) {
   const allClients = scopes.some((scope) => scope.allClients);
   const allMarketers = scopes.some((scope) => scope.allMarketers);
@@ -103,14 +112,19 @@ async function buildWhereForUser(user: CurrentUser) {
 
   const scopes = await getAdminScopes(user.id);
   const clientWhere = buildAdminClientWhere(scopes);
+  const clientOwnedWhere = buildAdminClientOwnedWhere(scopes);
 
   return {
     client: "clientId" in clientWhere ? { id: clientWhere.clientId } : clientWhere,
     work: buildAdminWorkWhere(scopes),
     billing: clientWhere,
-    expense: "clientId" in clientWhere ? clientWhere : {},
+    expense: clientOwnedWhere,
     leave: buildAdminLeaveWhere(scopes)
   };
+}
+
+function getBusinessYear(today: string) {
+  return Number.parseInt(today.slice(0, 4), 10);
 }
 
 export async function fetchDashboardInput(user: CurrentUser, context: DashboardQueryContext): Promise<DashboardInput> {
@@ -147,8 +161,7 @@ export async function fetchDashboardInput(user: CurrentUser, context: DashboardQ
       }
     }),
     db.leavePolicy.findFirst({
-      where: { userId: user.id },
-      orderBy: { year: "desc" },
+      where: { userId: user.id, year: getBusinessYear(context.today) },
       select: {
         annualDays: true,
         carryOverDays: true,

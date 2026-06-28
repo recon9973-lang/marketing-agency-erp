@@ -64,7 +64,33 @@ describe("fetchDashboardInput", () => {
 
     expect(workItemFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { OR: [{ clientId: { in: ["client-1"] } }, { ownerId: { in: ["marketer-1"] } }] } }));
     expect(billingFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { clientId: { in: ["client-1"] } } }));
+    expect(expenseFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { clientId: { in: ["client-1"] } } }));
     expect(leaveRequestFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { requesterId: { in: ["marketer-1"] } } }));
+  });
+
+  it("does not show all expenses to admins with only marketer scopes", async () => {
+    accessScopeFindManyMock.mockResolvedValue([
+      { clientId: null, marketerId: "marketer-1", allClients: false, allMarketers: false }
+    ]);
+    const { fetchDashboardInput } = await import("@/server/repositories/dashboard");
+
+    await fetchDashboardInput(
+      { id: "admin-1", name: "Admin", email: "admin@agency.test", role: Role.ADMIN },
+      { today: "2026-06-28", timeZone: "Asia/Seoul" }
+    );
+
+    expect(expenseFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: { in: [] } } }));
+  });
+
+  it("uses the dashboard business year for leave balance", async () => {
+    const { fetchDashboardInput } = await import("@/server/repositories/dashboard");
+
+    await fetchDashboardInput(
+      { id: "marketer-1", name: "Marketer", email: "marketer@agency.test", role: Role.MARKETER },
+      { today: "2026-06-28", timeZone: "Asia/Seoul" }
+    );
+
+    expect(leavePolicyFindFirstMock).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "marketer-1", year: 2026 } }));
   });
 
   it("scopes marketer dashboard records to the marketer", async () => {
