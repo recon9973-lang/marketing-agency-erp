@@ -1,50 +1,18 @@
-export enum Role {
-  SUPER_ADMIN = "SUPER_ADMIN",
-  ADMIN = "ADMIN",
-  MARKETER = "MARKETER"
-}
-
-export enum WorkCategory {
-  BRAND_BLOG = "BRAND_BLOG",
-  BLOG_DISTRIBUTION = "BLOG_DISTRIBUTION",
-  BLOG_SEO = "BLOG_SEO",
-  RECEIPT_REVIEW = "RECEIPT_REVIEW",
-  PLACE_RANKING = "PLACE_RANKING",
-  SNS_MANAGEMENT = "SNS_MANAGEMENT",
-  ACCOUNT_MANAGEMENT = "ACCOUNT_MANAGEMENT",
-  MONTHLY_REPORT = "MONTHLY_REPORT",
-  PERFORMANCE_COLLECTION = "PERFORMANCE_COLLECTION"
-}
-
-export enum WorkStatus {
-  NOT_STARTED = "NOT_STARTED",
-  IN_PROGRESS = "IN_PROGRESS",
-  WAITING = "WAITING",
-  REVIEW_NEEDED = "REVIEW_NEEDED",
-  COMPLETED = "COMPLETED",
-  BLOCKED = "BLOCKED"
-}
-
-export enum BillingStatus {
-  DRAFT = "DRAFT",
-  ISSUED = "ISSUED",
-  UNPAID = "UNPAID",
-  PARTIALLY_PAID = "PARTIALLY_PAID",
-  PAID = "PAID",
-  OVERDUE = "OVERDUE",
-  CANCELED = "CANCELED"
-}
-
-export enum ExpenseReviewStatus {
-  UNREVIEWED = "UNREVIEWED",
-  REVIEWED = "REVIEWED",
-  EXCLUDED = "EXCLUDED",
-  NEEDS_FOLLOW_UP = "NEEDS_FOLLOW_UP"
-}
-
-export enum LeaveStatus {
-  REQUESTED = "REQUESTED",
-  APPROVED = "APPROVED",
-  REJECTED = "REJECTED",
-  CANCELED = "CANCELED"
-}
+export {
+  BillingStatus,
+  CalendarEventKind,
+  CalendarProvider,
+  ClientAccountPlatform,
+  ConnectionStatus,
+  ExpenseReviewStatus,
+  FinancialAccountType,
+  LeaveStatus,
+  LeaveType,
+  PaymentMethod,
+  PaymentProvider,
+  ReportStatus,
+  Role,
+  UserStatus,
+  WorkCategory,
+  WorkStatus
+} from "@prisma/client";
