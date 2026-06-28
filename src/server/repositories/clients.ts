@@ -18,7 +18,17 @@ export function filterClientsForUser(
   clients: ClientListItem[],
   scopes: AccessScopeRecord[]
 ) {
-  return clients.filter((client) => canAccessClient(user, client.id, scopes, client.assignedMarketerId ?? undefined));
+  return clients.filter((client) => {
+    if (canAccessClient(user, client.id, scopes, client.assignedMarketerId ?? undefined)) {
+      return true;
+    }
+
+    return scopes.some(
+      (scope) =>
+        scope.adminId === user.id &&
+        (scope.allMarketers || (client.assignedMarketerId !== null && scope.marketerId === client.assignedMarketerId))
+    );
+  });
 }
 
 function buildClientWhere(user: CurrentUser, scopes: AccessScopeRecord[]) {
@@ -38,8 +48,25 @@ function buildClientWhere(user: CurrentUser, scopes: AccessScopeRecord[]) {
     .filter((scope) => scope.adminId === user.id)
     .map((scope) => scope.clientId)
     .filter((clientId): clientId is string => Boolean(clientId));
+  const marketerIds = scopes
+    .filter((scope) => scope.adminId === user.id)
+    .map((scope) => scope.marketerId)
+    .filter((marketerId): marketerId is string => Boolean(marketerId));
+  const hasAllMarketers = scopes.some((scope) => scope.adminId === user.id && scope.allMarketers);
 
-  return clientIds.length > 0 ? { id: { in: [...new Set(clientIds)] } } : { id: { in: [] } };
+  const clauses = [];
+
+  if (clientIds.length > 0) {
+    clauses.push({ id: { in: [...new Set(clientIds)] } });
+  }
+
+  if (hasAllMarketers) {
+    clauses.push({ assignedMarketerId: { not: null } });
+  } else if (marketerIds.length > 0) {
+    clauses.push({ assignedMarketerId: { in: [...new Set(marketerIds)] } });
+  }
+
+  return clauses.length > 0 ? { OR: clauses } : { id: { in: [] } };
 }
 
 export async function fetchClientsForUser(user: CurrentUser): Promise<ClientListItem[]> {

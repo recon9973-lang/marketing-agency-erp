@@ -12,4 +12,12 @@ describe("client filtering", () => {
     const result = filterClientsForUser({ id: "marketer-1", role: Role.MARKETER }, clients, []);
     expect(result.map((client) => client.id)).toEqual(["client-1"]);
   });
+
+  it("shows marketer-scoped clients to admins", () => {
+    const result = filterClientsForUser({ id: "admin-1", role: Role.ADMIN }, clients, [
+      { adminId: "admin-1", marketerId: "marketer-1", clientId: null, allMarketers: false, allClients: false }
+    ]);
+
+    expect(result.map((client) => client.id)).toEqual(["client-1"]);
+  });
 });
