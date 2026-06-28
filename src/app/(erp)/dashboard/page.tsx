@@ -3,7 +3,7 @@ import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
 import { MarketerDashboard } from "@/components/dashboard/MarketerDashboard";
 import { SuperAdminDashboard } from "@/components/dashboard/SuperAdminDashboard";
 import { summarizeDashboard, type DashboardInput } from "@/domain/dashboard";
-import { BillingStatus, Role, WorkStatus } from "@/domain/types";
+import { BillingStatus, LeaveStatus, Role, WorkCategory, WorkStatus } from "@/domain/types";
 import type { CurrentUser } from "@/server/session";
 import { getCurrentUser } from "@/server/session";
 
@@ -20,7 +20,7 @@ function getTemporaryDashboardInput(user: CurrentUser): DashboardInput {
     workItems: [
       { status: WorkStatus.IN_PROGRESS, dueDate: "2026-06-20" },
       { status: WorkStatus.REVIEW_NEEDED, dueDate: "2026-06-28" },
-      { status: WorkStatus.NOT_STARTED, dueDate: "2026-06-30", category: "MONTHLY_REPORT" },
+      { status: WorkStatus.NOT_STARTED, dueDate: "2026-06-30", category: WorkCategory.MONTHLY_REPORT },
       { status: WorkStatus.COMPLETED, dueDate: "2026-06-19" }
     ],
     billings: [
@@ -29,7 +29,7 @@ function getTemporaryDashboardInput(user: CurrentUser): DashboardInput {
       { status: BillingStatus.PAID, issuedAmount: 700000, paidAmount: 700000 }
     ],
     expenses: [{ amount: 420000 }, { amount: 185000 }],
-    leaveRequests: [{ status: "REQUESTED" }, { status: "APPROVED" }]
+    leaveRequests: [{ status: LeaveStatus.REQUESTED }, { status: LeaveStatus.APPROVED }]
   };
 }
 
