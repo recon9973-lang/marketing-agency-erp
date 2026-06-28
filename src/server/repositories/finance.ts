@@ -1,0 +1,234 @@
+import type { Prisma } from "@prisma/client";
+import { summarizeFinance } from "@/domain/finance";
+import { BillingStatus, ConnectionStatus, ExpenseReviewStatus, FinancialAccountType, PaymentMethod, Role } from "@/domain/types";
+import { db } from "@/server/db";
+import type { CurrentUser } from "@/server/session";
+
+type AdminScope = {
+  clientId: string | null;
+  marketerId: string | null;
+  allClients: boolean;
+  allMarketers: boolean;
+};
+
+export type BillingListItem = {
+  id: string;
+  clientName: string;
+  billingMonth: Date;
+  issuedAmount: number;
+  paidAmount: number;
+  status: BillingStatus;
+  dueDate: Date | null;
+  invoiceNumber: string | null;
+};
+
+export type ExpenseListItem = {
+  id: string;
+  vendor: string | null;
+  category: string;
+  clientName: string | null;
+  amount: number;
+  paymentMethod: PaymentMethod;
+  reviewStatus: ExpenseReviewStatus;
+  paidAt: Date | null;
+  accountLabel: string | null;
+};
+
+export type FinancialAccountListItem = {
+  id: string;
+  type: FinancialAccountType;
+  displayName: string;
+  institutionName: string | null;
+  accountLast4: string | null;
+  cardLast4: string | null;
+  connectionStatus: ConnectionStatus;
+};
+
+export type FinanceOverview = {
+  billings: BillingListItem[];
+  expenses: ExpenseListItem[];
+  accounts: FinancialAccountListItem[];
+  unpaidAmount: number;
+  reviewedExpenseAmount: number;
+};
+
+function unique(values: Array<string | null>) {
+  return [...new Set(values.filter((value): value is string => Boolean(value)))];
+}
+
+function buildAdminBillingWhere(scopes: AdminScope[]): Prisma.BillingRecordWhereInput {
+  if (scopes.some((scope) => scope.allClients)) {
+    return {};
+  }
+
+  const clientIds = unique(scopes.map((scope) => scope.clientId));
+  const marketerIds = unique(scopes.map((scope) => scope.marketerId));
+  const allMarketers = scopes.some((scope) => scope.allMarketers);
+  const clauses: Prisma.BillingRecordWhereInput[] = [];
+
+  if (clientIds.length > 0) {
+    clauses.push({ clientId: { in: clientIds } });
+  }
+
+  if (allMarketers) {
+    clauses.push({ client: { assignedMarketerId: { not: null } } });
+  } else if (marketerIds.length > 0) {
+    clauses.push({ client: { assignedMarketerId: { in: marketerIds } } });
+  }
+
+  return clauses.length > 0 ? { OR: clauses } : { id: { in: [] } };
+}
+
+function buildAdminExpenseWhere(scopes: AdminScope[]): Prisma.ExpenseRecordWhereInput {
+  if (scopes.some((scope) => scope.allClients && scope.allMarketers)) {
+    return {};
+  }
+
+  const clientIds = unique(scopes.map((scope) => scope.clientId));
+  const marketerIds = unique(scopes.map((scope) => scope.marketerId));
+  const allClients = scopes.some((scope) => scope.allClients);
+  const allMarketers = scopes.some((scope) => scope.allMarketers);
+  const clauses: Prisma.ExpenseRecordWhereInput[] = [];
+
+  if (allClients) {
+    clauses.push({ clientId: { not: null } });
+  } else if (clientIds.length > 0) {
+    clauses.push({ clientId: { in: clientIds } });
+  }
+
+  if (allMarketers) {
+    clauses.push({ submittedById: { not: null } });
+    clauses.push({ client: { assignedMarketerId: { not: null } } });
+  } else if (marketerIds.length > 0) {
+    clauses.push({ submittedById: { in: marketerIds } });
+    clauses.push({ client: { assignedMarketerId: { in: marketerIds } } });
+  }
+
+  return clauses.length > 0 ? { OR: clauses } : { id: { in: [] } };
+}
+
+async function buildFinanceWhere(user: CurrentUser) {
+  if (user.role === Role.SUPER_ADMIN) {
+    return {
+      billing: {},
+      expense: {}
+    };
+  }
+
+  if (user.role === Role.MARKETER) {
+    return {
+      billing: { client: { assignedMarketerId: user.id } },
+      expense: { OR: [{ submittedById: user.id }, { client: { assignedMarketerId: user.id } }] }
+    };
+  }
+
+  const scopes = await db.accessScope.findMany({
+    where: { adminId: user.id },
+    select: {
+      clientId: true,
+      marketerId: true,
+      allClients: true,
+      allMarketers: true
+    }
+  });
+
+  return {
+    billing: buildAdminBillingWhere(scopes),
+    expense: buildAdminExpenseWhere(scopes)
+  };
+}
+
+export async function fetchFinanceOverviewForUser(user: CurrentUser): Promise<FinanceOverview> {
+  const where = await buildFinanceWhere(user);
+  const [billings, expenses, accounts] = await Promise.all([
+    db.billingRecord.findMany({
+      where: where.billing,
+      orderBy: [{ billingMonth: "desc" }, { dueDate: "asc" }],
+      take: 50,
+      select: {
+        id: true,
+        billingMonth: true,
+        issuedAmount: true,
+        paidAmount: true,
+        status: true,
+        dueDate: true,
+        invoiceNumber: true,
+        client: {
+          select: { name: true }
+        }
+      }
+    }),
+    db.expenseRecord.findMany({
+      where: where.expense,
+      orderBy: [{ paidAt: "desc" }, { createdAt: "desc" }],
+      take: 50,
+      select: {
+        id: true,
+        vendor: true,
+        category: true,
+        amount: true,
+        paymentMethod: true,
+        reviewStatus: true,
+        paidAt: true,
+        client: {
+          select: { name: true }
+        },
+        financialAccount: {
+          select: {
+            displayName: true,
+            institutionName: true,
+            accountLast4: true,
+            cardLast4: true
+          }
+        }
+      }
+    }),
+    db.financialAccount.findMany({
+      orderBy: { displayName: "asc" },
+      select: {
+        id: true,
+        type: true,
+        displayName: true,
+        institutionName: true,
+        accountLast4: true,
+        cardLast4: true,
+        connectionStatus: true
+      }
+    })
+  ]);
+
+  const mappedBillings = billings.map((billing) => ({
+    id: billing.id,
+    clientName: billing.client.name,
+    billingMonth: billing.billingMonth,
+    issuedAmount: billing.issuedAmount.toNumber(),
+    paidAmount: billing.paidAmount.toNumber(),
+    status: billing.status,
+    dueDate: billing.dueDate,
+    invoiceNumber: billing.invoiceNumber
+  }));
+  const mappedExpenses = expenses.map((expense) => ({
+    id: expense.id,
+    vendor: expense.vendor,
+    category: expense.category,
+    clientName: expense.client?.name ?? null,
+    amount: expense.amount.toNumber(),
+    paymentMethod: expense.paymentMethod,
+    reviewStatus: expense.reviewStatus,
+    paidAt: expense.paidAt,
+    accountLabel: expense.financialAccount
+      ? `${expense.financialAccount.institutionName ?? expense.financialAccount.displayName} ${expense.financialAccount.accountLast4 ?? expense.financialAccount.cardLast4 ?? ""}`.trim()
+      : null
+  }));
+  const summary = summarizeFinance({
+    billings: mappedBillings,
+    expenses: mappedExpenses
+  });
+
+  return {
+    billings: mappedBillings,
+    expenses: mappedExpenses,
+    accounts,
+    ...summary
+  };
+}
