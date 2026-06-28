@@ -1,0 +1,129 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const authMock = vi.fn();
+const findFirstMock = vi.fn();
+
+vi.mock("@/server/auth", () => ({
+  auth: authMock
+}));
+
+vi.mock("@/server/db", () => ({
+  db: {
+    user: {
+      findFirst: findFirstMock
+    }
+  }
+}));
+
+describe("getCurrentUser", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    delete process.env.ALLOW_DEV_SESSION;
+    delete process.env.DEV_SESSION_ROLE;
+    delete process.env.NODE_ENV;
+  });
+
+  it("returns the matching active staff user by email", async () => {
+    authMock.mockResolvedValue({
+      user: {
+        email: "admin@agency.test",
+        name: "Agency Admin"
+      }
+    });
+    findFirstMock.mockResolvedValue({
+      id: "user-1",
+      name: "Agency Admin",
+      email: "admin@agency.test",
+      role: "ADMIN"
+    });
+
+    const { getCurrentUser } = await import("@/server/session");
+    const user = await getCurrentUser();
+
+    expect(findFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          email: "admin@agency.test",
+          isActive: true,
+          status: "ACTIVE"
+        })
+      })
+    );
+    expect(user).toEqual({
+      id: "user-1",
+      name: "Agency Admin",
+      email: "admin@agency.test",
+      role: "ADMIN"
+    });
+  });
+
+  it("returns the matching active staff user by linked account identity", async () => {
+    authMock.mockResolvedValue({
+      user: {
+        email: null,
+        authProvider: "kakao",
+        authProviderAccountId: "kakao-123"
+      }
+    });
+    findFirstMock.mockResolvedValue({
+      id: "user-2",
+      name: "Kakao Staff",
+      email: "staff@agency.test",
+      role: "SUPER_ADMIN"
+    });
+
+    const { getCurrentUser } = await import("@/server/session");
+    const user = await getCurrentUser();
+
+    expect(findFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          accounts: {
+            some: {
+              provider: "kakao",
+              providerAccountId: "kakao-123"
+            }
+          },
+          isActive: true,
+          status: "ACTIVE"
+        })
+      })
+    );
+    expect(user).toEqual({
+      id: "user-2",
+      name: "Kakao Staff",
+      email: "staff@agency.test",
+      role: "SUPER_ADMIN"
+    });
+  });
+
+  it("returns null for authenticated users without a matching active staff record", async () => {
+    authMock.mockResolvedValue({
+      user: {
+        email: "unknown@agency.test"
+      }
+    });
+    findFirstMock.mockResolvedValue(null);
+
+    const { getCurrentUser } = await import("@/server/session");
+
+    await expect(getCurrentUser()).resolves.toBeNull();
+  });
+
+  it("uses the dev fallback only when explicitly enabled outside production", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.ALLOW_DEV_SESSION = "true";
+    process.env.DEV_SESSION_ROLE = "MARKETER";
+    authMock.mockResolvedValue(null);
+
+    const { getCurrentUser } = await import("@/server/session");
+
+    await expect(getCurrentUser()).resolves.toEqual({
+      id: "dev-user",
+      name: "Local Preview",
+      email: "dev@marketing-erp.local",
+      role: "MARKETER"
+    });
+  });
+});

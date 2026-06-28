@@ -10,12 +10,13 @@ import {
   ShieldCheck
 } from "lucide-react";
 import Link from "next/link";
-import type { Route } from "next";
 import type { ReactNode } from "react";
 import { Role } from "@/domain/types";
 
+type ErpRoute = "/dashboard" | "/clients" | "/work" | "/calendar" | "/finance" | "/leave" | "/reports" | "/settings";
+
 export type NavItem = {
-  href: string;
+  href: ErpRoute;
   label: string;
   roles: Role[];
   icon: LucideIcon;
@@ -93,7 +94,7 @@ export function AppShell({ children, role }: { children: ReactNode; role: Role }
             return (
               <Link
                 key={item.href}
-                href={item.href as Route}
+                href={item.href}
                 className="inline-flex items-center gap-3 rounded-md px-3 py-2 text-sm text-slate-700 transition hover:bg-surface hover:text-ink"
               >
                 <Icon className="h-4 w-4" />
@@ -118,7 +119,7 @@ export function AppShell({ children, role }: { children: ReactNode; role: Role }
                 return (
                   <Link
                     key={item.href}
-                    href={item.href as Route}
+                    href={item.href}
                     className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm text-slate-700"
                   >
                     <Icon className="h-4 w-4" />
