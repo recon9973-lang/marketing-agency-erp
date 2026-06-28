@@ -96,7 +96,11 @@ function toDateOnly(value: Date | string, timeZone: string): string {
     return formatDatePart(value, timeZone);
   }
 
-  return value.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  return formatDatePart(new Date(value), timeZone);
 }
 
 function isPastDue(workItem: DashboardWorkItem, today: Date | string, timeZone: string) {

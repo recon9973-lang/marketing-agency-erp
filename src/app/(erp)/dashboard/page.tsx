@@ -7,6 +7,22 @@ import { BillingStatus, LeaveStatus, Role, WorkCategory, WorkStatus } from "@/do
 import type { CurrentUser } from "@/server/session";
 import { getCurrentUser } from "@/server/session";
 
+const businessTimeZone = "Asia/Seoul";
+
+function getBusinessDate() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: businessTimeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  return `${year}-${month}-${day}`;
+}
+
 function getTemporaryDashboardInput(user: CurrentUser): DashboardInput {
   const roleScopedCounts = {
     [Role.SUPER_ADMIN]: { assignedClientCount: 18, leaveBalanceDays: 0 },
@@ -15,7 +31,8 @@ function getTemporaryDashboardInput(user: CurrentUser): DashboardInput {
   } satisfies Record<Role, Pick<DashboardInput, "assignedClientCount" | "leaveBalanceDays">>;
 
   return {
-    today: "2026-06-28",
+    today: getBusinessDate(),
+    timeZone: businessTimeZone,
     ...roleScopedCounts[user.role],
     workItems: [
       { status: WorkStatus.IN_PROGRESS, dueDate: "2026-06-20" },

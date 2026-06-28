@@ -54,4 +54,21 @@ describe("dashboard aggregation", () => {
     expect(summary.todayWorkCount).toBe(1);
     expect(summary.delayedWorkCount).toBe(1);
   });
+
+  it("classifies ISO string values by the configured business timezone", () => {
+    const summary = summarizeDashboard({
+      workItems: [
+        { status: WorkStatus.IN_PROGRESS, dueDate: "2026-06-27T15:30:00.000Z" },
+        { status: WorkStatus.IN_PROGRESS, dueDate: "2026-06-27T14:30:00.000Z" }
+      ],
+      billings: [],
+      expenses: [],
+      leaveRequests: [],
+      today: "2026-06-28",
+      timeZone: "Asia/Seoul"
+    });
+
+    expect(summary.todayWorkCount).toBe(1);
+    expect(summary.delayedWorkCount).toBe(1);
+  });
 });
