@@ -18,18 +18,7 @@ export function filterClientsForUser(
   clients: ClientListItem[],
   scopes: AccessScopeRecord[]
 ) {
-  return clients.filter((client) => {
-    if (canAccessClient(user, client.id, scopes, client.assignedMarketerId ?? undefined)) {
-      return true;
-    }
-
-    return scopes.some(
-      (scope) =>
-        scope.adminId === user.id &&
-        client.assignedMarketerId !== null &&
-        (scope.allMarketers || scope.marketerId === client.assignedMarketerId)
-    );
-  });
+  return clients.filter((client) => canAccessClient(user, client.id, scopes, client.assignedMarketerId));
 }
 
 function buildClientWhere(user: CurrentUser, scopes: AccessScopeRecord[]) {

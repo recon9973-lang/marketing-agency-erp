@@ -31,14 +31,18 @@ export function canAccessClient(
   user: CurrentUser,
   clientId: string,
   scopes: AccessScopeRecord[],
-  assignedMarketerId?: string
+  assignedMarketerId?: string | null
 ) {
   if (user.role === Role.SUPER_ADMIN) return true;
   if (user.role === Role.MARKETER) return assignedMarketerId === user.id;
   return scopes.some(
     (scope) =>
       scope.adminId === user.id &&
-      (scope.allClients || scope.clientId === clientId)
+      (scope.allClients ||
+        scope.clientId === clientId ||
+        (assignedMarketerId !== null &&
+          assignedMarketerId !== undefined &&
+          (scope.allMarketers || scope.marketerId === assignedMarketerId)))
   );
 }
 
@@ -46,7 +50,7 @@ export function assertCanAccessClient(
   user: CurrentUser,
   clientId: string,
   scopes: AccessScopeRecord[],
-  assignedMarketerId?: string
+  assignedMarketerId?: string | null
 ) {
   if (!canAccessClient(user, clientId, scopes, assignedMarketerId)) {
     throw new Error("FORBIDDEN_CLIENT_ACCESS");
