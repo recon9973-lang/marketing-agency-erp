@@ -33,6 +33,8 @@ export type DashboardInput = {
   leaveBalanceDays?: number;
 };
 
+const defaultToday = "2026-06-28";
+
 export type DashboardSummary = {
   totalWorkCount: number;
   delayedWorkCount: number;
@@ -89,7 +91,7 @@ function isUpcoming(workItem: DashboardWorkItem, today: Date | string) {
 }
 
 export function summarizeDashboard(input: DashboardInput): DashboardSummary {
-  const today = input.today ?? new Date();
+  const today = input.today ?? defaultToday;
 
   return {
     totalWorkCount: input.workItems.length,
