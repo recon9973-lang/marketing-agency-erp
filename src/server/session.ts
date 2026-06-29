@@ -88,12 +88,12 @@ async function resolveStaffUser(user?: SessionUserLike | null): Promise<CurrentU
   };
 }
 
-function getDevUser(): CurrentUser | null {
+function getDevUser(requestedRole?: unknown): CurrentUser | null {
   if (process.env.NODE_ENV === "production" || process.env.ALLOW_DEV_SESSION !== "true") {
     return null;
   }
 
-  const role = parseRole(process.env.DEV_SESSION_ROLE) ?? Role.ADMIN;
+  const role = parseRole(requestedRole) ?? parseRole(process.env.DEV_SESSION_ROLE) ?? Role.ADMIN;
 
   return {
     id: "dev-user",
@@ -103,12 +103,12 @@ function getDevUser(): CurrentUser | null {
   };
 }
 
-export async function getCurrentUser(): Promise<CurrentUser | null> {
+export async function getCurrentUser(requestedDevRole?: unknown): Promise<CurrentUser | null> {
   try {
     const session = await auth();
     const user = await resolveStaffUser(session?.user as SessionUserLike | undefined);
-    return user ?? getDevUser();
+    return user ?? getDevUser(requestedDevRole);
   } catch {
-    return getDevUser();
+    return getDevUser(requestedDevRole);
   }
 }

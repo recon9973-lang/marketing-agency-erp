@@ -155,48 +155,80 @@ function getBusinessYear(today: string) {
   return Number.parseInt(today.slice(0, 4), 10);
 }
 
+function isDevPreviewUser(user: CurrentUser) {
+  return process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_SESSION === "true" && user.id === "dev-user";
+}
+
+function emptyDashboardInput(context: DashboardQueryContext): DashboardInput {
+  return {
+    today: context.today,
+    timeZone: context.timeZone,
+    assignedClientCount: 0,
+    leaveBalanceDays: 0,
+    workItems: [],
+    billings: [],
+    expenses: [],
+    leaveRequests: []
+  };
+}
+
 export async function fetchDashboardInput(user: CurrentUser, context: DashboardQueryContext): Promise<DashboardInput> {
-  const where = await buildWhereForUser(user);
-  const [assignedClientCount, workItems, billings, expenses, leaveRequests, leavePolicy] = await Promise.all([
-    db.client.count({ where: where.client }),
-    db.workItem.findMany({
-      where: where.work,
-      select: {
-        status: true,
-        dueDate: true,
-        category: true,
-        clientId: true
-      }
-    }),
-    db.billingRecord.findMany({
-      where: where.billing,
-      select: {
-        status: true,
-        issuedAmount: true,
-        paidAmount: true
-      }
-    }),
-    db.expenseRecord.findMany({
-      where: where.expense,
-      select: {
-        amount: true
-      }
-    }),
-    db.leaveRequest.findMany({
-      where: where.leave,
-      select: {
-        status: true
-      }
-    }),
-    db.leavePolicy.findFirst({
-      where: { userId: user.id, year: getBusinessYear(context.today) },
-      select: {
-        annualDays: true,
-        carryOverDays: true,
-        usedDays: true
-      }
-    })
-  ]);
+  let assignedClientCount;
+  let workItems;
+  let billings;
+  let expenses;
+  let leaveRequests;
+  let leavePolicy;
+
+  try {
+    const where = await buildWhereForUser(user);
+    [assignedClientCount, workItems, billings, expenses, leaveRequests, leavePolicy] = await Promise.all([
+      db.client.count({ where: where.client }),
+      db.workItem.findMany({
+        where: where.work,
+        select: {
+          status: true,
+          dueDate: true,
+          category: true,
+          clientId: true
+        }
+      }),
+      db.billingRecord.findMany({
+        where: where.billing,
+        select: {
+          status: true,
+          issuedAmount: true,
+          paidAmount: true
+        }
+      }),
+      db.expenseRecord.findMany({
+        where: where.expense,
+        select: {
+          amount: true
+        }
+      }),
+      db.leaveRequest.findMany({
+        where: where.leave,
+        select: {
+          status: true
+        }
+      }),
+      db.leavePolicy.findFirst({
+        where: { userId: user.id, year: getBusinessYear(context.today) },
+        select: {
+          annualDays: true,
+          carryOverDays: true,
+          usedDays: true
+        }
+      })
+    ]);
+  } catch (error) {
+    if (isDevPreviewUser(user)) {
+      return emptyDashboardInput(context);
+    }
+
+    throw error;
+  }
 
   const leaveBalanceDays = leavePolicy
     ? leavePolicy.annualDays.toNumber() + leavePolicy.carryOverDays.toNumber() - leavePolicy.usedDays.toNumber()

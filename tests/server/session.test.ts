@@ -165,4 +165,29 @@ describe("getCurrentUser", () => {
       role: "MARKETER"
     });
   });
+
+  it("allows a development-only requested role override", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.ALLOW_DEV_SESSION = "true";
+    process.env.DEV_SESSION_ROLE = "ADMIN";
+    authMock.mockResolvedValue(null);
+
+    const { getCurrentUser } = await import("@/server/session");
+
+    await expect(getCurrentUser("SUPER_ADMIN")).resolves.toEqual(
+      expect.objectContaining({
+        role: "SUPER_ADMIN"
+      })
+    );
+  });
+
+  it("ignores requested role overrides in production", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.ALLOW_DEV_SESSION = "true";
+    authMock.mockResolvedValue(null);
+
+    const { getCurrentUser } = await import("@/server/session");
+
+    await expect(getCurrentUser("SUPER_ADMIN")).resolves.toBeNull();
+  });
 });

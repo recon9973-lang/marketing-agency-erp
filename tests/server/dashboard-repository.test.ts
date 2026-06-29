@@ -25,6 +25,8 @@ describe("fetchDashboardInput", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    delete process.env.ALLOW_DEV_SESSION;
+    delete process.env.NODE_ENV;
     clientCountMock.mockResolvedValue(0);
     workItemFindManyMock.mockResolvedValue([]);
     billingFindManyMock.mockResolvedValue([]);
@@ -104,5 +106,28 @@ describe("fetchDashboardInput", () => {
     expect(workItemFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { ownerId: "marketer-1" } }));
     expect(clientCountMock).toHaveBeenCalledWith({ where: { assignedMarketerId: "marketer-1" } });
     expect(leaveRequestFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { requesterId: "marketer-1" } }));
+  });
+
+  it("returns empty dashboard input for dev sessions when the database is unavailable", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.ALLOW_DEV_SESSION = "true";
+    clientCountMock.mockRejectedValue(new Error("DATABASE_URL missing"));
+    const { fetchDashboardInput } = await import("@/server/repositories/dashboard");
+
+    const input = await fetchDashboardInput(
+      { id: "dev-user", name: "Local Preview", email: "dev@marketing-erp.local", role: Role.MARKETER },
+      { today: "2026-06-30", timeZone: "Asia/Seoul" }
+    );
+
+    expect(input).toEqual({
+      today: "2026-06-30",
+      timeZone: "Asia/Seoul",
+      assignedClientCount: 0,
+      leaveBalanceDays: 0,
+      workItems: [],
+      billings: [],
+      expenses: [],
+      leaveRequests: []
+    });
   });
 });
