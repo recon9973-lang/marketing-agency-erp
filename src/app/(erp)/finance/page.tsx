@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { ExpenseReviewButtons } from "@/components/finance/ExpenseReviewButtons";
 import { billingStatusLabels, expenseReviewStatusLabels, paymentMethodLabels } from "@/domain/finance";
-import { ConnectionStatus, FinancialAccountType } from "@/domain/types";
+import { ConnectionStatus, FinancialAccountType, Role } from "@/domain/types";
 import {
   fetchFinanceOverviewForUser,
   type BillingListItem,
@@ -47,81 +49,109 @@ function AccountCard({ account }: { account: FinancialAccountListItem }) {
   );
 }
 
-const billingColumns: DataTableColumn<BillingListItem>[] = [
-  {
-    key: "client",
-    header: "거래처",
-    render: (billing) => (
-      <div>
-        <p className="font-medium text-ink">{billing.clientName}</p>
-        <p className="mt-1 text-xs text-slate-500">{billing.invoiceNumber ?? "수기 청구"}</p>
-      </div>
-    )
-  },
-  {
-    key: "month",
-    header: "청구월",
-    render: (billing) => monthFormatter.format(billing.billingMonth)
-  },
-  {
-    key: "issued",
-    header: "청구액",
-    render: (billing) => formatMoney(billing.issuedAmount)
-  },
-  {
-    key: "paid",
-    header: "입금액",
-    render: (billing) => formatMoney(billing.paidAmount)
-  },
-  {
-    key: "status",
-    header: "상태",
-    render: (billing) => <span className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-semibold text-slate-700">{billingStatusLabels[billing.status]}</span>
-  },
-  {
-    key: "due",
-    header: "입금기한",
-    render: (billing) => formatDate(billing.dueDate)
-  }
-];
+function buildBillingColumns(canManage: boolean): DataTableColumn<BillingListItem>[] {
+  const columns: DataTableColumn<BillingListItem>[] = [
+    {
+      key: "client",
+      header: "거래처",
+      render: (billing) => (
+        <div>
+          <p className="font-medium text-ink">{billing.clientName}</p>
+          <p className="mt-1 text-xs text-slate-500">{billing.invoiceNumber ?? "수기 청구"}</p>
+        </div>
+      )
+    },
+    {
+      key: "month",
+      header: "청구월",
+      render: (billing) => monthFormatter.format(billing.billingMonth)
+    },
+    {
+      key: "issued",
+      header: "청구액",
+      render: (billing) => formatMoney(billing.issuedAmount)
+    },
+    {
+      key: "paid",
+      header: "입금액",
+      render: (billing) => formatMoney(billing.paidAmount)
+    },
+    {
+      key: "status",
+      header: "상태",
+      render: (billing) => <span className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-semibold text-slate-700">{billingStatusLabels[billing.status]}</span>
+    },
+    {
+      key: "due",
+      header: "입금기한",
+      render: (billing) => formatDate(billing.dueDate)
+    }
+  ];
 
-const expenseColumns: DataTableColumn<ExpenseListItem>[] = [
-  {
-    key: "vendor",
-    header: "지출처",
-    render: (expense) => (
-      <div>
-        <p className="font-medium text-ink">{expense.vendor ?? "미기재"}</p>
-        <p className="mt-1 text-xs text-slate-500">{expense.category}</p>
-      </div>
-    )
-  },
-  {
-    key: "client",
-    header: "관련 거래처",
-    render: (expense) => expense.clientName ?? "공통"
-  },
-  {
-    key: "amount",
-    header: "금액",
-    render: (expense) => formatMoney(expense.amount)
-  },
-  {
-    key: "method",
-    header: "결제수단",
-    render: (expense) => paymentMethodLabels[expense.paymentMethod]
-  },
-  {
-    key: "account",
-    header: "연동 계좌/카드",
-    render: (expense) => expense.accountLabel ?? "미연동"
-  },
-  {
-    key: "review",
-    header: "검토",
-    render: (expense) => <span className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-semibold text-slate-700">{expenseReviewStatusLabels[expense.reviewStatus]}</span>
+  if (canManage) {
+    columns.push({
+      key: "actions",
+      header: "관리",
+      render: (billing) => (
+        <Link href={`/finance/billing/${billing.id}/edit`} className="text-sm font-medium text-brand hover:underline">
+          수정/입금
+        </Link>
+      )
+    });
   }
-];
+
+  return columns;
+}
+
+function buildExpenseColumns(canManage: boolean): DataTableColumn<ExpenseListItem>[] {
+  const columns: DataTableColumn<ExpenseListItem>[] = [
+    {
+      key: "vendor",
+      header: "지출처",
+      render: (expense) => (
+        <div>
+          <p className="font-medium text-ink">{expense.vendor ?? "미기재"}</p>
+          <p className="mt-1 text-xs text-slate-500">{expense.category}</p>
+        </div>
+      )
+    },
+    {
+      key: "client",
+      header: "관련 거래처",
+      render: (expense) => expense.clientName ?? "공통"
+    },
+    {
+      key: "amount",
+      header: "금액",
+      render: (expense) => formatMoney(expense.amount)
+    },
+    {
+      key: "method",
+      header: "결제수단",
+      render: (expense) => paymentMethodLabels[expense.paymentMethod]
+    },
+    {
+      key: "account",
+      header: "연동 계좌/카드",
+      render: (expense) => expense.accountLabel ?? "미연동"
+    },
+    {
+      key: "review",
+      header: "검토",
+      render: (expense) => <span className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-semibold text-slate-700">{expenseReviewStatusLabels[expense.reviewStatus]}</span>
+    }
+  ];
+
+  if (canManage) {
+    columns.push({
+      key: "reviewActions",
+      header: "검토 처리",
+      render: (expense) => <ExpenseReviewButtons id={expense.id} reviewStatus={expense.reviewStatus} />
+    });
+  }
+
+  return columns;
+}
 
 export default async function FinancePage() {
   const user = await getCurrentUser();
@@ -131,6 +161,7 @@ export default async function FinancePage() {
   }
 
   const overview = await fetchFinanceOverviewForUser(user);
+  const canManage = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
 
   return (
     <section className="space-y-6">
@@ -142,14 +173,32 @@ export default async function FinancePage() {
             V1은 PG 없이 수기 청구/입금 상태를 관리하고, 계좌·카드 지출 연동을 위한 기준 데이터를 함께 보여줍니다.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="rounded-md border border-line bg-white px-4 py-3">
-            <p className="text-xs text-slate-500">미수금</p>
-            <p className="mt-1 font-semibold text-danger">{formatMoney(overview.unpaidAmount)}</p>
+        <div className="flex flex-col items-end gap-3">
+          <div className="flex flex-wrap gap-2">
+            {canManage ? (
+              <Link
+                href="/finance/billing/new"
+                className="inline-flex items-center justify-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand/90"
+              >
+                청구 등록
+              </Link>
+            ) : null}
+            <Link
+              href="/finance/expense/new"
+              className="inline-flex items-center justify-center rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-surface"
+            >
+              지출 등록
+            </Link>
           </div>
-          <div className="rounded-md border border-line bg-white px-4 py-3">
-            <p className="text-xs text-slate-500">검토 지출</p>
-            <p className="mt-1 font-semibold text-ink">{formatMoney(overview.reviewedExpenseAmount)}</p>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="rounded-md border border-line bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">미수금</p>
+              <p className="mt-1 font-semibold text-danger">{formatMoney(overview.unpaidAmount)}</p>
+            </div>
+            <div className="rounded-md border border-line bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">검토 지출</p>
+              <p className="mt-1 font-semibold text-ink">{formatMoney(overview.reviewedExpenseAmount)}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -164,12 +213,12 @@ export default async function FinancePage() {
 
       <div className="space-y-3">
         <h3 className="text-base font-semibold text-ink">거래처 청구/입금</h3>
-        <DataTable columns={billingColumns} rows={overview.billings} emptyMessage="조회 가능한 청구 내역이 없습니다." />
+        <DataTable columns={buildBillingColumns(canManage)} rows={overview.billings} emptyMessage="조회 가능한 청구 내역이 없습니다." />
       </div>
 
       <div className="space-y-3">
         <h3 className="text-base font-semibold text-ink">회사 지출</h3>
-        <DataTable columns={expenseColumns} rows={overview.expenses} emptyMessage="조회 가능한 지출 내역이 없습니다." />
+        <DataTable columns={buildExpenseColumns(canManage)} rows={overview.expenses} emptyMessage="조회 가능한 지출 내역이 없습니다." />
       </div>
     </section>
   );
