@@ -6,3 +6,5 @@ node_modules/
 .env.local
 dist/
 coverage/
+test-results/
+playwright-report/
