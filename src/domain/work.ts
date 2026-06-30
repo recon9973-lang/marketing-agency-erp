@@ -1,6 +1,54 @@
+import { z } from "zod";
 import { WorkCategory, WorkStatus } from "@/domain/types";
+import { enumSchema, isoDateSchema, optionalString, requiredString } from "@/domain/validation";
 
 export type WorkStatusAction = "start" | "submit_for_review" | "approve" | "block" | "resume";
+
+const optionalIsoDate = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  isoDateSchema.optional()
+);
+
+/** 업무 생성/수정 입력 검증 (V2 §3). */
+export const workFormSchema = z.object({
+  clientId: requiredString("거래처", 60),
+  ownerId: requiredString("담당자", 60),
+  title: requiredString("업무명", 200),
+  category: enumSchema(WorkCategory, "업무 카테고리"),
+  priority: z.coerce
+    .number({ invalid_type_error: "우선순위는 숫자여야 합니다." })
+    .int("우선순위는 정수여야 합니다.")
+    .min(1, "우선순위는 1~5 사이여야 합니다.")
+    .max(5, "우선순위는 1~5 사이여야 합니다."),
+  dueDate: optionalIsoDate,
+  progressNotes: optionalString(2000),
+  resultSummary: optionalString(2000)
+});
+
+export type WorkFormInput = z.infer<typeof workFormSchema>;
+
+/**
+ * 상태 전이에 따른 타임스탬프 부수효과를 계산한다 (V2 §3).
+ * - IN_PROGRESS로 처음 진입하면 startedAt 기록.
+ * - COMPLETED로 진입하면 completedAt 기록.
+ */
+export function workStatusTimestamps(
+  nextStatus: WorkStatus,
+  current: { startedAt?: Date | null; completedAt?: Date | null },
+  now: Date
+): { startedAt?: Date; completedAt?: Date } {
+  const timestamps: { startedAt?: Date; completedAt?: Date } = {};
+
+  if (nextStatus === WorkStatus.IN_PROGRESS && !current.startedAt) {
+    timestamps.startedAt = now;
+  }
+
+  if (nextStatus === WorkStatus.COMPLETED && !current.completedAt) {
+    timestamps.completedAt = now;
+  }
+
+  return timestamps;
+}
 
 export type WorkDueInput = {
   status: WorkStatus;
