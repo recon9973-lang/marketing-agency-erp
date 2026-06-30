@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { ReportStatus } from "@/domain/types";
@@ -69,6 +70,15 @@ const columns: DataTableColumn<ReportListItem>[] = [
         <p className="mt-1">전달 {report.deliveredAt ? dateFormatter.format(report.deliveredAt) : "-"}</p>
       </div>
     )
+  },
+  {
+    key: "actions",
+    header: "관리",
+    render: (report) => (
+      <Link href={`/reports/${report.id}/edit`} className="text-sm font-medium text-brand hover:underline">
+        수정/검토
+      </Link>
+    )
   }
 ];
 
@@ -93,18 +103,26 @@ export default async function ReportsPage() {
             거래처별 월간 보고서, 블로그 방문자수 등 성과 지표, 검토 상태와 전달 여부를 관리합니다.
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-2 text-sm">
-          <div className="rounded-md border border-line bg-white px-4 py-3">
-            <p className="text-xs text-slate-500">전체</p>
-            <p className="mt-1 font-semibold text-ink">{reports.length}</p>
-          </div>
-          <div className="rounded-md border border-line bg-white px-4 py-3">
-            <p className="text-xs text-slate-500">검토</p>
-            <p className="mt-1 font-semibold text-warning">{reviewNeeded}</p>
-          </div>
-          <div className="rounded-md border border-line bg-white px-4 py-3">
-            <p className="text-xs text-slate-500">전달</p>
-            <p className="mt-1 font-semibold text-brand">{delivered}</p>
+        <div className="flex flex-col items-end gap-3">
+          <Link
+            href="/reports/new"
+            className="inline-flex items-center justify-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand/90"
+          >
+            새 보고서
+          </Link>
+          <div className="grid grid-cols-3 gap-2 text-sm">
+            <div className="rounded-md border border-line bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">전체</p>
+              <p className="mt-1 font-semibold text-ink">{reports.length}</p>
+            </div>
+            <div className="rounded-md border border-line bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">검토</p>
+              <p className="mt-1 font-semibold text-warning">{reviewNeeded}</p>
+            </div>
+            <div className="rounded-md border border-line bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">전달</p>
+              <p className="mt-1 font-semibold text-brand">{delivered}</p>
+            </div>
           </div>
         </div>
       </div>
