@@ -1,4 +1,4 @@
-import { calculateRemainingLeave } from "@/domain/leave";
+import { calculateRemainingLeave, type LeaveRequestFormInput } from "@/domain/leave";
 import { LeaveStatus, LeaveType, Role } from "@/domain/types";
 import { db } from "@/server/db";
 import type { CurrentUser } from "@/server/session";
@@ -138,4 +138,53 @@ export async function fetchLeaveOverviewForUser(user: CurrentUser, year = new Da
     requests,
     approvalRequests: user.role === Role.MARKETER ? [] : approvalRequests.map(mapLeaveRequest)
   };
+}
+
+export type LeaveRequestAccessInfo = {
+  id: string;
+  requesterId: string;
+  status: LeaveStatus;
+};
+
+export async function getLeaveRequestAccessInfo(leaveRequestId: string): Promise<LeaveRequestAccessInfo | null> {
+  return db.leaveRequest.findUnique({
+    where: { id: leaveRequestId },
+    select: { id: true, requesterId: true, status: true }
+  });
+}
+
+export async function createLeaveRequest(
+  input: LeaveRequestFormInput,
+  requesterId: string
+): Promise<{ id: string }> {
+  return db.leaveRequest.create({
+    data: {
+      requesterId,
+      type: input.type,
+      startDate: new Date(`${input.startDate}T00:00:00.000Z`),
+      endDate: new Date(`${input.endDate}T00:00:00.000Z`),
+      daysRequested: input.daysRequested,
+      reason: input.reason ?? null
+    },
+    select: { id: true }
+  });
+}
+
+export type LeaveDecisionData = {
+  status: LeaveStatus;
+  approverId?: string;
+  reviewedAt?: Date;
+  canceledAt?: Date;
+  approvalNotes?: string | null;
+};
+
+export async function decideLeaveRequest(
+  leaveRequestId: string,
+  data: LeaveDecisionData
+): Promise<{ id: string; status: LeaveStatus }> {
+  return db.leaveRequest.update({
+    where: { id: leaveRequestId },
+    data,
+    select: { id: true, status: true }
+  });
 }

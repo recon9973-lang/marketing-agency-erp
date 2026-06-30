@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { LeaveDecisionButtons } from "@/components/leave/LeaveDecisionButtons";
+import { LeaveRequestForm } from "@/components/leave/LeaveRequestForm";
 import { leaveStatusLabels, leaveTypeLabels } from "@/domain/leave";
 import { Role } from "@/domain/types";
 import { fetchLeaveOverviewForUser, type LeaveRequestListItem } from "@/server/repositories/leave";
@@ -22,7 +24,7 @@ function StatusBadge({ request }: { request: LeaveRequestListItem }) {
   return <span className={`rounded-md border px-2.5 py-1 text-xs font-semibold ${tone}`}>{leaveStatusLabels[request.status]}</span>;
 }
 
-const requestColumns: DataTableColumn<LeaveRequestListItem>[] = [
+const baseColumns: DataTableColumn<LeaveRequestListItem>[] = [
   {
     key: "period",
     header: "기간",
@@ -52,13 +54,29 @@ const requestColumns: DataTableColumn<LeaveRequestListItem>[] = [
   }
 ];
 
+const ownColumns: DataTableColumn<LeaveRequestListItem>[] = [
+  ...baseColumns,
+  {
+    key: "actions",
+    header: "관리",
+    render: (request) => <LeaveDecisionButtons id={request.id} status={request.status} actions={["cancel"]} />
+  }
+];
+
 const approvalColumns: DataTableColumn<LeaveRequestListItem>[] = [
   {
     key: "requester",
     header: "신청자",
     render: (request) => request.requesterName
   },
-  ...requestColumns
+  ...baseColumns,
+  {
+    key: "decision",
+    header: "승인",
+    render: (request) => (
+      <LeaveDecisionButtons id={request.id} status={request.status} actions={["approve", "reject", "cancel"]} />
+    )
+  }
 ];
 
 export default async function LeavePage() {
@@ -96,39 +114,7 @@ export default async function LeavePage() {
         </div>
       </div>
 
-      <form className="grid gap-3 rounded-md border border-line bg-white p-4 md:grid-cols-5">
-        <label className="text-sm text-slate-600">
-          <span className="mb-1 block text-xs font-semibold text-slate-500">유형</span>
-          <select name="type" className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink">
-            {Object.entries(leaveTypeLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm text-slate-600">
-          <span className="mb-1 block text-xs font-semibold text-slate-500">시작일</span>
-          <input type="date" name="startDate" className="w-full rounded-md border border-line px-3 py-2 text-sm text-ink" />
-        </label>
-        <label className="text-sm text-slate-600">
-          <span className="mb-1 block text-xs font-semibold text-slate-500">종료일</span>
-          <input type="date" name="endDate" className="w-full rounded-md border border-line px-3 py-2 text-sm text-ink" />
-        </label>
-        <label className="text-sm text-slate-600">
-          <span className="mb-1 block text-xs font-semibold text-slate-500">일수</span>
-          <input type="number" step="0.5" min="0.5" name="daysRequested" className="w-full rounded-md border border-line px-3 py-2 text-sm text-ink" />
-        </label>
-        <label className="text-sm text-slate-600">
-          <span className="mb-1 block text-xs font-semibold text-slate-500">사유</span>
-          <input name="reason" className="w-full rounded-md border border-line px-3 py-2 text-sm text-ink" />
-        </label>
-        <div className="flex items-end md:col-span-5">
-          <button type="button" className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white">
-            신청 저장 준비중
-          </button>
-        </div>
-      </form>
+      <LeaveRequestForm />
 
       {user.role !== Role.MARKETER ? (
         <div className="space-y-3">
@@ -139,7 +125,7 @@ export default async function LeavePage() {
 
       <div className="space-y-3">
         <h3 className="text-base font-semibold text-ink">내 신청 내역</h3>
-        <DataTable columns={requestColumns} rows={overview.requests} emptyMessage="휴가 신청 내역이 없습니다." />
+        <DataTable columns={ownColumns} rows={overview.requests} emptyMessage="휴가 신청 내역이 없습니다." />
       </div>
     </section>
   );
