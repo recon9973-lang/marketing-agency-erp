@@ -1,5 +1,24 @@
+import { signIn } from "@/server/auth";
+
 const kakaoConfigured = Boolean(process.env.AUTH_KAKAO_ID && process.env.AUTH_KAKAO_SECRET);
 const devSessionEnabled = process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_SESSION === "true";
+const demoLoginEnabled = process.env.AUTH_DEMO_LOGIN === "true";
+
+const demoAccounts = [
+  { email: "superadmin@example.com", label: "최고관리자로 체험" },
+  { email: "admin@example.com", label: "관리자로 체험" },
+  { email: "minji@example.com", label: "담당자(마케터)로 체험" }
+];
+
+async function demoSignIn(formData: FormData) {
+  "use server";
+
+  const email = formData.get("email");
+
+  if (typeof email === "string" && email) {
+    await signIn("demo", { email, redirectTo: "/dashboard" });
+  }
+}
 
 export default function LoginPage() {
   return (
@@ -31,6 +50,26 @@ export default function LoginPage() {
             </div>
           </div>
         )}
+
+        {demoLoginEnabled ? (
+          <form action={demoSignIn} className="mt-4 space-y-2">
+            <p className="text-xs font-semibold text-slate-500">데모 계정으로 바로 체험</p>
+            {demoAccounts.map((account) => (
+              <button
+                key={account.email}
+                type="submit"
+                name="email"
+                value={account.email}
+                className="inline-flex h-11 w-full items-center justify-center rounded-md border border-brand/30 bg-brand/5 px-4 text-sm font-semibold text-brand hover:bg-brand/10"
+              >
+                {account.label}
+              </button>
+            ))}
+            <p className="text-xs leading-5 text-slate-400">
+              데모 모드입니다. 역할별 화면과 입력/승인 흐름을 자유롭게 사용해보세요.
+            </p>
+          </form>
+        ) : null}
 
         {devSessionEnabled ? (
           <div className="mt-4 rounded-md border border-brand/20 bg-brand/5 p-4 text-sm leading-6 text-slate-700">

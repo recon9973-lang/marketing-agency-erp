@@ -24,6 +24,17 @@ ALLOW_DEV_SESSION=true pnpm test:e2e
 
 Playwright is configured to use the installed Chrome browser. If Chrome is not available on the machine, install Playwright browsers with `pnpm exec playwright install`.
 
+## One-Click Demo Deploy (Vercel + Neon)
+
+For a hosted demo without local setup:
+
+1. Create a free PostgreSQL database at Neon and copy the connection string.
+2. Import this repository into Vercel (framework preset: Next.js).
+3. Set environment variables: `DATABASE_URL`, `AUTH_SECRET` (any long random string), `AUTH_DEMO_LOGIN=true`.
+4. If the work lives outside the default branch, switch the production branch in Vercel project settings and redeploy.
+
+The `vercel-build` script pushes the Prisma schema and seeds demo data automatically when the database is empty. `AUTH_DEMO_LOGIN=true` adds password-less demo login buttons for the seeded staff accounts on `/login` — never enable it for real operations.
+
 ## WordPress Integration
 
 Keep WordPress as the public homepage. Deploy the ERP as a separate app on a subdomain, for example `https://erp.company.com`, and add a WordPress menu item or button linking to `https://erp.company.com/login`.

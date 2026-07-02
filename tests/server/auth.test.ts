@@ -15,6 +15,27 @@ describe("auth callbacks", () => {
     expect(token.role).toBe("ADMIN");
   });
 
+  it("stores provider identity for oauth accounts only", () => {
+    const oauthToken = mergeJwtToken({
+      token: { sub: "user-1" },
+      user: { id: "user-1", role: "ADMIN" },
+      account: { type: "oauth", provider: "kakao", providerAccountId: "kakao-123" }
+    });
+
+    expect(oauthToken.authProvider).toBe("kakao");
+    expect(oauthToken.authProviderAccountId).toBe("kakao-123");
+
+    const demoToken = mergeJwtToken({
+      token: { sub: "user-2" },
+      user: { id: "user-2", role: "SUPER_ADMIN" },
+      account: { type: "credentials", provider: "demo", providerAccountId: "user-2" }
+    });
+
+    expect(demoToken.authProvider).toBeUndefined();
+    expect(demoToken.authProviderAccountId).toBeUndefined();
+    expect(demoToken.role).toBe("SUPER_ADMIN");
+  });
+
   it("builds session user role from token.role when jwt sessions are resumed", () => {
     const sessionUser = buildSessionUser({
       user: undefined,

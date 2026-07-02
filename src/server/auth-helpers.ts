@@ -6,6 +6,7 @@ import { Role } from "@/domain/types";
 type CallbackUserLike = Pick<User | AdapterUser, "id" | "role">;
 
 type CallbackAccountLike = {
+  type?: string | null;
   provider?: string | null;
   providerAccountId?: string | null;
 };
@@ -43,11 +44,15 @@ export function mergeJwtToken({
     delete nextToken.role;
   }
 
-  if (account?.provider) {
+  // credentials(데모) 로그인은 Account 행이 없으므로 provider 식별자를 저장하지 않는다.
+  // 저장하면 staff 해석이 존재하지 않는 계정 연결을 찾다가 실패한다.
+  const isOAuthAccount = account?.type !== "credentials";
+
+  if (account?.provider && isOAuthAccount) {
     nextToken.authProvider = account.provider;
   }
 
-  if (account?.providerAccountId) {
+  if (account?.providerAccountId && isOAuthAccount) {
     nextToken.authProviderAccountId = account.providerAccountId;
   }
 

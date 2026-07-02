@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postinstall": "prisma generate",
+    "vercel-build": "prisma generate && prisma db push && tsx prisma/seed-if-empty.ts && next build",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
