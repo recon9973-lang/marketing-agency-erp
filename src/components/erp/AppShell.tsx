@@ -12,6 +12,13 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Role } from "@/domain/types";
+import { signOutAction } from "@/server/actions/auth";
+
+const roleLabels: Record<Role, string> = {
+  [Role.SUPER_ADMIN]: "최고관리자",
+  [Role.ADMIN]: "관리자",
+  [Role.MARKETER]: "담당자"
+};
 
 type ErpRoute = "/dashboard" | "/clients" | "/work" | "/calendar" | "/finance" | "/leave" | "/reports" | "/settings";
 
@@ -77,7 +84,15 @@ export function getNavigationItems(role: Role): NavItem[] {
   return items.filter((item) => item.roles.includes(role));
 }
 
-export function AppShell({ children, role }: { children: ReactNode; role: Role }) {
+export function AppShell({
+  children,
+  role,
+  userName
+}: {
+  children: ReactNode;
+  role: Role;
+  userName?: string;
+}) {
   const items = getNavigationItems(role);
 
   return (
@@ -109,10 +124,23 @@ export function AppShell({ children, role }: { children: ReactNode; role: Role }
 
       <main className="min-h-screen md:pl-64">
         <header className="border-b border-line bg-white px-4 py-4 sm:px-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-ink">VENOM ERP</p>
-              <p className="text-sm text-slate-500">역할: {role}</p>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-ink">VENOM ERP</p>
+                <p className="text-sm text-slate-500">
+                  {userName ? `${userName} · ` : ""}
+                  {roleLabels[role]}
+                </p>
+              </div>
+              <form action={signOutAction}>
+                <button
+                  type="submit"
+                  className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-surface"
+                >
+                  로그아웃
+                </button>
+              </form>
             </div>
             <nav className="flex gap-2 overflow-x-auto pb-1 md:hidden">
               {items.map((item) => {

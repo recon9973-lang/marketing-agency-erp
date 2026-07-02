@@ -13,5 +13,9 @@ export default async function ErpLayout({ children }: { children: ReactNode }) {
     redirect("/login");
   }
 
-  return <AppShell role={user.role}>{children}</AppShell>;
+  return (
+    <AppShell role={user.role} userName={user.name}>
+      {children}
+    </AppShell>
+  );
 }
