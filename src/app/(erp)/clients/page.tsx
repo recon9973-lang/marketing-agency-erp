@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { LinkButton } from "@/components/ui/Button";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Role } from "@/domain/types";
@@ -15,7 +16,7 @@ function formatMoney(value: ClientListItem["monthlyContractFee"]) {
   return `${currencyFormatter.format(Number(value))}원`;
 }
 
-const columns: DataTableColumn<ClientListItem>[] = [
+const baseColumns: DataTableColumn<ClientListItem>[] = [
   {
     key: "name",
     header: "거래처",
@@ -48,6 +49,16 @@ const columns: DataTableColumn<ClientListItem>[] = [
   }
 ];
 
+const manageColumn: DataTableColumn<ClientListItem> = {
+  key: "manage",
+  header: "관리",
+  render: (client) => (
+    <a href={`/clients/${client.id}/edit`} className="text-sm font-semibold text-brand hover:underline">
+      수정
+    </a>
+  )
+};
+
 export default async function ClientsPage() {
   const user = await getCurrentUser();
 
@@ -56,6 +67,8 @@ export default async function ClientsPage() {
   }
 
   const clients = await fetchClientsForUser(user);
+  const canManage = user.role === Role.SUPER_ADMIN;
+  const columns = canManage ? [...baseColumns, manageColumn] : baseColumns;
 
   return (
     <section className="space-y-6">
@@ -63,11 +76,20 @@ export default async function ClientsPage() {
         eyebrow="거래처"
         title="거래처 운영 현황"
         description={
-          user.role === Role.SUPER_ADMIN
+          canManage
             ? "전체 거래처와 담당자 배정, 최근 업무 및 정산 상태를 확인합니다."
             : "내 접근 범위에 포함된 거래처의 담당자, 업무, 정산 상태를 확인합니다."
         }
-        actions={<div className="rounded-md border border-line bg-white px-4 py-3 text-sm text-slate-600">총 {clients.length}개 거래처</div>}
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="rounded-md border border-line bg-white px-4 py-3 text-sm text-slate-600">총 {clients.length}개 거래처</div>
+            {canManage ? (
+              <LinkButton href="/clients/new" variant="primary">
+                신규 거래처
+              </LinkButton>
+            ) : null}
+          </div>
+        }
       />
 
       <DataTable columns={columns} rows={clients} emptyMessage="조회 가능한 거래처가 없습니다." />
