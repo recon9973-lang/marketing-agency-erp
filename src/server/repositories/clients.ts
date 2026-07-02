@@ -1,5 +1,5 @@
 import { canAccessClient, type AccessScopeRecord, type CurrentUser } from "@/domain/access-control";
-import { Role } from "@/domain/types";
+import { buildClientScopeWhere, fetchAccessScopes } from "@/server/authorization";
 import { db } from "@/server/db";
 
 export type ClientListItem = {
@@ -21,61 +21,11 @@ export function filterClientsForUser(
   return clients.filter((client) => canAccessClient(user, client.id, scopes, client.assignedMarketerId));
 }
 
-function buildClientWhere(user: CurrentUser, scopes: AccessScopeRecord[]) {
-  if (user.role === Role.SUPER_ADMIN) {
-    return {};
-  }
-
-  if (user.role === Role.MARKETER) {
-    return { assignedMarketerId: user.id };
-  }
-
-  if (scopes.some((scope) => scope.adminId === user.id && scope.allClients)) {
-    return {};
-  }
-
-  const clientIds = scopes
-    .filter((scope) => scope.adminId === user.id)
-    .map((scope) => scope.clientId)
-    .filter((clientId): clientId is string => Boolean(clientId));
-  const marketerIds = scopes
-    .filter((scope) => scope.adminId === user.id)
-    .map((scope) => scope.marketerId)
-    .filter((marketerId): marketerId is string => Boolean(marketerId));
-  const hasAllMarketers = scopes.some((scope) => scope.adminId === user.id && scope.allMarketers);
-
-  const clauses = [];
-
-  if (clientIds.length > 0) {
-    clauses.push({ id: { in: [...new Set(clientIds)] } });
-  }
-
-  if (hasAllMarketers) {
-    clauses.push({ assignedMarketerId: { not: null } });
-  } else if (marketerIds.length > 0) {
-    clauses.push({ assignedMarketerId: { in: [...new Set(marketerIds)] } });
-  }
-
-  return clauses.length > 0 ? { OR: clauses } : { id: { in: [] } };
-}
-
 export async function fetchClientsForUser(user: CurrentUser): Promise<ClientListItem[]> {
-  const scopes =
-    user.role === Role.ADMIN
-      ? await db.accessScope.findMany({
-          where: { adminId: user.id },
-          select: {
-            adminId: true,
-            marketerId: true,
-            clientId: true,
-            allMarketers: true,
-            allClients: true
-          }
-        })
-      : [];
+  const scopes = await fetchAccessScopes(user);
 
   const clients = await db.client.findMany({
-    where: buildClientWhere(user, scopes),
+    where: buildClientScopeWhere(user, scopes),
     orderBy: { name: "asc" },
     select: {
       id: true,

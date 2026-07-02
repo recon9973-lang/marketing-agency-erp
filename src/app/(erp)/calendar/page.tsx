@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { calendarKindLabels, fetchCalendarEventsForUser, type CalendarListItem } from "@/server/repositories/calendar";
 import { CalendarProvider, ConnectionStatus } from "@/domain/types";
 import { getCurrentUser } from "@/server/session";
@@ -60,16 +61,12 @@ export default async function CalendarPage() {
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-brand">캘린더</p>
-          <h2 className="mt-2 text-2xl font-semibold text-ink">업무 일정 통합 보기</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            업무 마감, 고객 미팅, 보고서 마감, 휴가, 내부 지시를 같은 일정표에서 확인합니다.
-          </p>
-        </div>
-        <div className="rounded-md border border-line bg-white px-4 py-3 text-sm text-slate-600">예정 일정 {events.length}건</div>
-      </div>
+      <PageHeader
+        eyebrow="캘린더"
+        title="업무 일정 통합 보기"
+        description="업무 마감, 고객 미팅, 보고서 마감, 휴가, 내부 지시를 같은 일정표에서 확인합니다."
+        actions={<div className="rounded-md border border-line bg-white px-4 py-3 text-sm text-slate-600">예정 일정 {events.length}건</div>}
+      />
 
       <div className="grid gap-3 md:grid-cols-2">
         {integrationCards.map((card) => (

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Role } from "@/domain/types";
 import { fetchClientsForUser, type ClientListItem } from "@/server/repositories/clients";
 import { getCurrentUser } from "@/server/session";
@@ -58,18 +59,16 @@ export default async function ClientsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-brand">거래처</p>
-          <h2 className="mt-2 text-2xl font-semibold text-ink">거래처 운영 현황</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            {user.role === Role.SUPER_ADMIN
-              ? "전체 거래처와 담당자 배정, 최근 업무 및 정산 상태를 확인합니다."
-              : "내 접근 범위에 포함된 거래처의 담당자, 업무, 정산 상태를 확인합니다."}
-          </p>
-        </div>
-        <div className="rounded-md border border-line bg-white px-4 py-3 text-sm text-slate-600">총 {clients.length}개 거래처</div>
-      </div>
+      <PageHeader
+        eyebrow="거래처"
+        title="거래처 운영 현황"
+        description={
+          user.role === Role.SUPER_ADMIN
+            ? "전체 거래처와 담당자 배정, 최근 업무 및 정산 상태를 확인합니다."
+            : "내 접근 범위에 포함된 거래처의 담당자, 업무, 정산 상태를 확인합니다."
+        }
+        actions={<div className="rounded-md border border-line bg-white px-4 py-3 text-sm text-slate-600">총 {clients.length}개 거래처</div>}
+      />
 
       <DataTable columns={columns} rows={clients} emptyMessage="조회 가능한 거래처가 없습니다." />
     </section>

@@ -19,9 +19,9 @@ describe("getCurrentUser", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
     delete process.env.ALLOW_DEV_SESSION;
     delete process.env.DEV_SESSION_ROLE;
-    delete process.env.NODE_ENV;
   });
 
   it("returns the matching active staff user by email", async () => {
@@ -151,7 +151,7 @@ describe("getCurrentUser", () => {
   });
 
   it("uses the dev fallback only when explicitly enabled outside production", async () => {
-    process.env.NODE_ENV = "development";
+    vi.stubEnv("NODE_ENV", "development");
     process.env.ALLOW_DEV_SESSION = "true";
     process.env.DEV_SESSION_ROLE = "MARKETER";
     authMock.mockResolvedValue(null);
@@ -167,7 +167,7 @@ describe("getCurrentUser", () => {
   });
 
   it("allows a development-only requested role override", async () => {
-    process.env.NODE_ENV = "development";
+    vi.stubEnv("NODE_ENV", "development");
     process.env.ALLOW_DEV_SESSION = "true";
     process.env.DEV_SESSION_ROLE = "ADMIN";
     authMock.mockResolvedValue(null);
@@ -182,12 +182,23 @@ describe("getCurrentUser", () => {
   });
 
   it("ignores requested role overrides in production", async () => {
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     process.env.ALLOW_DEV_SESSION = "true";
     authMock.mockResolvedValue(null);
 
     const { getCurrentUser } = await import("@/server/session");
 
     await expect(getCurrentUser("SUPER_ADMIN")).resolves.toBeNull();
+  });
+
+  it("never uses the dev session in production even when fully configured", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    process.env.ALLOW_DEV_SESSION = "true";
+    process.env.DEV_SESSION_ROLE = "SUPER_ADMIN";
+    authMock.mockRejectedValue(new Error("auth unavailable"));
+
+    const { getCurrentUser } = await import("@/server/session");
+
+    await expect(getCurrentUser()).resolves.toBeNull();
   });
 });

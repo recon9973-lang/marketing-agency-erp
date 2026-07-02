@@ -25,8 +25,8 @@ describe("fetchDashboardInput", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
     delete process.env.ALLOW_DEV_SESSION;
-    delete process.env.NODE_ENV;
     clientCountMock.mockResolvedValue(0);
     workItemFindManyMock.mockResolvedValue([]);
     billingFindManyMock.mockResolvedValue([]);
@@ -109,7 +109,7 @@ describe("fetchDashboardInput", () => {
   });
 
   it("returns empty dashboard input for dev sessions when the database is unavailable", async () => {
-    process.env.NODE_ENV = "development";
+    vi.stubEnv("NODE_ENV", "development");
     process.env.ALLOW_DEV_SESSION = "true";
     clientCountMock.mockRejectedValue(new Error("DATABASE_URL missing"));
     const { fetchDashboardInput } = await import("@/server/repositories/dashboard");

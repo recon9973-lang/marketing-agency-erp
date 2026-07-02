@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { billingStatusLabels, expenseReviewStatusLabels, paymentMethodLabels } from "@/domain/finance";
 import { ConnectionStatus, FinancialAccountType } from "@/domain/types";
 import {
@@ -76,7 +78,7 @@ const billingColumns: DataTableColumn<BillingListItem>[] = [
   {
     key: "status",
     header: "상태",
-    render: (billing) => <span className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-semibold text-slate-700">{billingStatusLabels[billing.status]}</span>
+    render: (billing) => <StatusBadge>{billingStatusLabels[billing.status]}</StatusBadge>
   },
   {
     key: "due",
@@ -119,7 +121,7 @@ const expenseColumns: DataTableColumn<ExpenseListItem>[] = [
   {
     key: "review",
     header: "검토",
-    render: (expense) => <span className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-semibold text-slate-700">{expenseReviewStatusLabels[expense.reviewStatus]}</span>
+    render: (expense) => <StatusBadge>{expenseReviewStatusLabels[expense.reviewStatus]}</StatusBadge>
   }
 ];
 
@@ -134,25 +136,23 @@ export default async function FinancePage() {
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-brand">정산/지출</p>
-          <h2 className="mt-2 text-2xl font-semibold text-ink">거래처 입금 및 회사 지출 관리</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            V1은 PG 없이 수기 청구/입금 상태를 관리하고, 계좌·카드 지출 연동을 위한 기준 데이터를 함께 보여줍니다.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="rounded-md border border-line bg-white px-4 py-3">
-            <p className="text-xs text-slate-500">미수금</p>
-            <p className="mt-1 font-semibold text-danger">{formatMoney(overview.unpaidAmount)}</p>
+      <PageHeader
+        eyebrow="정산/지출"
+        title="거래처 입금 및 회사 지출 관리"
+        description="V1은 PG 없이 수기 청구/입금 상태를 관리하고, 계좌·카드 지출 연동을 위한 기준 데이터를 함께 보여줍니다."
+        actions={
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="rounded-md border border-line bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">미수금</p>
+              <p className="mt-1 font-semibold text-danger">{formatMoney(overview.unpaidAmount)}</p>
+            </div>
+            <div className="rounded-md border border-line bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">검토 지출</p>
+              <p className="mt-1 font-semibold text-ink">{formatMoney(overview.reviewedExpenseAmount)}</p>
+            </div>
           </div>
-          <div className="rounded-md border border-line bg-white px-4 py-3">
-            <p className="text-xs text-slate-500">검토 지출</p>
-            <p className="mt-1 font-semibold text-ink">{formatMoney(overview.reviewedExpenseAmount)}</p>
-          </div>
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid gap-3 md:grid-cols-2">
         {overview.accounts.length > 0 ? (

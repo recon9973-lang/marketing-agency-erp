@@ -1,5 +1,10 @@
 import { redirect } from "next/navigation";
+import { Button } from "@/components/ui/Button";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { FormField } from "@/components/ui/FormField";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { DateInput, Input, NumberInput, Select } from "@/components/ui/fields";
 import { leaveStatusLabels, leaveTypeLabels } from "@/domain/leave";
 import { Role } from "@/domain/types";
 import { fetchLeaveOverviewForUser, type LeaveRequestListItem } from "@/server/repositories/leave";
@@ -11,15 +16,10 @@ function formatDate(value: Date) {
   return dateFormatter.format(value);
 }
 
-function StatusBadge({ request }: { request: LeaveRequestListItem }) {
-  const tone =
-    request.status === "APPROVED"
-      ? "border-brand/30 bg-brand/10 text-brand"
-      : request.status === "REJECTED"
-        ? "border-danger/30 bg-danger/10 text-danger"
-        : "border-line bg-surface text-slate-700";
+function LeaveStatusBadge({ request }: { request: LeaveRequestListItem }) {
+  const tone = request.status === "APPROVED" ? "success" : request.status === "REJECTED" ? "danger" : "neutral";
 
-  return <span className={`rounded-md border px-2.5 py-1 text-xs font-semibold ${tone}`}>{leaveStatusLabels[request.status]}</span>;
+  return <StatusBadge tone={tone}>{leaveStatusLabels[request.status]}</StatusBadge>;
 }
 
 const requestColumns: DataTableColumn<LeaveRequestListItem>[] = [
@@ -43,7 +43,7 @@ const requestColumns: DataTableColumn<LeaveRequestListItem>[] = [
   {
     key: "status",
     header: "상태",
-    render: (request) => <StatusBadge request={request} />
+    render: (request) => <LeaveStatusBadge request={request} />
   },
   {
     key: "reason",
@@ -72,61 +72,52 @@ export default async function LeavePage() {
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-brand">연차/휴가</p>
-          <h2 className="mt-2 text-2xl font-semibold text-ink">사내 연차 및 휴가 관리</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            담당자는 휴가 신청과 잔여 일수를 확인하고, 관리자와 최고관리자는 승인 대기 건을 함께 검토합니다.
-          </p>
-        </div>
-        <div className="grid grid-cols-3 gap-2 text-sm">
-          <div className="rounded-md border border-line bg-white px-4 py-3">
-            <p className="text-xs text-slate-500">부여</p>
-            <p className="mt-1 font-semibold text-ink">{overview.allowanceDays}일</p>
+      <PageHeader
+        eyebrow="연차/휴가"
+        title="사내 연차 및 휴가 관리"
+        description="담당자는 휴가 신청과 잔여 일수를 확인하고, 관리자와 최고관리자는 승인 대기 건을 함께 검토합니다."
+        actions={
+          <div className="grid grid-cols-3 gap-2 text-sm">
+            <div className="rounded-md border border-line bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">부여</p>
+              <p className="mt-1 font-semibold text-ink">{overview.allowanceDays}일</p>
+            </div>
+            <div className="rounded-md border border-line bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">잔여</p>
+              <p className="mt-1 font-semibold text-brand">{overview.remainingDays}일</p>
+            </div>
+            <div className="rounded-md border border-line bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">승인대기</p>
+              <p className="mt-1 font-semibold text-warning">{overview.approvalRequests.length}</p>
+            </div>
           </div>
-          <div className="rounded-md border border-line bg-white px-4 py-3">
-            <p className="text-xs text-slate-500">잔여</p>
-            <p className="mt-1 font-semibold text-brand">{overview.remainingDays}일</p>
-          </div>
-          <div className="rounded-md border border-line bg-white px-4 py-3">
-            <p className="text-xs text-slate-500">승인대기</p>
-            <p className="mt-1 font-semibold text-warning">{overview.approvalRequests.length}</p>
-          </div>
-        </div>
-      </div>
+        }
+      />
 
       <form className="grid gap-3 rounded-md border border-line bg-white p-4 md:grid-cols-5">
-        <label className="text-sm text-slate-600">
-          <span className="mb-1 block text-xs font-semibold text-slate-500">유형</span>
-          <select name="type" className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink">
+        <FormField label="유형">
+          <Select name="type">
             {Object.entries(leaveTypeLabels).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="text-sm text-slate-600">
-          <span className="mb-1 block text-xs font-semibold text-slate-500">시작일</span>
-          <input type="date" name="startDate" className="w-full rounded-md border border-line px-3 py-2 text-sm text-ink" />
-        </label>
-        <label className="text-sm text-slate-600">
-          <span className="mb-1 block text-xs font-semibold text-slate-500">종료일</span>
-          <input type="date" name="endDate" className="w-full rounded-md border border-line px-3 py-2 text-sm text-ink" />
-        </label>
-        <label className="text-sm text-slate-600">
-          <span className="mb-1 block text-xs font-semibold text-slate-500">일수</span>
-          <input type="number" step="0.5" min="0.5" name="daysRequested" className="w-full rounded-md border border-line px-3 py-2 text-sm text-ink" />
-        </label>
-        <label className="text-sm text-slate-600">
-          <span className="mb-1 block text-xs font-semibold text-slate-500">사유</span>
-          <input name="reason" className="w-full rounded-md border border-line px-3 py-2 text-sm text-ink" />
-        </label>
+          </Select>
+        </FormField>
+        <FormField label="시작일">
+          <DateInput name="startDate" />
+        </FormField>
+        <FormField label="종료일">
+          <DateInput name="endDate" />
+        </FormField>
+        <FormField label="일수">
+          <NumberInput step="0.5" min="0.5" name="daysRequested" />
+        </FormField>
+        <FormField label="사유">
+          <Input name="reason" />
+        </FormField>
         <div className="flex items-end md:col-span-5">
-          <button type="button" className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white">
-            신청 저장 준비중
-          </button>
+          <Button type="button">신청 저장 준비중</Button>
         </div>
       </form>
 

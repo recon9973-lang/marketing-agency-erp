@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { ConnectionStatus, Role, UserStatus } from "@/domain/types";
 import {
   fetchSettingsOverview,
@@ -103,13 +104,11 @@ export default async function SettingsPage() {
 
   return (
     <section className="space-y-6">
-      <div>
-        <p className="text-sm font-semibold text-brand">설정</p>
-        <h2 className="mt-2 text-2xl font-semibold text-ink">직원 권한 및 외부 연동 설정</h2>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          직원 역할, 관리자 접근 범위, Kakao 로그인, 구글/네이버 캘린더, 향후 PG와 계좌·카드 연동 준비 상태를 확인합니다.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="설정"
+        title="직원 권한 및 외부 연동 설정"
+        description="직원 역할, 관리자 접근 범위, Kakao 로그인, 구글/네이버 캘린더, 향후 PG와 계좌·카드 연동 준비 상태를 확인합니다."
+      />
 
       <div className="grid gap-3 md:grid-cols-2">
         {overview.integrations.map((integration) => (

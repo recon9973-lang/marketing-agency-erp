@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ReportStatus } from "@/domain/types";
 import { fetchReportsForUser, type ReportListItem } from "@/server/repositories/reports";
 import { getCurrentUser } from "@/server/session";
@@ -58,7 +60,7 @@ const columns: DataTableColumn<ReportListItem>[] = [
   {
     key: "status",
     header: "상태",
-    render: (report) => <span className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-semibold text-slate-700">{reportStatusLabels[report.status]}</span>
+    render: (report) => <StatusBadge>{reportStatusLabels[report.status]}</StatusBadge>
   },
   {
     key: "dates",
@@ -85,29 +87,27 @@ export default async function ReportsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-brand">보고서</p>
-          <h2 className="mt-2 text-2xl font-semibold text-ink">월간 보고서 및 성과 집계</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            거래처별 월간 보고서, 블로그 방문자수 등 성과 지표, 검토 상태와 전달 여부를 관리합니다.
-          </p>
-        </div>
-        <div className="grid grid-cols-3 gap-2 text-sm">
-          <div className="rounded-md border border-line bg-white px-4 py-3">
-            <p className="text-xs text-slate-500">전체</p>
-            <p className="mt-1 font-semibold text-ink">{reports.length}</p>
+      <PageHeader
+        eyebrow="보고서"
+        title="월간 보고서 및 성과 집계"
+        description="거래처별 월간 보고서, 블로그 방문자수 등 성과 지표, 검토 상태와 전달 여부를 관리합니다."
+        actions={
+          <div className="grid grid-cols-3 gap-2 text-sm">
+            <div className="rounded-md border border-line bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">전체</p>
+              <p className="mt-1 font-semibold text-ink">{reports.length}</p>
+            </div>
+            <div className="rounded-md border border-line bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">검토</p>
+              <p className="mt-1 font-semibold text-warning">{reviewNeeded}</p>
+            </div>
+            <div className="rounded-md border border-line bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">전달</p>
+              <p className="mt-1 font-semibold text-brand">{delivered}</p>
+            </div>
           </div>
-          <div className="rounded-md border border-line bg-white px-4 py-3">
-            <p className="text-xs text-slate-500">검토</p>
-            <p className="mt-1 font-semibold text-warning">{reviewNeeded}</p>
-          </div>
-          <div className="rounded-md border border-line bg-white px-4 py-3">
-            <p className="text-xs text-slate-500">전달</p>
-            <p className="mt-1 font-semibold text-brand">{delivered}</p>
-          </div>
-        </div>
-      </div>
+        }
+      />
 
       <DataTable columns={columns} rows={reports} emptyMessage="조회 가능한 보고서가 없습니다." />
     </section>
