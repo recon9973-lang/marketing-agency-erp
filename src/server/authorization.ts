@@ -86,6 +86,16 @@ export async function requireClientAccess(
   }
 }
 
+export async function requireWorkAccess(
+  user: AccessControlUser,
+  target: { clientId: string; ownerId: string }
+): Promise<void> {
+  const scopes = await fetchAccessScopes(user);
+
+  await requireClientAccess(user, target.clientId, { scopes });
+  await requireMarketerAccess(user, target.ownerId, scopes);
+}
+
 export function buildClientScopeWhere(user: AccessControlUser, scopes: AccessScopeRecord[]) {
   if (user.role === Role.SUPER_ADMIN) {
     return {};

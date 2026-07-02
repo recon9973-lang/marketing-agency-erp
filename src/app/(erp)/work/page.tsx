@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { LinkButton } from "@/components/ui/Button";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { FormField } from "@/components/ui/FormField";
@@ -98,6 +99,15 @@ const columns: DataTableColumn<WorkListItem>[] = [
     key: "notes",
     header: "진행 메모",
     render: (item) => <span className="line-clamp-2 text-slate-600">{item.progressNotes ?? "-"}</span>
+  },
+  {
+    key: "manage",
+    header: "관리",
+    render: (item) => (
+      <a href={`/work/${item.id}/edit`} className="text-sm font-semibold text-brand hover:underline">
+        수정
+      </a>
+    )
   }
 ];
 
@@ -129,19 +139,24 @@ export default async function WorkPage({
             : "권한 범위 안의 거래처와 담당자별 업무 흐름을 확인하고 지시 우선순위를 잡습니다."
         }
         actions={
-          <div className="grid grid-cols-3 gap-2 text-sm">
-            <div className="rounded-md border border-line bg-white px-4 py-3">
-              <p className="text-xs text-slate-500">전체</p>
-              <p className="mt-1 font-semibold text-ink">{workItems.length}</p>
+          <div className="flex items-center gap-2">
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <div className="rounded-md border border-line bg-white px-4 py-3">
+                <p className="text-xs text-slate-500">전체</p>
+                <p className="mt-1 font-semibold text-ink">{workItems.length}</p>
+              </div>
+              <div className="rounded-md border border-line bg-white px-4 py-3">
+                <p className="text-xs text-slate-500">지연</p>
+                <p className="mt-1 font-semibold text-danger">{delayedCount}</p>
+              </div>
+              <div className="rounded-md border border-line bg-white px-4 py-3">
+                <p className="text-xs text-slate-500">검수</p>
+                <p className="mt-1 font-semibold text-warning">{reviewCount}</p>
+              </div>
             </div>
-            <div className="rounded-md border border-line bg-white px-4 py-3">
-              <p className="text-xs text-slate-500">지연</p>
-              <p className="mt-1 font-semibold text-danger">{delayedCount}</p>
-            </div>
-            <div className="rounded-md border border-line bg-white px-4 py-3">
-              <p className="text-xs text-slate-500">검수</p>
-              <p className="mt-1 font-semibold text-warning">{reviewCount}</p>
-            </div>
+            <LinkButton href="/work/new" variant="primary">
+              신규 업무
+            </LinkButton>
           </div>
         }
       />
