@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/erp/AppShell";
+import { signOutAction } from "@/server/actions/auth";
 import { getCurrentUser } from "@/server/session";
 
 export default async function ErpLayout({ children }: { children: ReactNode }) {
@@ -14,7 +15,7 @@ export default async function ErpLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppShell role={user.role} userName={user.name}>
+    <AppShell role={user.role} userName={user.name} onSignOut={signOutAction}>
       {children}
     </AppShell>
   );

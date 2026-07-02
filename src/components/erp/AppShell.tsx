@@ -12,7 +12,6 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Role } from "@/domain/types";
-import { signOutAction } from "@/server/actions/auth";
 
 const roleLabels: Record<Role, string> = {
   [Role.SUPER_ADMIN]: "최고관리자",
@@ -87,11 +86,13 @@ export function getNavigationItems(role: Role): NavItem[] {
 export function AppShell({
   children,
   role,
-  userName
+  userName,
+  onSignOut
 }: {
   children: ReactNode;
   role: Role;
   userName?: string;
+  onSignOut?: () => Promise<void>;
 }) {
   const items = getNavigationItems(role);
 
@@ -133,14 +134,16 @@ export function AppShell({
                   {roleLabels[role]}
                 </p>
               </div>
-              <form action={signOutAction}>
-                <button
-                  type="submit"
-                  className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-surface"
-                >
-                  로그아웃
-                </button>
-              </form>
+              {onSignOut ? (
+                <form action={onSignOut}>
+                  <button
+                    type="submit"
+                    className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-surface"
+                  >
+                    로그아웃
+                  </button>
+                </form>
+              ) : null}
             </div>
             <nav className="flex gap-2 overflow-x-auto pb-1 md:hidden">
               {items.map((item) => {
