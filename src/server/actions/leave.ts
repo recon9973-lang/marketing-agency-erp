@@ -1,227 +1,129 @@
 "use server";
 
+/**
+ * 휴가(LeaveRequest) 신청/승인 server action (V2 §4).
+ *
+ * §1 공통 인프라 사용(runAction/권한 helper/validation/audit).
+ *
+ * 정책:
+ * - 신청: 로그인한 직원이 본인 명의로 신청한다.
+ * - 승인/반려: 최고관리자 또는 신청자(담당자)가 scope에 포함된 관리자.
+ * - 취소: 본인 신청 건이거나, 승인 권한이 있는 관리자.
+ * - 상태 전이는 도메인 전이표(transitionLeave)가 허용하는 경우에만 수행된다.
+ */
 import { revalidatePath } from "next/cache";
-import { calculateRemainingLeave, transitionLeave } from "@/domain/leave";
-import { leaveDecisionSchema, leaveRequestInputSchema } from "@/domain/leave-schema";
-import { LeaveStatus, Role } from "@/domain/types";
-import type { ActionResult } from "@/server/action-result";
-import { AuditActions, writeAuditLog } from "@/server/audit";
-import { fetchAccessScopes, requireCurrentUser, requireRole } from "@/server/authorization";
-import { canAccessMarketer } from "@/domain/access-control";
-import { db } from "@/server/db";
-import { AppError, ErrorCodes, runAction } from "@/server/errors";
+import { z } from "zod";
+import {
+  leaveRequestFormSchema,
+  leaveStatusLabels,
+  transitionLeave,
+  type LeaveAction
+} from "@/domain/leave";
+import { Role } from "@/domain/types";
+import { runAction, type ActionResult } from "@/server/action-result";
+import { requireCurrentUser, requireMarketerAccess, requireRole } from "@/server/authorization";
+import { AuditAction, writeAuditLog } from "@/server/audit";
+import { conflict, notFound } from "@/server/errors";
+import {
+  createLeaveRequest,
+  decideLeaveRequest,
+  getLeaveRequestAccessInfo,
+  type LeaveDecisionData
+} from "@/server/repositories/leave";
 
-type LeaveRecordLike = {
-  requesterId: string;
-  type: string;
-  status: LeaveStatus;
-  startDate: Date;
-  endDate: Date;
-  daysRequested: { toNumber(): number } | number;
-  reason: string | null;
+export type LeaveActionState = ActionResult<{ id: string }>;
+
+function formDataToObject(formData: FormData) {
+  const record: Record<string, string> = {};
+  for (const [key, value] of formData.entries()) {
+    if (typeof value === "string") {
+      record[key] = value;
+    }
+  }
+  return record;
+}
+
+export async function createLeaveRequestAction(
+  _prevState: LeaveActionState | null,
+  formData: FormData
+): Promise<LeaveActionState> {
+  return runAction(async () => {
+    const user = await requireCurrentUser();
+    const input = leaveRequestFormSchema.parse(formDataToObject(formData));
+
+    const created = await createLeaveRequest(input, user.id);
+
+    revalidatePath("/leave");
+    return created;
+  });
+}
+
+const decisionSchema = z.object({
+  id: z.string().trim().min(1),
+  action: z.enum(["approve", "reject", "cancel"]),
+  approvalNotes: z.string().trim().max(500).optional()
+});
+
+const decisionAudit: Record<LeaveAction, string> = {
+  approve: AuditAction.LEAVE_APPROVED,
+  reject: AuditAction.LEAVE_REJECTED,
+  cancel: AuditAction.LEAVE_CANCELED
 };
 
-function toDays(value: { toNumber(): number } | number) {
-  return typeof value === "number" ? value : value.toNumber();
-}
-
-function toAuditState(request: LeaveRecordLike) {
-  return {
-    requesterId: request.requesterId,
-    type: request.type,
-    status: request.status,
-    startDate: request.startDate.toISOString().slice(0, 10),
-    endDate: request.endDate.toISOString().slice(0, 10),
-    daysRequested: toDays(request.daysRequested),
-    reason: request.reason
-  };
-}
-
-async function ensureLeaveBalance(requesterId: string, startDate: string, daysRequested: number) {
-  const year = Number(startDate.slice(0, 4));
-  const policy = await db.leavePolicy.findUnique({
-    where: { userId_year: { userId: requesterId, year } },
-    select: { annualDays: true, carryOverDays: true }
-  });
-
-  // 정책이 아직 등록되지 않은 연도는 잔여 확인 없이 신청을 받고 승인자가 판단한다.
-  if (!policy) {
-    return;
-  }
-
-  const approvedRequests = await db.leaveRequest.findMany({
-    where: {
-      requesterId,
-      status: LeaveStatus.APPROVED,
-      startDate: {
-        gte: new Date(`${year}-01-01T00:00:00.000Z`),
-        lte: new Date(`${year}-12-31T23:59:59.999Z`)
-      }
-    },
-    select: { daysRequested: true, status: true }
-  });
-
-  const allowance = Number(policy.annualDays) + Number(policy.carryOverDays);
-  const remaining = calculateRemainingLeave(
-    allowance,
-    approvedRequests.map((request) => ({ days: toDays(request.daysRequested), status: request.status }))
-  );
-
-  if (daysRequested > remaining) {
-    throw new AppError(ErrorCodes.VALIDATION_ERROR, "잔여 연차를 초과했습니다.", {
-      fieldErrors: { daysRequested: [`잔여 연차(${remaining}일)를 초과해 신청할 수 없습니다.`] }
-    });
-  }
-}
-
-async function findLeaveRequestOrThrow(leaveRequestId: string) {
-  const request = await db.leaveRequest.findUnique({ where: { id: leaveRequestId } });
-
-  if (!request) {
-    throw new AppError(ErrorCodes.NOT_FOUND, "휴가 신청을 찾을 수 없습니다.");
-  }
-
-  return request;
-}
-
-export async function requestLeave(input: unknown): Promise<ActionResult<{ id: string }>> {
+export async function decideLeaveRequestAction(
+  _prevState: LeaveActionState | null,
+  formData: FormData
+): Promise<LeaveActionState> {
   return runAction(async () => {
     const user = await requireCurrentUser();
-    const data = leaveRequestInputSchema.parse(input);
+    const { id, action, approvalNotes } = decisionSchema.parse(formDataToObject(formData));
 
-    await ensureLeaveBalance(user.id, data.startDate, data.daysRequested);
+    const existing = await getLeaveRequestAccessInfo(id);
+    if (!existing) {
+      throw notFound("휴가 신청을 찾을 수 없습니다.");
+    }
 
-    const year = Number(data.startDate.slice(0, 4));
-    const policy = await db.leavePolicy.findUnique({
-      where: { userId_year: { userId: user.id, year } },
-      select: { id: true }
-    });
+    const isSelf = existing.requesterId === user.id;
 
-    const request = await db.leaveRequest.create({
-      data: {
-        requesterId: user.id,
-        leavePolicyId: policy?.id ?? null,
-        type: data.type,
-        status: LeaveStatus.REQUESTED,
-        startDate: new Date(`${data.startDate}T00:00:00.000Z`),
-        endDate: new Date(`${data.endDate}T00:00:00.000Z`),
-        daysRequested: data.daysRequested,
-        reason: data.reason ?? null
+    if (action === "cancel") {
+      // 본인 취소가 아니면 승인 권한이 있어야 한다.
+      if (!isSelf) {
+        requireRole(user, [Role.SUPER_ADMIN, Role.ADMIN]);
+        await requireMarketerAccess(user, existing.requesterId);
       }
-    });
+    } else {
+      requireRole(user, [Role.SUPER_ADMIN, Role.ADMIN]);
+      await requireMarketerAccess(user, existing.requesterId);
+    }
+
+    const next = transitionLeave(existing.status, action as LeaveAction);
+    if (next === existing.status) {
+      throw conflict(`현재 상태(${leaveStatusLabels[existing.status]})에서 수행할 수 없는 작업입니다.`);
+    }
+
+    const now = new Date();
+    const data: LeaveDecisionData = { status: next };
+
+    if (action === "cancel") {
+      data.canceledAt = now;
+    } else {
+      data.approverId = user.id;
+      data.reviewedAt = now;
+      data.approvalNotes = approvalNotes ?? null;
+    }
+
+    const updated = await decideLeaveRequest(id, data);
 
     await writeAuditLog({
       actorId: user.id,
-      action: AuditActions.LEAVE_REQUESTED,
+      action: decisionAudit[action as LeaveAction],
       targetType: "LeaveRequest",
-      targetId: request.id,
-      afterState: toAuditState(request)
-    });
-
-    revalidatePath("/leave");
-    return { id: request.id };
-  });
-}
-
-export async function decideLeave(leaveRequestId: string, input: unknown): Promise<ActionResult<{ id: string; status: LeaveStatus }>> {
-  return runAction(async () => {
-    const user = requireRole(await requireCurrentUser(), [Role.SUPER_ADMIN, Role.ADMIN]);
-    const data = leaveDecisionSchema.parse(input);
-    const existing = await findLeaveRequestOrThrow(leaveRequestId);
-
-    if (existing.requesterId === user.id) {
-      throw new AppError(ErrorCodes.FORBIDDEN, "본인 휴가 신청은 직접 처리할 수 없습니다.");
-    }
-
-    const scopes = await fetchAccessScopes(user);
-
-    if (!canAccessMarketer(user, existing.requesterId, scopes)) {
-      throw new AppError(ErrorCodes.FORBIDDEN);
-    }
-
-    const nextStatus = transitionLeave(existing.status, data.action);
-
-    if (nextStatus === existing.status) {
-      throw new AppError(ErrorCodes.VALIDATION_ERROR, "현재 상태에서 처리할 수 없는 신청입니다.");
-    }
-
-    const updated = await db.leaveRequest.update({
-      where: { id: leaveRequestId },
-      data: {
-        status: nextStatus,
-        approverId: user.id,
-        reviewedAt: new Date(),
-        approvalNotes: data.approvalNotes ?? null
-      }
-    });
-
-    await writeAuditLog({
-      actorId: user.id,
-      action: data.action === "approve" ? AuditActions.LEAVE_APPROVED : AuditActions.LEAVE_REJECTED,
-      targetType: "LeaveRequest",
-      targetId: leaveRequestId,
-      beforeState: { status: existing.status },
-      afterState: { status: updated.status, approvalNotes: data.approvalNotes ?? null }
-    });
-
-    revalidatePath("/leave");
-    return { id: leaveRequestId, status: updated.status };
-  });
-}
-
-export async function cancelLeave(leaveRequestId: string): Promise<ActionResult<{ id: string; status: LeaveStatus }>> {
-  return runAction(async () => {
-    const user = await requireCurrentUser();
-    const existing = await findLeaveRequestOrThrow(leaveRequestId);
-
-    if (existing.requesterId !== user.id) {
-      throw new AppError(ErrorCodes.FORBIDDEN, "본인 휴가 신청만 취소할 수 있습니다.");
-    }
-
-    const nextStatus = transitionLeave(existing.status, "cancel");
-
-    if (nextStatus === existing.status) {
-      throw new AppError(ErrorCodes.VALIDATION_ERROR, "현재 상태에서 취소할 수 없는 신청입니다.");
-    }
-
-    const updated = await db.leaveRequest.update({
-      where: { id: leaveRequestId },
-      data: { status: nextStatus, canceledAt: new Date() }
-    });
-
-    await writeAuditLog({
-      actorId: user.id,
-      action: AuditActions.LEAVE_CANCELED,
-      targetType: "LeaveRequest",
-      targetId: leaveRequestId,
+      targetId: updated.id,
       beforeState: { status: existing.status },
       afterState: { status: updated.status }
     });
 
     revalidatePath("/leave");
-    return { id: leaveRequestId, status: updated.status };
+    return { id: updated.id };
   });
-}
-
-const leaveFormKeys = ["type", "startDate", "endDate", "daysRequested", "reason"] as const;
-
-function formDataToLeaveInput(formData: FormData) {
-  const input: Record<string, unknown> = {};
-
-  for (const key of leaveFormKeys) {
-    const value = formData.get(key);
-
-    if (typeof value === "string") {
-      input[key] = value;
-    }
-  }
-
-  return input;
-}
-
-export async function requestLeaveFormAction(
-  _prevState: ActionResult<{ id: string }> | null,
-  formData: FormData
-): Promise<ActionResult<{ id: string }>> {
-  return requestLeave(formDataToLeaveInput(formData));
 }

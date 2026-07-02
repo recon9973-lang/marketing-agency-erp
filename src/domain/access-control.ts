@@ -56,3 +56,17 @@ export function assertCanAccessClient(
     throw new Error("FORBIDDEN_CLIENT_ACCESS");
   }
 }
+
+export function assertCanAccessMarketer(
+  user: CurrentUser,
+  marketerId: string,
+  scopes: AccessScopeRecord[]
+) {
+  if (!canAccessMarketer(user, marketerId, scopes)) {
+    throw new Error("FORBIDDEN_MARKETER_ACCESS");
+  }
+}
+
+export function hasRole(user: CurrentUser, roles: Role[]) {
+  return roles.includes(user.role);
+}

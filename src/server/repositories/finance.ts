@@ -1,5 +1,11 @@
 import type { Prisma } from "@prisma/client";
-import { summarizeFinance } from "@/domain/finance";
+import {
+  getBillingStatus,
+  summarizeFinance,
+  type BillingFormInput,
+  type ExpenseFormInput,
+  type PaymentFormInput
+} from "@/domain/finance";
 import { BillingStatus, ConnectionStatus, ExpenseReviewStatus, FinancialAccountType, PaymentMethod, Role } from "@/domain/types";
 import { db } from "@/server/db";
 import type { CurrentUser } from "@/server/session";
@@ -231,4 +237,227 @@ export async function fetchFinanceOverviewForUser(user: CurrentUser): Promise<Fi
     accounts,
     ...summary
   };
+}
+
+// --- 청구/입금/지출 입력 (V2 §5) ---
+
+function monthStart(isoDate: string) {
+  return new Date(`${isoDate.slice(0, 7)}-01T00:00:00.000Z`);
+}
+
+function dayStart(isoDate: string) {
+  return new Date(`${isoDate}T00:00:00.000Z`);
+}
+
+export type BillingDetail = {
+  id: string;
+  clientId: string;
+  billingMonth: string;
+  contractAmount: number;
+  issuedAmount: number;
+  paidAmount: number;
+  status: BillingStatus;
+  dueDate: string | null;
+  invoiceNumber: string | null;
+};
+
+export type BillingAccessInfo = {
+  id: string;
+  clientId: string;
+  clientAssignedMarketerId: string | null;
+};
+
+export async function getBillingAccessInfo(billingId: string): Promise<BillingAccessInfo | null> {
+  const billing = await db.billingRecord.findUnique({
+    where: { id: billingId },
+    select: { id: true, clientId: true, client: { select: { assignedMarketerId: true } } }
+  });
+
+  if (!billing) {
+    return null;
+  }
+
+  return { id: billing.id, clientId: billing.clientId, clientAssignedMarketerId: billing.client.assignedMarketerId };
+}
+
+export async function getBillingDetail(billingId: string): Promise<BillingDetail | null> {
+  const billing = await db.billingRecord.findUnique({
+    where: { id: billingId },
+    select: {
+      id: true,
+      clientId: true,
+      billingMonth: true,
+      contractAmount: true,
+      issuedAmount: true,
+      paidAmount: true,
+      status: true,
+      dueDate: true,
+      invoiceNumber: true
+    }
+  });
+
+  if (!billing) {
+    return null;
+  }
+
+  return {
+    id: billing.id,
+    clientId: billing.clientId,
+    billingMonth: billing.billingMonth.toISOString().slice(0, 10),
+    contractAmount: billing.contractAmount.toNumber(),
+    issuedAmount: billing.issuedAmount.toNumber(),
+    paidAmount: billing.paidAmount.toNumber(),
+    status: billing.status,
+    dueDate: billing.dueDate ? billing.dueDate.toISOString().slice(0, 10) : null,
+    invoiceNumber: billing.invoiceNumber
+  };
+}
+
+export async function createBillingRecord(input: BillingFormInput, issuedById: string): Promise<{ id: string }> {
+  const dueDate = input.dueDate ? dayStart(input.dueDate) : null;
+  const status = getBillingStatus({ issuedAmount: input.issuedAmount, paidAmount: 0, dueDate }, new Date());
+
+  return db.billingRecord.create({
+    data: {
+      clientId: input.clientId,
+      issuedById,
+      billingMonth: monthStart(input.billingMonth),
+      contractAmount: input.contractAmount,
+      issuedAmount: input.issuedAmount,
+      dueDate,
+      invoiceNumber: input.invoiceNumber ?? null,
+      status,
+      issuedAt: new Date()
+    },
+    select: { id: true }
+  });
+}
+
+export async function updateBillingRecord(billingId: string, input: BillingFormInput): Promise<{ id: string }> {
+  const current = await db.billingRecord.findUniqueOrThrow({
+    where: { id: billingId },
+    select: { paidAmount: true }
+  });
+  const dueDate = input.dueDate ? dayStart(input.dueDate) : null;
+  const status = getBillingStatus(
+    { issuedAmount: input.issuedAmount, paidAmount: current.paidAmount.toNumber(), dueDate },
+    new Date()
+  );
+
+  return db.billingRecord.update({
+    where: { id: billingId },
+    data: {
+      clientId: input.clientId,
+      billingMonth: monthStart(input.billingMonth),
+      contractAmount: input.contractAmount,
+      issuedAmount: input.issuedAmount,
+      dueDate,
+      invoiceNumber: input.invoiceNumber ?? null,
+      status
+    },
+    select: { id: true }
+  });
+}
+
+/**
+ * 입금을 기록하고 청구의 입금 합계/상태를 재계산한다(트랜잭션).
+ */
+export async function recordPayment(
+  input: PaymentFormInput,
+  recordedById: string
+): Promise<{ id: string; billingId: string; paidAmount: number; status: BillingStatus }> {
+  return db.$transaction(async (tx) => {
+    const billing = await tx.billingRecord.findUniqueOrThrow({
+      where: { id: input.billingRecordId },
+      select: { id: true, issuedAmount: true, dueDate: true }
+    });
+
+    const payment = await tx.paymentRecord.create({
+      data: {
+        billingRecordId: input.billingRecordId,
+        recordedById,
+        amount: input.amount,
+        method: input.method,
+        transactionId: input.transactionId ?? null,
+        receivedAt: dayStart(input.receivedAt)
+      },
+      select: { id: true }
+    });
+
+    const aggregate = await tx.paymentRecord.aggregate({
+      where: { billingRecordId: input.billingRecordId },
+      _sum: { amount: true }
+    });
+    const paidAmount = aggregate._sum.amount?.toNumber() ?? 0;
+    const status = getBillingStatus(
+      { issuedAmount: billing.issuedAmount.toNumber(), paidAmount, dueDate: billing.dueDate },
+      new Date()
+    );
+
+    await tx.billingRecord.update({
+      where: { id: billing.id },
+      data: { paidAmount, status }
+    });
+
+    return { id: payment.id, billingId: billing.id, paidAmount, status };
+  });
+}
+
+export type ExpenseAccessInfo = {
+  id: string;
+  clientId: string | null;
+  clientAssignedMarketerId: string | null;
+};
+
+export async function getExpenseAccessInfo(expenseId: string): Promise<ExpenseAccessInfo | null> {
+  const expense = await db.expenseRecord.findUnique({
+    where: { id: expenseId },
+    select: { id: true, clientId: true, client: { select: { assignedMarketerId: true } } }
+  });
+
+  if (!expense) {
+    return null;
+  }
+
+  return { id: expense.id, clientId: expense.clientId, clientAssignedMarketerId: expense.client?.assignedMarketerId ?? null };
+}
+
+export async function createExpenseRecord(input: ExpenseFormInput, submittedById: string): Promise<{ id: string }> {
+  return db.expenseRecord.create({
+    data: {
+      clientId: input.clientId ?? null,
+      submittedById,
+      category: input.category,
+      vendor: input.vendor ?? null,
+      amount: input.amount,
+      taxAmount: input.taxAmount ?? null,
+      paymentMethod: input.paymentMethod,
+      memo: input.memo ?? null,
+      paidAt: input.paidAt ? dayStart(input.paidAt) : null
+    },
+    select: { id: true }
+  });
+}
+
+export type ExpenseReviewData = {
+  reviewStatus: ExpenseReviewStatus;
+  reviewedById: string;
+  reviewedAt: Date;
+  excludedReason?: string | null;
+};
+
+export async function reviewExpenseRecord(
+  expenseId: string,
+  data: ExpenseReviewData
+): Promise<{ id: string; reviewStatus: ExpenseReviewStatus }> {
+  return db.expenseRecord.update({
+    where: { id: expenseId },
+    data: {
+      reviewStatus: data.reviewStatus,
+      reviewedById: data.reviewedById,
+      reviewedAt: data.reviewedAt,
+      excludedReason: data.excludedReason ?? null
+    },
+    select: { id: true, reviewStatus: true }
+  });
 }

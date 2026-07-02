@@ -1,6 +1,27 @@
+import { z } from "zod";
 import { LeaveStatus, LeaveType } from "@/domain/types";
+import { enumSchema, isoDateSchema, optionalString } from "@/domain/validation";
 
 export type LeaveAction = "approve" | "reject" | "cancel";
+
+/** 휴가 신청 입력 검증 (V2 §4). */
+export const leaveRequestFormSchema = z
+  .object({
+    type: enumSchema(LeaveType, "휴가 유형"),
+    startDate: isoDateSchema,
+    endDate: isoDateSchema,
+    daysRequested: z.coerce
+      .number({ invalid_type_error: "신청 일수는 숫자여야 합니다." })
+      .positive("신청 일수는 0보다 커야 합니다.")
+      .max(366, "신청 일수가 너무 큽니다."),
+    reason: optionalString(500)
+  })
+  .refine((value) => value.startDate <= value.endDate, {
+    message: "종료일은 시작일과 같거나 이후여야 합니다.",
+    path: ["endDate"]
+  });
+
+export type LeaveRequestFormInput = z.infer<typeof leaveRequestFormSchema>;
 
 export type LeaveUsage = {
   days: number;

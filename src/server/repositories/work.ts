@@ -1,4 +1,4 @@
-import { isWorkDelayed } from "@/domain/work";
+import { isWorkDelayed, type WorkFormInput } from "@/domain/work";
 import { Role, WorkCategory, WorkStatus } from "@/domain/types";
 import { db } from "@/server/db";
 import type { CurrentUser } from "@/server/session";
@@ -164,4 +164,125 @@ export async function fetchWorkItemsForUser(
     progressNotes: item.progressNotes,
     delayed: isWorkDelayed(item, today)
   }));
+}
+
+export type WorkItemDetail = {
+  id: string;
+  clientId: string;
+  ownerId: string;
+  title: string;
+  category: WorkCategory;
+  status: WorkStatus;
+  priority: number;
+  dueDate: string | null;
+  progressNotes: string | null;
+  resultSummary: string | null;
+};
+
+/** 거래처/소유자 접근 판정에 필요한 최소 정보. */
+export type WorkItemAccessInfo = {
+  id: string;
+  clientId: string;
+  ownerId: string;
+  status: WorkStatus;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  clientAssignedMarketerId: string | null;
+};
+
+function workDateOnly(value: Date | null) {
+  return value ? value.toISOString().slice(0, 10) : null;
+}
+
+function toWorkData(input: WorkFormInput) {
+  return {
+    clientId: input.clientId,
+    ownerId: input.ownerId,
+    title: input.title,
+    category: input.category,
+    priority: input.priority,
+    dueDate: input.dueDate ? new Date(`${input.dueDate}T00:00:00.000Z`) : null,
+    progressNotes: input.progressNotes ?? null,
+    resultSummary: input.resultSummary ?? null
+  };
+}
+
+export async function getWorkItemDetail(workItemId: string): Promise<WorkItemDetail | null> {
+  const item = await db.workItem.findUnique({
+    where: { id: workItemId },
+    select: {
+      id: true,
+      clientId: true,
+      ownerId: true,
+      title: true,
+      category: true,
+      status: true,
+      priority: true,
+      dueDate: true,
+      progressNotes: true,
+      resultSummary: true
+    }
+  });
+
+  if (!item) {
+    return null;
+  }
+
+  return { ...item, dueDate: workDateOnly(item.dueDate) };
+}
+
+export async function getWorkItemAccessInfo(workItemId: string): Promise<WorkItemAccessInfo | null> {
+  const item = await db.workItem.findUnique({
+    where: { id: workItemId },
+    select: {
+      id: true,
+      clientId: true,
+      ownerId: true,
+      status: true,
+      startedAt: true,
+      completedAt: true,
+      client: { select: { assignedMarketerId: true } }
+    }
+  });
+
+  if (!item) {
+    return null;
+  }
+
+  return {
+    id: item.id,
+    clientId: item.clientId,
+    ownerId: item.ownerId,
+    status: item.status,
+    startedAt: item.startedAt,
+    completedAt: item.completedAt,
+    clientAssignedMarketerId: item.client.assignedMarketerId
+  };
+}
+
+export async function createWorkItem(input: WorkFormInput, createdById: string): Promise<{ id: string }> {
+  return db.workItem.create({
+    data: { ...toWorkData(input), createdById },
+    select: { id: true }
+  });
+}
+
+export async function updateWorkItem(workItemId: string, input: WorkFormInput): Promise<{ id: string }> {
+  return db.workItem.update({
+    where: { id: workItemId },
+    data: toWorkData(input),
+    select: { id: true }
+  });
+}
+
+export async function changeWorkItemStatus(
+  workItemId: string,
+  nextStatus: WorkStatus,
+  timestamps: { startedAt?: Date; completedAt?: Date }
+): Promise<{ id: string; status: WorkStatus }> {
+  return db.workItem.update({
+    where: { id: workItemId },
+    data: { status: nextStatus, ...timestamps },
+    select: { id: true, status: true }
+  });
 }

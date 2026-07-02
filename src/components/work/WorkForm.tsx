@@ -2,122 +2,136 @@
 
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Button, LinkButton } from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
+import { DateInput } from "@/components/ui/DateInput";
 import { FormField } from "@/components/ui/FormField";
-import { DateInput, Input, NumberInput, Select, Textarea } from "@/components/ui/fields";
-import type { ActionResult } from "@/server/action-result";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { Textarea } from "@/components/ui/Textarea";
+import { workCategoryLabels } from "@/domain/work";
+import { WorkCategory } from "@/domain/types";
+import type { WorkActionState } from "@/server/actions/work";
+import type { WorkItemDetail } from "@/server/repositories/work";
 
-export type WorkFormOption = {
-  id: string;
-  name: string;
-};
+export type WorkOption = { id: string; name: string };
 
-export type WorkFormValues = {
-  title?: string;
-  clientId?: string;
-  ownerId?: string;
-  category?: string;
-  priority?: string;
-  dueDate?: string;
-  progressNotes?: string;
-};
-
-type WorkFormAction = (
-  prevState: ActionResult<{ id: string }> | null,
-  formData: FormData
-) => Promise<ActionResult<{ id: string }>>;
-
-export function WorkForm({
-  action,
-  clients,
-  owners,
-  categories,
-  defaultValues,
-  submitLabel
-}: {
-  action: WorkFormAction;
-  clients: WorkFormOption[];
-  owners: WorkFormOption[];
-  categories: Array<{ value: string; label: string }>;
-  defaultValues?: WorkFormValues;
+export type WorkFormProps = {
+  action: (prevState: WorkActionState | null, formData: FormData) => Promise<WorkActionState>;
+  clients: WorkOption[];
+  marketers: WorkOption[];
+  initialValue?: WorkItemDetail;
   submitLabel: string;
-}) {
+};
+
+const categoryOptions = Object.values(WorkCategory);
+const priorityOptions = [1, 2, 3, 4, 5];
+
+function fieldErrors(state: WorkActionState | null, name: string) {
+  return state && !state.ok ? state.error.fieldErrors?.[name] : undefined;
+}
+
+export function WorkForm({ action, clients, marketers, initialValue, submitLabel }: WorkFormProps) {
+  const [state, formAction, pending] = useActionState<WorkActionState | null, FormData>(action, null);
   const router = useRouter();
-  const [result, formAction, pending] = useActionState(action, null);
 
   useEffect(() => {
-    if (result?.ok) {
+    if (state?.ok) {
       router.push("/work");
       router.refresh();
     }
-  }, [result, router]);
+  }, [state, router]);
 
-  const fieldErrors = result && !result.ok ? (result.error.fieldErrors ?? {}) : {};
+  const formError = state && !state.ok && !state.error.fieldErrors ? state.error.message : null;
 
   return (
-    <form action={formAction} className="grid gap-4 rounded-md border border-line bg-white p-6 md:grid-cols-2">
-      {result && !result.ok ? (
-        <div className="rounded-md border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger md:col-span-2">
-          {result.error.message}
-        </div>
+    <form action={formAction} className="space-y-5">
+      {initialValue ? <input type="hidden" name="id" value={initialValue.id} /> : null}
+
+      {formError ? (
+        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">{formError}</p>
       ) : null}
 
-      <div className="md:col-span-2">
-        <FormField label="업무명" required errors={fieldErrors.title}>
-          <Input name="title" defaultValue={defaultValues?.title} invalid={Boolean(fieldErrors.title)} />
+      <FormField label="업무명" required errors={fieldErrors(state, "title")}>
+        {({ id, invalid, describedBy }) => (
+          <Input id={id} name="title" defaultValue={initialValue?.title ?? ""} invalid={invalid} aria-describedby={describedBy} required />
+        )}
+      </FormField>
+
+      <div className="grid gap-5 md:grid-cols-2">
+        <FormField label="거래처" required errors={fieldErrors(state, "clientId")}>
+          {({ id, invalid, describedBy }) => (
+            <Select id={id} name="clientId" defaultValue={initialValue?.clientId ?? ""} invalid={invalid} aria-describedby={describedBy} placeholder="거래처 선택">
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </Select>
+          )}
+        </FormField>
+
+        <FormField label="담당자" required errors={fieldErrors(state, "ownerId")}>
+          {({ id, invalid, describedBy }) => (
+            <Select id={id} name="ownerId" defaultValue={initialValue?.ownerId ?? ""} invalid={invalid} aria-describedby={describedBy} placeholder="담당자 선택">
+              {marketers.map((marketer) => (
+                <option key={marketer.id} value={marketer.id}>
+                  {marketer.name}
+                </option>
+              ))}
+            </Select>
+          )}
+        </FormField>
+
+        <FormField label="카테고리" required errors={fieldErrors(state, "category")}>
+          {({ id, invalid, describedBy }) => (
+            <Select id={id} name="category" defaultValue={initialValue?.category ?? ""} invalid={invalid} aria-describedby={describedBy} placeholder="카테고리 선택">
+              {categoryOptions.map((category) => (
+                <option key={category} value={category}>
+                  {workCategoryLabels[category]}
+                </option>
+              ))}
+            </Select>
+          )}
+        </FormField>
+
+        <FormField label="우선순위" required errors={fieldErrors(state, "priority")} hint="1(낮음) ~ 5(높음)">
+          {({ id, invalid, describedBy }) => (
+            <Select id={id} name="priority" defaultValue={String(initialValue?.priority ?? 3)} invalid={invalid} aria-describedby={describedBy}>
+              {priorityOptions.map((priority) => (
+                <option key={priority} value={priority}>
+                  {priority}
+                </option>
+              ))}
+            </Select>
+          )}
+        </FormField>
+
+        <FormField label="마감일" errors={fieldErrors(state, "dueDate")}>
+          {({ id, invalid, describedBy }) => (
+            <DateInput id={id} name="dueDate" defaultValue={initialValue?.dueDate ?? ""} invalid={invalid} aria-describedby={describedBy} />
+          )}
         </FormField>
       </div>
 
-      <FormField label="거래처" required errors={fieldErrors.clientId}>
-        <Select name="clientId" defaultValue={defaultValues?.clientId ?? ""} invalid={Boolean(fieldErrors.clientId)}>
-          <option value="">거래처 선택</option>
-          {clients.map((client) => (
-            <option key={client.id} value={client.id}>
-              {client.name}
-            </option>
-          ))}
-        </Select>
-      </FormField>
-      <FormField label="담당자" required errors={fieldErrors.ownerId}>
-        <Select name="ownerId" defaultValue={defaultValues?.ownerId ?? ""} invalid={Boolean(fieldErrors.ownerId)}>
-          <option value="">담당자 선택</option>
-          {owners.map((owner) => (
-            <option key={owner.id} value={owner.id}>
-              {owner.name}
-            </option>
-          ))}
-        </Select>
+      <FormField label="진행 메모" errors={fieldErrors(state, "progressNotes")}>
+        {({ id, invalid, describedBy }) => (
+          <Textarea id={id} name="progressNotes" defaultValue={initialValue?.progressNotes ?? ""} invalid={invalid} aria-describedby={describedBy} />
+        )}
       </FormField>
 
-      <FormField label="카테고리" required errors={fieldErrors.category}>
-        <Select name="category" defaultValue={defaultValues?.category ?? ""} invalid={Boolean(fieldErrors.category)}>
-          <option value="">카테고리 선택</option>
-          {categories.map((category) => (
-            <option key={category.value} value={category.value}>
-              {category.label}
-            </option>
-          ))}
-        </Select>
-      </FormField>
-      <FormField label="우선순위" hint="1(높음) ~ 5(낮음)" errors={fieldErrors.priority}>
-        <NumberInput name="priority" min={1} max={5} step={1} defaultValue={defaultValues?.priority ?? "3"} invalid={Boolean(fieldErrors.priority)} />
+      <FormField label="결과 요약" errors={fieldErrors(state, "resultSummary")}>
+        {({ id, invalid, describedBy }) => (
+          <Textarea id={id} name="resultSummary" defaultValue={initialValue?.resultSummary ?? ""} invalid={invalid} aria-describedby={describedBy} />
+        )}
       </FormField>
 
-      <FormField label="마감일" errors={fieldErrors.dueDate}>
-        <DateInput name="dueDate" defaultValue={defaultValues?.dueDate} invalid={Boolean(fieldErrors.dueDate)} />
-      </FormField>
-
-      <div className="md:col-span-2">
-        <FormField label="진행 메모" errors={fieldErrors.progressNotes}>
-          <Textarea name="progressNotes" defaultValue={defaultValues?.progressNotes} invalid={Boolean(fieldErrors.progressNotes)} />
-        </FormField>
-      </div>
-
-      <div className="flex items-center gap-2 md:col-span-2">
+      <div className="flex items-center gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "저장 중..." : submitLabel}
+          {pending ? "저장 중…" : submitLabel}
         </Button>
-        <LinkButton href="/work">취소</LinkButton>
+        <Button type="button" variant="secondary" onClick={() => router.push("/work")} disabled={pending}>
+          취소
+        </Button>
       </div>
     </form>
   );

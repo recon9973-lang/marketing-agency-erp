@@ -1,20 +1,11 @@
 import { redirect } from "next/navigation";
-import { LeaveCancelButton } from "@/components/leave/LeaveCancelButton";
+import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { LeaveDecisionButtons } from "@/components/leave/LeaveDecisionButtons";
 import { LeaveRequestForm } from "@/components/leave/LeaveRequestForm";
-import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { leaveStatusLabels, leaveTypeLabels } from "@/domain/leave";
-import { LeaveStatus, LeaveType, Role } from "@/domain/types";
-import { cancelLeave, decideLeave, requestLeaveFormAction } from "@/server/actions/leave";
+import { Role } from "@/domain/types";
 import { fetchLeaveOverviewForUser, type LeaveRequestListItem } from "@/server/repositories/leave";
 import { getCurrentUser } from "@/server/session";
-
-const leaveTypeOptions = Object.values(LeaveType).map((type) => ({
-  value: type,
-  label: leaveTypeLabels[type]
-}));
 
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" });
 
@@ -22,13 +13,18 @@ function formatDate(value: Date) {
   return dateFormatter.format(value);
 }
 
-function LeaveStatusBadge({ request }: { request: LeaveRequestListItem }) {
-  const tone = request.status === "APPROVED" ? "success" : request.status === "REJECTED" ? "danger" : "neutral";
+function StatusBadge({ request }: { request: LeaveRequestListItem }) {
+  const tone =
+    request.status === "APPROVED"
+      ? "border-brand/30 bg-brand/10 text-brand"
+      : request.status === "REJECTED"
+        ? "border-danger/30 bg-danger/10 text-danger"
+        : "border-line bg-surface text-slate-700";
 
-  return <StatusBadge tone={tone}>{leaveStatusLabels[request.status]}</StatusBadge>;
+  return <span className={`rounded-md border px-2.5 py-1 text-xs font-semibold ${tone}`}>{leaveStatusLabels[request.status]}</span>;
 }
 
-const requestColumns: DataTableColumn<LeaveRequestListItem>[] = [
+const baseColumns: DataTableColumn<LeaveRequestListItem>[] = [
   {
     key: "period",
     header: "기간",
@@ -49,7 +45,7 @@ const requestColumns: DataTableColumn<LeaveRequestListItem>[] = [
   {
     key: "status",
     header: "상태",
-    render: (request) => <LeaveStatusBadge request={request} />
+    render: (request) => <StatusBadge request={request} />
   },
   {
     key: "reason",
@@ -58,17 +54,12 @@ const requestColumns: DataTableColumn<LeaveRequestListItem>[] = [
   }
 ];
 
-const myRequestColumns: DataTableColumn<LeaveRequestListItem>[] = [
-  ...requestColumns,
+const ownColumns: DataTableColumn<LeaveRequestListItem>[] = [
+  ...baseColumns,
   {
-    key: "manage",
+    key: "actions",
     header: "관리",
-    render: (request) =>
-      request.status === LeaveStatus.REQUESTED || request.status === LeaveStatus.APPROVED ? (
-        <LeaveCancelButton leaveRequestId={request.id} cancelLeave={cancelLeave} />
-      ) : (
-        "-"
-      )
+    render: (request) => <LeaveDecisionButtons id={request.id} status={request.status} actions={["cancel"]} />
   }
 ];
 
@@ -78,11 +69,13 @@ const approvalColumns: DataTableColumn<LeaveRequestListItem>[] = [
     header: "신청자",
     render: (request) => request.requesterName
   },
-  ...requestColumns,
+  ...baseColumns,
   {
     key: "decision",
-    header: "처리",
-    render: (request) => <LeaveDecisionButtons leaveRequestId={request.id} decideLeave={decideLeave} />
+    header: "승인",
+    render: (request) => (
+      <LeaveDecisionButtons id={request.id} status={request.status} actions={["approve", "reject", "cancel"]} />
+    )
   }
 ];
 
@@ -97,29 +90,31 @@ export default async function LeavePage() {
 
   return (
     <section className="space-y-6">
-      <PageHeader
-        eyebrow="연차/휴가"
-        title="사내 연차 및 휴가 관리"
-        description="담당자는 휴가 신청과 잔여 일수를 확인하고, 관리자와 최고관리자는 승인 대기 건을 함께 검토합니다."
-        actions={
-          <div className="grid grid-cols-3 gap-2 text-sm">
-            <div className="rounded-md border border-line bg-white px-4 py-3">
-              <p className="text-xs text-slate-500">부여</p>
-              <p className="mt-1 font-semibold text-ink">{overview.allowanceDays}일</p>
-            </div>
-            <div className="rounded-md border border-line bg-white px-4 py-3">
-              <p className="text-xs text-slate-500">잔여</p>
-              <p className="mt-1 font-semibold text-brand">{overview.remainingDays}일</p>
-            </div>
-            <div className="rounded-md border border-line bg-white px-4 py-3">
-              <p className="text-xs text-slate-500">승인대기</p>
-              <p className="mt-1 font-semibold text-warning">{overview.approvalRequests.length}</p>
-            </div>
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-brand">연차/휴가</p>
+          <h2 className="mt-2 text-2xl font-semibold text-ink">사내 연차 및 휴가 관리</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+            담당자는 휴가 신청과 잔여 일수를 확인하고, 관리자와 최고관리자는 승인 대기 건을 함께 검토합니다.
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-sm">
+          <div className="rounded-md border border-line bg-white px-4 py-3">
+            <p className="text-xs text-slate-500">부여</p>
+            <p className="mt-1 font-semibold text-ink">{overview.allowanceDays}일</p>
           </div>
-        }
-      />
+          <div className="rounded-md border border-line bg-white px-4 py-3">
+            <p className="text-xs text-slate-500">잔여</p>
+            <p className="mt-1 font-semibold text-brand">{overview.remainingDays}일</p>
+          </div>
+          <div className="rounded-md border border-line bg-white px-4 py-3">
+            <p className="text-xs text-slate-500">승인대기</p>
+            <p className="mt-1 font-semibold text-warning">{overview.approvalRequests.length}</p>
+          </div>
+        </div>
+      </div>
 
-      <LeaveRequestForm action={requestLeaveFormAction} typeOptions={leaveTypeOptions} />
+      <LeaveRequestForm />
 
       {user.role !== Role.MARKETER ? (
         <div className="space-y-3">
@@ -130,7 +125,7 @@ export default async function LeavePage() {
 
       <div className="space-y-3">
         <h3 className="text-base font-semibold text-ink">내 신청 내역</h3>
-        <DataTable columns={myRequestColumns} rows={overview.requests} emptyMessage="휴가 신청 내역이 없습니다." />
+        <DataTable columns={ownColumns} rows={overview.requests} emptyMessage="휴가 신청 내역이 없습니다." />
       </div>
     </section>
   );

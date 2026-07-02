@@ -1,135 +1,78 @@
+/**
+ * 서버 권한 helper 정비 (V2 §1).
+ *
+ * 각 저장소와 server action에서 권한 체크가 누락되지 않도록 공통 helper를 제공한다.
+ * 도메인 규칙(`@/domain/access-control`)은 순수 함수로 유지하고, 이 모듈은
+ * 현재 사용자 확인과 scope 조회를 결합해 표준 `AppError`를 던진다.
+ */
 import {
   canAccessClient,
   canAccessMarketer,
+  hasRole,
   type AccessScopeRecord,
-  type CurrentUser as AccessControlUser
+  type CurrentUser
 } from "@/domain/access-control";
 import { Role } from "@/domain/types";
-import { AppError, ErrorCodes } from "@/server/errors";
-import { db } from "@/server/db";
-import type { CurrentUser } from "@/server/session";
+import { forbidden, unauthenticated } from "@/server/errors";
+import { loadAccessScopes } from "@/server/scope";
+import { getCurrentUser } from "@/server/session";
 
+/**
+ * 현재 로그인한 직원 사용자를 반환한다. 없으면 UNAUTHENTICATED를 던진다.
+ * server action 시작부에서 사용한다.
+ */
 export async function requireCurrentUser(requestedDevRole?: unknown): Promise<CurrentUser> {
-  // 지연 import: next-auth에 정적으로 의존하지 않아야 도메인/저장소 테스트에서
-  // 이 모듈의 순수 helper들을 그대로 불러 쓸 수 있다.
-  const { getCurrentUser } = await import("@/server/session");
   const user = await getCurrentUser(requestedDevRole);
 
   if (!user) {
-    throw new AppError(ErrorCodes.UNAUTHORIZED);
+    throw unauthenticated();
   }
 
   return user;
 }
 
-export function requireRole<User extends AccessControlUser>(user: User, roles: Role[]): User {
-  if (!roles.includes(user.role)) {
-    throw new AppError(ErrorCodes.FORBIDDEN);
+/**
+ * 사용자가 허용된 역할 중 하나인지 확인한다. 아니면 FORBIDDEN을 던진다.
+ */
+export function requireRole(user: CurrentUser, roles: Role[]): void {
+  if (!hasRole(user, roles)) {
+    throw forbidden();
   }
-
-  return user;
 }
 
-export async function fetchAccessScopes(user: AccessControlUser): Promise<AccessScopeRecord[]> {
-  if (user.role !== Role.ADMIN) {
-    return [];
-  }
-
-  return db.accessScope.findMany({
-    where: { adminId: user.id },
-    select: {
-      adminId: true,
-      marketerId: true,
-      clientId: true,
-      allMarketers: true,
-      allClients: true
-    }
-  });
-}
-
+/**
+ * 사용자가 특정 담당자(marketer) 정보를 다룰 권한이 있는지 확인한다.
+ * scope를 직접 넘기면 DB 조회 없이 평가한다(테스트/배치 처리에 유용).
+ */
 export async function requireMarketerAccess(
-  user: AccessControlUser,
+  user: CurrentUser,
   marketerId: string,
   scopes?: AccessScopeRecord[]
 ): Promise<void> {
-  const resolvedScopes = scopes ?? (await fetchAccessScopes(user));
+  const resolvedScopes = scopes ?? (await loadAccessScopes(user));
 
   if (!canAccessMarketer(user, marketerId, resolvedScopes)) {
-    throw new AppError(ErrorCodes.FORBIDDEN);
+    throw forbidden();
   }
 }
 
+export type ClientAccessOptions = {
+  assignedMarketerId?: string | null;
+  scopes?: AccessScopeRecord[];
+};
+
+/**
+ * 사용자가 특정 거래처(client)를 다룰 권한이 있는지 확인한다.
+ * `assignedMarketerId`를 넘기면 담당자 기반 접근까지 평가한다.
+ */
 export async function requireClientAccess(
-  user: AccessControlUser,
+  user: CurrentUser,
   clientId: string,
-  options?: { assignedMarketerId?: string | null; scopes?: AccessScopeRecord[] }
+  options: ClientAccessOptions = {}
 ): Promise<void> {
-  let assignedMarketerId = options?.assignedMarketerId;
+  const resolvedScopes = options.scopes ?? (await loadAccessScopes(user));
 
-  if (assignedMarketerId === undefined) {
-    const client = await db.client.findUnique({
-      where: { id: clientId },
-      select: { assignedMarketerId: true }
-    });
-
-    if (!client) {
-      throw new AppError(ErrorCodes.NOT_FOUND);
-    }
-
-    assignedMarketerId = client.assignedMarketerId;
+  if (!canAccessClient(user, clientId, resolvedScopes, options.assignedMarketerId)) {
+    throw forbidden();
   }
-
-  const scopes = options?.scopes ?? (await fetchAccessScopes(user));
-
-  if (!canAccessClient(user, clientId, scopes, assignedMarketerId)) {
-    throw new AppError(ErrorCodes.FORBIDDEN);
-  }
-}
-
-export async function requireWorkAccess(
-  user: AccessControlUser,
-  target: { clientId: string; ownerId: string }
-): Promise<void> {
-  const scopes = await fetchAccessScopes(user);
-
-  await requireClientAccess(user, target.clientId, { scopes });
-  await requireMarketerAccess(user, target.ownerId, scopes);
-}
-
-export function buildClientScopeWhere(user: AccessControlUser, scopes: AccessScopeRecord[]) {
-  if (user.role === Role.SUPER_ADMIN) {
-    return {};
-  }
-
-  if (user.role === Role.MARKETER) {
-    return { assignedMarketerId: user.id };
-  }
-
-  if (scopes.some((scope) => scope.adminId === user.id && scope.allClients)) {
-    return {};
-  }
-
-  const clientIds = scopes
-    .filter((scope) => scope.adminId === user.id)
-    .map((scope) => scope.clientId)
-    .filter((clientId): clientId is string => Boolean(clientId));
-  const marketerIds = scopes
-    .filter((scope) => scope.adminId === user.id)
-    .map((scope) => scope.marketerId)
-    .filter((marketerId): marketerId is string => Boolean(marketerId));
-  const hasAllMarketers = scopes.some((scope) => scope.adminId === user.id && scope.allMarketers);
-
-  const clauses = [];
-
-  if (clientIds.length > 0) {
-    clauses.push({ id: { in: [...new Set(clientIds)] } });
-  }
-
-  if (hasAllMarketers) {
-    clauses.push({ assignedMarketerId: { not: null } });
-  } else if (marketerIds.length > 0) {
-    clauses.push({ assignedMarketerId: { in: [...new Set(marketerIds)] } });
-  }
-
-  return clauses.length > 0 ? { OR: clauses } : { id: { in: [] } };
 }

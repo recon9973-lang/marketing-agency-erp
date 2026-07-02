@@ -1,59 +1,63 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { ActionResult } from "@/server/action-result";
+import { Button } from "@/components/ui/Button";
+import { transitionLeave, type LeaveAction } from "@/domain/leave";
+import type { LeaveStatus } from "@/domain/types";
+import { decideLeaveRequestAction } from "@/server/actions/leave";
 
-type DecideLeave = (
-  leaveRequestId: string,
-  input: { action: "approve" | "reject" }
-) => Promise<ActionResult<{ id: string; status: string }>>;
+const LABELS: Record<LeaveAction, string> = {
+  approve: "승인",
+  reject: "반려",
+  cancel: "취소"
+};
+
+const VARIANTS: Record<LeaveAction, "primary" | "secondary" | "danger"> = {
+  approve: "primary",
+  reject: "danger",
+  cancel: "secondary"
+};
 
 export function LeaveDecisionButtons({
-  leaveRequestId,
-  decideLeave
+  id,
+  status,
+  actions
 }: {
-  leaveRequestId: string;
-  decideLeave: DecideLeave;
+  id: string;
+  status: LeaveStatus;
+  actions: LeaveAction[];
 }) {
+  const [state, formAction, pending] = useActionState(decideLeaveRequestAction, null);
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handle = (action: "approve" | "reject") => {
-    startTransition(async () => {
-      setErrorMessage(null);
-      const result = await decideLeave(leaveRequestId, { action });
+  useEffect(() => {
+    if (state?.ok) {
+      router.refresh();
+    }
+  }, [state, router]);
 
-      if (result.ok) {
-        router.refresh();
-      } else {
-        setErrorMessage(result.error.message);
-      }
-    });
-  };
+  const available = actions.filter((action) => transitionLeave(status, action) !== status);
+  const error = state && !state.ok ? state.error.message : null;
+
+  if (available.length === 0) {
+    return <span className="text-xs text-slate-400">-</span>;
+  }
 
   return (
-    <div>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => handle("approve")}
-          className="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
-        >
-          승인
-        </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => handle("reject")}
-          className="rounded-md border border-danger/40 px-3 py-1.5 text-xs font-semibold text-danger disabled:opacity-60"
-        >
-          반려
-        </button>
+    <div className="space-y-1">
+      <div className="flex flex-wrap gap-2">
+        {available.map((action) => (
+          <form key={action} action={formAction}>
+            <input type="hidden" name="id" value={id} />
+            <input type="hidden" name="action" value={action} />
+            <Button type="submit" size="sm" variant={VARIANTS[action]} disabled={pending}>
+              {LABELS[action]}
+            </Button>
+          </form>
+        ))}
       </div>
-      {errorMessage ? <p className="mt-1 text-xs text-danger">{errorMessage}</p> : null}
+      {error ? <p className="text-xs text-danger">{error}</p> : null}
     </div>
   );
 }

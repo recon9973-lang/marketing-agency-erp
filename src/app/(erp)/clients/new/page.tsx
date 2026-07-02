@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import { ClientForm } from "@/components/clients/ClientForm";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Role } from "@/domain/types";
-import { createClientFormAction } from "@/server/actions/clients";
-import { fetchMarketerOptions } from "@/server/repositories/users";
+import { createClientAction } from "@/server/actions/clients";
+import { fetchAssignableMarketers } from "@/server/repositories/clients";
 import { getCurrentUser } from "@/server/session";
 
 export default async function NewClientPage() {
@@ -17,17 +17,14 @@ export default async function NewClientPage() {
     redirect("/clients");
   }
 
-  const marketers = await fetchMarketerOptions();
+  const marketers = await fetchAssignableMarketers();
 
   return (
     <section className="space-y-6">
-      <PageHeader
-        eyebrow="거래처"
-        title="신규 거래처 등록"
-        description="거래처 기본 정보와 계약 조건을 입력하고 담당자를 배정합니다."
-      />
-
-      <ClientForm action={createClientFormAction} marketers={marketers} submitLabel="거래처 등록" />
+      <PageHeader eyebrow="거래처" title="새 거래처 등록" description="거래처 기본 정보와 담당자, 계약 조건을 입력합니다." />
+      <div className="rounded-md border border-line bg-white p-6">
+        <ClientForm action={createClientAction} marketers={marketers} submitLabel="등록" />
+      </div>
     </section>
   );
 }

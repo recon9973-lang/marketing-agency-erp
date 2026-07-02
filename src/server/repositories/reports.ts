@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import type { ReportFormInput } from "@/domain/report";
 import { ReportStatus, Role } from "@/domain/types";
 import { db } from "@/server/db";
 import type { CurrentUser } from "@/server/session";
@@ -124,4 +125,114 @@ export async function fetchReportsForUser(user: CurrentUser): Promise<ReportList
     deliveredAt: report.deliveredAt,
     metricsSummary: summarizeMetrics(report.metrics)
   }));
+}
+
+// --- 보고서 작성/승인 (V2 §6) ---
+
+export type ReportDetail = {
+  id: string;
+  clientId: string;
+  reportingMonth: string;
+  title: string;
+  notes: string | null;
+};
+
+export type ReportAccessInfo = {
+  id: string;
+  clientId: string;
+  authorId: string;
+  status: ReportStatus;
+  clientAssignedMarketerId: string | null;
+};
+
+function reportMonth(isoDate: string) {
+  return new Date(`${isoDate.slice(0, 7)}-01T00:00:00.000Z`);
+}
+
+export async function getReportDetail(reportId: string): Promise<ReportDetail | null> {
+  const report = await db.report.findUnique({
+    where: { id: reportId },
+    select: { id: true, clientId: true, reportingMonth: true, title: true, notes: true }
+  });
+
+  if (!report) {
+    return null;
+  }
+
+  return {
+    id: report.id,
+    clientId: report.clientId,
+    reportingMonth: report.reportingMonth.toISOString().slice(0, 10),
+    title: report.title,
+    notes: report.notes
+  };
+}
+
+export async function getReportAccessInfo(reportId: string): Promise<ReportAccessInfo | null> {
+  const report = await db.report.findUnique({
+    where: { id: reportId },
+    select: {
+      id: true,
+      clientId: true,
+      authorId: true,
+      status: true,
+      client: { select: { assignedMarketerId: true } }
+    }
+  });
+
+  if (!report) {
+    return null;
+  }
+
+  return {
+    id: report.id,
+    clientId: report.clientId,
+    authorId: report.authorId,
+    status: report.status,
+    clientAssignedMarketerId: report.client.assignedMarketerId
+  };
+}
+
+export async function createReport(input: ReportFormInput, authorId: string): Promise<{ id: string }> {
+  return db.report.create({
+    data: {
+      clientId: input.clientId,
+      authorId,
+      reportingMonth: reportMonth(input.reportingMonth),
+      title: input.title,
+      notes: input.notes ?? null
+    },
+    select: { id: true }
+  });
+}
+
+export async function updateReport(reportId: string, input: ReportFormInput): Promise<{ id: string }> {
+  return db.report.update({
+    where: { id: reportId },
+    data: {
+      clientId: input.clientId,
+      reportingMonth: reportMonth(input.reportingMonth),
+      title: input.title,
+      notes: input.notes ?? null
+    },
+    select: { id: true }
+  });
+}
+
+export type ReportStatusData = {
+  status: ReportStatus;
+  reviewerId?: string;
+  reviewedAt?: Date | null;
+  deliveredAt?: Date;
+};
+
+export async function changeReportStatus(
+  reportId: string,
+  data: ReportStatusData
+): Promise<{ id: string; status: ReportStatus }> {
+  return db.report.update({
+    where: { id: reportId },
+    data,
+    select: { id: true, status: true }
+  });
 }

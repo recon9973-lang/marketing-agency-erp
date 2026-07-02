@@ -1,202 +1,172 @@
 "use server";
 
+/**
+ * 업무(WorkItem) 생성/수정/상태 전이 server action (V2 §3).
+ *
+ * §1 공통 인프라를 그대로 사용한다(runAction/권한 helper/validation/audit).
+ *
+ * 접근 정책:
+ * - 업무가 속한 거래처에 접근 권한이 있어야 하고(`requireClientAccess`),
+ *   소유자(담당자)에 대한 권한도 있어야 한다(`requireMarketerAccess`).
+ * - 담당자(MARKETER)는 자기 거래처/본인이 소유한 업무에만 접근 가능하다.
+ * - 상태 전이는 도메인 전이표(`nextWorkStatus`)가 허용하는 경우에만 수행된다.
+ */
 import { revalidatePath } from "next/cache";
-import { nextWorkStatus } from "@/domain/work";
-import { workItemInputSchema, workStatusActionSchema, type WorkItemInput } from "@/domain/work-schema";
-import { Role, WorkStatus } from "@/domain/types";
-import type { ActionResult } from "@/server/action-result";
-import { AuditActions, writeAuditLog } from "@/server/audit";
-import { requireCurrentUser, requireRole, requireWorkAccess } from "@/server/authorization";
-import { db } from "@/server/db";
-import { AppError, ErrorCodes, runAction } from "@/server/errors";
+import { z } from "zod";
+import {
+  nextWorkStatus,
+  workFormSchema,
+  workStatusLabels,
+  workStatusTimestamps,
+  type WorkStatusAction
+} from "@/domain/work";
+import { runAction, type ActionResult } from "@/server/action-result";
+import { requireClientAccess, requireCurrentUser, requireMarketerAccess } from "@/server/authorization";
+import { AuditAction, writeAuditLog } from "@/server/audit";
+import { conflict, notFound } from "@/server/errors";
+import { getClientAccessInfo } from "@/server/repositories/clients";
+import {
+  changeWorkItemStatus,
+  createWorkItem,
+  getWorkItemAccessInfo,
+  getWorkItemDetail,
+  updateWorkItem
+} from "@/server/repositories/work";
+import type { CurrentUser } from "@/domain/access-control";
 
-type WorkRecordLike = {
-  title: string;
-  clientId: string;
-  ownerId: string;
-  category: string;
-  status: WorkStatus;
-  priority: number;
-  dueDate: Date | null;
-  progressNotes: string | null;
-};
+export type WorkActionState = ActionResult<{ id: string }>;
 
-function toAuditState(work: WorkRecordLike) {
-  return {
-    title: work.title,
-    clientId: work.clientId,
-    ownerId: work.ownerId,
-    category: work.category,
-    status: work.status,
-    priority: work.priority,
-    dueDate: work.dueDate?.toISOString().slice(0, 10) ?? null,
-    progressNotes: work.progressNotes
-  };
-}
-
-function toWorkData(input: WorkItemInput) {
-  return {
-    title: input.title,
-    clientId: input.clientId,
-    ownerId: input.ownerId,
-    category: input.category,
-    priority: input.priority,
-    dueDate: input.dueDate ? new Date(`${input.dueDate}T00:00:00.000Z`) : null,
-    progressNotes: input.progressNotes ?? null
-  };
-}
-
-async function ensureActiveMarketerOwner(ownerId: string) {
-  const owner = await db.user.findUnique({
-    where: { id: ownerId },
-    select: { id: true, role: true, isActive: true }
-  });
-
-  if (!owner || owner.role !== Role.MARKETER || !owner.isActive) {
-    throw new AppError(ErrorCodes.VALIDATION_ERROR, "업무 담당자를 확인해주세요.", {
-      fieldErrors: { ownerId: ["활성 상태의 담당자만 지정할 수 있습니다."] }
-    });
+function formDataToObject(formData: FormData) {
+  const record: Record<string, string> = {};
+  for (const [key, value] of formData.entries()) {
+    if (typeof value === "string") {
+      record[key] = value;
+    }
   }
+  return record;
 }
 
-async function findWorkItemOrThrow(workItemId: string) {
-  const workItem = await db.workItem.findUnique({ where: { id: workItemId } });
-
-  if (!workItem) {
-    throw new AppError(ErrorCodes.NOT_FOUND, "업무를 찾을 수 없습니다.");
-  }
-
-  return workItem;
+async function assertWorkAccess(
+  user: CurrentUser,
+  clientId: string,
+  ownerId: string,
+  clientAssignedMarketerId: string | null
+) {
+  await requireClientAccess(user, clientId, { assignedMarketerId: clientAssignedMarketerId });
+  await requireMarketerAccess(user, ownerId);
 }
 
-export async function createWorkItem(input: unknown): Promise<ActionResult<{ id: string }>> {
+export async function createWorkItemAction(
+  _prevState: WorkActionState | null,
+  formData: FormData
+): Promise<WorkActionState> {
   return runAction(async () => {
     const user = await requireCurrentUser();
-    const data = workItemInputSchema.parse(input);
+    const input = workFormSchema.parse(formDataToObject(formData));
 
-    await ensureActiveMarketerOwner(data.ownerId);
-    await requireWorkAccess(user, { clientId: data.clientId, ownerId: data.ownerId });
+    const client = await getClientAccessInfo(input.clientId);
+    if (!client) {
+      throw notFound("거래처를 찾을 수 없습니다.");
+    }
 
-    const workItem = await db.workItem.create({
-      data: { ...toWorkData(data), createdById: user.id }
-    });
+    await assertWorkAccess(user, input.clientId, input.ownerId, client.assignedMarketerId);
+
+    const created = await createWorkItem(input, user.id);
 
     await writeAuditLog({
       actorId: user.id,
-      action: AuditActions.WORK_CREATED,
+      action: AuditAction.WORK_STATUS_CHANGED,
       targetType: "WorkItem",
-      targetId: workItem.id,
-      afterState: toAuditState(workItem)
+      targetId: created.id,
+      afterState: { created: true, status: "NOT_STARTED", title: input.title }
     });
 
     revalidatePath("/work");
-    return { id: workItem.id };
+    return created;
   });
 }
 
-export async function updateWorkItem(workItemId: string, input: unknown): Promise<ActionResult<{ id: string }>> {
+export async function updateWorkItemAction(
+  _prevState: WorkActionState | null,
+  formData: FormData
+): Promise<WorkActionState> {
   return runAction(async () => {
     const user = await requireCurrentUser();
-    const existing = await findWorkItemOrThrow(workItemId);
+    const workItemId = formDataToObject(formData).id ?? "";
 
-    await requireWorkAccess(user, { clientId: existing.clientId, ownerId: existing.ownerId });
-
-    const data = workItemInputSchema.parse(input);
-
-    await ensureActiveMarketerOwner(data.ownerId);
-
-    if (data.clientId !== existing.clientId || data.ownerId !== existing.ownerId) {
-      await requireWorkAccess(user, { clientId: data.clientId, ownerId: data.ownerId });
+    const existing = await getWorkItemAccessInfo(workItemId);
+    if (!existing) {
+      throw notFound("업무를 찾을 수 없습니다.");
     }
 
-    const updated = await db.workItem.update({
-      where: { id: workItemId },
-      data: toWorkData(data)
-    });
+    await assertWorkAccess(user, existing.clientId, existing.ownerId, existing.clientAssignedMarketerId);
 
-    await writeAuditLog({
-      actorId: user.id,
-      action: AuditActions.WORK_UPDATED,
-      targetType: "WorkItem",
-      targetId: workItemId,
-      beforeState: toAuditState(existing),
-      afterState: toAuditState(updated)
-    });
+    const input = workFormSchema.parse(formDataToObject(formData));
 
-    revalidatePath("/work");
-    return { id: workItemId };
-  });
-}
-
-export async function changeWorkStatus(workItemId: string, action: unknown): Promise<ActionResult<{ id: string; status: WorkStatus }>> {
-  return runAction(async () => {
-    const user = await requireCurrentUser();
-    const statusAction = workStatusActionSchema.parse(action);
-    const existing = await findWorkItemOrThrow(workItemId);
-
-    await requireWorkAccess(user, { clientId: existing.clientId, ownerId: existing.ownerId });
-
-    // 검수 승인(완료 처리)은 관리자 이상만 가능하다.
-    if (statusAction === "approve") {
-      requireRole(user, [Role.SUPER_ADMIN, Role.ADMIN]);
-    }
-
-    const nextStatus = nextWorkStatus(existing.status, statusAction);
-
-    if (nextStatus === existing.status) {
-      throw new AppError(ErrorCodes.VALIDATION_ERROR, "현재 상태에서 허용되지 않는 상태 변경입니다.");
-    }
-
-    const updated = await db.workItem.update({
-      where: { id: workItemId },
-      data: {
-        status: nextStatus,
-        startedAt: nextStatus === WorkStatus.IN_PROGRESS && !existing.startedAt ? new Date() : existing.startedAt,
-        completedAt: nextStatus === WorkStatus.COMPLETED ? new Date() : null
+    // 거래처/소유자를 변경하는 경우, 변경 대상에 대한 권한도 확인한다.
+    if (input.clientId !== existing.clientId || input.ownerId !== existing.ownerId) {
+      const targetClient = await getClientAccessInfo(input.clientId);
+      if (!targetClient) {
+        throw notFound("거래처를 찾을 수 없습니다.");
       }
-    });
+      await assertWorkAccess(user, input.clientId, input.ownerId, targetClient.assignedMarketerId);
+    }
+
+    const before = await getWorkItemDetail(workItemId);
+    const updated = await updateWorkItem(workItemId, input);
 
     await writeAuditLog({
       actorId: user.id,
-      action: AuditActions.WORK_STATUS_CHANGED,
+      action: AuditAction.WORK_STATUS_CHANGED,
       targetType: "WorkItem",
-      targetId: workItemId,
+      targetId: updated.id,
+      beforeState: before,
+      afterState: input
+    });
+
+    revalidatePath("/work");
+    return updated;
+  });
+}
+
+const statusActionSchema = z.object({
+  id: z.string().trim().min(1),
+  action: z.enum(["start", "submit_for_review", "approve", "block", "resume"])
+});
+
+export async function changeWorkStatusAction(
+  _prevState: WorkActionState | null,
+  formData: FormData
+): Promise<WorkActionState> {
+  return runAction(async () => {
+    const user = await requireCurrentUser();
+    const { id, action } = statusActionSchema.parse(formDataToObject(formData));
+
+    const existing = await getWorkItemAccessInfo(id);
+    if (!existing) {
+      throw notFound("업무를 찾을 수 없습니다.");
+    }
+
+    await assertWorkAccess(user, existing.clientId, existing.ownerId, existing.clientAssignedMarketerId);
+
+    const next = nextWorkStatus(existing.status, action as WorkStatusAction);
+    if (next === existing.status) {
+      throw conflict(`현재 상태(${workStatusLabels[existing.status]})에서 수행할 수 없는 작업입니다.`);
+    }
+
+    const timestamps = workStatusTimestamps(next, existing, new Date());
+    const updated = await changeWorkItemStatus(id, next, timestamps);
+
+    await writeAuditLog({
+      actorId: user.id,
+      action: AuditAction.WORK_STATUS_CHANGED,
+      targetType: "WorkItem",
+      targetId: updated.id,
       beforeState: { status: existing.status },
       afterState: { status: updated.status }
     });
 
     revalidatePath("/work");
-    return { id: workItemId, status: updated.status };
+    return { id: updated.id };
   });
-}
-
-const workFormKeys = ["title", "clientId", "ownerId", "category", "priority", "dueDate", "progressNotes"] as const;
-
-function formDataToWorkInput(formData: FormData) {
-  const input: Record<string, unknown> = {};
-
-  for (const key of workFormKeys) {
-    const value = formData.get(key);
-
-    if (typeof value === "string") {
-      input[key] = value;
-    }
-  }
-
-  return input;
-}
-
-export async function createWorkItemFormAction(
-  _prevState: ActionResult<{ id: string }> | null,
-  formData: FormData
-): Promise<ActionResult<{ id: string }>> {
-  return createWorkItem(formDataToWorkInput(formData));
-}
-
-export async function updateWorkItemFormAction(
-  workItemId: string,
-  _prevState: ActionResult<{ id: string }> | null,
-  formData: FormData
-): Promise<ActionResult<{ id: string }>> {
-  return updateWorkItem(workItemId, formDataToWorkInput(formData));
 }

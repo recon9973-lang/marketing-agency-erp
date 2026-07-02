@@ -191,14 +191,24 @@ describe("getCurrentUser", () => {
     await expect(getCurrentUser("SUPER_ADMIN")).resolves.toBeNull();
   });
 
-  it("never uses the dev session in production even when fully configured", async () => {
+  it("never falls back to a dev session in production even when ALLOW_DEV_SESSION is true", async () => {
     vi.stubEnv("NODE_ENV", "production");
     process.env.ALLOW_DEV_SESSION = "true";
     process.env.DEV_SESSION_ROLE = "SUPER_ADMIN";
-    authMock.mockRejectedValue(new Error("auth unavailable"));
+    authMock.mockResolvedValue(null);
 
     const { getCurrentUser } = await import("@/server/session");
 
     await expect(getCurrentUser()).resolves.toBeNull();
+  });
+
+  it("does not use a dev session when ALLOW_DEV_SESSION is not enabled outside production", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    delete process.env.ALLOW_DEV_SESSION;
+    authMock.mockResolvedValue(null);
+
+    const { getCurrentUser } = await import("@/server/session");
+
+    await expect(getCurrentUser("ADMIN")).resolves.toBeNull();
   });
 });

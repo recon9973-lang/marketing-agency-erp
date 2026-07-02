@@ -1,231 +1,158 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Role } from "@/domain/types";
-import { ErrorCodes } from "@/server/errors";
-import { createClient, setClientActive, updateClient } from "@/server/actions/clients";
+import { Prisma } from "@prisma/client";
+import { ErrorCode } from "@/server/errors";
+import { adminUser, marketerUser, superAdminUser } from "../helpers/users";
 import { expectFail, expectOk } from "../helpers/action-result";
-import { makeAdmin, makeMarketer, makeSuperAdmin } from "../helpers/fixtures";
 
-const {
-  getCurrentUserMock,
-  clientFindUniqueMock,
-  clientCreateMock,
-  clientUpdateMock,
-  userFindUniqueMock,
-  auditLogCreateMock,
-  revalidatePathMock
-} = vi.hoisted(() => ({
-  getCurrentUserMock: vi.fn(),
-  clientFindUniqueMock: vi.fn(),
-  clientCreateMock: vi.fn(),
-  clientUpdateMock: vi.fn(),
-  userFindUniqueMock: vi.fn(),
-  auditLogCreateMock: vi.fn(),
-  revalidatePathMock: vi.fn()
+const getCurrentUserMock = vi.fn();
+const loadAccessScopesMock = vi.fn();
+const createClientMock = vi.fn();
+const updateClientMock = vi.fn();
+const getClientAccessInfoMock = vi.fn();
+const getClientDetailMock = vi.fn();
+const writeAuditLogMock = vi.fn();
+const revalidatePathMock = vi.fn();
+
+vi.mock("@/server/session", () => ({ getCurrentUser: getCurrentUserMock }));
+vi.mock("@/server/scope", () => ({ loadAccessScopes: loadAccessScopesMock }));
+vi.mock("@/server/repositories/clients", () => ({
+  createClient: createClientMock,
+  updateClient: updateClientMock,
+  getClientAccessInfo: getClientAccessInfoMock,
+  getClientDetail: getClientDetailMock
 }));
+vi.mock("@/server/audit", async () => {
+  const actual = await vi.importActual<typeof import("@/server/audit")>("@/server/audit");
+  return { ...actual, writeAuditLog: writeAuditLogMock };
+});
+vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
-vi.mock("@/server/session", () => ({
-  getCurrentUser: getCurrentUserMock
-}));
+async function loadActions() {
+  return import("@/server/actions/clients");
+}
 
-vi.mock("@/server/db", () => ({
-  db: {
-    client: {
-      findUnique: clientFindUniqueMock,
-      create: clientCreateMock,
-      update: clientUpdateMock
-    },
-    user: { findUnique: userFindUniqueMock },
-    auditLog: { create: auditLogCreateMock }
+function formData(entries: Record<string, string>) {
+  const fd = new FormData();
+  for (const [key, value] of Object.entries(entries)) {
+    fd.set(key, value);
   }
-}));
+  return fd;
+}
 
-vi.mock("next/cache", () => ({
-  revalidatePath: revalidatePathMock
-}));
-
-const validInput = {
-  name: "A 병원",
-  code: "A-HOSPITAL",
-  contactEmail: "owner@a-hospital.test",
-  contractStartDate: "2026-07-01",
-  contractEndDate: "2026-12-31",
-  monthlyContractFee: "1500000",
-  assignedMarketerId: "marketer-1",
-  active: "on"
-};
-
-const storedClient = {
-  id: "client-1",
-  name: "A 병원",
-  code: "A-HOSPITAL",
-  active: true,
-  assignedMarketerId: "marketer-1",
-  monthlyContractFee: 1500000,
-  contractStartDate: new Date("2026-07-01T00:00:00.000Z"),
-  contractEndDate: new Date("2026-12-31T00:00:00.000Z")
-};
+const validClient = { name: "새 거래처", code: "NEW-001", monthlyContractFee: "1000000" };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getCurrentUserMock.mockResolvedValue(makeSuperAdmin());
-  clientFindUniqueMock.mockResolvedValue(null);
-  clientCreateMock.mockResolvedValue(storedClient);
-  clientUpdateMock.mockResolvedValue(storedClient);
-  userFindUniqueMock.mockResolvedValue({ id: "marketer-1", role: Role.MARKETER, isActive: true });
-  auditLogCreateMock.mockResolvedValue({});
+  loadAccessScopesMock.mockResolvedValue([]);
+  writeAuditLogMock.mockResolvedValue(true);
 });
 
-describe("createClient", () => {
-  it("rejects unauthenticated callers", async () => {
-    getCurrentUserMock.mockResolvedValue(null);
+describe("createClientAction", () => {
+  it("creates a client as super admin and writes an audit log", async () => {
+    const { createClientAction } = await loadActions();
+    getCurrentUserMock.mockResolvedValue(superAdminUser());
+    createClientMock.mockResolvedValue({ id: "client-new" });
 
-    expectFail(await createClient(validInput), ErrorCodes.UNAUTHORIZED);
-    expect(clientCreateMock).not.toHaveBeenCalled();
-  });
+    const result = await createClientAction(null, formData(validClient));
 
-  it("rejects admins and marketers", async () => {
-    getCurrentUserMock.mockResolvedValue(makeAdmin());
-    expectFail(await createClient(validInput), ErrorCodes.FORBIDDEN);
-
-    getCurrentUserMock.mockResolvedValue(makeMarketer());
-    expectFail(await createClient(validInput), ErrorCodes.FORBIDDEN);
-
-    expect(clientCreateMock).not.toHaveBeenCalled();
-  });
-
-  it("returns field errors for invalid input", async () => {
-    const result = await createClient({
-      name: " ",
-      code: "invalid code!!",
-      contactEmail: "not-an-email",
-      contractStartDate: "2026-12-31",
-      contractEndDate: "2026-07-01",
-      active: "on"
-    });
-
-    const error = expectFail(result, ErrorCodes.VALIDATION_ERROR);
-    expect(error.fieldErrors?.name).toBeDefined();
-    expect(error.fieldErrors?.code).toBeDefined();
-    expect(error.fieldErrors?.contactEmail).toBeDefined();
-    expect(error.fieldErrors?.contractEndDate).toEqual(["계약 종료일은 시작일보다 빠를 수 없습니다."]);
-    expect(clientCreateMock).not.toHaveBeenCalled();
-  });
-
-  it("rejects duplicate client codes with CONFLICT", async () => {
-    clientFindUniqueMock.mockResolvedValue({ id: "other-client" });
-
-    const error = expectFail(await createClient(validInput), ErrorCodes.CONFLICT);
-    expect(error.fieldErrors?.code).toEqual(["이미 사용 중인 거래처 코드입니다."]);
-    expect(clientCreateMock).not.toHaveBeenCalled();
-  });
-
-  it("rejects assignment to non-marketer or inactive users", async () => {
-    userFindUniqueMock.mockResolvedValue({ id: "admin-9", role: Role.ADMIN, isActive: true });
-
-    const error = expectFail(await createClient(validInput), ErrorCodes.VALIDATION_ERROR);
-    expect(error.fieldErrors?.assignedMarketerId).toBeDefined();
-    expect(clientCreateMock).not.toHaveBeenCalled();
-  });
-
-  it("creates the client, writes an audit log, and revalidates the list", async () => {
-    const result = await createClient(validInput);
-
-    expect(expectOk(result)).toEqual({ id: "client-1" });
-    expect(clientCreateMock).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        name: "A 병원",
-        code: "A-HOSPITAL",
-        contactEmail: "owner@a-hospital.test",
-        contractStartDate: new Date("2026-07-01T00:00:00.000Z"),
-        contractEndDate: new Date("2026-12-31T00:00:00.000Z"),
-        monthlyContractFee: 1500000,
-        assignedMarketerId: "marketer-1",
-        active: true
-      })
-    });
-    expect(auditLogCreateMock).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        actorId: "super-admin-1",
-        action: "CLIENT_CREATED",
-        targetType: "Client",
-        targetId: "client-1"
-      })
-    });
+    expect(expectOk(result)).toEqual({ id: "client-new" });
+    expect(createClientMock).toHaveBeenCalledWith(expect.objectContaining({ name: "새 거래처", code: "NEW-001" }));
+    expect(writeAuditLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "CLIENT_CREATED", targetId: "client-new" })
+    );
     expect(revalidatePathMock).toHaveBeenCalledWith("/clients");
   });
 
-  it("still succeeds when audit logging fails", async () => {
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    auditLogCreateMock.mockRejectedValue(new Error("audit table down"));
+  it("forbids non super admins from creating clients", async () => {
+    const { createClientAction } = await loadActions();
+    getCurrentUserMock.mockResolvedValue(adminUser());
 
-    expectOk(await createClient(validInput));
-    expect(consoleSpy).toHaveBeenCalled();
+    const result = await createClientAction(null, formData(validClient));
 
-    consoleSpy.mockRestore();
-  });
-});
-
-describe("updateClient", () => {
-  it("returns NOT_FOUND for missing clients", async () => {
-    clientFindUniqueMock.mockResolvedValue(null);
-
-    expectFail(await updateClient("missing", validInput), ErrorCodes.NOT_FOUND);
-    expect(clientUpdateMock).not.toHaveBeenCalled();
+    expectFail(result, ErrorCode.FORBIDDEN);
+    expect(createClientMock).not.toHaveBeenCalled();
   });
 
-  it("updates the client and records before/after audit states", async () => {
-    clientFindUniqueMock
-      .mockResolvedValueOnce({ ...storedClient, name: "이전 이름" })
-      .mockResolvedValueOnce({ id: "client-1" });
+  it("returns validation errors for invalid input", async () => {
+    const { createClientAction } = await loadActions();
+    getCurrentUserMock.mockResolvedValue(superAdminUser());
 
-    const result = await updateClient("client-1", validInput);
+    const result = await createClientAction(null, formData({ name: "", code: "" }));
 
-    expect(expectOk(result)).toEqual({ id: "client-1" });
-    expect(clientUpdateMock).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "client-1" } })
+    const error = expectFail(result, ErrorCode.VALIDATION_ERROR);
+    expect(error.fieldErrors?.name).toBeDefined();
+    expect(createClientMock).not.toHaveBeenCalled();
+  });
+
+  it("maps a duplicate client code to a conflict", async () => {
+    const { createClientAction } = await loadActions();
+    getCurrentUserMock.mockResolvedValue(superAdminUser());
+    createClientMock.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint", { code: "P2002", clientVersion: "6" })
     );
-    expect(auditLogCreateMock).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        action: "CLIENT_UPDATED",
-        targetId: "client-1",
-        beforeState: expect.objectContaining({ name: "이전 이름" }),
-        afterState: expect.objectContaining({ name: "A 병원" })
-      })
-    });
+
+    const result = await createClientAction(null, formData(validClient));
+
+    expectFail(result, ErrorCode.CONFLICT);
   });
 
-  it("allows keeping the client's own code", async () => {
-    clientFindUniqueMock
-      .mockResolvedValueOnce(storedClient)
-      .mockResolvedValueOnce({ id: "client-1" });
+  it("rejects an unauthenticated caller", async () => {
+    const { createClientAction } = await loadActions();
+    getCurrentUserMock.mockResolvedValue(null);
 
-    expectOk(await updateClient("client-1", validInput));
+    const result = await createClientAction(null, formData(validClient));
+
+    expectFail(result, ErrorCode.UNAUTHENTICATED);
   });
 });
 
-describe("setClientActive", () => {
-  it("requires super admin", async () => {
-    getCurrentUserMock.mockResolvedValue(makeAdmin());
+describe("updateClientAction", () => {
+  it("updates an accessible client and records before/after state", async () => {
+    const { updateClientAction } = await loadActions();
+    getCurrentUserMock.mockResolvedValue(superAdminUser());
+    getClientAccessInfoMock.mockResolvedValue({ id: "client-1", assignedMarketerId: null });
+    getClientDetailMock.mockResolvedValue({ id: "client-1", name: "이전 이름" });
+    updateClientMock.mockResolvedValue({ id: "client-1" });
 
-    expectFail(await setClientActive("client-1", false), ErrorCodes.FORBIDDEN);
-  });
-
-  it("toggles the active flag with an audit trail", async () => {
-    clientFindUniqueMock.mockResolvedValue(storedClient);
-    clientUpdateMock.mockResolvedValue({ ...storedClient, active: false });
-
-    const result = await setClientActive("client-1", false);
+    const result = await updateClientAction(null, formData({ ...validClient, id: "client-1" }));
 
     expect(expectOk(result)).toEqual({ id: "client-1" });
-    expect(clientUpdateMock).toHaveBeenCalledWith({
-      where: { id: "client-1" },
-      data: { active: false }
-    });
-    expect(auditLogCreateMock).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        beforeState: expect.objectContaining({ active: true }),
-        afterState: expect.objectContaining({ active: false })
-      })
-    });
+    expect(updateClientMock).toHaveBeenCalledWith("client-1", expect.objectContaining({ code: "NEW-001" }));
+    expect(writeAuditLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "CLIENT_UPDATED", beforeState: { id: "client-1", name: "이전 이름" } })
+    );
+  });
+
+  it("returns NOT_FOUND when the client does not exist", async () => {
+    const { updateClientAction } = await loadActions();
+    getCurrentUserMock.mockResolvedValue(superAdminUser());
+    getClientAccessInfoMock.mockResolvedValue(null);
+
+    const result = await updateClientAction(null, formData({ ...validClient, id: "missing" }));
+
+    expectFail(result, ErrorCode.NOT_FOUND);
+    expect(updateClientMock).not.toHaveBeenCalled();
+  });
+
+  it("forbids marketers from updating clients", async () => {
+    const { updateClientAction } = await loadActions();
+    getCurrentUserMock.mockResolvedValue(marketerUser());
+
+    const result = await updateClientAction(null, formData({ ...validClient, id: "client-1" }));
+
+    expectFail(result, ErrorCode.FORBIDDEN);
+    expect(getClientAccessInfoMock).not.toHaveBeenCalled();
+  });
+
+  it("forbids an admin without access to the client's scope", async () => {
+    const { updateClientAction } = await loadActions();
+    getCurrentUserMock.mockResolvedValue(adminUser({ id: "admin-1" }));
+    getClientAccessInfoMock.mockResolvedValue({ id: "client-1", assignedMarketerId: "marketer-9" });
+    loadAccessScopesMock.mockResolvedValue([]);
+
+    const result = await updateClientAction(null, formData({ ...validClient, id: "client-1" }));
+
+    expectFail(result, ErrorCode.FORBIDDEN);
+    expect(updateClientMock).not.toHaveBeenCalled();
   });
 });

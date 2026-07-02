@@ -1,11 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LinkButton } from "@/components/ui/Button";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
-import { FilterBar } from "@/components/ui/FilterBar";
-import { FormField } from "@/components/ui/FormField";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { StatusBadge } from "@/components/ui/StatusBadge";
-import { DateInput, Input, Select } from "@/components/ui/fields";
 import { workCategoryLabels, workStatusLabels } from "@/domain/work";
 import { Role, WorkCategory, WorkStatus } from "@/domain/types";
 import { fetchWorkItemsForUser, type WorkListFilters, type WorkListItem } from "@/server/repositories/work";
@@ -54,13 +49,17 @@ function formatDueDate(value: WorkListItem["dueDate"]) {
   return new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" }).format(date);
 }
 
-function WorkStatusBadge({ item }: { item: WorkListItem }) {
-  const tone = item.delayed ? "danger" : item.status === WorkStatus.COMPLETED ? "success" : "neutral";
+function StatusBadge({ item }: { item: WorkListItem }) {
+  const tone = item.delayed
+    ? "border-danger/30 bg-danger/10 text-danger"
+    : item.status === WorkStatus.COMPLETED
+      ? "border-brand/30 bg-brand/10 text-brand"
+      : "border-line bg-surface text-slate-700";
 
   return (
-    <StatusBadge tone={tone} className="min-w-20">
+    <span className={`inline-flex min-w-20 justify-center rounded-md border px-2.5 py-1 text-xs font-semibold ${tone}`}>
       {item.delayed ? "지연" : workStatusLabels[item.status]}
-    </StatusBadge>
+    </span>
   );
 }
 
@@ -88,7 +87,7 @@ const columns: DataTableColumn<WorkListItem>[] = [
   {
     key: "status",
     header: "상태",
-    render: (item) => <WorkStatusBadge item={item} />
+    render: (item) => <StatusBadge item={item} />
   },
   {
     key: "due",
@@ -101,12 +100,12 @@ const columns: DataTableColumn<WorkListItem>[] = [
     render: (item) => <span className="line-clamp-2 text-slate-600">{item.progressNotes ?? "-"}</span>
   },
   {
-    key: "manage",
+    key: "actions",
     header: "관리",
     render: (item) => (
-      <a href={`/work/${item.id}/edit`} className="text-sm font-semibold text-brand hover:underline">
+      <Link href={`/work/${item.id}/edit`} className="text-sm font-medium text-brand hover:underline">
         수정
-      </a>
+      </Link>
     )
   }
 ];
@@ -130,68 +129,84 @@ export default async function WorkPage({
 
   return (
     <section className="space-y-6">
-      <PageHeader
-        eyebrow="업무관리"
-        title="거래처 업무 진행 현황"
-        description={
-          user.role === Role.MARKETER
-            ? "내가 담당하는 업무의 마감, 검수 요청, 진행 메모를 확인합니다."
-            : "권한 범위 안의 거래처와 담당자별 업무 흐름을 확인하고 지시 우선순위를 잡습니다."
-        }
-        actions={
-          <div className="flex items-center gap-2">
-            <div className="grid grid-cols-3 gap-2 text-sm">
-              <div className="rounded-md border border-line bg-white px-4 py-3">
-                <p className="text-xs text-slate-500">전체</p>
-                <p className="mt-1 font-semibold text-ink">{workItems.length}</p>
-              </div>
-              <div className="rounded-md border border-line bg-white px-4 py-3">
-                <p className="text-xs text-slate-500">지연</p>
-                <p className="mt-1 font-semibold text-danger">{delayedCount}</p>
-              </div>
-              <div className="rounded-md border border-line bg-white px-4 py-3">
-                <p className="text-xs text-slate-500">검수</p>
-                <p className="mt-1 font-semibold text-warning">{reviewCount}</p>
-              </div>
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-brand">업무관리</p>
+          <h2 className="mt-2 text-2xl font-semibold text-ink">거래처 업무 진행 현황</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+            {user.role === Role.MARKETER
+              ? "내가 담당하는 업무의 마감, 검수 요청, 진행 메모를 확인합니다."
+              : "권한 범위 안의 거래처와 담당자별 업무 흐름을 확인하고 지시 우선순위를 잡습니다."}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-3">
+          <Link
+            href="/work/new"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand/90"
+          >
+            새 업무
+          </Link>
+          <div className="grid grid-cols-3 gap-2 text-sm">
+            <div className="rounded-md border border-line bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">전체</p>
+              <p className="mt-1 font-semibold text-ink">{workItems.length}</p>
             </div>
-            <LinkButton href="/work/new" variant="primary">
-              신규 업무
-            </LinkButton>
+            <div className="rounded-md border border-line bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">지연</p>
+              <p className="mt-1 font-semibold text-danger">{delayedCount}</p>
+            </div>
+            <div className="rounded-md border border-line bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">검수</p>
+              <p className="mt-1 font-semibold text-warning">{reviewCount}</p>
+            </div>
           </div>
-        }
-      />
+        </div>
+      </div>
 
-      <FilterBar columns={5} resetHref="/work">
-        <FormField label="카테고리">
-          <Select name="category" defaultValue={filters.category ?? ""}>
+      <form className="grid gap-3 rounded-md border border-line bg-white p-4 md:grid-cols-5">
+        <label className="text-sm text-slate-600">
+          <span className="mb-1 block text-xs font-semibold text-slate-500">카테고리</span>
+          <select name="category" defaultValue={filters.category ?? ""} className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink">
             <option value="">전체</option>
             {categoryOptions.map((category) => (
               <option key={category} value={category}>
                 {workCategoryLabels[category]}
               </option>
             ))}
-          </Select>
-        </FormField>
-        <FormField label="상태">
-          <Select name="status" defaultValue={filters.status ?? ""}>
+          </select>
+        </label>
+        <label className="text-sm text-slate-600">
+          <span className="mb-1 block text-xs font-semibold text-slate-500">상태</span>
+          <select name="status" defaultValue={filters.status ?? ""} className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink">
             <option value="">전체</option>
             {statusOptions.map((status) => (
               <option key={status} value={status}>
                 {workStatusLabels[status]}
               </option>
             ))}
-          </Select>
-        </FormField>
-        <FormField label="거래처 ID">
-          <Input name="clientId" defaultValue={filters.clientId ?? ""} />
-        </FormField>
-        <FormField label="담당자 ID">
-          <Input name="ownerId" defaultValue={filters.ownerId ?? ""} />
-        </FormField>
-        <FormField label="마감일">
-          <DateInput name="dueDate" defaultValue={filters.dueDate ?? ""} />
-        </FormField>
-      </FilterBar>
+          </select>
+        </label>
+        <label className="text-sm text-slate-600">
+          <span className="mb-1 block text-xs font-semibold text-slate-500">거래처 ID</span>
+          <input name="clientId" defaultValue={filters.clientId ?? ""} className="w-full rounded-md border border-line px-3 py-2 text-sm text-ink" />
+        </label>
+        <label className="text-sm text-slate-600">
+          <span className="mb-1 block text-xs font-semibold text-slate-500">담당자 ID</span>
+          <input name="ownerId" defaultValue={filters.ownerId ?? ""} className="w-full rounded-md border border-line px-3 py-2 text-sm text-ink" />
+        </label>
+        <label className="text-sm text-slate-600">
+          <span className="mb-1 block text-xs font-semibold text-slate-500">마감일</span>
+          <input type="date" name="dueDate" defaultValue={filters.dueDate ?? ""} className="w-full rounded-md border border-line px-3 py-2 text-sm text-ink" />
+        </label>
+        <div className="flex items-end gap-2 md:col-span-5">
+          <button type="submit" className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white">
+            필터 적용
+          </button>
+          <a href="/work" className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-slate-700">
+            초기화
+          </a>
+        </div>
+      </form>
 
       <DataTable columns={columns} rows={workItems} emptyMessage="조회 가능한 업무가 없습니다." />
     </section>
