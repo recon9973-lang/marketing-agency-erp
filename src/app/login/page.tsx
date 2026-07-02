@@ -24,7 +24,7 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-surface px-6">
       <section className="w-full max-w-md rounded-md border border-line bg-white p-8 shadow-sm">
-        <p className="text-sm font-semibold text-brand">Marketing Agency ERP</p>
+        <p className="text-sm font-semibold text-brand">VENOM ERP</p>
         <h1 className="mt-3 text-3xl font-semibold text-ink">관리자 로그인</h1>
         <p className="mt-4 text-base leading-7 text-slate-600">카카오 계정으로 로그인하고 역할별 ERP 화면으로 이동합니다.</p>
 

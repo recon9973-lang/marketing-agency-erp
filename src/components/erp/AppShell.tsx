@@ -84,7 +84,9 @@ export function AppShell({ children, role }: { children: ReactNode; role: Role }
     <div className="min-h-screen bg-surface text-ink">
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-line bg-white px-5 py-6 md:block">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Marketing Agency ERP</p>
+          <p className="text-base font-extrabold uppercase tracking-widest text-ink">
+            VENOM<span className="text-[#f0910f]">.</span>
+          </p>
           <h1 className="mt-2 text-lg font-semibold">운영 셸</h1>
         </div>
         <nav className="mt-8 grid gap-1">
@@ -109,7 +111,7 @@ export function AppShell({ children, role }: { children: ReactNode; role: Role }
         <header className="border-b border-line bg-white px-4 py-4 sm:px-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-sm font-semibold text-ink">Marketing ERP</p>
+              <p className="text-sm font-semibold text-ink">VENOM ERP</p>
               <p className="text-sm text-slate-500">역할: {role}</p>
             </div>
             <nav className="flex gap-2 overflow-x-auto pb-1 md:hidden">
