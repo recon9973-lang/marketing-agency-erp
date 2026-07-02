@@ -1,14 +1,20 @@
 import { redirect } from "next/navigation";
-import { Button } from "@/components/ui/Button";
+import { LeaveCancelButton } from "@/components/leave/LeaveCancelButton";
+import { LeaveDecisionButtons } from "@/components/leave/LeaveDecisionButtons";
+import { LeaveRequestForm } from "@/components/leave/LeaveRequestForm";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
-import { FormField } from "@/components/ui/FormField";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { DateInput, Input, NumberInput, Select } from "@/components/ui/fields";
 import { leaveStatusLabels, leaveTypeLabels } from "@/domain/leave";
-import { Role } from "@/domain/types";
+import { LeaveStatus, LeaveType, Role } from "@/domain/types";
+import { cancelLeave, decideLeave, requestLeaveFormAction } from "@/server/actions/leave";
 import { fetchLeaveOverviewForUser, type LeaveRequestListItem } from "@/server/repositories/leave";
 import { getCurrentUser } from "@/server/session";
+
+const leaveTypeOptions = Object.values(LeaveType).map((type) => ({
+  value: type,
+  label: leaveTypeLabels[type]
+}));
 
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" });
 
@@ -52,13 +58,32 @@ const requestColumns: DataTableColumn<LeaveRequestListItem>[] = [
   }
 ];
 
+const myRequestColumns: DataTableColumn<LeaveRequestListItem>[] = [
+  ...requestColumns,
+  {
+    key: "manage",
+    header: "관리",
+    render: (request) =>
+      request.status === LeaveStatus.REQUESTED || request.status === LeaveStatus.APPROVED ? (
+        <LeaveCancelButton leaveRequestId={request.id} cancelLeave={cancelLeave} />
+      ) : (
+        "-"
+      )
+  }
+];
+
 const approvalColumns: DataTableColumn<LeaveRequestListItem>[] = [
   {
     key: "requester",
     header: "신청자",
     render: (request) => request.requesterName
   },
-  ...requestColumns
+  ...requestColumns,
+  {
+    key: "decision",
+    header: "처리",
+    render: (request) => <LeaveDecisionButtons leaveRequestId={request.id} decideLeave={decideLeave} />
+  }
 ];
 
 export default async function LeavePage() {
@@ -94,32 +119,7 @@ export default async function LeavePage() {
         }
       />
 
-      <form className="grid gap-3 rounded-md border border-line bg-white p-4 md:grid-cols-5">
-        <FormField label="유형">
-          <Select name="type">
-            {Object.entries(leaveTypeLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
-        </FormField>
-        <FormField label="시작일">
-          <DateInput name="startDate" />
-        </FormField>
-        <FormField label="종료일">
-          <DateInput name="endDate" />
-        </FormField>
-        <FormField label="일수">
-          <NumberInput step="0.5" min="0.5" name="daysRequested" />
-        </FormField>
-        <FormField label="사유">
-          <Input name="reason" />
-        </FormField>
-        <div className="flex items-end md:col-span-5">
-          <Button type="button">신청 저장 준비중</Button>
-        </div>
-      </form>
+      <LeaveRequestForm action={requestLeaveFormAction} typeOptions={leaveTypeOptions} />
 
       {user.role !== Role.MARKETER ? (
         <div className="space-y-3">
@@ -130,7 +130,7 @@ export default async function LeavePage() {
 
       <div className="space-y-3">
         <h3 className="text-base font-semibold text-ink">내 신청 내역</h3>
-        <DataTable columns={requestColumns} rows={overview.requests} emptyMessage="휴가 신청 내역이 없습니다." />
+        <DataTable columns={myRequestColumns} rows={overview.requests} emptyMessage="휴가 신청 내역이 없습니다." />
       </div>
     </section>
   );
