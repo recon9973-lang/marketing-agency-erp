@@ -130,40 +130,41 @@ enum ClientAccountPlatform {
 }
 
 model User {
-  id                      String           @id @default(cuid())
+  id                      String          @id @default(cuid())
   name                    String
-  email                   String           @unique
+  email                   String          @unique
   emailVerified           DateTime?
   role                    Role
-  status                  UserStatus       @default(ACTIVE)
+  status                  UserStatus      @default(ACTIVE)
   image                   String?
-  kakaoId                 String?          @unique
-  timezone                String           @default("Asia/Seoul")
-  isActive                Boolean          @default(true)
-  googleCalendarConnected Boolean          @default(false)
-  naverCalendarConnected  Boolean          @default(false)
-  createdAt               DateTime         @default(now())
-  updatedAt               DateTime         @updatedAt
-  adminScopes             AccessScope[]    @relation("AdminScopes")
-  scopedMarketers         AccessScope[]    @relation("ScopedMarketers")
-  ownedClients            Client[]         @relation("AssignedMarketer")
-  managedAccounts         ClientAccount[]  @relation("AccountManager")
-  workTemplates           WorkTemplate[]   @relation("TemplateCreator")
-  ownedWorkItems          WorkItem[]       @relation("WorkOwner")
-  createdWorkItems        WorkItem[]       @relation("WorkCreator")
-  createdEvents           CalendarEvent[]  @relation("EventCreator")
-  billingsIssued          BillingRecord[]  @relation("BillingIssuer")
-  paymentsRecorded        PaymentRecord[]  @relation("PaymentRecorder")
-  expensesSubmitted       ExpenseRecord[]  @relation("ExpenseSubmitter")
-  expensesReviewed        ExpenseRecord[]  @relation("ExpenseReviewer")
+  kakaoId                 String?         @unique
+  timezone                String          @default("Asia/Seoul")
+  isActive                Boolean         @default(true)
+  googleCalendarConnected Boolean         @default(false)
+  naverCalendarConnected  Boolean         @default(false)
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+  adminScopes             AccessScope[]   @relation("AdminScopes")
+  scopedMarketers         AccessScope[]   @relation("ScopedMarketers")
+  ownedClients            Client[]        @relation("AssignedMarketer")
+  managedAccounts         ClientAccount[] @relation("AccountManager")
+  workTemplates           WorkTemplate[]  @relation("TemplateCreator")
+  ownedWorkItems          WorkItem[]      @relation("WorkOwner")
+  createdWorkItems        WorkItem[]      @relation("WorkCreator")
+  createdEvents           CalendarEvent[] @relation("EventCreator")
+  billingsIssued          BillingRecord[] @relation("BillingIssuer")
+  paymentsRecorded        PaymentRecord[] @relation("PaymentRecorder")
+  expensesSubmitted       ExpenseRecord[] @relation("ExpenseSubmitter")
+  expensesReviewed        ExpenseRecord[] @relation("ExpenseReviewer")
   leavePolicies           LeavePolicy[]
-  leaveRequests           LeaveRequest[]   @relation("LeaveRequester")
-  leaveApprovals          LeaveRequest[]   @relation("LeaveApprover")
-  authoredReports         Report[]         @relation("ReportAuthor")
-  reviewedReports         Report[]         @relation("ReportReviewer")
-  auditLogs               AuditLog[]       @relation("AuditActor")
+  leaveRequests           LeaveRequest[]  @relation("LeaveRequester")
+  leaveApprovals          LeaveRequest[]  @relation("LeaveApprover")
+  authoredReports         Report[]        @relation("ReportAuthor")
+  reviewedReports         Report[]        @relation("ReportReviewer")
+  auditLogs               AuditLog[]      @relation("AuditActor")
   accounts                Account[]
   sessions                Session[]
+  loginHistory            LoginHistory[]  @relation("UserLoginHistory")
 }
 
 model AccessScope {
@@ -185,95 +186,113 @@ model AccessScope {
 }
 
 model Client {
-  id                  String          @id @default(cuid())
-  name                String
-  code                String          @unique
-  businessNumber      String?
-  contactName         String?
-  contactEmail        String?
-  contactPhone        String?
-  contractStartDate   DateTime?
-  contractEndDate     DateTime?
-  monthlyContractFee  Decimal?        @db.Decimal(12, 2)
-  serviceNotes        String?
-  active              Boolean         @default(true)
-  assignedMarketerId  String?
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-  assignedMarketer    User?           @relation("AssignedMarketer", fields: [assignedMarketerId], references: [id])
-  accessScopes        AccessScope[]
-  accounts            ClientAccount[]
-  workItems           WorkItem[]
-  calendarEvents      CalendarEvent[]
-  billingRecords      BillingRecord[]
-  expenseRecords      ExpenseRecord[]
-  reports             Report[]
+  id                 String            @id @default(cuid())
+  name               String
+  code               String            @unique
+  businessNumber     String?
+  contactName        String?
+  contactEmail       String?
+  contactPhone       String?
+  contractStartDate  DateTime?
+  contractEndDate    DateTime?
+  monthlyContractFee Decimal?          @db.Decimal(12, 2)
+  serviceNotes       String?
+  active             Boolean           @default(true)
+  assignedMarketerId String?
+  industryCategoryId String?
+  industryCustom     String? // 업종 "기타" 수기 입력
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  assignedMarketer   User?             @relation("AssignedMarketer", fields: [assignedMarketerId], references: [id])
+  industryCategory   IndustryCategory? @relation(fields: [industryCategoryId], references: [id])
+  accessScopes       AccessScope[]
+  accounts           ClientAccount[]
+  workItems          WorkItem[]
+  calendarEvents     CalendarEvent[]
+  billingRecords     BillingRecord[]
+  expenseRecords     ExpenseRecord[]
+  reports            Report[]
 
   @@index([assignedMarketerId])
+  @@index([industryCategoryId])
 }
 
 model ClientAccount {
-  id                String                @id @default(cuid())
-  clientId          String
-  managerId         String?
-  platform          ClientAccountPlatform
-  label             String
-  handle            String?
-  loginReference    String?
-  credentialHint    String?
-  externalUrl       String?
-  isPrimary         Boolean               @default(false)
-  isActive          Boolean               @default(true)
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
-  client            Client                @relation(fields: [clientId], references: [id])
-  manager           User?                 @relation("AccountManager", fields: [managerId], references: [id])
+  id             String                 @id @default(cuid())
+  clientId       String
+  managerId      String?
+  platform       ClientAccountPlatform? // §3-D: 신규는 channelType 경로로 일원화, 이관 기간 nullable
+  channelTypeId  String?
+  usernameEnc    String? // AES-256-GCM 암호화 저장 (crypto.ts)
+  passwordEnc    String? // AES-256-GCM 암호화 저장
+  label          String
+  handle         String?
+  loginReference String?
+  credentialHint String?
+  externalUrl    String?
+  isPrimary      Boolean                @default(false)
+  isActive       Boolean                @default(true)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  client         Client                 @relation(fields: [clientId], references: [id])
+  manager        User?                  @relation("AccountManager", fields: [managerId], references: [id])
+  channelType    ChannelType?           @relation(fields: [channelTypeId], references: [id])
 
   @@index([clientId, platform])
   @@index([managerId])
+  @@index([channelTypeId])
 }
 
 model WorkTemplate {
-  id                 String        @id @default(cuid())
-  title              String
-  description        String?
-  category           WorkCategory
-  defaultPriority    Int           @default(3)
-  estimatedHours     Decimal?      @db.Decimal(6, 2)
-  cadenceDays        Int?
-  active             Boolean       @default(true)
-  createdById        String?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  createdBy          User?         @relation("TemplateCreator", fields: [createdById], references: [id])
-  workItems          WorkItem[]
+  id              String       @id @default(cuid())
+  title           String
+  description     String?
+  category        WorkCategory
+  defaultPriority Int          @default(3)
+  estimatedHours  Decimal?     @db.Decimal(6, 2)
+  cadenceDays     Int?
+  active          Boolean      @default(true)
+  createdById     String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  createdBy       User?        @relation("TemplateCreator", fields: [createdById], references: [id])
+  workItems       WorkItem[]
 
   @@index([category, active])
   @@index([createdById])
 }
 
 model WorkItem {
-  id               String         @id @default(cuid())
+  id               String              @id @default(cuid())
   clientId         String
   ownerId          String
   createdById      String?
   templateId       String?
   title            String
   category         WorkCategory
-  status           WorkStatus     @default(NOT_STARTED)
-  priority         Int            @default(3)
+  status           WorkStatus          @default(NOT_STARTED)
+  priority         Int                 @default(3)
   dueDate          DateTime?
   startedAt        DateTime?
   completedAt      DateTime?
   progressNotes    String?
   resultSummary    String?
   attachmentUrl    String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  client           Client         @relation(fields: [clientId], references: [id])
-  owner            User           @relation("WorkOwner", fields: [ownerId], references: [id])
-  createdBy        User?          @relation("WorkCreator", fields: [createdById], references: [id])
-  template         WorkTemplate?  @relation(fields: [templateId], references: [id])
+  parentId         String?
+  sequence         Int                 @default(0)
+  scheduledStart   DateTime?
+  scheduledEnd     DateTime?
+  estimatedMinutes Int?
+  workCategoryId   String? // WorkCategoryMaster FK (기존 category enum과 병행/이관)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  client           Client              @relation(fields: [clientId], references: [id])
+  owner            User                @relation("WorkOwner", fields: [ownerId], references: [id])
+  createdBy        User?               @relation("WorkCreator", fields: [createdById], references: [id])
+  template         WorkTemplate?       @relation(fields: [templateId], references: [id])
+  parent           WorkItem?           @relation("WorkSubtasks", fields: [parentId], references: [id])
+  subtasks         WorkItem[]          @relation("WorkSubtasks")
+  workCategory     WorkCategoryMaster? @relation(fields: [workCategoryId], references: [id])
   calendarEvents   CalendarEvent[]
   reports          Report[]
 
@@ -281,33 +300,36 @@ model WorkItem {
   @@index([ownerId, status, dueDate])
   @@index([templateId])
   @@index([createdById])
+  @@index([parentId])
+  @@index([ownerId, scheduledStart])
+  @@index([workCategoryId])
 }
 
 model CalendarEvent {
-  id                String             @id @default(cuid())
-  title             String
-  description       String?
-  startsAt          DateTime
-  endsAt            DateTime
-  provider          CalendarProvider   @default(INTERNAL)
-  kind              CalendarEventKind
-  syncStatus        ConnectionStatus   @default(DISCONNECTED)
-  syncError         String?
-  externalEventId   String?
+  id                 String            @id @default(cuid())
+  title              String
+  description        String?
+  startsAt           DateTime
+  endsAt             DateTime
+  provider           CalendarProvider  @default(INTERNAL)
+  kind               CalendarEventKind
+  syncStatus         ConnectionStatus  @default(DISCONNECTED)
+  syncError          String?
+  externalEventId    String?
   externalCalendarId String?
-  lastSyncedAt      DateTime?
-  clientId          String?
-  workItemId        String?
-  leaveRequestId    String?            @unique
-  reportId          String?
-  createdById       String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  client            Client?            @relation(fields: [clientId], references: [id])
-  workItem          WorkItem?          @relation(fields: [workItemId], references: [id])
-  leaveRequest      LeaveRequest?       @relation("LeaveRequestEvent", fields: [leaveRequestId], references: [id])
-  report            Report?            @relation(fields: [reportId], references: [id])
-  createdBy         User?              @relation("EventCreator", fields: [createdById], references: [id])
+  lastSyncedAt       DateTime?
+  clientId           String?
+  workItemId         String?
+  leaveRequestId     String?           @unique
+  reportId           String?
+  createdById        String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  client             Client?           @relation(fields: [clientId], references: [id])
+  workItem           WorkItem?         @relation(fields: [workItemId], references: [id])
+  leaveRequest       LeaveRequest?     @relation("LeaveRequestEvent", fields: [leaveRequestId], references: [id])
+  report             Report?           @relation(fields: [reportId], references: [id])
+  createdBy          User?             @relation("EventCreator", fields: [createdById], references: [id])
 
   @@index([startsAt, endsAt])
   @@index([clientId])
@@ -317,29 +339,30 @@ model CalendarEvent {
 }
 
 model BillingRecord {
-  id                    String          @id @default(cuid())
-  clientId              String
-  issuedById            String?
-  billingMonth          DateTime
-  contractAmount        Decimal         @db.Decimal(12, 2)
-  issuedAmount          Decimal         @db.Decimal(12, 2)
-  paidAmount            Decimal         @default(0) @db.Decimal(12, 2)
-  currency              String          @default("KRW")
-  status                BillingStatus   @default(DRAFT)
-  invoiceNumber         String?         @unique
-  dueDate               DateTime?
-  issuedAt              DateTime?
-  canceledAt            DateTime?
-  pgProvider            PaymentProvider?
-  pgCustomerReference   String?
-  webhookStatus         String?
-  reconciliationStatus  String?
-  metadata              Json?
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
-  client                Client          @relation(fields: [clientId], references: [id])
-  issuedBy              User?           @relation("BillingIssuer", fields: [issuedById], references: [id])
-  payments              PaymentRecord[]
+  id                   String            @id @default(cuid())
+  clientId             String
+  issuedById           String?
+  billingMonth         DateTime
+  contractAmount       Decimal           @db.Decimal(12, 2)
+  issuedAmount         Decimal           @db.Decimal(12, 2)
+  paidAmount           Decimal           @default(0) @db.Decimal(12, 2)
+  currency             String            @default("KRW")
+  status               BillingStatus     @default(DRAFT)
+  invoiceNumber        String?           @unique
+  dueDate              DateTime?
+  issuedAt             DateTime?
+  canceledAt           DateTime?
+  pgProvider           PaymentProvider?
+  pgCustomerReference  String?
+  webhookStatus        String?
+  reconciliationStatus String?
+  metadata             Json?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  client               Client            @relation(fields: [clientId], references: [id])
+  issuedBy             User?             @relation("BillingIssuer", fields: [issuedById], references: [id])
+  payments             PaymentRecord[]
+  bankMatches          BankTransaction[] @relation("BillingBankMatch")
 
   @@unique([clientId, billingMonth])
   @@index([status, dueDate])
@@ -347,55 +370,55 @@ model BillingRecord {
 }
 
 model PaymentRecord {
-  id                    String          @id @default(cuid())
-  billingRecordId       String
-  recordedById          String?
-  amount                Decimal         @db.Decimal(12, 2)
-  currency              String          @default("KRW")
-  method                PaymentMethod
-  provider              PaymentProvider @default(MANUAL)
-  transactionId         String?
-  providerPaymentId     String?
-  virtualAccountNumber  String?
-  webhookStatus         String?
-  reconciliationStatus  String?
-  receivedAt            DateTime
-  metadata              Json?
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
-  billingRecord         BillingRecord   @relation(fields: [billingRecordId], references: [id])
-  recordedBy            User?           @relation("PaymentRecorder", fields: [recordedById], references: [id])
+  id                   String          @id @default(cuid())
+  billingRecordId      String
+  recordedById         String?
+  amount               Decimal         @db.Decimal(12, 2)
+  currency             String          @default("KRW")
+  method               PaymentMethod
+  provider             PaymentProvider @default(MANUAL)
+  transactionId        String?
+  providerPaymentId    String?
+  virtualAccountNumber String?
+  webhookStatus        String?
+  reconciliationStatus String?
+  receivedAt           DateTime
+  metadata             Json?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  billingRecord        BillingRecord   @relation(fields: [billingRecordId], references: [id])
+  recordedBy           User?           @relation("PaymentRecorder", fields: [recordedById], references: [id])
 
   @@index([billingRecordId, receivedAt])
   @@index([recordedById])
 }
 
 model ExpenseRecord {
-  id                   String               @id @default(cuid())
-  clientId             String?
-  submittedById        String?
-  reviewedById         String?
-  financialAccountId   String?
-  category             String
-  vendor               String?
-  memo                 String?
-  amount               Decimal              @db.Decimal(12, 2)
-  taxAmount            Decimal?             @db.Decimal(12, 2)
-  paymentMethod        PaymentMethod
-  reviewStatus         ExpenseReviewStatus  @default(UNREVIEWED)
-  paidAt               DateTime?
-  reviewedAt           DateTime?
-  excludedReason       String?
-  syncProvider         String?
+  id                    String              @id @default(cuid())
+  clientId              String?
+  submittedById         String?
+  reviewedById          String?
+  financialAccountId    String?
+  category              String
+  vendor                String?
+  memo                  String?
+  amount                Decimal             @db.Decimal(12, 2)
+  taxAmount             Decimal?            @db.Decimal(12, 2)
+  paymentMethod         PaymentMethod
+  reviewStatus          ExpenseReviewStatus @default(UNREVIEWED)
+  paidAt                DateTime?
+  reviewedAt            DateTime?
+  excludedReason        String?
+  syncProvider          String?
   externalTransactionId String?
-  externalReference    String?
-  rawPayload           Json?
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
-  client               Client?              @relation(fields: [clientId], references: [id])
-  submittedBy          User?                @relation("ExpenseSubmitter", fields: [submittedById], references: [id])
-  reviewedBy           User?                @relation("ExpenseReviewer", fields: [reviewedById], references: [id])
-  financialAccount     FinancialAccount?    @relation(fields: [financialAccountId], references: [id])
+  externalReference     String?
+  rawPayload            Json?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  client                Client?             @relation(fields: [clientId], references: [id])
+  submittedBy           User?               @relation("ExpenseSubmitter", fields: [submittedById], references: [id])
+  reviewedBy            User?               @relation("ExpenseReviewer", fields: [reviewedById], references: [id])
+  financialAccount      FinancialAccount?   @relation(fields: [financialAccountId], references: [id])
 
   @@index([clientId])
   @@index([financialAccountId])
@@ -405,63 +428,63 @@ model ExpenseRecord {
 }
 
 model FinancialAccount {
-  id                 String              @id @default(cuid())
-  type               FinancialAccountType
-  displayName        String
-  institutionName    String?
-  accountLast4       String?
-  cardLast4          String?
-  currency           String              @default("KRW")
-  isActive           Boolean             @default(true)
-  connectionStatus   ConnectionStatus    @default(DISCONNECTED)
-  provider           String?
-  externalAccountId  String?
-  syncCursor         String?
-  lastSyncedAt       DateTime?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  expenseRecords     ExpenseRecord[]
+  id                String               @id @default(cuid())
+  type              FinancialAccountType
+  displayName       String
+  institutionName   String?
+  accountLast4      String?
+  cardLast4         String?
+  currency          String               @default("KRW")
+  isActive          Boolean              @default(true)
+  connectionStatus  ConnectionStatus     @default(DISCONNECTED)
+  provider          String?
+  externalAccountId String?
+  syncCursor        String?
+  lastSyncedAt      DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  expenseRecords    ExpenseRecord[]
 
   @@index([type, isActive])
 }
 
 model LeavePolicy {
-  id             String         @id @default(cuid())
-  userId         String
-  year           Int
-  annualDays     Decimal        @db.Decimal(5, 2)
-  carryOverDays  Decimal        @default(0) @db.Decimal(5, 2)
-  usedDays       Decimal        @default(0) @db.Decimal(5, 2)
-  notes          String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  user           User           @relation(fields: [userId], references: [id])
-  leaveRequests  LeaveRequest[]
+  id            String         @id @default(cuid())
+  userId        String
+  year          Int
+  annualDays    Decimal        @db.Decimal(5, 2)
+  carryOverDays Decimal        @default(0) @db.Decimal(5, 2)
+  usedDays      Decimal        @default(0) @db.Decimal(5, 2)
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  user          User           @relation(fields: [userId], references: [id])
+  leaveRequests LeaveRequest[]
 
   @@unique([userId, year])
   @@index([year])
 }
 
 model LeaveRequest {
-  id               String        @id @default(cuid())
-  requesterId      String
-  approverId       String?
-  leavePolicyId    String?
-  type             LeaveType
-  status           LeaveStatus   @default(REQUESTED)
-  startDate        DateTime
-  endDate          DateTime
-  daysRequested    Decimal       @db.Decimal(5, 2)
-  reason           String?
-  reviewedAt       DateTime?
-  canceledAt       DateTime?
-  approvalNotes    String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  requester        User          @relation("LeaveRequester", fields: [requesterId], references: [id])
-  approver         User?         @relation("LeaveApprover", fields: [approverId], references: [id])
-  leavePolicy      LeavePolicy?  @relation(fields: [leavePolicyId], references: [id])
-  calendarEvent    CalendarEvent?       @relation("LeaveRequestEvent")
+  id            String         @id @default(cuid())
+  requesterId   String
+  approverId    String?
+  leavePolicyId String?
+  type          LeaveType
+  status        LeaveStatus    @default(REQUESTED)
+  startDate     DateTime
+  endDate       DateTime
+  daysRequested Decimal        @db.Decimal(5, 2)
+  reason        String?
+  reviewedAt    DateTime?
+  canceledAt    DateTime?
+  approvalNotes String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  requester     User           @relation("LeaveRequester", fields: [requesterId], references: [id])
+  approver      User?          @relation("LeaveApprover", fields: [approverId], references: [id])
+  leavePolicy   LeavePolicy?   @relation(fields: [leavePolicyId], references: [id])
+  calendarEvent CalendarEvent? @relation("LeaveRequestEvent")
 
   @@index([requesterId, status, startDate])
   @@index([approverId])
@@ -469,26 +492,26 @@ model LeaveRequest {
 }
 
 model Report {
-  id                String          @id @default(cuid())
-  clientId          String
-  authorId          String
-  reviewerId        String?
-  workItemId        String?
-  reportingMonth    DateTime
-  title             String
-  status            ReportStatus    @default(DRAFT)
-  metrics           Json?
-  notes             String?
-  attachmentUrl     String?
-  reviewedAt        DateTime?
-  deliveredAt       DateTime?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  client            Client          @relation(fields: [clientId], references: [id])
-  author            User            @relation("ReportAuthor", fields: [authorId], references: [id])
-  reviewer          User?           @relation("ReportReviewer", fields: [reviewerId], references: [id])
-  workItem          WorkItem?       @relation(fields: [workItemId], references: [id])
-  calendarEvents    CalendarEvent[]
+  id             String          @id @default(cuid())
+  clientId       String
+  authorId       String
+  reviewerId     String?
+  workItemId     String?
+  reportingMonth DateTime
+  title          String
+  status         ReportStatus    @default(DRAFT)
+  metrics        Json?
+  notes          String?
+  attachmentUrl  String?
+  reviewedAt     DateTime?
+  deliveredAt    DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  client         Client          @relation(fields: [clientId], references: [id])
+  author         User            @relation("ReportAuthor", fields: [authorId], references: [id])
+  reviewer       User?           @relation("ReportReviewer", fields: [reviewerId], references: [id])
+  workItem       WorkItem?       @relation(fields: [workItemId], references: [id])
+  calendarEvents CalendarEvent[]
 
   @@unique([clientId, reportingMonth])
   @@index([authorId])
@@ -498,7 +521,7 @@ model Report {
 }
 
 model AuditLog {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   actorId     String?
   action      String
   targetType  String
@@ -507,8 +530,8 @@ model AuditLog {
   afterState  Json?
   ipAddress   String?
   userAgent   String?
-  createdAt   DateTime  @default(now())
-  actor       User?     @relation("AuditActor", fields: [actorId], references: [id])
+  createdAt   DateTime @default(now())
+  actor       User?    @relation("AuditActor", fields: [actorId], references: [id])
 
   @@index([actorId])
   @@index([targetType, targetId])
@@ -550,4 +573,103 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// ─────────────────────────────────────────────
+// V2.1 마스터/추적/재무/정책 (erp-v2-staging 병합)
+// ─────────────────────────────────────────────
+
+/// 업종 마스터 (2단: parentId=null 대분류 / parent 지정 하위=진료과 등)
+model IndustryCategory {
+  id        String   @id @default(cuid())
+  name      String
+  parentId  String?
+  colorTag  String? // hex, 목록/캘린더 색상 표시
+  isLocked  Boolean  @default(false) // 최고관리자만 해제/수정
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent   IndustryCategory?  @relation("IndustryTree", fields: [parentId], references: [id])
+  children IndustryCategory[] @relation("IndustryTree")
+  clients  Client[]
+
+  @@index([parentId])
+  @@index([isActive, sortOrder])
+}
+
+/// 업무 카테고리 마스터 (그룹: 블로그/검색광고/지도/SNS/웹/운영)
+model WorkCategoryMaster {
+  id        String   @id @default(cuid())
+  name      String
+  group     String // 표시용 그룹 라벨
+  colorTag  String?
+  isLocked  Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workItems WorkItem[]
+
+  @@index([isActive, sortOrder])
+}
+
+/// 채널 종류 마스터 (네이버블로그/인스타/플레이스/홈페이지/파워링크 등)
+model ChannelType {
+  id        String   @id @default(cuid())
+  name      String
+  colorTag  String?
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts ClientAccount[]
+
+  @@index([isActive, sortOrder])
+}
+
+/// 로그인 이력 (최고관리자 추적용)
+model LoginHistory {
+  id        String    @id @default(cuid())
+  userId    String
+  at        DateTime  @default(now())
+  ip        String?
+  userAgent String?
+  success   Boolean   @default(true)
+  logoutAt  DateTime?
+
+  user User @relation("UserLoginHistory", fields: [userId], references: [id])
+
+  @@index([userId, at])
+  @@index([at])
+}
+
+/// 은행 거래내역 (입금 반자동 대사용 임포트 데이터)
+model BankTransaction {
+  id               String   @id @default(cuid())
+  importedAt       DateTime @default(now())
+  txDate           DateTime
+  amount           Decimal  @db.Decimal(14, 2)
+  counterpartyName String? // 입금자명
+  memo             String?
+  matchStatus      String   @default("UNMATCHED") // UNMATCHED/SUGGESTED/CONFIRMED/IGNORED
+  matchedBillingId String?
+
+  matchedBilling BillingRecord? @relation("BillingBankMatch", fields: [matchedBillingId], references: [id])
+
+  @@index([matchStatus, txDate])
+  @@index([matchedBillingId])
+}
+
+/// 회사 정책 (싱글턴 레코드로 운용)
+model CompanySetting {
+  id                    String   @id @default(cuid())
+  adminCanManageExpense Boolean  @default(false) // 회사 지출 등록/검토를 관리자에게 허용할지
+  auditRetentionDays    Int      @default(365) // 추적 로그 보존일
+  workloadDailyMinutes  Int      @default(480) // 마케터 1일 가용시간(워크로드 기준)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
