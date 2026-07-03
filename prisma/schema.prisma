@@ -163,6 +163,7 @@ model User {
   reviewedReports         Report[]         @relation("ReportReviewer")
   auditLogs               AuditLog[]       @relation("AuditActor")
   placeRankRecords        PlaceRankRecord[] @relation("PlaceRankRecorder")
+  clientFavorites         ClientFavorite[]
   accounts                Account[]
   sessions                Session[]
 }
@@ -210,6 +211,7 @@ model Client {
   expenseRecords      ExpenseRecord[]
   reports             Report[]
   placeRankRecords    PlaceRankRecord[]
+  favoredBy           ClientFavorite[]
 
   @@index([assignedMarketerId])
 }
@@ -497,6 +499,18 @@ model Report {
   @@index([reviewerId])
   @@index([status])
   @@index([workItemId])
+}
+
+model ClientFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  clientId  String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  client    Client   @relation(fields: [clientId], references: [id])
+
+  @@unique([userId, clientId])
+  @@index([userId])
 }
 
 model PlaceRankRecord {

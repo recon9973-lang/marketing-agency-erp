@@ -3,8 +3,12 @@ import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Role } from "@/domain/types";
+import { ClientFavoriteButton } from "@/components/clients/ClientFavoriteButton";
 import { fetchClientsForUser, type ClientListItem } from "@/server/repositories/clients";
+import { listFavoriteClientIds } from "@/server/repositories/favorites";
 import { getCurrentUser } from "@/server/session";
+
+type ClientRow = ClientListItem & { favored: boolean };
 
 const currencyFormatter = new Intl.NumberFormat("ko-KR");
 
@@ -16,8 +20,13 @@ function formatMoney(value: ClientListItem["monthlyContractFee"]) {
   return `${currencyFormatter.format(Number(value))}원`;
 }
 
-function buildColumns(canEdit: boolean): DataTableColumn<ClientListItem>[] {
-  const columns: DataTableColumn<ClientListItem>[] = [
+function buildColumns(canEdit: boolean): DataTableColumn<ClientRow>[] {
+  const columns: DataTableColumn<ClientRow>[] = [
+    {
+      key: "favorite",
+      header: "★",
+      render: (client) => <ClientFavoriteButton clientId={client.id} favored={client.favored} />
+    },
     {
       key: "name",
       header: "거래처",
@@ -77,7 +86,14 @@ export default async function ClientsPage() {
     redirect("/login");
   }
 
-  const clients = await fetchClientsForUser(user);
+  const [clients, favoriteIds] = await Promise.all([
+    fetchClientsForUser(user),
+    listFavoriteClientIds(user.id)
+  ]);
+  const favoriteSet = new Set(favoriteIds);
+  const rows: ClientRow[] = clients
+    .map((client) => ({ ...client, favored: favoriteSet.has(client.id) }))
+    .sort((a, b) => Number(b.favored) - Number(a.favored));
   const canCreate = user.role === Role.SUPER_ADMIN;
   const canEdit = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
 
@@ -108,7 +124,7 @@ export default async function ClientsPage() {
         }
       />
 
-      <DataTable columns={buildColumns(canEdit)} rows={clients} emptyMessage="조회 가능한 거래처가 없습니다." />
+      <DataTable columns={buildColumns(canEdit)} rows={rows} emptyMessage="조회 가능한 거래처가 없습니다." />
     </section>
   );
 }
