@@ -18,11 +18,19 @@ export type ChatRoomDetail = {
   members: Array<{ userId: string; name: string }>;
 };
 
+export type ChatMessageFile = {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+};
+
 export type ChatMessageItem = {
   id: string;
   senderId: string;
   senderName: string;
   body: string;
+  file: ChatMessageFile | null;
   createdAt: Date;
 };
 
@@ -119,7 +127,8 @@ export async function listMessages(roomId: string, take = 100): Promise<ChatMess
       senderId: true,
       body: true,
       createdAt: true,
-      sender: { select: { name: true } }
+      sender: { select: { name: true } },
+      file: { select: { id: true, fileName: true, mimeType: true, size: true } }
     }
   });
 
@@ -128,6 +137,7 @@ export async function listMessages(roomId: string, take = 100): Promise<ChatMess
     senderId: message.senderId,
     senderName: message.sender.name,
     body: message.body,
+    file: message.file,
     createdAt: message.createdAt
   }));
 }
@@ -158,11 +168,11 @@ export async function createDirectRoom(creatorId: string, otherUserId: string): 
   return room.id;
 }
 
-export async function createMessage(roomId: string, senderId: string, body: string) {
+export async function createMessage(roomId: string, senderId: string, body: string, fileId?: string) {
   const now = new Date();
   const [message] = await db.$transaction([
     db.chatMessage.create({
-      data: { roomId, senderId, body },
+      data: { roomId, senderId, body, fileId: fileId ?? null },
       select: { id: true }
     }),
     db.chatRoom.update({ where: { id: roomId }, data: { lastMessageAt: now } }),

@@ -9,6 +9,7 @@ const createMessageMock = vi.fn();
 const findDirectRoomMock = vi.fn();
 const createDirectRoomMock = vi.fn();
 const getActiveUserMock = vi.fn();
+const createStoredFileMock = vi.fn();
 const revalidatePathMock = vi.fn();
 
 vi.mock("@/server/session", () => ({ getCurrentUser: getCurrentUserMock }));
@@ -19,6 +20,12 @@ vi.mock("@/server/repositories/chat", () => ({
   createDirectRoom: createDirectRoomMock,
   getActiveUser: getActiveUserMock
 }));
+vi.mock("@/server/repositories/files", async () => {
+  const actual = await vi.importActual<typeof import("@/server/repositories/files")>(
+    "@/server/repositories/files"
+  );
+  return { ...actual, createStoredFile: createStoredFileMock };
+});
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
 async function loadActions() {
@@ -86,7 +93,7 @@ describe("sendChatMessageAction", () => {
     const result = await sendChatMessageAction(null, formData({ roomId: "room-1", body: "안녕하세요" }));
 
     expect(expectOk(result)).toEqual({ id: "msg-1" });
-    expect(createMessageMock).toHaveBeenCalledWith("room-1", "marketer-1", "안녕하세요");
+    expect(createMessageMock).toHaveBeenCalledWith("room-1", "marketer-1", "안녕하세요", undefined);
     expect(revalidatePathMock).toHaveBeenCalledWith("/messages/room-1");
   });
 
@@ -98,13 +105,47 @@ describe("sendChatMessageAction", () => {
     expect(createMessageMock).not.toHaveBeenCalled();
   });
 
-  it("rejects empty messages", async () => {
+  it("rejects empty messages without an attachment", async () => {
     const { sendChatMessageAction } = await loadActions();
+    getRoomForUserMock.mockResolvedValue({ id: "room-1", type: "DIRECT", displayName: "Admin", members: [] });
 
     const result = await sendChatMessageAction(null, formData({ roomId: "room-1", body: "   " }));
 
     const error = expectFail(result, ErrorCode.VALIDATION_ERROR);
     expect(error.fieldErrors?.body).toBeDefined();
+    expect(createMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("stores an attachment and links it to the message", async () => {
+    const { sendChatMessageAction } = await loadActions();
+    getRoomForUserMock.mockResolvedValue({ id: "room-1", type: "DIRECT", displayName: "Admin", members: [] });
+    createStoredFileMock.mockResolvedValue({ id: "file-1", fileName: "report.pdf", mimeType: "application/pdf", size: 3 });
+    createMessageMock.mockResolvedValue({ id: "msg-2" });
+
+    const fd = formData({ roomId: "room-1", body: "" });
+    fd.set("file", new File([new Uint8Array([1, 2, 3])], "report.pdf", { type: "application/pdf" }));
+
+    const result = await sendChatMessageAction(null, fd);
+
+    expect(expectOk(result)).toEqual({ id: "msg-2" });
+    expect(createStoredFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({ fileName: "report.pdf", mimeType: "application/pdf", uploadedById: "marketer-1" })
+    );
+    expect(createMessageMock).toHaveBeenCalledWith("room-1", "marketer-1", "", "file-1");
+  });
+
+  it("rejects attachments over the size limit", async () => {
+    const { sendChatMessageAction } = await loadActions();
+    getRoomForUserMock.mockResolvedValue({ id: "room-1", type: "DIRECT", displayName: "Admin", members: [] });
+
+    const fd = formData({ roomId: "room-1", body: "" });
+    fd.set("file", new File([new Uint8Array(4 * 1024 * 1024 + 1)], "big.bin", { type: "application/octet-stream" }));
+
+    const result = await sendChatMessageAction(null, fd);
+
+    const error = expectFail(result, ErrorCode.VALIDATION_ERROR);
+    expect(error.fieldErrors?.file).toBeDefined();
+    expect(createStoredFileMock).not.toHaveBeenCalled();
     expect(createMessageMock).not.toHaveBeenCalled();
   });
 });

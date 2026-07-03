@@ -172,6 +172,7 @@ model User {
   chatMemberships         ChatMember[]
   chatMessages            ChatMessage[]
   chatRoomsCreated        ChatRoom[]       @relation("ChatRoomCreator")
+  uploadedFiles           StoredFile[]     @relation("FileUploader")
   accounts                Account[]
   sessions                Session[]
 }
@@ -542,15 +543,32 @@ model ChatMember {
 }
 
 model ChatMessage {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   roomId    String
   senderId  String
   body      String
-  createdAt DateTime @default(now())
-  room      ChatRoom @relation(fields: [roomId], references: [id])
-  sender    User     @relation(fields: [senderId], references: [id])
+  fileId    String?
+  createdAt DateTime    @default(now())
+  room      ChatRoom    @relation(fields: [roomId], references: [id])
+  sender    User        @relation(fields: [senderId], references: [id])
+  file      StoredFile? @relation(fields: [fileId], references: [id])
 
   @@index([roomId, createdAt])
+  @@index([fileId])
+}
+
+model StoredFile {
+  id           String        @id @default(cuid())
+  fileName     String
+  mimeType     String
+  size         Int
+  data         Bytes
+  uploadedById String?
+  createdAt    DateTime      @default(now())
+  uploadedBy   User?         @relation("FileUploader", fields: [uploadedById], references: [id])
+  chatMessages ChatMessage[]
+
+  @@index([uploadedById])
 }
 
 model ClientFavorite {

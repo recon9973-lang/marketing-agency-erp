@@ -20,6 +20,7 @@ import {
   getActiveUser,
   getRoomForUser
 } from "@/server/repositories/chat";
+import { createStoredFile, MAX_FILE_SIZE } from "@/server/repositories/files";
 
 function formDataToObject(formData: FormData) {
   const record: Record<string, string> = {};
@@ -75,7 +76,39 @@ export async function sendChatMessageAction(
       throw notFound("대화방을 찾을 수 없습니다.");
     }
 
-    const message = await createMessage(input.roomId, user.id, input.body);
+    // 런타임에 따라 File 전역 클래스 구현이 달라 instanceof가 어긋날 수 있어 덕 타이핑으로 판별한다.
+    const upload = formData.get("file") as File | string | null;
+    const hasFile =
+      typeof upload === "object" &&
+      upload !== null &&
+      typeof upload.arrayBuffer === "function" &&
+      upload.size > 0;
+
+    if (!input.body && !hasFile) {
+      throw validationError("메시지 또는 파일을 입력해주세요.", {
+        body: ["메시지 또는 파일을 입력해주세요."]
+      });
+    }
+
+    let fileId: string | undefined;
+
+    if (hasFile) {
+      if (upload.size > MAX_FILE_SIZE) {
+        throw validationError("파일은 4MB 이하만 첨부할 수 있습니다.", {
+          file: ["파일은 4MB 이하만 첨부할 수 있습니다."]
+        });
+      }
+
+      const stored = await createStoredFile({
+        fileName: upload.name || "첨부파일",
+        mimeType: upload.type || "application/octet-stream",
+        data: new Uint8Array(await upload.arrayBuffer()),
+        uploadedById: user.id
+      });
+      fileId = stored.id;
+    }
+
+    const message = await createMessage(input.roomId, user.id, input.body, fileId);
 
     revalidatePath(`/messages/${input.roomId}`);
     return { id: message.id };

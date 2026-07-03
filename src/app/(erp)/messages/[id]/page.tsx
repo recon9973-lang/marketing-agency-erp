@@ -9,6 +9,13 @@ import { getCurrentUser } from "@/server/session";
 const timeFormatter = new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit" });
 const dayFormatter = new Intl.DateTimeFormat("ko-KR", { dateStyle: "long" });
 
+function formatFileSize(bytes: number) {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  }
+  return `${Math.max(1, Math.round(bytes / 1024))}KB`;
+}
+
 export default async function ChatRoomPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
 
@@ -64,13 +71,38 @@ export default async function ChatRoomPage({ params }: { params: Promise<{ id: s
               <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[75%] ${mine ? "text-right" : "text-left"}`}>
                   {!mine ? <p className="mb-0.5 text-xs font-medium text-slate-500">{message.senderName}</p> : null}
-                  <div
-                    className={`inline-block whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm ${
-                      mine ? "bg-brand text-white" : "border border-line bg-white text-ink"
-                    }`}
-                  >
-                    {message.body}
-                  </div>
+                  {message.body ? (
+                    <div
+                      className={`inline-block whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm ${
+                        mine ? "bg-brand text-white" : "border border-line bg-white text-ink"
+                      }`}
+                    >
+                      {message.body}
+                    </div>
+                  ) : null}
+                  {message.file ? (
+                    message.file.mimeType.startsWith("image/") ? (
+                      <a href={`/api/files/${message.file.id}`} target="_blank" rel="noreferrer" className="mt-1 block">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`/api/files/${message.file.id}`}
+                          alt={message.file.fileName}
+                          className="max-h-64 max-w-full rounded-lg border border-line"
+                        />
+                      </a>
+                    ) : (
+                      <a
+                        href={`/api/files/${message.file.id}`}
+                        className={`mt-1 inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                          mine ? "border-brand/30 bg-brand/10 text-brand" : "border-line bg-white text-ink"
+                        }`}
+                      >
+                        <span>📎</span>
+                        <span className="max-w-52 truncate font-medium">{message.file.fileName}</span>
+                        <span className="text-xs text-slate-400">{formatFileSize(message.file.size)}</span>
+                      </a>
+                    )
+                  ) : null}
                   <p className="mt-0.5 text-[11px] text-slate-400">{timeFormatter.format(message.createdAt)}</p>
                 </div>
               </div>
