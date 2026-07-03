@@ -34,7 +34,7 @@ export function EmployeeSettings({ employees, isSuperAdmin, adminCanManageExpens
         <label className="block"><span className="text-xs text-slate-500">역할</span>
           <select name="role" className="mt-1 rounded border px-2 py-1"><option value="MARKETER">마케터</option><option value="ADMIN">관리자</option></select>
         </label>
-        <button type="submit" disabled={pending} className="rounded bg-[#533afd] px-3 py-1.5 text-sm text-white disabled:opacity-50">초대</button>
+        <button type="submit" disabled={pending} className="rounded bg-brand px-3 py-1.5 text-sm text-white disabled:opacity-50">초대</button>
       </form>
       {error && <p className="text-sm text-rose-600">{error}</p>}
 

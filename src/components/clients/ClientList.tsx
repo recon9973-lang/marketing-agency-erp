@@ -46,7 +46,7 @@ export function ClientList({ rows }: { rows: Row[] }) {
             <td>{r.assignedMarketerName ?? <span className="text-slate-300">미배정</span>}</td>
             <td>{r.active ? <span className="text-xs text-green-600">운영중</span> : <span className="text-xs text-slate-400">비활성</span>}</td>
             <td>{r.outstanding ? <span className="text-xs text-rose-600">있음</span> : <span className="text-xs text-slate-400">-</span>}</td>
-            <td className="text-right"><Link href={`/clients/${r.id}` as Route} className="text-xs text-[#533afd] underline">상세</Link></td>
+            <td className="text-right"><Link href={`/clients/${r.id}` as Route} className="text-xs text-brand underline">상세</Link></td>
           </tr>
         ))}
       </tbody>

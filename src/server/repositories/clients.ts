@@ -149,3 +149,94 @@ export async function listClientsForUser(user: CurrentUser) {
     outstanding: c.billingRecords.length > 0
   }));
 }
+
+/** 거래처 상세 (권한 스코프 적용). 접근 불가/미존재 시 null → 페이지는 notFound 처리. */
+export async function getClientDetail(user: CurrentUser, clientId: string) {
+  const client = await db.client.findUnique({
+    where: { id: clientId },
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      active: true,
+      assignedMarketerId: true,
+      industryCategory: { select: { name: true, parent: { select: { name: true } } } },
+      assignedMarketer: { select: { name: true } },
+      accounts: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          label: true,
+          platform: true,
+          externalUrl: true,
+          usernameEnc: true,
+          passwordEnc: true,
+          channelType: { select: { name: true } }
+        }
+      },
+      workItems: {
+        orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }],
+        select: { id: true, title: true, status: true, dueDate: true }
+      },
+      billingRecords: {
+        orderBy: { billingMonth: "desc" },
+        select: { id: true, billingMonth: true, issuedAmount: true, paidAmount: true, status: true }
+      },
+      reports: {
+        orderBy: { reportingMonth: "desc" },
+        select: { id: true, title: true, reportingMonth: true, status: true, metrics: true }
+      }
+    }
+  });
+  if (!client) return null;
+
+  const scopes =
+    user.role === Role.ADMIN
+      ? await db.accessScope.findMany({
+          where: { adminId: user.id },
+          select: { adminId: true, marketerId: true, clientId: true, allMarketers: true, allClients: true }
+        })
+      : [];
+  if (!canAccessClient(user, client.id, scopes, client.assignedMarketerId)) return null;
+
+  const ym = (d: Date) => d.toISOString().slice(0, 7);
+  const ymd = (d: Date) => d.toISOString().slice(0, 10);
+
+  return {
+    client: {
+      id: client.id,
+      name: client.name,
+      code: client.code,
+      active: client.active,
+      industryName: client.industryCategory?.name ?? client.industryCategory?.parent?.name ?? null,
+      assignedMarketerName: client.assignedMarketer?.name ?? null
+    },
+    channels: client.accounts.map((a) => ({
+      id: a.id,
+      label: a.label,
+      channelName: a.channelType?.name ?? a.platform ?? "채널",
+      externalUrl: a.externalUrl,
+      hasCredentials: Boolean(a.usernameEnc || a.passwordEnc)
+    })),
+    works: client.workItems.map((w) => ({
+      id: w.id,
+      title: w.title,
+      status: w.status,
+      dueDate: w.dueDate ? ymd(w.dueDate) : null
+    })),
+    billings: client.billingRecords.map((b) => ({
+      id: b.id,
+      billingMonth: ym(b.billingMonth),
+      issuedAmount: b.issuedAmount.toNumber(),
+      paidAmount: b.paidAmount.toNumber(),
+      status: b.status
+    })),
+    reports: client.reports.map((r) => ({
+      id: r.id,
+      title: r.title,
+      reportingMonth: ym(r.reportingMonth),
+      status: r.status,
+      metrics: (r.metrics as Record<string, unknown> | null) ?? null
+    }))
+  };
+}

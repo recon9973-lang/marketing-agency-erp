@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { Role } from "@/domain/types";
 import { assertCanAccessClient } from "@/domain/access-control";
+import { computeBillingStatus } from "@/domain/finance-rules";
 import { db } from "@/server/db";
 import {
   getAdminScopes,
@@ -25,17 +26,6 @@ async function assertFinanceAccess(user: CurrentUser, clientId: string, assigned
   if (user.role === Role.MARKETER) throw new Error("FORBIDDEN"); // 재무 열람 불가
   const scopes = await getAdminScopes(user);
   assertCanAccessClient(user, clientId, scopes, assignedMarketerId);
-}
-
-/** 청구 상태 계산 (issued 대비 paid). 연체는 dueDate 경과 + 미완납 시. */
-function computeBillingStatus(issued: number, paid: number, dueDate: Date | null, today: Date): string {
-  if (paid <= 0) {
-    return dueDate && dueDate < today ? "OVERDUE" : "UNPAID";
-  }
-  if (paid < issued) {
-    return dueDate && dueDate < today ? "OVERDUE" : "PARTIALLY_PAID";
-  }
-  return "PAID";
 }
 
 // ── 청구 생성 ─────────────────────────────────
@@ -123,7 +113,7 @@ export async function recordPayment(input: unknown): Promise<ActionResult> {
       const status = computeBillingStatus(Number(billing.issuedAmount), newPaid, billing.dueDate, new Date());
       const after = await tx.billingRecord.update({
         where: { id: d.billingRecordId },
-        data: { paidAmount: newPaid, status: status as never }
+        data: { paidAmount: newPaid, status }
       });
       await recordAudit(tx, {
         actorId: user.id, action: "payment.record",
@@ -239,7 +229,7 @@ export async function confirmBankMatch(input: unknown): Promise<ActionResult> {
       });
       const newPaid = Number(billing.paidAmount) + Number(tx.amount);
       const status = computeBillingStatus(Number(billing.issuedAmount), newPaid, billing.dueDate, new Date());
-      await trx.billingRecord.update({ where: { id: billingId }, data: { paidAmount: newPaid, status: status as never } });
+      await trx.billingRecord.update({ where: { id: billingId }, data: { paidAmount: newPaid, status } });
       await trx.bankTransaction.update({ where: { id: bankTxId }, data: { matchStatus: "CONFIRMED", matchedBillingId: billingId } });
       await recordAudit(trx, {
         actorId: user.id, action: "bank.match.confirm",

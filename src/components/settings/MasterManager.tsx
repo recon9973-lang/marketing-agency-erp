@@ -12,7 +12,7 @@ type Item = { id: string; name: string; group: string; colorTag: string | null; 
 export function MasterManager({ items, isSuperAdmin }: { items: Item[]; isSuperAdmin: boolean }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ name: "", group: "블로그", colorTag: "#533afd" });
+  const [draft, setDraft] = useState({ name: "", group: "블로그", colorTag: "#1f7a68" });
 
   function add() {
     setError(null);
@@ -42,7 +42,7 @@ export function MasterManager({ items, isSuperAdmin }: { items: Item[]; isSuperA
         <label className="block"><span className="text-xs text-slate-500">색상</span>
           <input type="color" value={draft.colorTag} onChange={(e) => setDraft({ ...draft, colorTag: e.target.value })} className="mt-1 h-8 w-10 rounded border" />
         </label>
-        <button onClick={add} disabled={pending || !draft.name} className="rounded bg-[#533afd] px-3 py-1.5 text-sm text-white disabled:opacity-50">추가</button>
+        <button onClick={add} disabled={pending || !draft.name} className="rounded bg-brand px-3 py-1.5 text-sm text-white disabled:opacity-50">추가</button>
       </div>
       {error && <p className="text-sm text-rose-600">{error}</p>}
 
