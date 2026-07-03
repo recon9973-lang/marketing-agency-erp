@@ -2,6 +2,7 @@ export {
   BillingStatus,
   CalendarEventKind,
   CalendarProvider,
+  ChatRoomType,
   ClientAccountPlatform,
   ConnectionStatus,
   ExpenseReviewStatus,

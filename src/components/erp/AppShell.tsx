@@ -6,6 +6,7 @@ import {
   ClipboardList,
   CreditCard,
   FileText,
+  MessageSquare,
   Plane,
   ShieldCheck
 } from "lucide-react";
@@ -19,7 +20,16 @@ const roleLabels: Record<Role, string> = {
   [Role.MARKETER]: "담당자"
 };
 
-type ErpRoute = "/dashboard" | "/clients" | "/work" | "/calendar" | "/finance" | "/leave" | "/reports" | "/settings";
+type ErpRoute =
+  | "/dashboard"
+  | "/clients"
+  | "/work"
+  | "/messages"
+  | "/calendar"
+  | "/finance"
+  | "/leave"
+  | "/reports"
+  | "/settings";
 
 export type NavItem = {
   href: ErpRoute;
@@ -47,6 +57,12 @@ export function getNavigationItems(role: Role): NavItem[] {
       label: "업무관리",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: ClipboardList
+    },
+    {
+      href: "/messages",
+      label: "메시지",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: MessageSquare
     },
     {
       href: "/calendar",
