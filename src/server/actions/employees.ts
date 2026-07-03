@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { Role, UserStatus } from "@/domain/types";
+import { signIn } from "@/server/auth";
 import { db } from "@/server/db";
 import {
   recordAudit,
@@ -43,6 +44,15 @@ export async function inviteEmployee(input: unknown): Promise<ActionResult<{ id:
       await recordAudit(tx, { actorId: user.id, action: "employee.invite", targetType: "User", targetId: u.id, afterState: { email: u.email, role: u.role }, ...meta });
       return u;
     });
+
+    // 초대 즉시 로그인(매직) 링크 메일 발송 — 받은 사람이 링크만 누르면 로그인.
+    // 베스트에포트: 메일 발송이 실패해도 초대(명단 등록) 자체는 유효(관리자가 로그인 URL 공유 가능).
+    try {
+      await signIn("nodemailer", { email: d.email.toLowerCase(), redirect: false, redirectTo: "/dashboard" });
+    } catch {
+      /* SMTP 미설정/발송 실패는 초대를 막지 않음 */
+    }
+
     revalidatePath("/settings");
     return { id: created.id };
   });
