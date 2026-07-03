@@ -32,7 +32,7 @@ export type NavItem = {
   icon: LucideIcon;
 };
 
-export function getNavigationItems(role: Role): NavItem[] {
+export function getNavigationItems(role: Role, canAccessSettings = false): NavItem[] {
   const items: NavItem[] = [
     {
       href: "/dashboard",
@@ -90,11 +90,25 @@ export function getNavigationItems(role: Role): NavItem[] {
     }
   ];
 
-  return items.filter((item) => item.roles.includes(role));
+  return items.filter((item) => {
+    // 설정(직원/권한)은 최고관리자 전용이되, 승인받은 관리자/담당자에게도 노출.
+    if (item.href === "/settings") {
+      return role === Role.SUPER_ADMIN || canAccessSettings;
+    }
+    return item.roles.includes(role);
+  });
 }
 
-export function AppShell({ children, role }: { children: ReactNode; role: Role }) {
-  const items = getNavigationItems(role);
+export function AppShell({
+  children,
+  role,
+  canAccessSettings = false
+}: {
+  children: ReactNode;
+  role: Role;
+  canAccessSettings?: boolean;
+}) {
+  const items = getNavigationItems(role, canAccessSettings);
 
   return (
     <div className="min-h-screen bg-surface text-ink">

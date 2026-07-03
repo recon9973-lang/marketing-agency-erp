@@ -7,6 +7,7 @@ export type CurrentUser = {
   name: string;
   email: string;
   role: Role;
+  canAccessSettings: boolean;
 };
 
 type SessionUserLike = {
@@ -70,7 +71,8 @@ async function resolveStaffUser(user?: SessionUserLike | null): Promise<CurrentU
       email: true,
       role: true,
       status: true,
-      isActive: true
+      isActive: true,
+      canAccessSettings: true
     }
   });
 
@@ -84,7 +86,8 @@ async function resolveStaffUser(user?: SessionUserLike | null): Promise<CurrentU
     id: staffUser.id,
     name: staffUser.name,
     email: staffUser.email,
-    role
+    role,
+    canAccessSettings: staffUser.canAccessSettings
   };
 }
 
@@ -99,7 +102,8 @@ function getDevUser(requestedRole?: unknown): CurrentUser | null {
     id: "dev-user",
     name: "Local Preview",
     email: "dev@marketing-erp.local",
-    role
+    role,
+    canAccessSettings: true
   };
 }
 

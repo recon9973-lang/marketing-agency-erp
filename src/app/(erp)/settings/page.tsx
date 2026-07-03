@@ -103,6 +103,11 @@ export default async function SettingsPage() {
     redirect("/login");
   }
 
+  // 최고관리자이거나, 최고관리자에게 설정 접근을 승인받은 직원만 열람.
+  if (user.role !== Role.SUPER_ADMIN && !user.canAccessSettings) {
+    redirect("/dashboard");
+  }
+
   const isAdmin = user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN;
   const isSuperAdmin = user.role === Role.SUPER_ADMIN;
 
@@ -147,7 +152,8 @@ export default async function SettingsPage() {
               name: member.name,
               email: member.email,
               role: member.role,
-              status: member.status
+              status: member.status,
+              canAccessSettings: member.canAccessSettings
             }))}
             isSuperAdmin={isSuperAdmin}
             adminCanManageExpense={companySetting?.adminCanManageExpense ?? false}

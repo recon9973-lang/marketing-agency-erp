@@ -71,6 +71,35 @@ export async function changeRole(input: unknown): Promise<ActionResult> {
   });
 }
 
+/** 설정(직원/권한) 화면 접근 승인 토글 — 최고관리자 전용. 관리자/담당자에게 부여/회수. */
+export async function setSettingsAccess(input: unknown): Promise<ActionResult> {
+  return runAction(async () => {
+    const user = await requireUser();
+    if (user.role !== Role.SUPER_ADMIN) throw new Error("FORBIDDEN");
+    const p = z.object({ userId: z.string().min(1), canAccess: z.boolean() }).safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+
+    const target = await db.user.findUnique({ where: { id: p.data.userId } });
+    if (!target) throw new Error("NOT_FOUND");
+    if (target.role === Role.SUPER_ADMIN) throw new Error("FORBIDDEN"); // 최고관리자는 항상 접근, 토글 대상 아님
+
+    const meta = await requestMeta();
+    await db.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: p.data.userId }, data: { canAccessSettings: p.data.canAccess } });
+      await recordAudit(tx, {
+        actorId: user.id,
+        action: "employee.settingsAccess",
+        targetType: "User",
+        targetId: p.data.userId,
+        beforeState: { canAccessSettings: target.canAccessSettings },
+        afterState: { canAccessSettings: p.data.canAccess },
+        ...meta
+      });
+    });
+    revalidatePath("/settings");
+  });
+}
+
 /** 회사 지출 관리 권한 토글 — 최고관리자 전용. */
 export async function setExpensePolicy(input: unknown): Promise<ActionResult> {
   return runAction(async () => {

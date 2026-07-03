@@ -8,30 +8,30 @@
   :root{
     --accent:#2f7d6b; --accent-soft:#e7f3f0; --ink:#1d2b29; --muted:#6b7d79;
     --bg:#f6f8f7; --card:#ffffff; --line:#e4ebe9; --warn:#e8a33d; --bad:#d9534f; --good:#3aa07f;
-    --radius:18px; --shadow:0 6px 24px rgba(30,50,46,.08);
+    --radius:4px; --shadow:0 1px 2px rgba(30,50,46,.07);
   }
   body.dark{
     --accent-soft:#1d3a33; --ink:#e8efed; --muted:#9fb2ad; --bg:#0f1715; --card:#16201d;
-    --line:#26332f; --shadow:0 6px 24px rgba(0,0,0,.4);
+    --line:#26332f; --shadow:0 1px 2px rgba(0,0,0,.35);
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
     background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased;transition:background .2s,color .2s}
   a{color:var(--accent)}
-  code{background:var(--accent-soft);padding:1px 6px;border-radius:6px;font-size:.92em}
+  code{background:var(--accent-soft);padding:1px 6px;border-radius:4px;font-size:.92em}
   header.top{padding:24px 22px 10px;text-align:center;position:relative}
   header.top h1{margin:0;font-size:24px;letter-spacing:-.5px}
   header.top .tag{color:var(--muted);font-size:14px;margin-top:4px}
   .topbtns{position:absolute;right:18px;top:18px;display:flex;gap:8px}
-  .iconbtn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;
+  .iconbtn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:4px;
     padding:7px 11px;font-size:13px;cursor:pointer;font-weight:600}
   .wrap{max-width:900px;margin:0 auto;padding:0 16px 90px}
   .stepper{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:14px 0 20px}
   .stepper button{border:1px solid var(--line);background:var(--card);color:var(--muted);
-    padding:8px 12px;border-radius:999px;font-size:13px;cursor:pointer;transition:.15s;font-weight:600}
+    padding:8px 12px;border-radius:4px;font-size:13px;cursor:pointer;transition:.15s;font-weight:600}
   .stepper button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
   .stepper button.done{color:var(--accent);border-color:var(--accent)}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:22px;
+  .card{background:var(--card);border:1px solid var(--line);border-radius:4px;
     box-shadow:var(--shadow);padding:28px;margin-bottom:18px}
   .card h2{margin:0 0 6px;font-size:23px;font-weight:800;letter-spacing:-.5px}
   /* 설명을 '텍스트 줄'이 아니라 강조 콜아웃으로 → 가시성↑ */
@@ -46,18 +46,18 @@
   label.f::before{content:"";display:inline-block;width:4px;height:13px;border-radius:2px;
     background:var(--accent);margin-right:8px;vertical-align:-2px}
   input[type=text],textarea,select{width:100%;padding:13px 15px;border:1px solid var(--line);
-    border-radius:13px;font-size:14.5px;font-family:inherit;background:var(--card);color:var(--ink)}
+    border-radius:4px;font-size:14.5px;font-family:inherit;background:var(--card);color:var(--ink)}
   textarea{min-height:80px;resize:vertical}
   input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   .row{display:flex;gap:12px;flex-wrap:wrap}
   .row>div{flex:1;min-width:150px}
   .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
-  .chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;
+  .chip{border:1px solid var(--line);background:var(--card);border-radius:4px;padding:8px 14px;
     font-size:13.5px;cursor:pointer;transition:.15s;font-weight:600;color:var(--ink)}
   .chip.sel{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .toggle{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:10px;
+  .toggle{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:4px;
     padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;background:var(--card)}
-  .btn{background:var(--accent);color:#fff;border:none;border-radius:12px;padding:12px 18px;
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:4px;padding:12px 18px;
     font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
   .btn:hover{filter:brightness(1.05)}
   .btn.ghost{background:var(--card);color:var(--accent);border:1px solid var(--accent)}
@@ -66,18 +66,18 @@
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
   @media(max-width:620px){.grid2,.grid3{grid-template-columns:1fr}}
-  .ideacard{border:1px solid var(--line);border-radius:14px;padding:14px;cursor:pointer;transition:.15s;background:var(--card)}
+  .ideacard{border:1px solid var(--line);border-radius:4px;padding:14px;cursor:pointer;transition:.15s;background:var(--card)}
   .ideacard:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow)}
   .ideacard.sel{border-color:var(--accent);background:var(--accent-soft)}
   .ideacard .t{font-weight:700;font-size:15px;margin-bottom:6px}
   .ideacard .m{font-size:12.5px;color:var(--muted)}
   .qgroup{margin-top:12px}
   .qgroup .gl{font-weight:700;font-size:13px;margin-bottom:6px}
-  .qpill{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:999px;
+  .qpill{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:4px;
     padding:5px 11px;font-size:12.5px;margin:4px 4px 0 0;font-weight:600}
-  pre.prompt{white-space:pre-wrap;background:#0f1c1a;color:#d7e6e2;border-radius:14px;padding:16px;
+  pre.prompt{white-space:pre-wrap;background:#0f1c1a;color:#d7e6e2;border-radius:4px;padding:16px;
     font-size:12.5px;line-height:1.55;max-height:360px;overflow:auto;font-family:ui-monospace,Menlo,monospace}
-  .ex{background:var(--accent-soft);border-radius:12px;padding:11px 13px;font-size:13.5px;margin-top:8px}
+  .ex{background:var(--accent-soft);border-radius:4px;padding:11px 13px;font-size:13.5px;margin-top:8px}
   input[type=range]{width:100%;accent-color:var(--accent)}
   .light{display:flex;align-items:center;gap:14px;margin-top:14px}
   .bulb{width:54px;height:54px;border-radius:50%;background:#ddd;transition:.2s;flex-shrink:0}
@@ -85,34 +85,34 @@
   .bulb.yellow{background:var(--warn);box-shadow:0 0 18px var(--warn)}
   .bulb.red{background:var(--bad);box-shadow:0 0 18px var(--bad)}
   mark.flag{background:#ffe2e0;color:#b33;border-radius:4px;padding:0 3px;font-weight:700}
-  .flagrow{font-size:13px;margin:6px 0;padding:8px 10px;background:rgba(217,83,79,.08);border-radius:10px;border:1px solid rgba(217,83,79,.25)}
+  .flagrow{font-size:13px;margin:6px 0;padding:8px 10px;background:rgba(217,83,79,.08);border-radius:4px;border:1px solid rgba(217,83,79,.25)}
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);opacity:0;
-    background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:999px;font-size:13.5px;font-weight:700;
+    background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:4px;font-size:13.5px;font-weight:700;
     transition:.25s;pointer-events:none;z-index:50}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .chartbox{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px}
-  .chartcell{border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--card);text-align:center}
+  .chartcell{border:1px solid var(--line);border-radius:4px;padding:12px;background:var(--card);text-align:center}
   .hint{font-size:12px;color:var(--muted);opacity:.85;margin-top:8px;line-height:1.5}
-  .pbar{height:6px;background:var(--line);border-radius:999px;overflow:hidden;margin:0 0 18px}
+  .pbar{height:6px;background:var(--line);border-radius:4px;overflow:hidden;margin:0 0 18px}
   .pbar>i{display:block;height:100%;background:var(--accent);width:0;transition:.3s}
   .kicker{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;letter-spacing:.4px;color:#fff;
     background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 60%,#5cc3aa));
-    padding:6px 13px;border-radius:999px;margin-bottom:12px;box-shadow:0 4px 12px color-mix(in srgb,var(--accent) 28%,transparent)}
+    padding:6px 13px;border-radius:4px;margin-bottom:12px;box-shadow:0 4px 12px color-mix(in srgb,var(--accent) 28%,transparent)}
   .scoreWrap{display:flex;align-items:center;gap:18px;margin:14px 0}
   .ring{width:92px;height:92px;flex-shrink:0}
   .metric{font-size:13px;margin:5px 0;display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--line);padding-bottom:5px}
-  .balance{height:22px;border-radius:999px;overflow:hidden;display:flex;margin-top:6px;border:1px solid var(--line)}
+  .balance{height:22px;border-radius:4px;overflow:hidden;display:flex;margin-top:6px;border:1px solid var(--line)}
   .balance>span{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff}
   details>summary{cursor:pointer;font-weight:700;font-size:13.5px}
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:18px}
   .modal.open{display:flex;animation:fade .2s ease}
-  .modal-card{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:18px;max-width:660px;width:100%;max-height:86vh;overflow:auto;padding:26px;box-shadow:var(--shadow)}
+  .modal-card{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:4px;max-width:660px;width:100%;max-height:86vh;overflow:auto;padding:26px;box-shadow:var(--shadow)}
   .modal-card h3{margin:0 0 4px;font-size:20px}
   .modal-card h4{margin:18px 0 4px;font-size:15px;color:var(--accent)}
   .modal-card ul{margin:6px 0;padding-left:20px;font-size:13.5px}
   .modal-card li{margin:3px 0}
   .modal-card p{font-size:13.5px;margin:4px 0}
-  .modal-close{float:right;cursor:pointer;border:none;background:var(--accent-soft);color:var(--ink);border-radius:10px;padding:7px 13px;font-weight:700;font-size:13px}
+  .modal-close{float:right;cursor:pointer;border:none;background:var(--accent-soft);color:var(--ink);border-radius:4px;padding:7px 13px;font-weight:700;font-size:13px}
   /* 접근성: 키보드 포커스 표시 */
   .iconbtn:focus-visible,.btn:focus-visible,.chip:focus-visible,.stepper button:focus-visible,
   .toggle:focus-within,input:focus-visible,select:focus-visible,textarea:focus-visible,.ideacard:focus-visible{
@@ -136,16 +136,16 @@
   .lp-nav{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 78%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
   .lp-nav .lp-in{max-width:1080px;margin:0 auto;padding:0 24px;height:66px;display:flex;align-items:center;justify-content:space-between}
   .lp-logo{font-weight:900;font-size:19px;letter-spacing:-.4px;display:flex;align-items:center;gap:8px}
-  .lp-logo .lp-dot{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#7fd0bd));display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px}
+  .lp-logo .lp-dot{width:26px;height:26px;border-radius:4px;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#7fd0bd));display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px}
   .lp-logo b{color:var(--accent)}
-  .lp-btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border:none;padding:15px 30px;border-radius:14px;font-weight:800;font-size:16px;cursor:pointer;font-family:inherit;box-shadow:0 8px 20px color-mix(in srgb,var(--accent) 32%,transparent);transition:.16s}
+  .lp-btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border:none;padding:15px 30px;border-radius:4px;font-weight:800;font-size:16px;cursor:pointer;font-family:inherit;box-shadow:0 8px 20px color-mix(in srgb,var(--accent) 32%,transparent);transition:.16s}
   .lp-btn:hover{transform:translateY(-2px);box-shadow:0 12px 26px color-mix(in srgb,var(--accent) 40%,transparent)}
   .lp-btn.sm{padding:10px 18px;font-size:14px;box-shadow:none}
   .lp-btn.ghost{background:color-mix(in srgb,var(--accent) 8%,var(--card));color:var(--accent);box-shadow:none;border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line))}
   .lp-wrap{max-width:1080px;margin:0 auto;padding:0 24px}
   /* hero */
   .lp-hero{display:grid;grid-template-columns:1.08fr .92fr;gap:44px;align-items:center;padding:64px 0 40px}
-  .lp-pill{display:inline-flex;align-items:center;gap:7px;background:color-mix(in srgb,var(--accent) 10%,var(--card));color:var(--accent);font-weight:700;font-size:13px;padding:7px 14px;border-radius:999px;margin-bottom:20px;border:1px solid color-mix(in srgb,var(--accent) 22%,transparent)}
+  .lp-pill{display:inline-flex;align-items:center;gap:7px;background:color-mix(in srgb,var(--accent) 10%,var(--card));color:var(--accent);font-weight:700;font-size:13px;padding:7px 14px;border-radius:4px;margin-bottom:20px;border:1px solid color-mix(in srgb,var(--accent) 22%,transparent)}
   .lp-pill .lp-live{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 22%,transparent)}
   .lp-h1{font-size:50px;line-height:1.12;letter-spacing:-1.6px;font-weight:900;color:var(--ink)}
   .lp-h1 em{font-style:normal;background:linear-gradient(120deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#5cc3aa));-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -156,15 +156,15 @@
   .lp-trust b{color:var(--ink)}
   /* hero visual */
   .lp-visual{position:relative}
-  .lp-card{background:var(--card);border:1px solid var(--line);border-radius:24px;box-shadow:0 30px 60px -18px rgba(20,40,34,.28);padding:22px}
+  .lp-card{background:var(--card);border:1px solid var(--line);border-radius:4px;box-shadow:0 30px 60px -18px rgba(20,40,34,.28);padding:22px}
   .lp-card .lp-bar{display:flex;gap:6px;margin-bottom:14px}
   .lp-card .lp-bar i{width:10px;height:10px;border-radius:50%;background:color-mix(in srgb,var(--accent) 18%,var(--line))}
   .lp-steps{display:flex;gap:6px;margin-bottom:12px}
-  .lp-steps b{font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+  .lp-steps b{font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:4px;background:var(--accent-soft);color:var(--accent)}
   .lp-steps b.off{background:var(--line);color:var(--muted)}
   .lp-card h4{font-size:15px;font-weight:800;margin:2px 0 10px}
-  .lp-r{height:11px;border-radius:6px;background:color-mix(in srgb,var(--accent) 10%,var(--line));margin:7px 0}
-  .lp-float{position:absolute;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 13px;box-shadow:0 14px 30px -8px rgba(20,40,34,.22);font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:8px;animation:lpFloat 4s ease-in-out infinite}
+  .lp-r{height:11px;border-radius:4px;background:color-mix(in srgb,var(--accent) 10%,var(--line));margin:7px 0}
+  .lp-float{position:absolute;background:var(--card);border:1px solid var(--line);border-radius:4px;padding:10px 13px;box-shadow:0 14px 30px -8px rgba(20,40,34,.22);font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:8px;animation:lpFloat 4s ease-in-out infinite}
   .lp-float.a{top:-16px;left:-18px}
   .lp-float.b{bottom:-14px;right:-14px;animation-delay:1.6s}
   @keyframes lpFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
@@ -175,9 +175,9 @@
   .lp-lead{color:var(--muted);font-size:16px;max-width:560px}
   /* bento */
   .lp-bento{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:158px;gap:16px;margin-top:28px}
-  .lp-cell{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:22px;position:relative;overflow:hidden;transition:.18s;display:flex;flex-direction:column}
+  .lp-cell{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:22px;position:relative;overflow:hidden;transition:.18s;display:flex;flex-direction:column}
   .lp-cell:hover{transform:translateY(-4px);box-shadow:0 20px 40px -16px rgba(20,40,34,.22);border-color:color-mix(in srgb,var(--accent) 42%,var(--line))}
-  .lp-cic{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:22px;background:var(--accent-soft);margin-bottom:auto}
+  .lp-cic{width:44px;height:44px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:22px;background:var(--accent-soft);margin-bottom:auto}
   .lp-cell h3{font-size:16.5px;font-weight:800;margin:14px 0 4px;letter-spacing:-.3px}
   .lp-cell p{font-size:13px;color:var(--muted);line-height:1.5}
   .lp-cell.big{grid-column:span 2;grid-row:span 2;background:linear-gradient(158deg,color-mix(in srgb,var(--accent) 12%,var(--card)),var(--card) 62%)}
@@ -185,20 +185,20 @@
   .lp-cell.big p{font-size:14px}
   .lp-cell.wide{grid-column:span 2}
   .lp-cchips{margin-top:12px}
-  .lp-cchip{display:inline-block;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:11.5px;font-weight:700;margin:0 5px 6px 0;color:var(--accent)}
-  .lp-tcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 12px;font-size:12.5px;font-weight:700;margin-top:8px;display:flex;justify-content:space-between;align-items:center}
+  .lp-cchip{display:inline-block;background:var(--card);border:1px solid var(--line);border-radius:4px;padding:5px 11px;font-size:11.5px;font-weight:700;margin:0 5px 6px 0;color:var(--accent)}
+  .lp-tcard{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:9px 12px;font-size:12.5px;font-weight:700;margin-top:8px;display:flex;justify-content:space-between;align-items:center}
   .lp-tcard span{font-size:10.5px;color:var(--muted);font-weight:600}
   .lp-light{display:flex;gap:6px;margin-top:12px}
   .lp-light i{width:16px;height:16px;border-radius:50%}
   .lp-light i.g{background:#3aa07f;box-shadow:0 0 10px #3aa07f}.lp-light i.y{background:#e8c34d}.lp-light i.r{background:#e5847e}
   /* process */
   .lp-steps3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:26px;counter-reset:st}
-  .lp-step{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px;position:relative}
+  .lp-step{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:24px;position:relative}
   .lp-step .n{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#7fd0bd));color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
   .lp-step h3{font-size:17px;font-weight:800;margin-bottom:5px}
   .lp-step p{color:var(--muted);font-size:13.5px}
   /* band */
-  .lp-band{margin:20px 0 60px;border-radius:28px;padding:56px 30px;text-align:center;color:#fff;
+  .lp-band{margin:20px 0 60px;border-radius:4px;padding:56px 30px;text-align:center;color:#fff;
     background:linear-gradient(125deg,var(--accent),color-mix(in srgb,var(--accent) 60%,#2aa588));box-shadow:0 26px 50px -18px color-mix(in srgb,var(--accent) 55%,transparent)}
   .lp-band h2{font-size:32px;font-weight:900;letter-spacing:-.7px}
   .lp-band p{opacity:.94;margin:12px 0 26px;font-size:16.5px}
@@ -219,7 +219,7 @@
 <body>
 
 <!-- 랜딩 인트로 (한 파일 안에서 '무료로 시작하기' → 스튜디오로 전환) -->
-<div id="lp">
+<div id="lp" class="hide">
   <div class="lp-nav"><div class="lp-in">
     <div class="lp-logo"><span class="lp-dot">✍</span>원고<b>스튜디오</b></div>
     <button class="lp-btn sm" onclick="startApp()">무료로 시작 →</button>
@@ -325,7 +325,6 @@
 
 <header class="top">
   <div class="topbtns">
-    <button class="iconbtn" onclick="showLanding()" aria-label="소개 화면으로">🏠 소개</button>
     <button class="iconbtn" onclick="openHelp()" aria-label="사용법 도움말 열기">❓ 도움말</button>
     <button class="iconbtn" onclick="demo()" aria-label="예시 값으로 채우기">🎲 예시</button>
     <button class="iconbtn" onclick="resetAll()" aria-label="모든 입력 초기화">🗑 초기화</button>
@@ -448,7 +447,7 @@
     <div style="border-top:1px dashed var(--line);margin:22px 0 0;padding-top:18px">
       <h2 style="font-size:17px">🚀 베놈 엔진으로 실제 원고 생성 <span class="hint">(베놈 사이트와 동일 파이프라인)</span></h2>
       <div class="sub">버튼 한 번으로 베놈 엔진(<code>/api/generate-post</code>)을 호출합니다 — 10단 구조·의료광고 자동검증·인포그래픽·FAQ·이미지까지. <a href="#" onclick="toggleCfg();return false;">⚙️ 연결 설정</a></div>
-      <div id="cfg" style="display:none;background:var(--accent-soft);border-radius:12px;padding:14px;margin-bottom:14px">
+      <div id="cfg" style="display:none;background:var(--accent-soft);border-radius:4px;padding:14px;margin-bottom:14px">
         <div class="row">
           <div><label class="f">API 주소</label><input type="text" id="cfg_url" placeholder="https://...vercel.app (비우면 같은 도메인)"></div>
           <div><label class="f">ADMIN_SECRET</label><input type="text" id="cfg_secret" placeholder="관리자 시크릿(설정된 경우)"></div>
@@ -533,7 +532,7 @@
       </div>
       <input type="hidden" id="card_pos" value="bottom"><input type="hidden" id="card_color" value="light"><input type="hidden" id="card_ratio" value="1:1">
       <label class="toggle" style="margin-top:10px"><input type="checkbox" id="card_scrim" checked onchange="renderCard()"> 가독성 배경(스크림)</label>
-      <div style="margin-top:12px;text-align:center"><canvas id="cardCanvas" style="max-width:100%;border-radius:14px;border:1px solid var(--line)"></canvas></div>
+      <div style="margin-top:12px;text-align:center"><canvas id="cardCanvas" style="max-width:100%;border-radius:4px;border:1px solid var(--line)"></canvas></div>
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn" onclick="dlCard('image/webp')">⬇ WebP 저장</button>
         <button class="btn ghost" onclick="dlCard('image/png')">⬇ PNG 저장</button>
@@ -572,7 +571,7 @@
     <div style="border-top:1px dashed var(--line);margin:22px 0 0;padding-top:18px">
       <h2 style="font-size:17px">🟢 WordPress 자동 임시저장 <span class="hint">(공식 API·합법)</span></h2>
       <div class="sub">내 워드프레스에 <b>임시저장(draft)</b>으로 자동 등록합니다. 공식 Application Password를 쓰므로 약관 위반이 아니에요. 검토 후 워드프레스에서 발행하면 됩니다. <a href="#" onclick="toggleWp();return false;">⚙️ 워드프레스 연결</a></div>
-      <div id="wpcfg" style="display:none;background:var(--accent-soft);border-radius:12px;padding:14px;margin-bottom:12px">
+      <div id="wpcfg" style="display:none;background:var(--accent-soft);border-radius:4px;padding:14px;margin-bottom:12px">
         <div class="row">
           <div><label class="f">사이트 URL</label><input type="text" id="wp_url" placeholder="https://myblog.com"></div>
           <div><label class="f">사용자명</label><input type="text" id="wp_user" placeholder="admin"></div>
@@ -1111,7 +1110,7 @@ async function genImage(){
     if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
     window.__lastImg=data.dataUrl;window.__lastMime=data.mime||'image/png';
     $('imgStatus').textContent='✅ 생성 완료! ('+(data.model||'')+')';
-    $('imgResult').innerHTML=`<div style="margin-top:12px"><img src="${data.dataUrl}" style="max-width:100%;border-radius:14px;border:1px solid var(--line)">
+    $('imgResult').innerHTML=`<div style="margin-top:12px"><img src="${data.dataUrl}" style="max-width:100%;border-radius:4px;border:1px solid var(--line)">
       <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn sm" onclick="dlImgWebp()">⬇ WebP 다운로드 <span class="hint" style="color:#cfe">(베놈 최적화)</span></button>
         <button class="btn ghost sm" onclick="dlImgOrig()">⬇ 원본</button></div>
@@ -1282,7 +1281,7 @@ async function generateLive(){
 }
 function renderResult(post){
   window.__lastHtml=(post.html||'').replace(/<script[\s\S]*?<\/script>/gi,'');
-  const imgs=(post.images||[]).map(u=>`<img src="${u}" style="max-width:100%;border-radius:10px;margin:8px 0">`).join('');
+  const imgs=(post.images||[]).map(u=>`<img src="${u}" style="max-width:100%;border-radius:4px;margin:8px 0">`).join('');
   $('genResult').innerHTML=`<div class="card" style="box-shadow:none;margin-top:14px">
     <div style="font-weight:800;font-size:16px">${esc(post.title||'')}</div>
     <div class="hint" style="margin:6px 0">${post.publishable?'🟢 발행 가능(의료광고 검증 통과)':'🟡 검토 필요'} · 이미지 ${esc(post.imageStatus||'-')}</div>
@@ -1291,7 +1290,7 @@ function renderResult(post){
       <button class="btn ghost sm" onclick="dlHtml()">⬇ HTML</button>
       <button class="btn ghost sm" onclick="pasteToCheck()">🚦 안전·품질 검수로</button></div>
     <details><summary>📑 SEO 메타 보기</summary><div class="hint" style="margin-top:6px"><b>메타설명:</b> ${esc(post.metaDesc||'')}<br><b>키워드:</b> ${esc(post.keywords||'')}</div></details>
-    ${imgs}<div style="border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px;max-height:420px;overflow:auto">${window.__lastHtml}</div></div>`;
+    ${imgs}<div style="border:1px solid var(--line);border-radius:4px;padding:14px;margin-top:12px;max-height:420px;overflow:auto">${window.__lastHtml}</div></div>`;
 }
 function copyHtml(){navigator.clipboard.writeText(window.__lastHtml||'').then(()=>toast('HTML 복사됨 📋'));}
 function dlHtml(){const b=new Blob([window.__lastHtml||''],{type:'text/html'});const a=document.createElement('a');
