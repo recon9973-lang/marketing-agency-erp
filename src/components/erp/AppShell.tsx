@@ -6,6 +6,7 @@ import {
   ClipboardList,
   CreditCard,
   FileText,
+  PenLine,
   Plane,
   ShieldCheck
 } from "lucide-react";
@@ -13,7 +14,16 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Role } from "@/domain/types";
 
-type ErpRoute = "/dashboard" | "/clients" | "/work" | "/calendar" | "/finance" | "/leave" | "/reports" | "/settings";
+type ErpRoute =
+  | "/dashboard"
+  | "/clients"
+  | "/work"
+  | "/manuscript"
+  | "/calendar"
+  | "/finance"
+  | "/leave"
+  | "/reports"
+  | "/settings";
 
 export type NavItem = {
   href: ErpRoute;
@@ -41,6 +51,12 @@ export function getNavigationItems(role: Role): NavItem[] {
       label: "업무관리",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: ClipboardList
+    },
+    {
+      href: "/manuscript",
+      label: "원고 스튜디오",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: PenLine
     },
     {
       href: "/calendar",
