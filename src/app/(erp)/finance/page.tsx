@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { BankReconcile } from "@/components/finance/BankReconcile";
 import { billingStatusLabels, expenseReviewStatusLabels, paymentMethodLabels } from "@/domain/finance";
-import { ConnectionStatus, FinancialAccountType } from "@/domain/types";
+import { ConnectionStatus, FinancialAccountType, Role } from "@/domain/types";
 import {
   fetchFinanceOverviewForUser,
+  getBankMatchSuggestions,
   type BillingListItem,
   type ExpenseListItem,
   type FinancialAccountListItem
@@ -130,7 +132,11 @@ export default async function FinancePage() {
     redirect("/login");
   }
 
-  const overview = await fetchFinanceOverviewForUser(user);
+  const canReconcile = user.role !== Role.MARKETER;
+  const [overview, bankSuggestions] = await Promise.all([
+    fetchFinanceOverviewForUser(user),
+    canReconcile ? getBankMatchSuggestions(user) : Promise.resolve([])
+  ]);
 
   return (
     <section className="space-y-6">
@@ -171,6 +177,15 @@ export default async function FinancePage() {
         <h3 className="text-base font-semibold text-ink">회사 지출</h3>
         <DataTable columns={expenseColumns} rows={overview.expenses} emptyMessage="조회 가능한 지출 내역이 없습니다." />
       </div>
+
+      {canReconcile && (
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-ink">입금 반자동 대사</h3>
+          <div className="rounded-md border border-line bg-white p-4">
+            <BankReconcile suggestions={bankSuggestions} />
+          </div>
+        </div>
+      )}
     </section>
   );
 }

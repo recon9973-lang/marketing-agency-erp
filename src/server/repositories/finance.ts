@@ -232,3 +232,68 @@ export async function fetchFinanceOverviewForUser(user: CurrentUser): Promise<Fi
     ...summary
   };
 }
+
+export type BankMatchSuggestion = {
+  bankTxId: string;
+  billingId: string;
+  score: number;
+  bankLabel: string;
+  billingLabel: string;
+};
+
+const monthLabelFormatter = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long" });
+const dateLabelFormatter = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" });
+
+/**
+ * 입금 반자동 대사 후보. 미확정 은행거래 × 미수 청구건을 금액/입금자명으로 스코어링.
+ * 마케터는 재무 접근 불가 → 빈 배열. (BankReconcile UI에 주입)
+ */
+export async function getBankMatchSuggestions(user: CurrentUser): Promise<BankMatchSuggestion[]> {
+  if (user.role === Role.MARKETER) {
+    return [];
+  }
+
+  const [txs, billings] = await Promise.all([
+    db.bankTransaction.findMany({
+      where: { matchStatus: { in: ["UNMATCHED", "SUGGESTED"] } },
+      orderBy: { txDate: "desc" },
+      take: 50,
+      select: { id: true, txDate: true, amount: true, counterpartyName: true }
+    }),
+    db.billingRecord.findMany({
+      where: { status: { in: [BillingStatus.UNPAID, BillingStatus.PARTIALLY_PAID, BillingStatus.OVERDUE] } },
+      select: {
+        id: true,
+        billingMonth: true,
+        issuedAmount: true,
+        paidAmount: true,
+        client: { select: { name: true } }
+      }
+    })
+  ]);
+
+  if (txs.length === 0 || billings.length === 0) {
+    return [];
+  }
+
+  const suggestions: BankMatchSuggestion[] = [];
+  for (const tx of txs) {
+    const amount = tx.amount.toNumber();
+    for (const billing of billings) {
+      const remaining = billing.issuedAmount.toNumber() - billing.paidAmount.toNumber();
+      let score = 0;
+      if (Math.abs(remaining - amount) < 1) score += 2;
+      if (tx.counterpartyName && billing.client.name.includes(tx.counterpartyName)) score += 1;
+      if (score === 0) continue;
+      suggestions.push({
+        bankTxId: tx.id,
+        billingId: billing.id,
+        score,
+        bankLabel: `${dateLabelFormatter.format(tx.txDate)} · ${amount.toLocaleString()}원 · ${tx.counterpartyName ?? "입금자 미상"}`,
+        billingLabel: `${billing.client.name} ${monthLabelFormatter.format(billing.billingMonth)} · 잔액 ${remaining.toLocaleString()}원`
+      });
+    }
+  }
+
+  return suggestions.sort((a, b) => b.score - a.score).slice(0, 20);
+}

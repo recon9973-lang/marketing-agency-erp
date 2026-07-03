@@ -59,7 +59,7 @@ export function CalendarScheduler({ day, items, capacityMinutes = 480 }: { day: 
               className="flex min-h-[44px] items-center gap-2 border-b px-2">
               <span className="w-12 text-xs text-slate-400">{h}:00</span>
               {at.map((i) => (
-                <span key={i.id} className="rounded bg-[#533afd] px-2 py-0.5 text-xs text-white">
+                <span key={i.id} className="rounded bg-brand px-2 py-0.5 text-xs text-white">
                   {i.title}
                   <button onClick={() => remove(i.id)} disabled={pending} className="ml-1 opacity-70">✕</button>
                 </span>

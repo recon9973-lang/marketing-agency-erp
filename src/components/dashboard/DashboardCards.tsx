@@ -19,7 +19,7 @@ export type DashboardStats = {
 
 function Card({ label, value, tone = "slate" }: { label: string; value: string | number; tone?: string }) {
   const toneMap: Record<string, string> = {
-    slate: "text-slate-800", rose: "text-rose-600", amber: "text-amber-600", blue: "text-[#533afd]", green: "text-green-600"
+    slate: "text-slate-800", rose: "text-rose-600", amber: "text-amber-600", blue: "text-brand", green: "text-green-600"
   };
   return (
     <div className="rounded-lg border p-4">

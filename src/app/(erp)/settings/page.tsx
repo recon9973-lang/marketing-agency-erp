@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { EmployeeSettings } from "@/components/settings/EmployeeSettings";
+import { MasterManager } from "@/components/settings/MasterManager";
 import { ConnectionStatus, Role, UserStatus } from "@/domain/types";
+import { db } from "@/server/db";
+import { getWorkCategories } from "@/server/repositories/masters";
 import {
   fetchSettingsOverview,
   type IntegrationSettingsItem,
@@ -99,7 +103,14 @@ export default async function SettingsPage() {
     redirect("/login");
   }
 
-  const overview = await fetchSettingsOverview(user);
+  const isAdmin = user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN;
+  const isSuperAdmin = user.role === Role.SUPER_ADMIN;
+
+  const [overview, workCategories, companySetting] = await Promise.all([
+    fetchSettingsOverview(user),
+    isAdmin ? getWorkCategories() : Promise.resolve([]),
+    isSuperAdmin ? db.companySetting.findFirst() : Promise.resolve(null)
+  ]);
 
   return (
     <section className="space-y-6">
@@ -126,6 +137,39 @@ export default async function SettingsPage() {
         <h3 className="text-base font-semibold text-ink">관리자 접근 범위</h3>
         <DataTable columns={scopeColumns} rows={overview.scopes} emptyMessage="등록된 접근 범위가 없습니다." />
       </div>
+
+      {isSuperAdmin && (
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-ink">직원 초대 및 권한 관리</h3>
+          <EmployeeSettings
+            employees={overview.staff.map((member) => ({
+              id: member.id,
+              name: member.name,
+              email: member.email,
+              role: member.role,
+              status: member.status
+            }))}
+            isSuperAdmin={isSuperAdmin}
+            adminCanManageExpense={companySetting?.adminCanManageExpense ?? false}
+          />
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-ink">업무 카테고리 마스터</h3>
+          <MasterManager
+            items={workCategories.map((item) => ({
+              id: item.id,
+              name: item.name,
+              group: item.group,
+              colorTag: item.colorTag,
+              isLocked: item.isLocked
+            }))}
+            isSuperAdmin={isSuperAdmin}
+          />
+        </div>
+      )}
     </section>
   );
 }

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { WorkStatusButtons } from "@/components/work/WorkStatusButtons";
 import { workCategoryLabels, workStatusLabels } from "@/domain/work";
 import { Role, WorkCategory, WorkStatus } from "@/domain/types";
 import { fetchWorkItemsForUser, type WorkListFilters, type WorkListItem } from "@/server/repositories/work";
@@ -97,6 +98,11 @@ const columns: DataTableColumn<WorkListItem>[] = [
     key: "notes",
     header: "진행 메모",
     render: (item) => <span className="line-clamp-2 text-slate-600">{item.progressNotes ?? "-"}</span>
+  },
+  {
+    key: "actions",
+    header: "상태 변경",
+    render: (item) => <WorkStatusButtons workId={item.id} status={item.status} />
   }
 ];
 

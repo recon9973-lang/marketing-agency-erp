@@ -1,7 +1,17 @@
 import { redirect } from "next/navigation";
+import { CalendarScheduler } from "@/components/calendar/CalendarScheduler";
 import { calendarKindLabels, fetchCalendarEventsForUser, type CalendarListItem } from "@/server/repositories/calendar";
 import { CalendarProvider, ConnectionStatus } from "@/domain/types";
+import { db } from "@/server/db";
+import { getSchedulerDay } from "@/server/repositories/work";
 import { getCurrentUser } from "@/server/session";
+
+const dayKeyFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Seoul",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit"
+});
 
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" });
 const timeFormatter = new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit" });
@@ -51,7 +61,12 @@ export default async function CalendarPage() {
     redirect("/login");
   }
 
-  const events = await fetchCalendarEventsForUser(user);
+  const todayKey = dayKeyFormatter.format(new Date());
+  const [events, schedulerItems, companySetting] = await Promise.all([
+    fetchCalendarEventsForUser(user),
+    getSchedulerDay(user, user.id, new Date(`${todayKey}T00:00:00`)),
+    db.companySetting.findFirst({ select: { workloadDailyMinutes: true } })
+  ]);
   const groupedEvents = groupByDay(events);
   const integrationCards = [
     { provider: CalendarProvider.GOOGLE, title: "Google Calendar", status: ConnectionStatus.DISCONNECTED },
@@ -85,6 +100,15 @@ export default async function CalendarPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="space-y-3">
+        <h3 className="text-base font-semibold text-ink">오늘 내 업무 배치 ({todayKey})</h3>
+        <CalendarScheduler
+          day={todayKey}
+          items={schedulerItems}
+          capacityMinutes={companySetting?.workloadDailyMinutes ?? 480}
+        />
       </div>
 
       <div className="rounded-md border border-line bg-white">
