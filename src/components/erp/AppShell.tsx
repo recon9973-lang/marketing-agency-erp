@@ -6,6 +6,7 @@ import {
   ClipboardList,
   CreditCard,
   FileText,
+  FolderArchive,
   MessageSquare,
   Plane,
   ShieldCheck
@@ -25,6 +26,7 @@ type ErpRoute =
   | "/clients"
   | "/work"
   | "/messages"
+  | "/vault"
   | "/calendar"
   | "/finance"
   | "/leave"
@@ -63,6 +65,12 @@ export function getNavigationItems(role: Role): NavItem[] {
       label: "메시지",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: MessageSquare
+    },
+    {
+      href: "/vault",
+      label: "보관함",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: FolderArchive
     },
     {
       href: "/calendar",

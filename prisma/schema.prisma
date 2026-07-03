@@ -169,6 +169,7 @@ model User {
   auditLogs               AuditLog[]       @relation("AuditActor")
   placeRankRecords        PlaceRankRecord[] @relation("PlaceRankRecorder")
   clientFavorites         ClientFavorite[]
+  vaultFolders            VaultFolder[]    @relation("VaultFolderCreator")
   chatMemberships         ChatMember[]
   chatMessages            ChatMessage[]
   chatRoomsCreated        ChatRoom[]       @relation("ChatRoomCreator")
@@ -564,11 +565,29 @@ model StoredFile {
   size         Int
   data         Bytes
   uploadedById String?
+  // 보관함(공용 파일함)에 올라온 파일이면 true. 채팅 첨부 파일은 false.
+  inVault      Boolean       @default(false)
+  // 보관함 폴더에 담긴 경우 그 폴더 id. null이면 미분류(루트).
+  folderId     String?
   createdAt    DateTime      @default(now())
   uploadedBy   User?         @relation("FileUploader", fields: [uploadedById], references: [id])
+  folder       VaultFolder?  @relation(fields: [folderId], references: [id])
   chatMessages ChatMessage[]
 
   @@index([uploadedById])
+  @@index([inVault, folderId])
+}
+
+model VaultFolder {
+  id          String       @id @default(cuid())
+  name        String
+  createdById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  createdBy   User?        @relation("VaultFolderCreator", fields: [createdById], references: [id])
+  files       StoredFile[]
+
+  @@index([createdById])
 }
 
 model ClientFavorite {

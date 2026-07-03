@@ -43,11 +43,16 @@ export async function createStoredFile(input: {
 export async function getFileForUser(fileId: string, userId: string) {
   const file = await db.storedFile.findUnique({
     where: { id: fileId },
-    select: { id: true, fileName: true, mimeType: true, size: true, data: true, uploadedById: true }
+    select: { id: true, fileName: true, mimeType: true, size: true, data: true, uploadedById: true, inVault: true }
   });
 
   if (!file) {
     return null;
+  }
+
+  // 보관함 파일은 공용이므로 로그인한 직원 누구나 내려받을 수 있다.
+  if (file.inVault) {
+    return file;
   }
 
   if (file.uploadedById === userId) {

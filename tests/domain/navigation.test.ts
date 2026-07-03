@@ -13,4 +13,10 @@ describe("role navigation", () => {
     const labels = getNavigationItems(Role.SUPER_ADMIN).map((item) => item.label);
     expect(labels).toContain("직원/권한");
   });
+
+  it("shows the shared file vault to every role", () => {
+    for (const role of [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER]) {
+      expect(getNavigationItems(role).map((item) => item.label)).toContain("보관함");
+    }
+  });
 });
