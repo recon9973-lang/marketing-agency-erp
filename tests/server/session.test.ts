@@ -162,7 +162,8 @@ describe("getCurrentUser", () => {
       id: "dev-user",
       name: "Local Preview",
       email: "dev@marketing-erp.local",
-      role: "MARKETER"
+      role: "MARKETER",
+      canAccessSettings: true
     });
   });
 

@@ -136,6 +136,7 @@ model User {
   emailVerified           DateTime?
   role                    Role
   status                  UserStatus      @default(ACTIVE)
+  canAccessSettings       Boolean         @default(false) // 최고관리자가 승인하면 관리자/담당자도 설정 화면 열람
   image                   String?
   kakaoId                 String?         @unique
   timezone                String          @default("Asia/Seoul")
