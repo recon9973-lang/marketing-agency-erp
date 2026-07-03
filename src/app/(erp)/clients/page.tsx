@@ -50,17 +50,22 @@ function buildColumns(canEdit: boolean): DataTableColumn<ClientListItem>[] {
     }
   ];
 
-  if (canEdit) {
-    columns.push({
-      key: "actions",
-      header: "관리",
-      render: (client) => (
-        <Link href={`/clients/${client.id}/edit`} className="text-sm font-medium text-brand hover:underline">
-          수정
+  columns.push({
+    key: "actions",
+    header: "관리",
+    render: (client) => (
+      <div className="flex items-center gap-3">
+        <Link href={`/clients/${client.id}/ranks`} className="text-sm font-medium text-brand hover:underline">
+          순위
         </Link>
-      )
-    });
-  }
+        {canEdit ? (
+          <Link href={`/clients/${client.id}/edit`} className="text-sm font-medium text-brand hover:underline">
+            수정
+          </Link>
+        ) : null}
+      </div>
+    )
+  });
 
   return columns;
 }

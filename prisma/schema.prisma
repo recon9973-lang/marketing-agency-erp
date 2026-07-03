@@ -162,6 +162,7 @@ model User {
   authoredReports         Report[]         @relation("ReportAuthor")
   reviewedReports         Report[]         @relation("ReportReviewer")
   auditLogs               AuditLog[]       @relation("AuditActor")
+  placeRankRecords        PlaceRankRecord[] @relation("PlaceRankRecorder")
   accounts                Account[]
   sessions                Session[]
 }
@@ -208,6 +209,7 @@ model Client {
   billingRecords      BillingRecord[]
   expenseRecords      ExpenseRecord[]
   reports             Report[]
+  placeRankRecords    PlaceRankRecord[]
 
   @@index([assignedMarketerId])
 }
@@ -495,6 +497,24 @@ model Report {
   @@index([reviewerId])
   @@index([status])
   @@index([workItemId])
+}
+
+model PlaceRankRecord {
+  id          String   @id @default(cuid())
+  clientId    String
+  keyword     String
+  rank        Int
+  recordedOn  DateTime @db.Date
+  memo        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  client      Client   @relation(fields: [clientId], references: [id])
+  createdBy   User?    @relation("PlaceRankRecorder", fields: [createdById], references: [id])
+
+  @@unique([clientId, keyword, recordedOn])
+  @@index([clientId, recordedOn])
+  @@index([createdById])
 }
 
 model AuditLog {
