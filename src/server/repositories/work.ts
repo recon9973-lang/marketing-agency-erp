@@ -286,3 +286,13 @@ export async function changeWorkItemStatus(
     select: { id: true, status: true }
   });
 }
+
+/** 협업방 배너용: 거래처의 최근 업무 몇 건. */
+export async function listRecentWorkForClient(clientId: string, take = 3) {
+  return db.workItem.findMany({
+    where: { clientId },
+    orderBy: { updatedAt: "desc" },
+    take,
+    select: { id: true, title: true, status: true }
+  });
+}

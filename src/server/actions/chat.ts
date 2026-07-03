@@ -9,17 +9,20 @@
  * - 조회 편의 기능이므로 감사 로그는 남기지 않는다.
  */
 import { revalidatePath } from "next/cache";
-import { chatMessageSchema, startDirectChatSchema } from "@/domain/chat";
+import { chatMessageSchema, createGroupRoomSchema, startDirectChatSchema } from "@/domain/chat";
 import { runAction, type ActionResult } from "@/server/action-result";
-import { requireCurrentUser } from "@/server/authorization";
+import { requireClientAccess, requireCurrentUser } from "@/server/authorization";
 import { notFound, validationError } from "@/server/errors";
 import {
   createDirectRoom,
+  createGroupRoom,
   createMessage,
   findDirectRoom,
   getActiveUser,
+  getActiveUserIds,
   getRoomForUser
 } from "@/server/repositories/chat";
+import { getClientAccessInfo } from "@/server/repositories/clients";
 import { createStoredFile, MAX_FILE_SIZE } from "@/server/repositories/files";
 
 function formDataToObject(formData: FormData) {
@@ -112,5 +115,42 @@ export async function sendChatMessageAction(
 
     revalidatePath(`/messages/${input.roomId}`);
     return { id: message.id };
+  });
+}
+
+export async function createGroupRoomAction(
+  _prevState: StartChatActionState | null,
+  formData: FormData
+): Promise<StartChatActionState> {
+  return runAction(async () => {
+    const user = await requireCurrentUser();
+    const input = createGroupRoomSchema.parse({
+      name: formData.get("name"),
+      clientId: formData.get("clientId") ?? undefined,
+      memberIds: formData.getAll("memberIds").filter((value) => typeof value === "string")
+    });
+
+    const activeIds = await getActiveUserIds(input.memberIds);
+
+    if (activeIds.length === 0) {
+      throw validationError("멤버를 1명 이상 선택해주세요.", {
+        memberIds: ["활성 상태의 직원을 선택해주세요."]
+      });
+    }
+
+    if (input.clientId) {
+      const client = await getClientAccessInfo(input.clientId);
+
+      if (!client) {
+        throw notFound("연결할 거래처를 찾을 수 없습니다.");
+      }
+
+      await requireClientAccess(user, input.clientId, { assignedMarketerId: client.assignedMarketerId });
+    }
+
+    const roomId = await createGroupRoom(user.id, input.name, activeIds, input.clientId);
+
+    revalidatePath("/messages");
+    return { roomId };
   });
 }

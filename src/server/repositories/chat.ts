@@ -16,6 +16,7 @@ export type ChatRoomDetail = {
   type: ChatRoomType;
   displayName: string;
   members: Array<{ userId: string; name: string }>;
+  client: { id: string; name: string } | null;
 };
 
 export type ChatMessageFile = {
@@ -98,6 +99,7 @@ export async function getRoomForUser(roomId: string, userId: string): Promise<Ch
       id: true,
       type: true,
       name: true,
+      client: { select: { id: true, name: true } },
       members: { select: { userId: true, user: { select: { name: true } } } }
     }
   });
@@ -113,7 +115,8 @@ export async function getRoomForUser(roomId: string, userId: string): Promise<Ch
     type: room.type,
     displayName:
       room.type === ChatRoomType.GROUP ? (room.name ?? "협업방") : directDisplayName(members, userId),
-    members
+    members,
+    client: room.client
   };
 }
 
@@ -166,6 +169,39 @@ export async function createDirectRoom(creatorId: string, otherUserId: string): 
   });
 
   return room.id;
+}
+
+/** 협업방(그룹) 생성. 생성자는 자동으로 멤버에 포함된다. */
+export async function createGroupRoom(
+  creatorId: string,
+  name: string,
+  memberIds: string[],
+  clientId?: string
+): Promise<string> {
+  const uniqueMembers = [...new Set([creatorId, ...memberIds])];
+
+  const room = await db.chatRoom.create({
+    data: {
+      type: ChatRoomType.GROUP,
+      name,
+      clientId: clientId ?? null,
+      createdById: creatorId,
+      members: { create: uniqueMembers.map((userId) => ({ userId })) }
+    },
+    select: { id: true }
+  });
+
+  return room.id;
+}
+
+/** 주어진 id 중 활성 직원의 id 목록을 반환한다. */
+export async function getActiveUserIds(userIds: string[]): Promise<string[]> {
+  const users = await db.user.findMany({
+    where: { id: { in: userIds }, isActive: true, status: UserStatus.ACTIVE },
+    select: { id: true }
+  });
+
+  return users.map((user) => user.id);
 }
 
 export async function createMessage(roomId: string, senderId: string, body: string, fileId?: string) {

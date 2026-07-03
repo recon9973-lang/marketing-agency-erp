@@ -9,6 +9,10 @@ const createMessageMock = vi.fn();
 const findDirectRoomMock = vi.fn();
 const createDirectRoomMock = vi.fn();
 const getActiveUserMock = vi.fn();
+const getActiveUserIdsMock = vi.fn();
+const createGroupRoomMock = vi.fn();
+const getClientAccessInfoMock = vi.fn();
+const loadAccessScopesMock = vi.fn();
 const createStoredFileMock = vi.fn();
 const revalidatePathMock = vi.fn();
 
@@ -18,8 +22,12 @@ vi.mock("@/server/repositories/chat", () => ({
   createMessage: createMessageMock,
   findDirectRoom: findDirectRoomMock,
   createDirectRoom: createDirectRoomMock,
-  getActiveUser: getActiveUserMock
+  getActiveUser: getActiveUserMock,
+  getActiveUserIds: getActiveUserIdsMock,
+  createGroupRoom: createGroupRoomMock
 }));
+vi.mock("@/server/repositories/clients", () => ({ getClientAccessInfo: getClientAccessInfoMock }));
+vi.mock("@/server/scope", () => ({ loadAccessScopes: loadAccessScopesMock }));
 vi.mock("@/server/repositories/files", async () => {
   const actual = await vi.importActual<typeof import("@/server/repositories/files")>(
     "@/server/repositories/files"
@@ -43,6 +51,7 @@ function formData(entries: Record<string, string>) {
 beforeEach(() => {
   vi.clearAllMocks();
   getCurrentUserMock.mockResolvedValue(marketerUser({ id: "marketer-1" }));
+  loadAccessScopesMock.mockResolvedValue([]);
 });
 
 describe("startDirectChatAction", () => {
@@ -147,5 +156,66 @@ describe("sendChatMessageAction", () => {
     expect(error.fieldErrors?.file).toBeDefined();
     expect(createStoredFileMock).not.toHaveBeenCalled();
     expect(createMessageMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("createGroupRoomAction", () => {
+  function groupForm(entries: Record<string, string>, memberIds: string[]) {
+    const fd = formData(entries);
+    memberIds.forEach((id) => fd.append("memberIds", id));
+    return fd;
+  }
+
+  it("creates a group room with active members and links a client", async () => {
+    const { createGroupRoomAction } = await loadActions();
+    getActiveUserIdsMock.mockResolvedValue(["admin-1", "marketer-2"]);
+    getClientAccessInfoMock.mockResolvedValue({ id: "client-1", assignedMarketerId: "marketer-1" });
+    createGroupRoomMock.mockResolvedValue("room-g1");
+
+    const result = await createGroupRoomAction(
+      null,
+      groupForm({ name: "서울덴탈 7월 캠페인", clientId: "client-1" }, ["admin-1", "marketer-2"])
+    );
+
+    expect(expectOk(result)).toEqual({ roomId: "room-g1" });
+    expect(createGroupRoomMock).toHaveBeenCalledWith(
+      "marketer-1",
+      "서울덴탈 7월 캠페인",
+      ["admin-1", "marketer-2"],
+      "client-1"
+    );
+  });
+
+  it("requires at least one active member", async () => {
+    const { createGroupRoomAction } = await loadActions();
+    getActiveUserIdsMock.mockResolvedValue([]);
+
+    const result = await createGroupRoomAction(null, groupForm({ name: "빈 방" }, ["ghost"]));
+
+    expectFail(result, ErrorCode.VALIDATION_ERROR);
+    expect(createGroupRoomMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks linking a client outside the creator's access", async () => {
+    const { createGroupRoomAction } = await loadActions();
+    getActiveUserIdsMock.mockResolvedValue(["admin-1"]);
+    getClientAccessInfoMock.mockResolvedValue({ id: "client-9", assignedMarketerId: "marketer-9" });
+
+    const result = await createGroupRoomAction(
+      null,
+      groupForm({ name: "남의 거래처 방", clientId: "client-9" }, ["admin-1"])
+    );
+
+    expectFail(result, ErrorCode.FORBIDDEN);
+    expect(createGroupRoomMock).not.toHaveBeenCalled();
+  });
+
+  it("requires a room name", async () => {
+    const { createGroupRoomAction } = await loadActions();
+
+    const result = await createGroupRoomAction(null, groupForm({ name: "  " }, ["admin-1"]));
+
+    const error = expectFail(result, ErrorCode.VALIDATION_ERROR);
+    expect(error.fieldErrors?.name).toBeDefined();
   });
 });

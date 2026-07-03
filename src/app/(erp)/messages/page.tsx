@@ -2,9 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChatPoller } from "@/components/chat/ChatPoller";
 import { NewChatForm } from "@/components/chat/NewChatForm";
+import { NewGroupRoomForm } from "@/components/chat/NewGroupRoomForm";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { listChatPartners, listRoomsForUser } from "@/server/repositories/chat";
+import { fetchClientsForUser } from "@/server/repositories/clients";
 import { getCurrentUser } from "@/server/session";
 
 const timeFormatter = new Intl.DateTimeFormat("ko-KR", { dateStyle: "short", timeStyle: "short" });
@@ -16,7 +18,11 @@ export default async function MessagesPage() {
     redirect("/login");
   }
 
-  const [rooms, partners] = await Promise.all([listRoomsForUser(user.id), listChatPartners(user.id)]);
+  const [rooms, partners, clients] = await Promise.all([
+    listRoomsForUser(user.id),
+    listChatPartners(user.id),
+    fetchClientsForUser(user)
+  ]);
 
   return (
     <section className="space-y-6">
@@ -24,10 +30,14 @@ export default async function MessagesPage() {
       <PageHeader
         eyebrow="메시지"
         title="내부 채팅"
-        description="직원끼리 1:1로 대화합니다. 새 메시지는 자동으로 갱신됩니다."
+        description="직원끼리 1:1 또는 협업방으로 대화합니다. 새 메시지는 자동으로 갱신됩니다."
       />
 
       <NewChatForm partners={partners} />
+      <NewGroupRoomForm
+        partners={partners}
+        clients={clients.map((client) => ({ id: client.id, name: client.name }))}
+      />
 
       {rooms.length === 0 ? (
         <EmptyState

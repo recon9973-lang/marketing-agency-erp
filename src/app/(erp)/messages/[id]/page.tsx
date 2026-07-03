@@ -3,7 +3,9 @@ import { notFound, redirect } from "next/navigation";
 import { ChatMessageForm } from "@/components/chat/ChatMessageForm";
 import { ChatPoller } from "@/components/chat/ChatPoller";
 import { ChatScrollAnchor } from "@/components/chat/ChatScrollAnchor";
+import { workStatusLabels } from "@/domain/work";
 import { getRoomForUser, listMessages, markRoomRead } from "@/server/repositories/chat";
+import { listRecentWorkForClient } from "@/server/repositories/work";
 import { getCurrentUser } from "@/server/session";
 
 const timeFormatter = new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit" });
@@ -31,6 +33,7 @@ export default async function ChatRoomPage({ params }: { params: Promise<{ id: s
   }
 
   const messages = await listMessages(id);
+  const recentWork = room.client ? await listRecentWorkForClient(room.client.id) : [];
 
   // 화면을 여는 것으로 읽음 처리한다(idempotent 타임스탬프 갱신).
   await markRoomRead(id, user.id);
@@ -52,6 +55,22 @@ export default async function ChatRoomPage({ params }: { params: Promise<{ id: s
           ← 대화 목록
         </Link>
       </header>
+
+      {room.client ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-line bg-surface/70 px-4 py-2 text-sm">
+          <Link href={`/clients/${room.client.id}/ranks`} className="font-semibold text-brand hover:underline">
+            🏢 {room.client.name}
+          </Link>
+          {recentWork.map((work) => (
+            <Link key={work.id} href={`/work/${work.id}/edit`} className="text-slate-600 hover:text-ink hover:underline">
+              {work.title} <span className="text-xs text-slate-400">· {workStatusLabels[work.status]}</span>
+            </Link>
+          ))}
+          <Link href="/work" className="ml-auto text-xs text-slate-400 hover:text-brand">
+            업무 전체 보기 →
+          </Link>
+        </div>
+      ) : null}
 
       <div className="flex-1 space-y-3 overflow-y-auto bg-surface/50 p-4">
         {messages.length === 0 ? (
