@@ -47,15 +47,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         select: { id: true, status: true }
       });
       if (!staff) return false; // 미등록 이메일 차단
-      if (staff.status === UserStatus.INVITED) {
-        await db.user.update({ where: { id: staff.id }, data: { status: UserStatus.ACTIVE } });
-      }
+      // INVITED→ACTIVE 전환은 실제 로그인 완료 시점(events.signIn)에서 처리.
+      // (초대 메일 발송 단계에서 signIn 콜백이 돌아도 여기서 활성화하지 않도록 분리)
       return true;
     }
   },
   events: {
     async signIn({ user }) {
       if (user?.id) {
+        try {
+          // 초대(INVITED) 직원의 첫 로그인 → ACTIVE 전환.
+          await db.user.updateMany({
+            where: { id: user.id, status: UserStatus.INVITED },
+            data: { status: UserStatus.ACTIVE }
+          });
+        } catch {
+          /* 상태 전환 실패는 로그인 자체를 막지 않음 */
+        }
         try {
           await recordLogin({ userId: user.id, success: true });
         } catch {
