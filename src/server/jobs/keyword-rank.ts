@@ -5,6 +5,8 @@
 //
 // 데이터 소스: 베놈 보유 네이버 키워드/검색 API 프록시 재활용(홈페이지 레포 api/kw-proxy.js).
 // 여기서는 수집 파이프라인 골격 + metrics 병합을 정의. 실제 순위 파싱은 provider 함수에 위임.
+import { Prisma } from "@prisma/client";
+
 import { db } from "@/server/db";
 
 export type KeywordRank = { keyword: string; rank: number | null; checkedAt: string };
@@ -50,7 +52,7 @@ export async function collectKeywordRanksForReport(params: {
   const prev = (report.metrics as Record<string, unknown> | null) ?? {};
   const merged = { ...prev, keywordRanks: ranks, keywordRanksCollectedAt: new Date().toISOString() };
 
-  await db.report.update({ where: { id: params.reportId }, data: { metrics: merged as never } });
+  await db.report.update({ where: { id: params.reportId }, data: { metrics: merged as Prisma.InputJsonValue } });
   return { collected: ranks.length };
 }
 
