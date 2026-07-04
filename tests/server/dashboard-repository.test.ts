@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Role } from "@/domain/types";
 
+// process.env의 일부 키(NODE_ENV 등)가 @types/node에서 readonly라, 테스트 내 수정은 캐스팅 별칭을 통해 한다.
+const mutableEnv = process.env as Record<string, string | undefined>;
+
 const clientCountMock = vi.fn();
 const workItemFindManyMock = vi.fn();
 const billingFindManyMock = vi.fn();
@@ -25,8 +28,8 @@ describe("fetchDashboardInput", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    delete process.env.ALLOW_DEV_SESSION;
-    delete process.env.NODE_ENV;
+    delete mutableEnv.ALLOW_DEV_SESSION;
+    delete mutableEnv.NODE_ENV;
     clientCountMock.mockResolvedValue(0);
     workItemFindManyMock.mockResolvedValue([]);
     billingFindManyMock.mockResolvedValue([]);
@@ -109,8 +112,8 @@ describe("fetchDashboardInput", () => {
   });
 
   it("returns empty dashboard input for dev sessions when the database is unavailable", async () => {
-    process.env.NODE_ENV = "development";
-    process.env.ALLOW_DEV_SESSION = "true";
+    mutableEnv.NODE_ENV ="development";
+    mutableEnv.ALLOW_DEV_SESSION ="true";
     clientCountMock.mockRejectedValue(new Error("DATABASE_URL missing"));
     const { fetchDashboardInput } = await import("@/server/repositories/dashboard");
 

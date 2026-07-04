@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// process.env의 일부 키(NODE_ENV 등)가 @types/node에서 readonly라, 테스트 내 수정은 캐스팅 별칭을 통해 한다.
+const mutableEnv = process.env as Record<string, string | undefined>;
+
 const authMock = vi.fn();
 const findFirstMock = vi.fn();
 
@@ -19,9 +22,9 @@ describe("getCurrentUser", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    delete process.env.ALLOW_DEV_SESSION;
-    delete process.env.DEV_SESSION_ROLE;
-    delete process.env.NODE_ENV;
+    delete mutableEnv.ALLOW_DEV_SESSION;
+    delete mutableEnv.DEV_SESSION_ROLE;
+    delete mutableEnv.NODE_ENV;
   });
 
   it("returns the matching active staff user by email", async () => {
@@ -151,9 +154,9 @@ describe("getCurrentUser", () => {
   });
 
   it("uses the dev fallback only when explicitly enabled outside production", async () => {
-    process.env.NODE_ENV = "development";
-    process.env.ALLOW_DEV_SESSION = "true";
-    process.env.DEV_SESSION_ROLE = "MARKETER";
+    mutableEnv.NODE_ENV ="development";
+    mutableEnv.ALLOW_DEV_SESSION ="true";
+    mutableEnv.DEV_SESSION_ROLE ="MARKETER";
     authMock.mockResolvedValue(null);
 
     const { getCurrentUser } = await import("@/server/session");
@@ -167,9 +170,9 @@ describe("getCurrentUser", () => {
   });
 
   it("allows a development-only requested role override", async () => {
-    process.env.NODE_ENV = "development";
-    process.env.ALLOW_DEV_SESSION = "true";
-    process.env.DEV_SESSION_ROLE = "ADMIN";
+    mutableEnv.NODE_ENV ="development";
+    mutableEnv.ALLOW_DEV_SESSION ="true";
+    mutableEnv.DEV_SESSION_ROLE ="ADMIN";
     authMock.mockResolvedValue(null);
 
     const { getCurrentUser } = await import("@/server/session");
@@ -182,8 +185,8 @@ describe("getCurrentUser", () => {
   });
 
   it("ignores requested role overrides in production", async () => {
-    process.env.NODE_ENV = "production";
-    process.env.ALLOW_DEV_SESSION = "true";
+    mutableEnv.NODE_ENV ="production";
+    mutableEnv.ALLOW_DEV_SESSION ="true";
     authMock.mockResolvedValue(null);
 
     const { getCurrentUser } = await import("@/server/session");
