@@ -31,4 +31,10 @@ describe("role navigation", () => {
       expect(getNavigationItems(role).map((item) => item.label)).toContain("검색량 조회");
     }
   });
+
+  it("shows integration management only to super admins", () => {
+    expect(getNavigationItems(Role.SUPER_ADMIN).map((item) => item.label)).toContain("연동 관리");
+    expect(getNavigationItems(Role.ADMIN).map((item) => item.label)).not.toContain("연동 관리");
+    expect(getNavigationItems(Role.MARKETER).map((item) => item.label)).not.toContain("연동 관리");
+  });
 });

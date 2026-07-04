@@ -10,6 +10,7 @@ import {
   ImagePlus,
   MessageSquare,
   Plane,
+  PlugZap,
   Search,
   ShieldCheck
 } from "lucide-react";
@@ -35,6 +36,7 @@ type ErpRoute =
   | "/finance"
   | "/leave"
   | "/reports"
+  | "/integrations"
   | "/settings";
 
 export type NavItem = {
@@ -111,6 +113,12 @@ export function getNavigationItems(role: Role): NavItem[] {
       label: "보고서",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: FileText
+    },
+    {
+      href: "/integrations",
+      label: "연동 관리",
+      roles: [Role.SUPER_ADMIN],
+      icon: PlugZap
     },
     {
       href: "/settings",

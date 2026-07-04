@@ -15,6 +15,10 @@ export type IntegrationStatus = {
   /** 이 연동을 켜기 위해 채워야 하는 환경 변수 이름들. */
   envVars: string[];
   description: string;
+  /** ERP 어디에서 쓰이는지(연동 관리 화면 안내용). */
+  usedIn: string;
+  /** 미연동일 때의 대체 동작. */
+  fallback: string;
 };
 
 function has(...names: string[]): boolean {
@@ -28,35 +32,45 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       label: "네이버 검색광고 (검색량)",
       configured: has("NAVER_AD_API_KEY", "NAVER_AD_SECRET", "NAVER_AD_CUSTOMER_ID"),
       envVars: ["NAVER_AD_API_KEY", "NAVER_AD_SECRET", "NAVER_AD_CUSTOMER_ID"],
-      description: "키워드 월간 검색수 조회"
+      description: "키워드 월간 검색수 조회",
+      usedIn: "검색량 조회",
+      fallback: "데모 추정치 표시"
     },
     {
       key: "kakaoLogin",
       label: "카카오 로그인",
       configured: has("AUTH_KAKAO_ID", "AUTH_KAKAO_SECRET"),
       envVars: ["AUTH_KAKAO_ID", "AUTH_KAKAO_SECRET"],
-      description: "카카오 계정으로 로그인"
+      description: "카카오 계정으로 로그인",
+      usedIn: "로그인",
+      fallback: "데모 로그인 사용"
     },
     {
       key: "kakaoAlimtalk",
       label: "카카오 알림톡",
       configured: has("KAKAO_ALIMTALK_API_KEY", "KAKAO_ALIMTALK_SENDER", "KAKAO_ALIMTALK_ENDPOINT"),
       envVars: ["KAKAO_ALIMTALK_API_KEY", "KAKAO_ALIMTALK_SENDER", "KAKAO_ALIMTALK_ENDPOINT"],
-      description: "거래처에 알림톡 발송"
+      description: "거래처에 알림톡 발송",
+      usedIn: "보고서 알림톡",
+      fallback: "발송 없이 미리보기"
     },
     {
       key: "email",
       label: "이메일 발송",
       configured: has("EMAIL_API_KEY", "EMAIL_FROM"),
       envVars: ["EMAIL_API_KEY", "EMAIL_FROM"],
-      description: "보고서·안내 메일 발송"
+      description: "보고서·안내 메일 발송",
+      usedIn: "보고서 메일",
+      fallback: "발송 없이 미리보기"
     },
     {
       key: "toss",
       label: "토스페이먼츠 (결제)",
       configured: has("TOSS_SECRET_KEY"),
-      envVars: ["TOSS_SECRET_KEY"],
-      description: "청구·결제 연동"
+      envVars: ["TOSS_SECRET_KEY", "TOSS_CLIENT_KEY"],
+      description: "청구·결제 연동",
+      usedIn: "결제 링크 (/pay)",
+      fallback: "데모 결제로 동작"
     }
   ];
 }
