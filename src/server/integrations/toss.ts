@@ -20,6 +20,15 @@ export function tossClientKey(): string | null {
   return process.env.TOSS_CLIENT_KEY || null;
 }
 
+/**
+ * 데모 결제 허용 여부. 공개 결제 페이지의 '데모 결제'는 인증 없이 청구를 결제완료로
+ * 만들 수 있으므로, 실 결제 미연동 + 데모 환경(AUTH_DEMO_LOGIN=true)에서만 허용한다.
+ * 운영 환경에서 토스 키를 빠뜨려도 결제 상태를 위조할 수 없게 막는다.
+ */
+export function demoPaymentAllowed(): boolean {
+  return !tossConfigured() && process.env.AUTH_DEMO_LOGIN === "true";
+}
+
 export type TossConfirmInput = {
   paymentKey: string;
   orderId: string;

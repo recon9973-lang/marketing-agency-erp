@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { PayBillingButton } from "@/components/finance/PayBillingButton";
 import { TossCheckoutButton } from "@/components/finance/TossCheckoutButton";
 import { BillingStatus } from "@/domain/types";
-import { tossClientKey, tossConfigured } from "@/server/integrations/toss";
+import { demoPaymentAllowed, tossClientKey, tossConfigured } from "@/server/integrations/toss";
 import { getBillingForPayment } from "@/server/repositories/finance";
 
 const monthFormatter = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long" });
@@ -23,6 +23,7 @@ export default async function PayPage({ params }: { params: Promise<{ id: string
   const paid = billing.status === BillingStatus.PAID || billing.outstanding <= 0;
   const configured = tossConfigured();
   const clientKey = tossClientKey();
+  const canDemoPay = demoPaymentAllowed();
   const orderName = `${billing.clientName} ${monthFormatter.format(new Date(`${billing.billingMonth}T00:00:00`))} 마케팅 대금`;
 
   return (
@@ -73,8 +74,12 @@ export default async function PayPage({ params }: { params: Promise<{ id: string
             <p className="rounded-lg bg-amber-50 px-4 py-4 text-center text-sm text-amber-700">
               결제창을 열려면 <code>TOSS_CLIENT_KEY</code>를 설정하세요. (서버 승인 키만 설정된 상태)
             </p>
-          ) : (
+          ) : canDemoPay ? (
             <PayBillingButton billingRecordId={billing.id} />
+          ) : (
+            <p className="rounded-lg bg-slate-50 px-4 py-4 text-center text-sm text-slate-500">
+              결제 수단이 아직 준비되지 않았습니다. 담당자에게 문의해주세요.
+            </p>
           )}
         </div>
       </div>

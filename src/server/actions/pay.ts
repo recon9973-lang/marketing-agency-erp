@@ -10,7 +10,7 @@ import { revalidatePath } from "next/cache";
 import { payBillingSchema } from "@/domain/pay";
 import { runAction, type ActionResult } from "@/server/action-result";
 import { notFound, validationError } from "@/server/errors";
-import { tossConfigured } from "@/server/integrations/toss";
+import { demoPaymentAllowed } from "@/server/integrations/toss";
 import { getBillingForPayment, recordDemoPayment } from "@/server/repositories/finance";
 
 function formDataToObject(formData: FormData) {
@@ -30,8 +30,9 @@ export async function payBillingDemoAction(
   return runAction(async () => {
     const { billingRecordId } = payBillingSchema.parse(formDataToObject(formData));
 
-    if (tossConfigured()) {
-      throw validationError("실 결제가 설정되어 있어 데모 결제를 사용할 수 없습니다. 결제창에서 결제해주세요.");
+    // 데모 결제는 데모 환경에서만. 운영에서 토스 키를 빠뜨려도 결제 위조를 막는다.
+    if (!demoPaymentAllowed()) {
+      throw validationError("데모 결제를 사용할 수 없습니다. 실 결제창에서 결제해주세요.");
     }
 
     const billing = await getBillingForPayment(billingRecordId);
