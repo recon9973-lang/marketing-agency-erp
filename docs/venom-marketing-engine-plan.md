@@ -8,9 +8,10 @@
 ## 1. 배경 및 현황 분석
 
 ### 1.1 베놈(Venom)이란
-`venom.co.kr` 도메인을 쓰는 **한국 마케팅 대행사**. 병원·지역업종(로컬) 고객을 중심으로
-브랜드블로그, 블로그 SEO/배포, 영수증 리뷰, 네이버 플레이스 순위, SNS 운영, 계정 관리,
-월간 리포트, 실적 수집을 서비스한다. (근거: ERP `WorkCategory` enum, `.env` `EMAIL_FROM=no-reply@venom.co.kr`)
+**베놈애드(VenomAd)** — 도메인 `venomad.com`, 제품/플랫폼 브랜드 **Markepick**(`markepick.com`, 마케픽) — 를 운영하는 **한국 마케팅 대행사**.
+병원·지역업종(로컬) 고객을 중심으로 브랜드블로그, 블로그 SEO/배포, 영수증 리뷰, 네이버 플레이스 순위, SNS 운영, 계정 관리,
+월간 리포트, 실적 수집을 서비스한다.
+(근거: ERP `WorkCategory` enum. 주의: ERP `.env`의 `no-reply@venom.co.kr`은 예시 placeholder이며 실제 도메인이 아니다.)
 
 ### 1.2 현재 구성 중인 프로그램 (연동 대상)
 
@@ -111,81 +112,14 @@ src/
 
 ## 4. 데이터 모델 확장 (Prisma 초안)
 
-기존 모델과 FK로 연결. (S1에서 확정·마이그레이션)
+기존 모델과 FK로 연결. 신규 모델/enum 전문은 [`docs/venom-marketing-engine-schema.prisma`](./venom-marketing-engine-schema.prisma) 참조.
+(원격 환경에서 `prisma migrate` 실행 불가 → 라이브 `schema.prisma`를 바로 건드리지 않고 fragment로 분리, 로컬 마이그레이션 가능 시점에 병합)
 
-```prisma
-enum ContentType { BLOG_POST SNS_POST CARD_NEWS SHORT_VIDEO REVIEW_GUIDE }
-enum PipelineStage { RESEARCH DRAFTING COMPLIANCE_REVIEW READY SCHEDULED PUBLISHED FAILED }
-enum ComplianceVerdict { PENDING PASS WARN BLOCK }
-enum PublishChannel { NAVER_BLOG WORDPRESS INSTAGRAM PLACE OTHER }
-
-/// 키워드/트렌드 리서치 스냅샷 (거래처·월 단위)
-model KeywordResearch {
-  id           String   @id @default(cuid())
-  clientId     String
-  workItemId   String?
-  seedKeyword  String
-  results      Json      // DataLab 트렌드·검색량·경쟁강도·연관어
-  source       String    // "naver-datalab" | "naver-search" ...
-  collectedAt  DateTime @default(now())
-  client       Client   @relation(fields: [clientId], references: [id])
-  @@index([clientId, collectedAt])
-}
-
-/// 콘텐츠 자산 + 파이프라인 상태
-model ContentAsset {
-  id                String            @id @default(cuid())
-  clientId          String
-  workItemId        String?
-  type              ContentType
-  stage             PipelineStage     @default(RESEARCH)
-  title             String?
-  bodyMarkdown      String?
-  meta              Json?             // 메타디스크립션·목차·FAQ·해시태그·JSON-LD
-  complianceVerdict ComplianceVerdict @default(PENDING)
-  complianceNotes   String?
-  createdById       String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  client            Client            @relation(fields: [clientId], references: [id])
-  workItem          WorkItem?         @relation(fields: [workItemId], references: [id])
-  creatives         CreativeAsset[]
-  publishJobs       PublishJob[]
-  @@index([clientId, stage])
-  @@index([workItemId])
-}
-
-/// 생성 크리에이티브(이미지/숏폼/카드뉴스)
-model CreativeAsset {
-  id             String   @id @default(cuid())
-  contentAssetId String?
-  clientId       String
-  kind           String   // image | short_video | card_news
-  url            String?
-  provider       String   // higgsfield | canva
-  meta           Json?    // virality score, prompt, dimensions
-  createdAt      DateTime @default(now())
-  contentAsset   ContentAsset? @relation(fields: [contentAssetId], references: [id])
-  @@index([clientId])
-}
-
-/// 발행/배포 잡 (예약·상태추적)
-model PublishJob {
-  id             String         @id @default(cuid())
-  contentAssetId String
-  channel        PublishChannel
-  clientAccountId String?       // 어떤 채널계정으로 발행할지 (crypto 복호화 대상)
-  scheduledAt    DateTime?
-  publishedAt    DateTime?
-  status         String         @default("QUEUED") // QUEUED|RUNNING|PUBLISHED|FAILED
-  externalUrl    String?
-  error          String?
-  createdAt      DateTime       @default(now())
-  contentAsset   ContentAsset   @relation(fields: [contentAssetId], references: [id])
-  @@index([channel, status, scheduledAt])
-}
-```
-> `Client`/`WorkItem`에는 역참조 relation만 추가(비파괴적). 기존 데이터 무영향.
+- `KeywordResearch` — 키워드/트렌드 리서치 스냅샷(거래처·월 단위)
+- `ContentAsset` — 콘텐츠 자산 + 파이프라인 상태(`PipelineStage`, `ComplianceVerdict`)
+- `CreativeAsset` — 생성 크리에이티브(이미지/숏폼/카드뉴스)
+- `PublishJob` — 발행/배포 잡(예약·상태추적)
+- `Client`/`WorkItem`/`User`/`ClientAccount`에는 역참조 relation만 추가(비파괴적, 컬럼 추가 없음).
 
 ---
 
@@ -224,7 +158,7 @@ model PublishJob {
 | 스프린트 | 산출물 | 완료 기준 |
 |---|---|---|
 | **S0 기획** ✅ | 본 문서 | 아키텍처·데이터모델·API매핑 합의 |
-| **S1 스캐폴딩** | Prisma 모델 + provider 인터페이스 + `ActionResult`/RBAC/audit 연동 + 스튜디오 설정(연결상태) | `pnpm test/build` 통과, 마이그레이션 무손상 |
+| **S1 스캐폴딩** 🔨 | Prisma 모델 + provider 인터페이스 + `ActionResult`/RBAC/audit 연동 + 스튜디오 설정(연결상태) | `pnpm test/build` 통과, 마이그레이션 무손상 |
 | **S2 리서치·성과수집** | 네이버 어댑터, `keyword-rank.ts` provider 리팩터, 성과 배치 → `Report.metrics` | 키워드 리서치·순위수집 e2e, metrics 병합 테스트 |
 | **S3 콘텐츠 파이프라인** | seo-generator/skill 통합, 의료광고법 검수 게이트, WorkItem 연결 | 키워드→검수완료 초안 흐름 테스트 |
 | **S4 크리에이티브 스튜디오** | Higgsfield/Canva 어댑터, CreativeAsset | 이미지/숏폼 생성·바이럴점수 저장 |
