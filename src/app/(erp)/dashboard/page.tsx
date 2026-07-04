@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
+import { DashboardInbox } from "@/components/dashboard/DashboardInbox";
 import { MarketerDashboard } from "@/components/dashboard/MarketerDashboard";
 import { SuperAdminDashboard } from "@/components/dashboard/SuperAdminDashboard";
 import { summarizeDashboard } from "@/domain/dashboard";
 import { Role } from "@/domain/types";
 import { fetchDashboardInput } from "@/server/repositories/dashboard";
+import { getInboxSummary } from "@/server/repositories/inbox";
 import { getCurrentUser } from "@/server/session";
 
 const businessTimeZone = "Asia/Seoul";
@@ -35,14 +37,21 @@ export default async function DashboardPage() {
     timeZone: businessTimeZone
   });
   const summary = summarizeDashboard(dashboardInput);
+  const inbox = await getInboxSummary(user);
 
-  if (user.role === Role.SUPER_ADMIN) {
-    return <SuperAdminDashboard summary={summary} />;
-  }
+  const roleDashboard =
+    user.role === Role.SUPER_ADMIN ? (
+      <SuperAdminDashboard summary={summary} />
+    ) : user.role === Role.ADMIN ? (
+      <AdminDashboard summary={summary} />
+    ) : (
+      <MarketerDashboard summary={summary} />
+    );
 
-  if (user.role === Role.ADMIN) {
-    return <AdminDashboard summary={summary} />;
-  }
-
-  return <MarketerDashboard summary={summary} />;
+  return (
+    <div className="space-y-8">
+      {roleDashboard}
+      <DashboardInbox inbox={inbox} />
+    </div>
+  );
 }
