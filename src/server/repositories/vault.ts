@@ -1,4 +1,6 @@
 import { db } from "@/server/db";
+import { storageKey } from "@/server/repositories/files";
+import { persistBytes, removeBytes } from "@/server/storage";
 
 /**
  * 보관함(공용 파일함) 저장 계층 (워크플로우 5차).
@@ -105,12 +107,20 @@ export async function createVaultFile(input: {
   uploadedById: string;
   folderId: string | null;
 }): Promise<{ id: string }> {
+  const persisted = await persistBytes({
+    key: storageKey("vault", input.fileName),
+    data: input.data,
+    mimeType: input.mimeType
+  });
+
   const file = await db.storedFile.create({
     data: {
       fileName: input.fileName,
       mimeType: input.mimeType,
       size: input.data.byteLength,
-      data: new Uint8Array(input.data),
+      data: persisted.inline ? new Uint8Array(persisted.inline) : null,
+      storageDriver: persisted.storageDriver,
+      storageRef: persisted.storageRef,
       uploadedById: input.uploadedById,
       inVault: true,
       folderId: input.folderId
@@ -123,7 +133,19 @@ export async function createVaultFile(input: {
 
 /** 보관함 파일 삭제(누구나 가능). 채팅 첨부 파일은 지우지 않도록 inVault로 제한한다. */
 export async function deleteVaultFile(fileId: string): Promise<number> {
+  // 외부 저장소(blob/nas)에 남은 바이트도 정리하기 위해 먼저 참조를 읽는다.
+  const file = await db.storedFile.findFirst({
+    where: { id: fileId, inVault: true },
+    select: { storageDriver: true, storageRef: true }
+  });
+  if (!file) {
+    return 0;
+  }
+
   const result = await db.storedFile.deleteMany({ where: { id: fileId, inVault: true } });
+  if (result.count > 0) {
+    await removeBytes({ storageDriver: file.storageDriver, storageRef: file.storageRef, data: null });
+  }
   return result.count;
 }
 

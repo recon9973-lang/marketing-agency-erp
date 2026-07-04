@@ -563,7 +563,12 @@ model StoredFile {
   fileName     String
   mimeType     String
   size         Int
-  data         Bytes
+  // 저장 드라이버가 "db"일 때만 바이트를 여기 보관한다. blob/nas면 null.
+  data         Bytes?
+  // 파일 바이트를 어디에 저장했는지: "db" | "blob" | "nas".
+  storageDriver String       @default("db")
+  // 외부 저장소(blob/nas) 참조(URL/경로). db 저장이면 null.
+  storageRef   String?
   uploadedById String?
   // 보관함(공용 파일함)에 올라온 파일이면 true. 채팅 첨부 파일은 false.
   inVault      Boolean       @default(false)

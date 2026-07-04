@@ -2,7 +2,14 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Role } from "@/domain/types";
 import { getIntegrationStatuses } from "@/server/integrations/status";
+import { currentStorageDriver } from "@/server/storage";
 import { getCurrentUser } from "@/server/session";
+
+const STORAGE_LABEL: Record<string, string> = {
+  db: "데이터베이스(bytea) — 기본",
+  blob: "Vercel Blob",
+  nas: "NAS"
+};
 
 export default async function IntegrationsPage() {
   const user = await getCurrentUser();
@@ -76,6 +83,23 @@ export default async function IntegrationsPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="space-y-2 rounded-md border border-line bg-white p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold text-ink">파일 저장소</p>
+            <p className="text-sm text-slate-500">채팅·보관함·스튜디오 파일이 저장되는 위치</p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+            {STORAGE_LABEL[currentStorageDriver()] ?? currentStorageDriver()}
+          </span>
+        </div>
+        <p className="text-xs text-slate-500">
+          <code>STORAGE_DRIVER</code>를 <code>db</code>/<code>blob</code>/<code>nas</code>로 바꾸면 저장 위치가
+          바뀝니다. NAS 이관은 최종 배포 위치가 정해진 뒤 <code>NAS_ENDPOINT</code>를 설정하면 됩니다. (호출부
+          코드 변경 없음)
+        </p>
       </div>
 
       <p className="text-xs text-slate-400">

@@ -1,13 +1,23 @@
 import { db } from "@/server/db";
+import { persistBytes } from "@/server/storage";
 
 /**
- * 파일 저장 계층 (워크플로우 3차).
+ * 파일 저장 계층 (워크플로우 3차 · 12차 저장 드라이버 도입).
  *
- * 임시로 DB(bytea)에 저장한다(기획 결정: Blob/NAS 준비 전까지, 파일당 4MB 제한).
- * 저장소를 Vercel Blob/NAS로 옮길 때 이 모듈의 구현만 교체한다.
+ * 파일 바이트는 STORAGE_DRIVER(기본 db → blob/nas)에 따라 저장된다.
+ * 이 모듈은 메타데이터 CRUD와 접근 제어만 담당하고, 실제 바이트 저장/조회는
+ * `@/server/storage` 드라이버가 맡는다(파일당 4MB 제한).
  */
 
 export const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+
+/** 저장소 key: 사람이 봐도 알아볼 수 있게 prefix + 파일명 정규화. */
+function storageKey(prefix: string, fileName: string) {
+  const safe = fileName.replace(/[^\w.\-가-힣]+/g, "_").slice(0, 80) || "file";
+  return `${prefix}/${Date.now()}-${Math.round(Math.random() * 1e9)}-${safe}`;
+}
+
+export { storageKey };
 
 export type StoredFileMeta = {
   id: string;
@@ -22,12 +32,20 @@ export async function createStoredFile(input: {
   data: Uint8Array;
   uploadedById: string;
 }): Promise<StoredFileMeta> {
+  const persisted = await persistBytes({
+    key: storageKey("chat", input.fileName),
+    data: input.data,
+    mimeType: input.mimeType
+  });
+
   const file = await db.storedFile.create({
     data: {
       fileName: input.fileName,
       mimeType: input.mimeType,
       size: input.data.byteLength,
-      data: new Uint8Array(input.data),
+      data: persisted.inline ? new Uint8Array(persisted.inline) : null,
+      storageDriver: persisted.storageDriver,
+      storageRef: persisted.storageRef,
       uploadedById: input.uploadedById
     },
     select: { id: true, fileName: true, mimeType: true, size: true }
@@ -43,7 +61,17 @@ export async function createStoredFile(input: {
 export async function getFileForUser(fileId: string, userId: string) {
   const file = await db.storedFile.findUnique({
     where: { id: fileId },
-    select: { id: true, fileName: true, mimeType: true, size: true, data: true, uploadedById: true, inVault: true }
+    select: {
+      id: true,
+      fileName: true,
+      mimeType: true,
+      size: true,
+      data: true,
+      storageDriver: true,
+      storageRef: true,
+      uploadedById: true,
+      inVault: true
+    }
   });
 
   if (!file) {

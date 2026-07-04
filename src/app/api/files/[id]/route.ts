@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getFileForUser } from "@/server/repositories/files";
 import { getCurrentUser } from "@/server/session";
+import { readBytes } from "@/server/storage";
 
 /** 첨부 파일 다운로드. 업로더 본인 또는 첨부된 대화방 멤버만 접근 가능. */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -18,7 +19,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   }
 
   const isImage = file.mimeType.startsWith("image/");
-  const body = new Uint8Array(file.data);
+  const body = (await readBytes(file)) as unknown as BodyInit;
 
   return new NextResponse(body, {
     headers: {
