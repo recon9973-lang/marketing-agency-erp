@@ -6,7 +6,7 @@
  * 이 파일은 각 연동이 현재 환경에서 설정됐는지 한곳에서 보고한다.
  */
 
-export type IntegrationKey = "naverSearchAd" | "kakaoLogin" | "email" | "toss";
+export type IntegrationKey = "naverSearchAd" | "kakaoLogin" | "kakaoAlimtalk" | "email" | "toss";
 
 export type IntegrationStatus = {
   key: IntegrationKey;
@@ -36,6 +36,13 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       configured: has("AUTH_KAKAO_ID", "AUTH_KAKAO_SECRET"),
       envVars: ["AUTH_KAKAO_ID", "AUTH_KAKAO_SECRET"],
       description: "카카오 계정으로 로그인"
+    },
+    {
+      key: "kakaoAlimtalk",
+      label: "카카오 알림톡",
+      configured: has("KAKAO_ALIMTALK_API_KEY", "KAKAO_ALIMTALK_SENDER", "KAKAO_ALIMTALK_ENDPOINT"),
+      envVars: ["KAKAO_ALIMTALK_API_KEY", "KAKAO_ALIMTALK_SENDER", "KAKAO_ALIMTALK_ENDPOINT"],
+      description: "거래처에 알림톡 발송"
     },
     {
       key: "email",

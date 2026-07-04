@@ -46,3 +46,16 @@ export const sendReportEmailSchema = z.object({
       message: "올바른 이메일 주소를 입력해주세요."
     })
 });
+
+/** 보고서 알림톡 발송 입력 검증. to를 비우면 거래처 등록 전화번호로 보낸다. */
+export const sendReportAlimtalkSchema = z.object({
+  id: requiredString("보고서", 60),
+  to: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => value || undefined)
+    .refine((value) => value === undefined || value.replace(/[^0-9]/g, "").length >= 9, {
+      message: "올바른 휴대폰 번호를 입력해주세요."
+    })
+});

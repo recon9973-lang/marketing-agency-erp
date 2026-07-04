@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import { ReportForm } from "@/components/reports/ReportForm";
 import { ReportStatusActions } from "@/components/reports/ReportStatusActions";
+import { SendReportAlimtalk } from "@/components/reports/SendReportAlimtalk";
 import { SendReportEmail } from "@/components/reports/SendReportEmail";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { canAccessClient } from "@/domain/access-control";
 import { updateReportAction } from "@/server/actions/report";
+import { alimtalkConfigured } from "@/server/integrations/kakao-alimtalk";
 import { emailConfigured } from "@/server/integrations/email";
 import { fetchClientsForUser } from "@/server/repositories/clients";
 import { getReportAccessInfo, getReportDetail, getReportEmailData } from "@/server/repositories/reports";
@@ -40,12 +42,21 @@ export default async function EditReportPage({ params }: { params: Promise<{ id:
         <ReportStatusActions reportId={detail.id} status={accessInfo.status} />
       </div>
 
-      <div className="rounded-md border border-line bg-white p-6">
-        <SendReportEmail
-          reportId={detail.id}
-          configured={emailConfigured()}
-          defaultEmail={emailData?.contactEmail ?? null}
-        />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-md border border-line bg-white p-6">
+          <SendReportEmail
+            reportId={detail.id}
+            configured={emailConfigured()}
+            defaultEmail={emailData?.contactEmail ?? null}
+          />
+        </div>
+        <div className="rounded-md border border-line bg-white p-6">
+          <SendReportAlimtalk
+            reportId={detail.id}
+            configured={alimtalkConfigured()}
+            defaultPhone={emailData?.contactPhone ?? null}
+          />
+        </div>
       </div>
 
       <div className="rounded-md border border-line bg-white p-6">

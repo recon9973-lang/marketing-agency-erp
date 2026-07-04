@@ -7,6 +7,7 @@ const reportData: ReportEmailData = {
   title: "7월 블로그·플레이스 성과",
   clientName: "서울치과",
   contactEmail: "manager@seoul-dental.example",
+  contactPhone: "010-1234-5678",
   reportingMonth: new Date("2026-07-01T00:00:00.000Z"),
   metrics: [
     { label: "블로그 방문", value: "12,400" },
