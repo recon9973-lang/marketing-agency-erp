@@ -13,9 +13,13 @@ server/marketing/
   providers/       # 외부 연동 어댑터 (같은 인터페이스, MCP/직접API 두 경로)
     types.ts       #   공통 계약(ProviderResult, Research/Content/Creative/Publish Provider)
     naver.ts       #   네이버 DataLab·검색·순위 (서버 직접 API 구현)
+  research.ts      # S2: 키워드 리서치 + 보고서 성과수집 → Report.metrics
   README.md
 domain/marketing/
   schemas.ts       # enum 상수 · zod 입력검증 · 파이프라인 상태머신
+  schemas.test.ts  # 상태머신 단위테스트
+app/api/marketing/
+  cron/route.ts    # 성과수집 배치 트리거(secret 보호)
 ```
 
 ## 이중 실행 모델
@@ -23,15 +27,16 @@ domain/marketing/
 | 경로 | 트리거 | 연동 방식 |
 |---|---|---|
 | 에이전트 | 스튜디오 UI에서 담당자 요청 | Claude 세션 + MCP(PlayMCP 네이버·Higgsfield·Canva·WordPress·Make) |
-| 서버·크론 | 정기 배치(순위/성과 수집) | provider 어댑터가 외부 Open API 직접 호출 |
+| 서버·크론 | 정기 배치(순위/성과 수집) | provider 어댑터가 외부 Open API 직접 호출 (`api/marketing/cron`) |
 
 → provider 인터페이스가 두 경로를 흡수한다. 크론은 세션 MCP를 못 쓰므로 직접-API 구현이 필수.
 
-## 환경변수 (S2에서 사용)
+## 환경변수
 
 ```
 NAVER_SEARCH_CLIENT_ID=""       # 네이버 검색·DataLab
 NAVER_SEARCH_CLIENT_SECRET=""
+MARKETING_CRON_SECRET=""        # 성과수집 크론 라우트 보호 헤더
 # (S3+) OPENAI_API_KEY, HIGGSFIELD_API_KEY, CANVA_*, WORDPRESS_*, MAKE_WEBHOOK_URL
 ```
 
@@ -46,8 +51,12 @@ NAVER_SEARCH_CLIENT_SECRET=""
 ## 진행 상태
 
 - [x] S0 기획
-- [~] S1 스캐폴딩 — provider 계약·도메인 스키마·네이버 어댑터·Prisma fragment 완료. (남음: schema.prisma 병합+마이그레이션, 스튜디오 설정 화면)
-- [ ] S2 리서치·성과수집 (keyword-rank.ts provider 리팩터 → Report.metrics)
+- [x] S1 스캐폴딩 — provider 계약·도메인 스키마·네이버 어댑터·Prisma fragment·상태머신.
+- [x] S2 리서치·성과수집 — `research.ts`(키워드 리서치+성과수집→Report.metrics), 크론 라우트, 상태머신 테스트.
+      (남음: 로컬 검증 가능 시 `keyword-rank.ts`를 provider로 통합, `NAVER_*` 키 주입)
 - [ ] S3 콘텐츠 파이프라인 (seo-generator/skill + 의료광고법 게이트)
 - [ ] S4 크리에이티브 스튜디오 (Higgsfield/Canva)
 - [ ] S5 발행·배포 (WordPress/Make) · S6 리포트 자동조립
+
+> 참고: 신규 Prisma 모델은 `docs/venom-marketing-engine-schema.prisma`에 분리 보관.
+> S2는 기존 `Report.metrics`만 사용해 마이그레이션 없이 동작한다.
