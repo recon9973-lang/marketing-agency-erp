@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { ClientActivityTimeline } from "@/components/clients/ClientActivityTimeline";
 import { PlaceRankDeleteButton } from "@/components/place-rank/PlaceRankDeleteButton";
 import { PlaceRankForm } from "@/components/place-rank/PlaceRankForm";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
@@ -8,6 +9,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Select } from "@/components/ui/Select";
 import { rankDelta } from "@/domain/place-rank";
 import { requireClientAccess } from "@/server/authorization";
+import { getClientActivity } from "@/server/repositories/client-activity";
 import { getClientAccessInfo, getClientDetail } from "@/server/repositories/clients";
 import { listPlaceRankKeywords, listPlaceRanks, type PlaceRankListItem } from "@/server/repositories/place-rank";
 import { getCurrentUser } from "@/server/session";
@@ -118,10 +120,11 @@ export default async function ClientRanksPage({
   }
 
   const { keyword } = await searchParams;
-  const [client, keywords, records] = await Promise.all([
+  const [client, keywords, records, activity] = await Promise.all([
     getClientDetail(id),
     listPlaceRankKeywords(id),
-    listPlaceRanks(id, { keyword: keyword?.trim() || undefined })
+    listPlaceRanks(id, { keyword: keyword?.trim() || undefined }),
+    getClientActivity(id)
   ]);
 
   const rows = withDeltas(records);
@@ -145,6 +148,8 @@ export default async function ClientRanksPage({
           </Link>
         }
       />
+
+      <ClientActivityTimeline items={activity} />
 
       {latestByKeyword.size > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
