@@ -1,0 +1,157 @@
+// docs/venom-marketing-engine-schema.prisma
+//
+// VME 신규 Prisma 모델 fragment. schema.prisma에 병합할 내용을 분리 보관한다.
+// 원격 환경에서 `prisma migrate`를 실행할 수 없어 라이브 스키마를 바로 건드리지 않고,
+// 개발자가 로컬에서 마이그레이션 가능한 시점에 통합하기 위한 준비 문서다.
+//
+// 병합 절차(S1 마무리 단계):
+//   1) 아래 enum/model을 prisma/schema.prisma 끝에 붙인다.
+//   2) 아래 "back-relation 추가" 주석대로 기존 Client / WorkItem / Report 모델에
+//      역참조 필드만 추가한다(비파괴적, 컬럼 추가 없음).
+//   3) `pnpm prisma:generate && pnpm prisma:migrate` 실행 → 마이그레이션 이름 예: add_vme_models
+//   4) `pnpm test && pnpm build` 로 회귀 검증.
+//   domain/marketing/schemas.ts 의 상수와 enum이 1:1 대응하는지 유지한다.
+
+// ── enum ──────────────────────────────────────
+enum ContentType {
+  BLOG_POST
+  SNS_POST
+  CARD_NEWS
+  SHORT_VIDEO
+  REVIEW_GUIDE
+}
+
+enum PipelineStage {
+  RESEARCH
+  DRAFTING
+  COMPLIANCE_REVIEW
+  READY
+  SCHEDULED
+  PUBLISHED
+  FAILED
+}
+
+enum ComplianceVerdict {
+  PENDING
+  PASS
+  WARN
+  BLOCK
+}
+
+enum PublishChannel {
+  NAVER_BLOG
+  WORDPRESS
+  INSTAGRAM
+  PLACE
+  OTHER
+}
+
+// ── model ─────────────────────────────────────
+
+/// 키워드/트렌드 리서치 스냅샷 (거래처·월 단위). 네이버 DataLab/검색 결과 원본 보관.
+model KeywordResearch {
+  id          String   @id @default(cuid())
+  clientId    String
+  workItemId  String?
+  seedKeyword String
+  results     Json // DataLab 트렌드·검색량·경쟁강도·연관어
+  source      String // "naver-datalab" | "naver-search"
+  collectedAt DateTime @default(now())
+
+  client   Client    @relation(fields: [clientId], references: [id])
+  workItem WorkItem? @relation(fields: [workItemId], references: [id])
+
+  @@index([clientId, collectedAt])
+  @@index([workItemId])
+}
+
+/// 콘텐츠 자산 + 파이프라인 상태. WorkItem(대행 업무)과 연결.
+model ContentAsset {
+  id                String            @id @default(cuid())
+  clientId          String
+  workItemId        String?
+  type              ContentType
+  stage             PipelineStage     @default(RESEARCH)
+  title             String?
+  bodyMarkdown      String?
+  meta              Json? // 메타디스크립션·목차·FAQ·해시태그·JSON-LD
+  complianceVerdict ComplianceVerdict @default(PENDING)
+  complianceNotes   String?
+  createdById       String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  client      Client          @relation(fields: [clientId], references: [id])
+  workItem    WorkItem?       @relation(fields: [workItemId], references: [id])
+  createdBy   User?           @relation(fields: [createdById], references: [id])
+  creatives   CreativeAsset[]
+  publishJobs PublishJob[]
+
+  @@index([clientId, stage])
+  @@index([workItemId])
+  @@index([createdById])
+}
+
+/// 생성 크리에이티브(이미지/숏폼/카드뉴스). Higgsfield/Canva 산출물.
+model CreativeAsset {
+  id             String   @id @default(cuid())
+  contentAssetId String?
+  clientId       String
+  kind           String // image | short_video | card_news
+  url            String?
+  provider       String // higgsfield | canva
+  meta           Json? // virality score, prompt, dimensions
+  createdAt      DateTime @default(now())
+
+  contentAsset ContentAsset? @relation(fields: [contentAssetId], references: [id])
+  client       Client        @relation(fields: [clientId], references: [id])
+
+  @@index([clientId])
+  @@index([contentAssetId])
+}
+
+/// 발행/배포 잡 (예약·상태추적). ClientAccount(암호화 자격증명)로 실제 발행.
+model PublishJob {
+  id              String         @id @default(cuid())
+  contentAssetId  String
+  channel         PublishChannel
+  clientAccountId String? // crypto 복호화 대상(발행 시점, 서버 내부에서만)
+  scheduledAt     DateTime?
+  publishedAt     DateTime?
+  status          String         @default("QUEUED") // QUEUED|RUNNING|PUBLISHED|FAILED
+  externalUrl     String?
+  error           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  contentAsset  ContentAsset   @relation(fields: [contentAssetId], references: [id])
+  clientAccount ClientAccount? @relation(fields: [clientAccountId], references: [id])
+
+  @@index([channel, status, scheduledAt])
+  @@index([contentAssetId])
+}
+
+// ── 기존 모델에 추가할 back-relation (컬럼 추가 없음, 비파괴적) ──
+//
+// model Client {
+//   ... (기존 필드 유지)
+//   keywordResearch KeywordResearch[]
+//   contentAssets   ContentAsset[]
+//   creativeAssets  CreativeAsset[]
+// }
+//
+// model WorkItem {
+//   ... (기존 필드 유지)
+//   keywordResearch KeywordResearch[]
+//   contentAssets   ContentAsset[]
+// }
+//
+// model User {
+//   ... (기존 필드 유지)
+//   createdContentAssets ContentAsset[]
+// }
+//
+// model ClientAccount {
+//   ... (기존 필드 유지)
+//   publishJobs PublishJob[]
+// }
