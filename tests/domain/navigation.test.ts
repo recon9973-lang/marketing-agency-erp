@@ -25,4 +25,10 @@ describe("role navigation", () => {
       expect(getNavigationItems(role).map((item) => item.label)).toContain("이미지 스튜디오");
     }
   });
+
+  it("shows keyword search-volume lookup to every role", () => {
+    for (const role of [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER]) {
+      expect(getNavigationItems(role).map((item) => item.label)).toContain("검색량 조회");
+    }
+  });
 });

@@ -10,6 +10,7 @@ import {
   ImagePlus,
   MessageSquare,
   Plane,
+  Search,
   ShieldCheck
 } from "lucide-react";
 import Link from "next/link";
@@ -29,6 +30,7 @@ type ErpRoute =
   | "/messages"
   | "/vault"
   | "/studio"
+  | "/keywords"
   | "/calendar"
   | "/finance"
   | "/leave"
@@ -79,6 +81,12 @@ export function getNavigationItems(role: Role): NavItem[] {
       label: "이미지 스튜디오",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: ImagePlus
+    },
+    {
+      href: "/keywords",
+      label: "검색량 조회",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Search
     },
     {
       href: "/calendar",
