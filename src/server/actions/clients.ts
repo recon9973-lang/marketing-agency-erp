@@ -27,7 +27,6 @@ function assertManagerRole(role: Role) {
 
 const createClientSchema = z.object({
   name: z.string().trim().min(1),
-  code: z.string().trim().min(1),
   businessNumber: z.string().trim().optional().nullable(),
   contactName: z.string().trim().optional().nullable(),
   contactEmail: z.string().trim().email().optional().nullable().or(z.literal("")),
@@ -38,6 +37,18 @@ const createClientSchema = z.object({
   serviceNotes: z.string().trim().optional().nullable(),
   assignedMarketerId: z.string().trim().optional().nullable()
 });
+
+/** 거래처 코드 자동 생성 — `VC-0001` 순번. 4자리 zero-pad라 사전식 정렬 = 숫자 정렬(≤9999). */
+async function nextClientCode(): Promise<string> {
+  const last = await db.client.findFirst({
+    where: { code: { startsWith: "VC-" } },
+    orderBy: { code: "desc" },
+    select: { code: true }
+  });
+  const lastNum = last?.code ? Number.parseInt(last.code.slice(3), 10) : 0;
+  const next = Number.isFinite(lastNum) ? lastNum + 1 : 1;
+  return `VC-${String(next).padStart(4, "0")}`;
+}
 
 export async function createClient(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
@@ -55,39 +66,49 @@ export async function createClient(input: unknown): Promise<ActionResult<{ id: s
       assertCanAccessClient(user, "__new__", scopes, data.assignedMarketerId ?? null);
     }
 
-    const exists = await db.client.findUnique({ where: { code: data.code } });
-    if (exists) throw new Error("DUPLICATE_CLIENT_CODE");
-
     const meta = await requestMeta();
-    const created = await db.$transaction(async (tx) => {
-      const client = await tx.client.create({
-        data: {
-          name: data.name,
-          code: data.code,
-          businessNumber: data.businessNumber || null,
-          contactName: data.contactName || null,
-          contactEmail: data.contactEmail || null,
-          contactPhone: data.contactPhone || null,
-          contractStartDate: data.contractStartDate ?? null,
-          contractEndDate: data.contractEndDate ?? null,
-          monthlyContractFee: data.monthlyContractFee ?? null,
-          serviceNotes: data.serviceNotes || null,
-          assignedMarketerId: data.assignedMarketerId || null
-        }
-      });
-      await recordAudit(tx, {
-        actorId: user.id,
-        action: "client.create",
-        targetType: "Client",
-        targetId: client.id,
-        afterState: client,
-        ...meta
-      });
-      return client;
-    });
 
-    revalidatePath("/clients");
-    return { id: created.id };
+    // 코드는 자동 생성. 동시 생성으로 unique(code) 충돌 시 번호를 올려 최대 5회 재시도.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = await nextClientCode();
+      try {
+        const created = await db.$transaction(async (tx) => {
+          const client = await tx.client.create({
+            data: {
+              name: data.name,
+              code,
+              businessNumber: data.businessNumber || null,
+              contactName: data.contactName || null,
+              contactEmail: data.contactEmail || null,
+              contactPhone: data.contactPhone || null,
+              contractStartDate: data.contractStartDate ?? null,
+              contractEndDate: data.contractEndDate ?? null,
+              monthlyContractFee: data.monthlyContractFee ?? null,
+              serviceNotes: data.serviceNotes || null,
+              assignedMarketerId: data.assignedMarketerId || null
+            }
+          });
+          await recordAudit(tx, {
+            actorId: user.id,
+            action: "client.create",
+            targetType: "Client",
+            targetId: client.id,
+            afterState: client,
+            ...meta
+          });
+          return client;
+        });
+
+        revalidatePath("/clients");
+        return { id: created.id };
+      } catch (error) {
+        // P2002 = unique 제약 위반(코드 경합). 마지막 시도면 그대로 던짐.
+        if ((error as { code?: string })?.code === "P2002" && attempt < 4) continue;
+        throw error;
+      }
+    }
+
+    throw new Error("CLIENT_CODE_CONFLICT");
   });
 }
 

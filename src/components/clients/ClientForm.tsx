@@ -38,7 +38,6 @@ export function ClientForm({
     const payload = {
       id: initial?.id,
       name: String(formData.get("name") || ""),
-      code: String(formData.get("code") || ""),
       // 하위(진료과)가 있으면 그 id, 없으면 대분류 id
       industryCategoryId: childId || parentId || null,
       industryCustom: isEtc ? String(formData.get("industryCustom") || "") : null,
@@ -61,8 +60,18 @@ export function ClientForm({
           <input name="name" defaultValue={initial?.name} required className="mt-1 w-full rounded border px-3 py-2" />
         </label>
         <label className="block">
-          <span className="text-sm text-slate-600">거래처 코드 *</span>
-          <input name="code" defaultValue={initial?.code} required className="mt-1 w-full rounded border px-3 py-2" />
+          <span className="text-sm text-slate-600">거래처 코드</span>
+          {initial?.code ? (
+            <input
+              value={initial.code}
+              readOnly
+              className="mt-1 w-full rounded border bg-slate-50 px-3 py-2 text-slate-500"
+            />
+          ) : (
+            <div className="mt-1 flex items-center rounded border border-dashed bg-slate-50 px-3 py-2 text-sm text-slate-400">
+              저장 시 자동 생성 (VC-0001)
+            </div>
+          )}
         </label>
       </div>
 
