@@ -16,6 +16,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Role } from "@/domain/types";
+import { BrandLogo } from "@/components/erp/BrandLogo";
 
 type ErpRoute =
   | "/dashboard"
@@ -161,14 +162,9 @@ export function AppShell({
     <div className="min-h-screen bg-surface text-ink">
       {/* 데스크톱 다크 사이드바 */}
       <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col bg-sidebar px-3.5 py-5 text-neutral-200 md:flex">
-        <div className="flex items-center gap-2.5 px-2 pb-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-base font-extrabold text-white">
-            V
-          </div>
-          <div>
-            <p className="text-[15px] font-bold tracking-wide">VENOM ERP</p>
-            <p className="text-[10px] tracking-[0.14em] text-sidebar-sub">MARKETING</p>
-          </div>
+        <div className="px-2 pb-5 pt-1">
+          <BrandLogo tone="dark" className="text-[22px]" />
+          <p className="mt-1.5 text-[10px] tracking-[0.14em] text-sidebar-sub">MARKETING ERP</p>
         </div>
 
         <nav className="flex-1 overflow-y-auto">

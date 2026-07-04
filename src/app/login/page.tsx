@@ -1,6 +1,7 @@
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { signIn } from "@/server/auth";
+import { BrandLogo } from "@/components/erp/BrandLogo";
 
 const emailConfigured = Boolean(process.env.EMAIL_SERVER);
 
@@ -40,8 +41,11 @@ export default async function LoginPage({
   return (
     <main className="flex min-h-screen items-center justify-center bg-surface px-6">
       <section className="w-full max-w-md rounded-md border border-line bg-white p-8 shadow-sm">
-        <p className="text-sm font-semibold text-brand">Marketing Agency ERP</p>
-        <h1 className="mt-3 text-3xl font-semibold text-ink">관리자 로그인</h1>
+        <BrandLogo tone="light" className="text-2xl" />
+        <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+          Marketing ERP
+        </p>
+        <h1 className="mt-5 text-3xl font-semibold text-ink">관리자 로그인</h1>
         <p className="mt-4 text-base leading-7 text-slate-600">
           등록된 직원 이메일로 로그인 링크를 보내드립니다. 메일의 링크를 클릭하면 로그인됩니다.
         </p>

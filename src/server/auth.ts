@@ -17,7 +17,7 @@ import { recordLogin } from "@/server/tracking";
 const authSecret =
   process.env.AUTH_SECRET ?? (process.env.NODE_ENV === "production" ? undefined : "dev-auth-secret");
 
-const BRAND = "#1f7a68";
+const BRAND = "#d9662e"; // 톤다운 테라코타 오렌지 (VENOM ERP V2.1 브랜드)
 
 /**
  * 매직링크 메일 커스텀 발송.
@@ -42,18 +42,19 @@ async function sendVerificationRequest(params: {
     : "아래 버튼을 눌러 로그인하세요.";
   const cta = isInvite ? "초대 수락하고 로그인" : "로그인";
 
-  const html = `<!doctype html><html><body style="margin:0;background:#f6f8f7;padding:32px 0;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Segoe UI',sans-serif;color:#12211d">
+  const html = `<!doctype html><html><body style="margin:0;background:#f7f6f4;padding:32px 0;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Segoe UI',sans-serif;color:#18202f">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-    <table role="presentation" cellpadding="0" cellspacing="0" style="width:440px;max-width:92%;background:#ffffff;border:1px solid #dbe4e0;border-radius:4px">
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:440px;max-width:92%;background:#ffffff;border:1px solid #e8e7e4;border-radius:4px">
       <tr><td style="padding:28px 32px 6px">
-        <div style="font-size:12px;font-weight:700;letter-spacing:.12em;color:${BRAND}">VENOM · MARKETING ERP</div>
-        <h1 style="margin:12px 0 8px;font-size:22px;line-height:1.3">${heading}</h1>
-        <p style="margin:0;font-size:14px;line-height:1.7;color:#5b6b66">${lead}</p>
+        <div style="font-weight:900;font-size:23px;letter-spacing:-.01em;line-height:1;color:#18202f">VENOM<span style="color:${BRAND}">&bull;</span></div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.14em;color:#9a9a96;margin-top:7px">MARKETING ERP</div>
+        <h1 style="margin:16px 0 8px;font-size:22px;line-height:1.3">${heading}</h1>
+        <p style="margin:0;font-size:14px;line-height:1.7;color:#6b6b66">${lead}</p>
       </td></tr>
       <tr><td style="padding:18px 32px 28px">
         <a href="${url}" style="display:inline-block;background:${BRAND};color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 26px;border-radius:4px">${cta} &rarr;</a>
-        <p style="margin:20px 0 0;font-size:12px;line-height:1.7;color:#8a9a95">버튼이 안 열리면 아래 주소를 복사해 브라우저에 붙여넣으세요:<br><span style="color:${BRAND};word-break:break-all">${url}</span></p>
-        <p style="margin:16px 0 0;font-size:12px;color:#8a9a95">본인이 요청하지 않았다면 이 메일을 무시하세요. 링크는 24시간 후 만료됩니다.</p>
+        <p style="margin:20px 0 0;font-size:12px;line-height:1.7;color:#9a9a96">버튼이 안 열리면 아래 주소를 복사해 브라우저에 붙여넣으세요:<br><span style="color:${BRAND};word-break:break-all">${url}</span></p>
+        <p style="margin:16px 0 0;font-size:12px;color:#9a9a96">본인이 요청하지 않았다면 이 메일을 무시하세요. 링크는 24시간 후 만료됩니다.</p>
       </td></tr>
     </table>
   </td></tr></table>
