@@ -20,6 +20,10 @@ export type CalendarListItem = {
   kind: CalendarEventKind;
   syncStatus: ConnectionStatus;
   clientName: string | null;
+  workItemId: string | null;
+  reportId: string | null;
+  leaveRequestId: string | null;
+  clientId: string | null;
 };
 
 export const calendarKindLabels: Record<CalendarEventKind, string> = {
@@ -110,6 +114,10 @@ export async function fetchCalendarEventsForUser(user: CurrentUser): Promise<Cal
       provider: true,
       kind: true,
       syncStatus: true,
+      workItemId: true,
+      reportId: true,
+      leaveRequestId: true,
+      clientId: true,
       client: {
         select: { name: true }
       }
@@ -125,6 +133,10 @@ export async function fetchCalendarEventsForUser(user: CurrentUser): Promise<Cal
     provider: event.provider,
     kind: event.kind,
     syncStatus: event.syncStatus,
-    clientName: event.client?.name ?? null
+    clientName: event.client?.name ?? null,
+    workItemId: event.workItemId,
+    reportId: event.reportId,
+    leaveRequestId: event.leaveRequestId,
+    clientId: event.clientId
   }));
 }

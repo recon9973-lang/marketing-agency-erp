@@ -1,6 +1,9 @@
+import type { Route } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { calendarKindLabels, fetchCalendarEventsForUser, type CalendarListItem } from "@/server/repositories/calendar";
+import { calendarEventHref } from "@/domain/calendar";
 import { CalendarProvider, ConnectionStatus } from "@/domain/types";
 import { getCurrentUser } from "@/server/session";
 
@@ -36,7 +39,16 @@ function EventRow({ event }: { event: CalendarListItem }) {
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-md border border-line bg-surface px-2 py-1 text-xs font-semibold text-slate-600">{calendarKindLabels[event.kind]}</span>
-          <p className="font-medium text-ink">{event.title}</p>
+          {(() => {
+            const href = calendarEventHref(event);
+            return href ? (
+              <Link href={href as Route} className="font-medium text-brand hover:underline">
+                {event.title} <span aria-hidden>↗</span>
+              </Link>
+            ) : (
+              <p className="font-medium text-ink">{event.title}</p>
+            );
+          })()}
         </div>
         <p className="mt-1 text-sm text-slate-600">{event.clientName ?? event.description ?? "사내 일정"}</p>
       </div>
