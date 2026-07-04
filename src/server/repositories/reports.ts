@@ -168,6 +168,49 @@ export async function getReportDetail(reportId: string): Promise<ReportDetail | 
   };
 }
 
+export type ReportEmailData = {
+  title: string;
+  clientName: string;
+  contactEmail: string | null;
+  reportingMonth: Date;
+  metrics: Array<{ label: string; value: string }>;
+  notes: string | null;
+};
+
+/** 보고서 메일 발송에 필요한 데이터(거래처 이메일 포함)를 모은다. */
+export async function getReportEmailData(reportId: string): Promise<ReportEmailData | null> {
+  const report = await db.report.findUnique({
+    where: { id: reportId },
+    select: {
+      title: true,
+      reportingMonth: true,
+      metrics: true,
+      notes: true,
+      client: { select: { name: true, contactEmail: true } }
+    }
+  });
+
+  if (!report) {
+    return null;
+  }
+
+  const metrics: Array<{ label: string; value: string }> = [];
+  if (report.metrics && typeof report.metrics === "object" && !Array.isArray(report.metrics)) {
+    for (const [label, value] of Object.entries(report.metrics)) {
+      metrics.push({ label, value: String(value) });
+    }
+  }
+
+  return {
+    title: report.title,
+    clientName: report.client.name,
+    contactEmail: report.client.contactEmail,
+    reportingMonth: report.reportingMonth,
+    metrics,
+    notes: report.notes
+  };
+}
+
 export async function getReportAccessInfo(reportId: string): Promise<ReportAccessInfo | null> {
   const report = await db.report.findUnique({
     where: { id: reportId },

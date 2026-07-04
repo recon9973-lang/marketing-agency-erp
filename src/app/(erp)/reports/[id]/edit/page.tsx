@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { ReportForm } from "@/components/reports/ReportForm";
 import { ReportStatusActions } from "@/components/reports/ReportStatusActions";
+import { SendReportEmail } from "@/components/reports/SendReportEmail";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { canAccessClient } from "@/domain/access-control";
 import { updateReportAction } from "@/server/actions/report";
+import { emailConfigured } from "@/server/integrations/email";
 import { fetchClientsForUser } from "@/server/repositories/clients";
-import { getReportAccessInfo, getReportDetail } from "@/server/repositories/reports";
+import { getReportAccessInfo, getReportDetail, getReportEmailData } from "@/server/repositories/reports";
 import { loadAccessScopes } from "@/server/scope";
 import { getCurrentUser } from "@/server/session";
 
@@ -28,7 +30,7 @@ export default async function EditReportPage({ params }: { params: Promise<{ id:
     redirect("/reports");
   }
 
-  const clients = await fetchClientsForUser(user);
+  const [clients, emailData] = await Promise.all([fetchClientsForUser(user), getReportEmailData(id)]);
 
   return (
     <section className="space-y-6">
@@ -36,6 +38,14 @@ export default async function EditReportPage({ params }: { params: Promise<{ id:
 
       <div className="rounded-md border border-line bg-white p-6">
         <ReportStatusActions reportId={detail.id} status={accessInfo.status} />
+      </div>
+
+      <div className="rounded-md border border-line bg-white p-6">
+        <SendReportEmail
+          reportId={detail.id}
+          configured={emailConfigured()}
+          defaultEmail={emailData?.contactEmail ?? null}
+        />
       </div>
 
       <div className="rounded-md border border-line bg-white p-6">
