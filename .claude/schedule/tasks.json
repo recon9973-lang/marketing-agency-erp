@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "seq": 10,
+  "seq": 11,
   "tasks": [
     {
       "id": "TASK-001",
@@ -278,6 +278,44 @@
           "at": "2026-07-04T16:03:02.282Z",
           "type": "done",
           "note": "완료: SKILL.md + schedule.mjs + /schedule 커맨드 등록. (0bfc3e6, 555ba4c)"
+        }
+      ]
+    },
+    {
+      "id": "TASK-011",
+      "title": "워크플로우 13차 — 토스 실결제 위젯 배선",
+      "status": "완료",
+      "tags": [
+        "연동",
+        "결제",
+        "토스"
+      ],
+      "plan": "토스 결제창(SDK) 연동: /pay 실결제 버튼→결제창→성공 콜백에서 서버 승인(confirmTossPayment)→실제 결제 기록. TOSS_CLIENT_KEY 있을 때만 활성, 데모 경로는 유지. 서버 승인·기록은 단위테스트.",
+      "result": "결제창 버튼(SDK)+complete 승인/기록 라우트+/pay 배선. 서버 승인·기록 단위테스트 5개, 데모 경로 회귀 E2E 통과. 실 결제창 검증은 TOSS_CLIENT_KEY 필요.",
+      "createdAt": "2026-07-04T16:31:44.153Z",
+      "updatedAt": "2026-07-04T16:37:14.845Z",
+      "startedAt": "2026-07-04T16:31:44.222Z",
+      "doneAt": "2026-07-04T16:37:14.845Z",
+      "log": [
+        {
+          "at": "2026-07-04T16:31:44.153Z",
+          "type": "created",
+          "note": "작업 등록"
+        },
+        {
+          "at": "2026-07-04T16:31:44.222Z",
+          "type": "started",
+          "note": "서버 승인·기록 로직부터 착수"
+        },
+        {
+          "at": "2026-07-04T16:34:42.776Z",
+          "type": "update",
+          "note": "서버 승인·기록(recordTossPayment)+confirmAndRecordToss 조합 완료, 단위테스트 5개 통과. 결제창 버튼·complete 라우트·/pay 배선 완료."
+        },
+        {
+          "at": "2026-07-04T16:37:14.845Z",
+          "type": "done",
+          "note": "완료: 결제창 버튼(SDK)+complete 승인/기록 라우트+/pay 배선. 서버 승인·기록 단위테스트 5개, 데모 경로 회귀 E2E 통과. 실 결제창 검증은 TOSS_CLIENT_KEY 필요."
         }
       ]
     }

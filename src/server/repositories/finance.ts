@@ -509,6 +509,57 @@ export async function recordDemoPayment(
   });
 }
 
+/**
+ * 토스 실결제 기록: 서버 승인(confirm)이 끝난 결제를 기록한다.
+ * paymentKey를 transactionId/providerPaymentId로 남겨 멱등 처리(같은 결제 중복 방지).
+ */
+export async function recordTossPayment(
+  billingId: string,
+  input: { amount: number; paymentKey: string; method: string | null }
+): Promise<{ status: BillingStatus; paidAmount: number; duplicate: boolean }> {
+  return db.$transaction(async (tx) => {
+    const billing = await tx.billingRecord.findUniqueOrThrow({
+      where: { id: billingId },
+      select: { id: true, issuedAmount: true, dueDate: true }
+    });
+
+    // 같은 paymentKey가 이미 기록됐으면 중복 승인 콜백 → 재기록하지 않는다.
+    const existing = await tx.paymentRecord.findFirst({
+      where: { billingRecordId: billingId, providerPaymentId: input.paymentKey },
+      select: { id: true }
+    });
+
+    if (!existing) {
+      await tx.paymentRecord.create({
+        data: {
+          billingRecordId: billingId,
+          recordedById: null,
+          amount: input.amount,
+          method: input.method === "카드" || input.method === "CARD" ? PaymentMethod.CARD : PaymentMethod.OTHER,
+          provider: PaymentProvider.TOSSPAYMENTS,
+          transactionId: input.paymentKey,
+          providerPaymentId: input.paymentKey,
+          receivedAt: new Date()
+        }
+      });
+    }
+
+    const aggregate = await tx.paymentRecord.aggregate({
+      where: { billingRecordId: billingId },
+      _sum: { amount: true }
+    });
+    const paidAmount = aggregate._sum.amount?.toNumber() ?? 0;
+    const status = getBillingStatus(
+      { issuedAmount: billing.issuedAmount.toNumber(), paidAmount, dueDate: billing.dueDate },
+      new Date()
+    );
+
+    await tx.billingRecord.update({ where: { id: billingId }, data: { paidAmount, status } });
+
+    return { status, paidAmount, duplicate: Boolean(existing) };
+  });
+}
+
 export type ExpenseAccessInfo = {
   id: string;
   clientId: string | null;

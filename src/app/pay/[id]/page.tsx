@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { PayBillingButton } from "@/components/finance/PayBillingButton";
+import { TossCheckoutButton } from "@/components/finance/TossCheckoutButton";
 import { BillingStatus } from "@/domain/types";
 import { tossClientKey, tossConfigured } from "@/server/integrations/toss";
 import { getBillingForPayment } from "@/server/repositories/finance";
@@ -21,7 +22,8 @@ export default async function PayPage({ params }: { params: Promise<{ id: string
 
   const paid = billing.status === BillingStatus.PAID || billing.outstanding <= 0;
   const configured = tossConfigured();
-  const hasClientKey = Boolean(tossClientKey());
+  const clientKey = tossClientKey();
+  const orderName = `${billing.clientName} ${monthFormatter.format(new Date(`${billing.billingMonth}T00:00:00`))} 마케팅 대금`;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
@@ -60,21 +62,17 @@ export default async function PayPage({ params }: { params: Promise<{ id: string
               <p className="text-lg font-bold text-emerald-700">✅ 결제가 완료되었습니다</p>
               <p className="mt-1 text-sm text-emerald-600">이용해 주셔서 감사합니다.</p>
             </div>
+          ) : clientKey ? (
+            <TossCheckoutButton
+              clientKey={clientKey}
+              billingId={billing.id}
+              amount={billing.outstanding}
+              orderName={orderName}
+            />
           ) : configured ? (
-            <div className="space-y-2">
-              <button
-                type="button"
-                disabled={!hasClientKey}
-                className="w-full rounded-lg bg-blue-600 px-4 py-3 text-base font-bold text-white disabled:opacity-60"
-              >
-                카드로 결제하기 (토스)
-              </button>
-              <p className="text-center text-xs text-slate-400">
-                {hasClientKey
-                  ? "토스 결제창이 열립니다."
-                  : "TOSS_CLIENT_KEY를 설정하면 결제창이 활성화됩니다."}
-              </p>
-            </div>
+            <p className="rounded-lg bg-amber-50 px-4 py-4 text-center text-sm text-amber-700">
+              결제창을 열려면 <code>TOSS_CLIENT_KEY</code>를 설정하세요. (서버 승인 키만 설정된 상태)
+            </p>
           ) : (
             <PayBillingButton billingRecordId={billing.id} />
           )}
