@@ -8,7 +8,8 @@ import {
   FileText,
   PenLine,
   Plane,
-  ShieldCheck
+  ShieldCheck,
+  Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -19,6 +20,7 @@ type ErpRoute =
   | "/clients"
   | "/work"
   | "/manuscript"
+  | "/studio"
   | "/calendar"
   | "/finance"
   | "/leave"
@@ -57,6 +59,12 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "원고 스튜디오",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: PenLine
+    },
+    {
+      href: "/studio",
+      label: "마케팅 스튜디오",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Sparkles
     },
     {
       href: "/calendar",
