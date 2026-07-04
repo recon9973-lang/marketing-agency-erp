@@ -6,7 +6,15 @@ import {
   type ExpenseFormInput,
   type PaymentFormInput
 } from "@/domain/finance";
-import { BillingStatus, ConnectionStatus, ExpenseReviewStatus, FinancialAccountType, PaymentMethod, Role } from "@/domain/types";
+import {
+  BillingStatus,
+  ConnectionStatus,
+  ExpenseReviewStatus,
+  FinancialAccountType,
+  PaymentMethod,
+  PaymentProvider,
+  Role
+} from "@/domain/types";
 import { db } from "@/server/db";
 import type { CurrentUser } from "@/server/session";
 
@@ -400,6 +408,104 @@ export async function recordPayment(
     });
 
     return { id: payment.id, billingId: billing.id, paidAmount, status };
+  });
+}
+
+export type BillingForPayment = {
+  id: string;
+  clientName: string;
+  billingMonth: string;
+  invoiceNumber: string | null;
+  currency: string;
+  issuedAmount: number;
+  paidAmount: number;
+  outstanding: number;
+  status: BillingStatus;
+  dueDate: string | null;
+};
+
+/** 공용 결제 링크(/pay/[id])에서 쓰는 청구 정보. 접근 제어 없이 링크 소지자에게 노출. */
+export async function getBillingForPayment(billingId: string): Promise<BillingForPayment | null> {
+  const billing = await db.billingRecord.findUnique({
+    where: { id: billingId },
+    select: {
+      id: true,
+      billingMonth: true,
+      invoiceNumber: true,
+      currency: true,
+      issuedAmount: true,
+      paidAmount: true,
+      status: true,
+      dueDate: true,
+      client: { select: { name: true } }
+    }
+  });
+
+  if (!billing) {
+    return null;
+  }
+
+  const issuedAmount = billing.issuedAmount.toNumber();
+  const paidAmount = billing.paidAmount.toNumber();
+
+  return {
+    id: billing.id,
+    clientName: billing.client.name,
+    billingMonth: billing.billingMonth.toISOString().slice(0, 10),
+    invoiceNumber: billing.invoiceNumber,
+    currency: billing.currency,
+    issuedAmount,
+    paidAmount,
+    outstanding: Math.max(0, issuedAmount - paidAmount),
+    status: billing.status,
+    dueDate: billing.dueDate ? billing.dueDate.toISOString().slice(0, 10) : null
+  };
+}
+
+/**
+ * 데모 결제: 남은 금액을 카드로 결제한 것으로 기록한다(실 결제 미연동 시).
+ * recordedById는 공용 링크라 null. transactionId로 데모임을 표시.
+ */
+export async function recordDemoPayment(
+  billingId: string
+): Promise<{ status: BillingStatus; paidAmount: number; alreadyPaid: boolean }> {
+  return db.$transaction(async (tx) => {
+    const billing = await tx.billingRecord.findUniqueOrThrow({
+      where: { id: billingId },
+      select: { id: true, issuedAmount: true, paidAmount: true, dueDate: true }
+    });
+
+    const issuedAmount = billing.issuedAmount.toNumber();
+    const currentPaid = billing.paidAmount.toNumber();
+    const outstanding = issuedAmount - currentPaid;
+
+    if (outstanding <= 0) {
+      const status = getBillingStatus({ issuedAmount, paidAmount: currentPaid, dueDate: billing.dueDate }, new Date());
+      return { status, paidAmount: currentPaid, alreadyPaid: true };
+    }
+
+    await tx.paymentRecord.create({
+      data: {
+        billingRecordId: billingId,
+        recordedById: null,
+        amount: outstanding,
+        method: PaymentMethod.CARD,
+        provider: PaymentProvider.TOSSPAYMENTS,
+        transactionId: "DEMO",
+        receivedAt: new Date()
+      }
+    });
+
+    const aggregate = await tx.paymentRecord.aggregate({
+      where: { billingRecordId: billingId },
+      _sum: { amount: true }
+    });
+    const paidAmount = aggregate._sum.amount?.toNumber() ?? 0;
+    const status = getBillingStatus({ issuedAmount, paidAmount, dueDate: billing.dueDate }, new Date());
+
+    await tx.billingRecord.update({ where: { id: billingId }, data: { paidAmount, status } });
+
+    return { status, paidAmount, alreadyPaid: false };
   });
 }
 
