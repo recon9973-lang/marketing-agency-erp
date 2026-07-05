@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { BankReconcile } from "@/components/finance/BankReconcile";
+import { CreateBillingForm } from "@/components/finance/CreateBillingForm";
+import { RecordPaymentForm } from "@/components/finance/RecordPaymentForm";
+import { listClientsForUser } from "@/server/repositories/clients";
 import { billingStatusLabels, expenseReviewStatusLabels, paymentMethodLabels } from "@/domain/finance";
 import { ConnectionStatus, FinancialAccountType, Role } from "@/domain/types";
 import {
@@ -134,10 +137,17 @@ export default async function FinancePage() {
   }
 
   const canReconcile = user.role !== Role.MARKETER;
-  const [overview, bankSuggestions] = await Promise.all([
+  const canManage = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
+  const [overview, bankSuggestions, clientRows] = await Promise.all([
     fetchFinanceOverviewForUser(user),
-    canReconcile ? getBankMatchSuggestions(user) : Promise.resolve([])
+    canReconcile ? getBankMatchSuggestions(user) : Promise.resolve([]),
+    canManage ? listClientsForUser(user) : Promise.resolve([])
   ]);
+  const clientOptions = clientRows.map((c) => ({ id: c.id, name: c.name }));
+  const billingOptions = overview.billings.map((b) => ({
+    id: b.id,
+    label: `${b.clientName} · ${monthFormatter.format(b.billingMonth)}`
+  }));
 
   return (
     <section className="space-y-6">
@@ -168,7 +178,15 @@ export default async function FinancePage() {
       </div>
 
       <div className="space-y-3">
-        <h3 className="text-base font-semibold text-ink">거래처 청구/입금</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-ink">거래처 청구/입금</h3>
+          {canManage && (
+            <div className="flex gap-2">
+              <CreateBillingForm clients={clientOptions} />
+              <RecordPaymentForm billings={billingOptions} />
+            </div>
+          )}
+        </div>
         <DataTable columns={billingColumns} rows={overview.billings} emptyMessage="조회 가능한 청구 내역이 없습니다." />
       </div>
 

@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { CreateReportForm } from "@/components/reports/CreateReportForm";
 import { ReportStatus } from "@/domain/types";
 import { fetchReportsForUser, type ReportListItem } from "@/server/repositories/reports";
+import { listClientsForUser } from "@/server/repositories/clients";
 import { getCurrentUser } from "@/server/session";
 
 const monthFormatter = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long" });
@@ -80,9 +82,10 @@ export default async function ReportsPage() {
     redirect("/login");
   }
 
-  const reports = await fetchReportsForUser(user);
+  const [reports, clientRows] = await Promise.all([fetchReportsForUser(user), listClientsForUser(user)]);
   const reviewNeeded = reports.filter((report) => report.status === ReportStatus.REVIEW_NEEDED).length;
   const delivered = reports.filter((report) => report.status === ReportStatus.DELIVERED).length;
+  const clientOptions = clientRows.map((c) => ({ id: c.id, name: c.name }));
 
   return (
     <section className="space-y-6">
@@ -107,6 +110,8 @@ export default async function ReportsPage() {
           </div>
         </div>
       </div>
+
+      <CreateReportForm clients={clientOptions} />
 
       <DataTable columns={columns} rows={reports} emptyMessage="조회 가능한 보고서가 없습니다." />
     </section>
