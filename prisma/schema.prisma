@@ -166,6 +166,7 @@ model User {
   accounts                Account[]
   sessions                Session[]
   loginHistory            LoginHistory[]  @relation("UserLoginHistory")
+  createdContentAssets    ContentAsset[]
 }
 
 model AccessScope {
@@ -213,6 +214,9 @@ model Client {
   billingRecords     BillingRecord[]
   expenseRecords     ExpenseRecord[]
   reports            Report[]
+  keywordResearch    KeywordResearch[]
+  contentAssets      ContentAsset[]
+  creativeAssets     CreativeAsset[]
 
   @@index([assignedMarketerId])
   @@index([industryCategoryId])
@@ -238,6 +242,7 @@ model ClientAccount {
   client         Client                 @relation(fields: [clientId], references: [id])
   manager        User?                  @relation("AccountManager", fields: [managerId], references: [id])
   channelType    ChannelType?           @relation(fields: [channelTypeId], references: [id])
+  publishJobs    PublishJob[]
 
   @@index([clientId, platform])
   @@index([managerId])
@@ -296,6 +301,8 @@ model WorkItem {
   workCategory     WorkCategoryMaster? @relation(fields: [workCategoryId], references: [id])
   calendarEvents   CalendarEvent[]
   reports          Report[]
+  keywordResearch  KeywordResearch[]
+  contentAssets    ContentAsset[]
 
   @@index([clientId, status, dueDate])
   @@index([ownerId, status, dueDate])
@@ -673,4 +680,125 @@ model CompanySetting {
   workloadDailyMinutes  Int      @default(480) // 마케터 1일 가용시간(워크로드 기준)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// VME (VENOM Marketing Engine) 콘텐츠/성과 파이프라인
+// docs/venom-marketing-engine-schema.prisma 참조. Report.metrics와 병행.
+// ─────────────────────────────────────────────
+
+enum ContentType {
+  BLOG_POST
+  SNS_POST
+  CARD_NEWS
+  SHORT_VIDEO
+  REVIEW_GUIDE
+}
+
+enum PipelineStage {
+  RESEARCH
+  DRAFTING
+  COMPLIANCE_REVIEW
+  READY
+  SCHEDULED
+  PUBLISHED
+  FAILED
+}
+
+enum ComplianceVerdict {
+  PENDING
+  PASS
+  WARN
+  BLOCK
+}
+
+enum PublishChannel {
+  NAVER_BLOG
+  WORDPRESS
+  INSTAGRAM
+  PLACE
+  OTHER
+}
+
+/// 키워드/트렌드 리서치 스냅샷 (거래처·월 단위)
+model KeywordResearch {
+  id          String   @id @default(cuid())
+  clientId    String
+  workItemId  String?
+  seedKeyword String
+  results     Json // DataLab 트렌드·검색량·경쟁강도·연관어
+  source      String // "naver-datalab" | "naver-search"
+  collectedAt DateTime @default(now())
+
+  client   Client    @relation(fields: [clientId], references: [id])
+  workItem WorkItem? @relation(fields: [workItemId], references: [id])
+
+  @@index([clientId, collectedAt])
+  @@index([workItemId])
+}
+
+/// 콘텐츠 자산 + 파이프라인 상태
+model ContentAsset {
+  id                String            @id @default(cuid())
+  clientId          String
+  workItemId        String?
+  type              ContentType
+  stage             PipelineStage     @default(RESEARCH)
+  title             String?
+  bodyMarkdown      String?
+  meta              Json? // 메타디스크립션·목차·FAQ·해시태그·JSON-LD
+  complianceVerdict ComplianceVerdict @default(PENDING)
+  complianceNotes   String?
+  createdById       String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  client      Client          @relation(fields: [clientId], references: [id])
+  workItem    WorkItem?       @relation(fields: [workItemId], references: [id])
+  createdBy   User?           @relation(fields: [createdById], references: [id])
+  creatives   CreativeAsset[]
+  publishJobs PublishJob[]
+
+  @@index([clientId, stage])
+  @@index([workItemId])
+  @@index([createdById])
+}
+
+/// 생성 크리에이티브(이미지/숏폼/카드뉴스)
+model CreativeAsset {
+  id             String   @id @default(cuid())
+  contentAssetId String?
+  clientId       String
+  kind           String // image | short_video | card_news
+  url            String?
+  provider       String // higgsfield | canva
+  meta           Json? // virality score, prompt, dimensions
+  createdAt      DateTime @default(now())
+
+  contentAsset ContentAsset? @relation(fields: [contentAssetId], references: [id])
+  client       Client        @relation(fields: [clientId], references: [id])
+
+  @@index([clientId])
+  @@index([contentAssetId])
+}
+
+/// 발행/배포 잡 (예약·상태추적)
+model PublishJob {
+  id              String         @id @default(cuid())
+  contentAssetId  String
+  channel         PublishChannel
+  clientAccountId String? // crypto 복호화 대상(발행 시점, 서버 내부에서만)
+  scheduledAt     DateTime?
+  publishedAt     DateTime?
+  status          String         @default("QUEUED") // QUEUED|RUNNING|PUBLISHED|FAILED
+  externalUrl     String?
+  error           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  contentAsset  ContentAsset   @relation(fields: [contentAssetId], references: [id])
+  clientAccount ClientAccount? @relation(fields: [clientAccountId], references: [id])
+
+  @@index([channel, status, scheduledAt])
+  @@index([contentAssetId])
 }
