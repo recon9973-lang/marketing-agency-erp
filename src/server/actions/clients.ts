@@ -10,6 +10,8 @@ import { z } from "zod";
 import { Role, ClientAccountPlatform } from "@/domain/types";
 import { assertCanAccessClient } from "@/domain/access-control";
 import { db } from "@/server/db";
+import { encryptSecret } from "@/server/crypto";
+import { getDefaultOrgId } from "@/server/org";
 import {
   getAdminScopes,
   recordAudit,
@@ -27,7 +29,8 @@ function assertManagerRole(role: Role) {
 
 const createClientSchema = z.object({
   name: z.string().trim().min(1),
-  code: z.string().trim().min(1),
+  industryCategoryId: z.string().trim().optional().nullable(),
+  industryCustom: z.string().trim().optional().nullable(),
   businessNumber: z.string().trim().optional().nullable(),
   contactName: z.string().trim().optional().nullable(),
   contactEmail: z.string().trim().email().optional().nullable().or(z.literal("")),
@@ -38,6 +41,18 @@ const createClientSchema = z.object({
   serviceNotes: z.string().trim().optional().nullable(),
   assignedMarketerId: z.string().trim().optional().nullable()
 });
+
+/** 거래처 코드 자동 생성 — `VC-0001` 순번. 4자리 zero-pad라 사전식 정렬 = 숫자 정렬(≤9999). */
+async function nextClientCode(): Promise<string> {
+  const last = await db.client.findFirst({
+    where: { code: { startsWith: "VC-" } },
+    orderBy: { code: "desc" },
+    select: { code: true }
+  });
+  const lastNum = last?.code ? Number.parseInt(last.code.slice(3), 10) : 0;
+  const next = Number.isFinite(lastNum) ? lastNum + 1 : 1;
+  return `VC-${String(next).padStart(4, "0")}`;
+}
 
 export async function createClient(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
@@ -55,39 +70,53 @@ export async function createClient(input: unknown): Promise<ActionResult<{ id: s
       assertCanAccessClient(user, "__new__", scopes, data.assignedMarketerId ?? null);
     }
 
-    const exists = await db.client.findUnique({ where: { code: data.code } });
-    if (exists) throw new Error("DUPLICATE_CLIENT_CODE");
-
     const meta = await requestMeta();
-    const created = await db.$transaction(async (tx) => {
-      const client = await tx.client.create({
-        data: {
-          name: data.name,
-          code: data.code,
-          businessNumber: data.businessNumber || null,
-          contactName: data.contactName || null,
-          contactEmail: data.contactEmail || null,
-          contactPhone: data.contactPhone || null,
-          contractStartDate: data.contractStartDate ?? null,
-          contractEndDate: data.contractEndDate ?? null,
-          monthlyContractFee: data.monthlyContractFee ?? null,
-          serviceNotes: data.serviceNotes || null,
-          assignedMarketerId: data.assignedMarketerId || null
-        }
-      });
-      await recordAudit(tx, {
-        actorId: user.id,
-        action: "client.create",
-        targetType: "Client",
-        targetId: client.id,
-        afterState: client,
-        ...meta
-      });
-      return client;
-    });
+    const orgId = await getDefaultOrgId();
 
-    revalidatePath("/clients");
-    return { id: created.id };
+    // 코드는 자동 생성. 동시 생성으로 unique(code) 충돌 시 번호를 올려 최대 5회 재시도.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = await nextClientCode();
+      try {
+        const created = await db.$transaction(async (tx) => {
+          const client = await tx.client.create({
+            data: {
+              name: data.name,
+              code,
+              orgId,
+              industryCategoryId: data.industryCategoryId || null,
+              industryCustom: data.industryCustom || null,
+              businessNumber: data.businessNumber || null,
+              contactName: data.contactName || null,
+              contactEmail: data.contactEmail || null,
+              contactPhone: data.contactPhone || null,
+              contractStartDate: data.contractStartDate ?? null,
+              contractEndDate: data.contractEndDate ?? null,
+              monthlyContractFee: data.monthlyContractFee ?? null,
+              serviceNotes: data.serviceNotes || null,
+              assignedMarketerId: data.assignedMarketerId || null
+            }
+          });
+          await recordAudit(tx, {
+            actorId: user.id,
+            action: "client.create",
+            targetType: "Client",
+            targetId: client.id,
+            afterState: client,
+            ...meta
+          });
+          return client;
+        });
+
+        revalidatePath("/clients");
+        return { id: created.id };
+      } catch (error) {
+        // P2002 = unique 제약 위반(코드 경합). 마지막 시도면 그대로 던짐.
+        if ((error as { code?: string })?.code === "P2002" && attempt < 4) continue;
+        throw error;
+      }
+    }
+
+    throw new Error("CLIENT_CODE_CONFLICT");
   });
 }
 
@@ -114,6 +143,8 @@ export async function updateClient(input: unknown): Promise<ActionResult> {
         where: { id },
         data: {
           name: fields.name ?? undefined,
+          industryCategoryId: fields.industryCategoryId === undefined ? undefined : fields.industryCategoryId || null,
+          industryCustom: fields.industryCustom === undefined ? undefined : fields.industryCustom || null,
           businessNumber: fields.businessNumber === undefined ? undefined : fields.businessNumber || null,
           contactName: fields.contactName === undefined ? undefined : fields.contactName || null,
           contactEmail: fields.contactEmail === undefined ? undefined : fields.contactEmail || null,
@@ -259,6 +290,8 @@ const addAccountSchema = z.object({
   label: z.string().trim().min(1),
   handle: z.string().trim().optional().nullable(),
   externalUrl: z.string().trim().url().optional().nullable().or(z.literal("")),
+  username: z.string().trim().optional().nullable(), // 평문 입력 → 암호화 저장
+  password: z.string().optional().nullable(), // 평문 입력 → 암호화 저장
   isPrimary: z.boolean().optional()
 });
 
@@ -293,7 +326,10 @@ export async function addClientAccount(input: unknown): Promise<ActionResult<{ i
           handle: data.handle || null,
           externalUrl: data.externalUrl || null,
           isPrimary: data.isPrimary ?? false,
-          managerId: client.assignedMarketerId ?? null
+          managerId: client.assignedMarketerId ?? null,
+          // 계정명·비밀번호는 AES-256-GCM 암호화 저장(입력된 경우만)
+          ...(data.username ? { usernameEnc: encryptSecret(data.username) } : {}),
+          ...(data.password ? { passwordEnc: encryptSecret(data.password) } : {})
         }
       });
       await recordAudit(tx, {

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { LeavePanel } from "@/components/leave/LeavePanel";
 import { leaveStatusLabels, leaveTypeLabels } from "@/domain/leave";
 import { Role } from "@/domain/types";
@@ -65,13 +66,11 @@ export default async function LeavePage() {
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-brand">연차/휴가</p>
-          <h2 className="mt-2 text-2xl font-semibold text-ink">사내 연차 및 휴가 관리</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            담당자는 휴가 신청과 잔여 일수를 확인하고, 관리자와 최고관리자는 승인 대기 건을 함께 검토합니다.
-          </p>
-        </div>
+        <DashboardHeader
+          eyebrow="연차/휴가"
+          title="사내 연차 및 휴가 관리"
+          description="담당자는 휴가 신청과 잔여 일수를 확인하고, 관리자와 최고관리자는 승인 대기 건을 함께 검토합니다."
+        />
         <div className="grid grid-cols-3 gap-2 text-sm">
           <div className="rounded-md border border-line bg-white px-4 py-3">
             <p className="text-xs text-slate-500">부여</p>

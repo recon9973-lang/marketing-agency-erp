@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { CreateReportForm } from "@/components/reports/CreateReportForm";
 import { ReportStatus } from "@/domain/types";
 import { fetchReportsForUser, type ReportListItem } from "@/server/repositories/reports";
+import { listClientsForUser } from "@/server/repositories/clients";
 import { getCurrentUser } from "@/server/session";
 
 const monthFormatter = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long" });
@@ -79,20 +82,19 @@ export default async function ReportsPage() {
     redirect("/login");
   }
 
-  const reports = await fetchReportsForUser(user);
+  const [reports, clientRows] = await Promise.all([fetchReportsForUser(user), listClientsForUser(user)]);
   const reviewNeeded = reports.filter((report) => report.status === ReportStatus.REVIEW_NEEDED).length;
   const delivered = reports.filter((report) => report.status === ReportStatus.DELIVERED).length;
+  const clientOptions = clientRows.map((c) => ({ id: c.id, name: c.name }));
 
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-brand">보고서</p>
-          <h2 className="mt-2 text-2xl font-semibold text-ink">월간 보고서 및 성과 집계</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            거래처별 월간 보고서, 블로그 방문자수 등 성과 지표, 검토 상태와 전달 여부를 관리합니다.
-          </p>
-        </div>
+        <DashboardHeader
+          eyebrow="보고서"
+          title="월간 보고서 및 성과 집계"
+          description="거래처별 월간 보고서, 블로그 방문자수 등 성과 지표, 검토 상태와 전달 여부를 관리합니다."
+        />
         <div className="grid grid-cols-3 gap-2 text-sm">
           <div className="rounded-md border border-line bg-white px-4 py-3">
             <p className="text-xs text-slate-500">전체</p>
@@ -108,6 +110,8 @@ export default async function ReportsPage() {
           </div>
         </div>
       </div>
+
+      <CreateReportForm clients={clientOptions} />
 
       <DataTable columns={columns} rows={reports} emptyMessage="조회 가능한 보고서가 없습니다." />
     </section>

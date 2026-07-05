@@ -7,6 +7,7 @@ import { listClientsForUser } from "@/server/repositories/clients";
 import { getIndustryTree } from "@/server/repositories/masters";
 import { ClientList } from "@/components/clients/ClientList";
 import { ClientForm } from "@/components/clients/ClientForm";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { db } from "@/server/db";
 import { Role } from "@/domain/types";
 
@@ -21,15 +22,19 @@ export default async function ClientsPage() {
     : [];
 
   return (
-    <div className="space-y-8 p-6">
-      <section>
-        <h1 className="mb-4 text-xl font-semibold">거래처</h1>
+    <div className="space-y-8">
+      <section className="space-y-5">
+        <DashboardHeader
+          eyebrow="거래처 관리"
+          title="거래처"
+          description="등록된 거래처와 담당자·업종·미수금 상태를 확인합니다. 거래처 코드는 등록 시 자동 발번됩니다."
+        />
         <ClientList rows={rows} />
       </section>
 
       {canCreate && (
-        <section className="rounded-lg border p-6">
-          <h2 className="mb-4 font-medium">신규 거래처 등록</h2>
+        <section className="rounded-xl border border-line bg-white p-6">
+          <h2 className="mb-4 text-sm font-bold text-ink">신규 거래처 등록</h2>
           <ClientForm industries={industries} marketers={marketers} />
         </section>
       )}
