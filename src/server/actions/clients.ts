@@ -28,6 +28,8 @@ function assertManagerRole(role: Role) {
 const createClientSchema = z.object({
   name: z.string().trim().min(1),
   code: z.string().trim().min(1),
+  industryCategoryId: z.string().trim().optional().nullable(),
+  industryCustom: z.string().trim().optional().nullable(),
   businessNumber: z.string().trim().optional().nullable(),
   contactName: z.string().trim().optional().nullable(),
   contactEmail: z.string().trim().email().optional().nullable().or(z.literal("")),
@@ -64,6 +66,8 @@ export async function createClient(input: unknown): Promise<ActionResult<{ id: s
         data: {
           name: data.name,
           code: data.code,
+          industryCategoryId: data.industryCategoryId || null,
+          industryCustom: data.industryCustom || null,
           businessNumber: data.businessNumber || null,
           contactName: data.contactName || null,
           contactEmail: data.contactEmail || null,
@@ -114,6 +118,8 @@ export async function updateClient(input: unknown): Promise<ActionResult> {
         where: { id },
         data: {
           name: fields.name ?? undefined,
+          industryCategoryId: fields.industryCategoryId === undefined ? undefined : fields.industryCategoryId || null,
+          industryCustom: fields.industryCustom === undefined ? undefined : fields.industryCustom || null,
           businessNumber: fields.businessNumber === undefined ? undefined : fields.businessNumber || null,
           contactName: fields.contactName === undefined ? undefined : fields.contactName || null,
           contactEmail: fields.contactEmail === undefined ? undefined : fields.contactEmail || null,
