@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { ReportStatus } from "@/domain/types";
 import { fetchReportsForUser, type ReportListItem } from "@/server/repositories/reports";
 import { getCurrentUser } from "@/server/session";
@@ -86,13 +87,11 @@ export default async function ReportsPage() {
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-brand">보고서</p>
-          <h2 className="mt-2 text-2xl font-semibold text-ink">월간 보고서 및 성과 집계</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            거래처별 월간 보고서, 블로그 방문자수 등 성과 지표, 검토 상태와 전달 여부를 관리합니다.
-          </p>
-        </div>
+        <DashboardHeader
+          eyebrow="보고서"
+          title="월간 보고서 및 성과 집계"
+          description="거래처별 월간 보고서, 블로그 방문자수 등 성과 지표, 검토 상태와 전달 여부를 관리합니다."
+        />
         <div className="grid grid-cols-3 gap-2 text-sm">
           <div className="rounded-md border border-line bg-white px-4 py-3">
             <p className="text-xs text-slate-500">전체</p>

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { BankReconcile } from "@/components/finance/BankReconcile";
 import { billingStatusLabels, expenseReviewStatusLabels, paymentMethodLabels } from "@/domain/finance";
 import { ConnectionStatus, FinancialAccountType, Role } from "@/domain/types";
@@ -141,13 +142,11 @@ export default async function FinancePage() {
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-brand">정산/지출</p>
-          <h2 className="mt-2 text-2xl font-semibold text-ink">거래처 입금 및 회사 지출 관리</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            V1은 PG 없이 수기 청구/입금 상태를 관리하고, 계좌·카드 지출 연동을 위한 기준 데이터를 함께 보여줍니다.
-          </p>
-        </div>
+        <DashboardHeader
+          eyebrow="정산/지출"
+          title="거래처 입금 및 회사 지출 관리"
+          description="V1은 PG 없이 수기 청구/입금 상태를 관리하고, 계좌·카드 지출 연동을 위한 기준 데이터를 함께 보여줍니다."
+        />
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div className="rounded-md border border-line bg-white px-4 py-3">
             <p className="text-xs text-slate-500">미수금</p>
