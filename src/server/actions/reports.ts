@@ -8,7 +8,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { Role } from "@/domain/types";
+import { Prisma } from "@prisma/client";
+
+import { ReportStatus, Role } from "@/domain/types";
 import { assertCanAccessClient } from "@/domain/access-control";
 import { db } from "@/server/db";
 import {
@@ -78,7 +80,7 @@ export async function updateReportMetrics(input: unknown): Promise<ActionResult>
 
     const meta = await requestMeta();
     await db.$transaction(async (tx) => {
-      await tx.report.update({ where: { id: p.data.id }, data: { metrics: p.data.metrics as never, attachmentUrl: p.data.attachmentUrl || undefined } });
+      await tx.report.update({ where: { id: p.data.id }, data: { metrics: p.data.metrics as Prisma.InputJsonValue, attachmentUrl: p.data.attachmentUrl || undefined } });
       await recordAudit(tx, { actorId: user.id, action: "report.metrics", targetType: "Report", targetId: p.data.id, afterState: { keys: Object.keys(p.data.metrics) }, ...meta });
     });
     revalidatePath("/reports");
@@ -86,10 +88,10 @@ export async function updateReportMetrics(input: unknown): Promise<ActionResult>
 }
 
 /** 상태전이: DRAFT→REVIEW_NEEDED(작성자), REVIEW_NEEDED→APPROVED, APPROVED→DELIVERED(검토자). */
-const transitionMap: Record<string, { from: string; to: string; reviewer: boolean }> = {
-  submit:  { from: "DRAFT", to: "REVIEW_NEEDED", reviewer: false },
-  approve: { from: "REVIEW_NEEDED", to: "APPROVED", reviewer: true },
-  deliver: { from: "APPROVED", to: "DELIVERED", reviewer: true }
+const transitionMap: Record<string, { from: ReportStatus; to: ReportStatus; reviewer: boolean }> = {
+  submit:  { from: ReportStatus.DRAFT, to: ReportStatus.REVIEW_NEEDED, reviewer: false },
+  approve: { from: ReportStatus.REVIEW_NEEDED, to: ReportStatus.APPROVED, reviewer: true },
+  deliver: { from: ReportStatus.APPROVED, to: ReportStatus.DELIVERED, reviewer: true }
 };
 
 export async function transitionReport(input: unknown): Promise<ActionResult<{ status: string }>> {
@@ -110,9 +112,9 @@ export async function transitionReport(input: unknown): Promise<ActionResult<{ s
       await tx.report.update({
         where: { id: p.data.id },
         data: {
-          status: rule.to as never,
+          status: rule.to,
           reviewerId: rule.reviewer ? user.id : undefined,
-          deliveredAt: rule.to === "DELIVERED" ? new Date() : undefined
+          deliveredAt: rule.to === ReportStatus.DELIVERED ? new Date() : undefined
         }
       });
       await recordAudit(tx, { actorId: user.id, action: `report.${p.data.action}`, targetType: "Report", targetId: p.data.id, beforeState: { status: rep.status }, afterState: { status: rule.to }, ...meta });

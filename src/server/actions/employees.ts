@@ -39,7 +39,7 @@ export async function inviteEmployee(input: unknown): Promise<ActionResult<{ id:
     const meta = await requestMeta();
     const created = await db.$transaction(async (tx) => {
       const u = await tx.user.create({
-        data: { email: d.email.toLowerCase(), name: d.name, role: d.role as never, status: UserStatus.INVITED }
+        data: { email: d.email.toLowerCase(), name: d.name, role: d.role, status: UserStatus.INVITED }
       });
       await recordAudit(tx, { actorId: user.id, action: "employee.invite", targetType: "User", targetId: u.id, afterState: { email: u.email, role: u.role }, ...meta });
       return u;
@@ -74,7 +74,7 @@ export async function changeRole(input: unknown): Promise<ActionResult> {
 
     const meta = await requestMeta();
     await db.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: p.data.userId }, data: { role: p.data.role as never } });
+      await tx.user.update({ where: { id: p.data.userId }, data: { role: p.data.role } });
       await recordAudit(tx, { actorId: user.id, action: "employee.changeRole", targetType: "User", targetId: p.data.userId, beforeState: { role: target.role }, afterState: { role: p.data.role }, ...meta });
     });
     revalidatePath("/settings");
