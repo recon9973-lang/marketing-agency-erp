@@ -10,6 +10,7 @@ import { z } from "zod";
 import { Role, ClientAccountPlatform } from "@/domain/types";
 import { assertCanAccessClient } from "@/domain/access-control";
 import { db } from "@/server/db";
+import { getDefaultOrgId } from "@/server/org";
 import {
   getAdminScopes,
   recordAudit,
@@ -69,6 +70,7 @@ export async function createClient(input: unknown): Promise<ActionResult<{ id: s
     }
 
     const meta = await requestMeta();
+    const orgId = await getDefaultOrgId();
 
     // 코드는 자동 생성. 동시 생성으로 unique(code) 충돌 시 번호를 올려 최대 5회 재시도.
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -79,6 +81,7 @@ export async function createClient(input: unknown): Promise<ActionResult<{ id: s
             data: {
               name: data.name,
               code,
+              orgId,
               industryCategoryId: data.industryCategoryId || null,
               industryCustom: data.industryCustom || null,
               businessNumber: data.businessNumber || null,

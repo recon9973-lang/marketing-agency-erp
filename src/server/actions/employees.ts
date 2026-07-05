@@ -10,6 +10,7 @@ import { z } from "zod";
 import { Role, UserStatus } from "@/domain/types";
 import { signIn } from "@/server/auth";
 import { db } from "@/server/db";
+import { getDefaultOrgId } from "@/server/org";
 import {
   recordAudit,
   requestMeta,
@@ -37,9 +38,10 @@ export async function inviteEmployee(input: unknown): Promise<ActionResult<{ id:
     if (exists) throw new Error("VALIDATION"); // 이미 존재하는 이메일
 
     const meta = await requestMeta();
+    const orgId = await getDefaultOrgId();
     const created = await db.$transaction(async (tx) => {
       const u = await tx.user.create({
-        data: { email: d.email.toLowerCase(), name: d.name, role: d.role as never, status: UserStatus.INVITED }
+        data: { email: d.email.toLowerCase(), name: d.name, role: d.role as never, status: UserStatus.INVITED, orgId }
       });
       await recordAudit(tx, { actorId: user.id, action: "employee.invite", targetType: "User", targetId: u.id, afterState: { email: u.email, role: u.role }, ...meta });
       return u;

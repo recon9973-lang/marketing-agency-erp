@@ -143,8 +143,10 @@ model User {
   isActive                Boolean         @default(true)
   googleCalendarConnected Boolean         @default(false)
   naverCalendarConnected  Boolean         @default(false)
+  orgId                   String?
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
+  organization            Organization?   @relation(fields: [orgId], references: [id])
   adminScopes             AccessScope[]   @relation("AdminScopes")
   scopedMarketers         AccessScope[]   @relation("ScopedMarketers")
   ownedClients            Client[]        @relation("AssignedMarketer")
@@ -166,6 +168,8 @@ model User {
   accounts                Account[]
   sessions                Session[]
   loginHistory            LoginHistory[]  @relation("UserLoginHistory")
+
+  @@index([orgId])
 }
 
 model AccessScope {
@@ -202,10 +206,12 @@ model Client {
   assignedMarketerId String?
   industryCategoryId String?
   industryCustom     String? // 업종 "기타" 수기 입력
+  orgId              String?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   assignedMarketer   User?             @relation("AssignedMarketer", fields: [assignedMarketerId], references: [id])
   industryCategory   IndustryCategory? @relation(fields: [industryCategoryId], references: [id])
+  organization       Organization?     @relation(fields: [orgId], references: [id])
   accessScopes       AccessScope[]
   accounts           ClientAccount[]
   workItems          WorkItem[]
@@ -216,6 +222,7 @@ model Client {
 
   @@index([assignedMarketerId])
   @@index([industryCategoryId])
+  @@index([orgId])
 }
 
 model ClientAccount {
@@ -285,8 +292,10 @@ model WorkItem {
   scheduledEnd     DateTime?
   estimatedMinutes Int?
   workCategoryId   String? // WorkCategoryMaster FK (기존 category enum과 병행/이관)
+  orgId            String?
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
+  organization     Organization?       @relation(fields: [orgId], references: [id])
   client           Client              @relation(fields: [clientId], references: [id])
   owner            User                @relation("WorkOwner", fields: [ownerId], references: [id])
   createdBy        User?               @relation("WorkCreator", fields: [createdById], references: [id])
@@ -304,6 +313,7 @@ model WorkItem {
   @@index([parentId])
   @@index([ownerId, scheduledStart])
   @@index([workCategoryId])
+  @@index([orgId])
 }
 
 model CalendarEvent {
@@ -358,8 +368,10 @@ model BillingRecord {
   webhookStatus        String?
   reconciliationStatus String?
   metadata             Json?
+  orgId                String?
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
+  organization         Organization?     @relation(fields: [orgId], references: [id])
   client               Client            @relation(fields: [clientId], references: [id])
   issuedBy             User?             @relation("BillingIssuer", fields: [issuedById], references: [id])
   payments             PaymentRecord[]
@@ -368,6 +380,7 @@ model BillingRecord {
   @@unique([clientId, billingMonth])
   @@index([status, dueDate])
   @@index([issuedById])
+  @@index([orgId])
 }
 
 model PaymentRecord {
@@ -414,8 +427,10 @@ model ExpenseRecord {
   externalTransactionId String?
   externalReference     String?
   rawPayload            Json?
+  orgId                 String?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
+  organization          Organization?       @relation(fields: [orgId], references: [id])
   client                Client?             @relation(fields: [clientId], references: [id])
   submittedBy           User?               @relation("ExpenseSubmitter", fields: [submittedById], references: [id])
   reviewedBy            User?               @relation("ExpenseReviewer", fields: [reviewedById], references: [id])
@@ -426,6 +441,7 @@ model ExpenseRecord {
   @@index([reviewStatus, paidAt])
   @@index([submittedById])
   @@index([reviewedById])
+  @@index([orgId])
 }
 
 model FinancialAccount {
@@ -506,8 +522,10 @@ model Report {
   attachmentUrl  String?
   reviewedAt     DateTime?
   deliveredAt    DateTime?
+  orgId          String?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+  organization   Organization?   @relation(fields: [orgId], references: [id])
   client         Client          @relation(fields: [clientId], references: [id])
   author         User            @relation("ReportAuthor", fields: [authorId], references: [id])
   reviewer       User?           @relation("ReportReviewer", fields: [reviewerId], references: [id])
@@ -519,6 +537,7 @@ model Report {
   @@index([reviewerId])
   @@index([status])
   @@index([workItemId])
+  @@index([orgId])
 }
 
 model AuditLog {
@@ -663,6 +682,22 @@ model BankTransaction {
 
   @@index([matchStatus, txDate])
   @@index([matchedBillingId])
+}
+
+/// 조직(테넌트) — 멀티 회사·프로젝트 격리의 축. 현재는 기본 org 1건 운용(P1).
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique // 외부 노출용 안정 식별자
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users          User[]
+  clients        Client[]
+  workItems      WorkItem[]
+  billingRecords BillingRecord[]
+  expenseRecords ExpenseRecord[]
+  reports        Report[]
 }
 
 /// 회사 정책 (싱글턴 레코드로 운용)
