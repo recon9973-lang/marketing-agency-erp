@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { WorkStatusButtons } from "@/components/work/WorkStatusButtons";
 import { workCategoryLabels, workStatusLabels } from "@/domain/work";
 import { Role, WorkCategory, WorkStatus } from "@/domain/types";
@@ -126,27 +127,27 @@ export default async function WorkPage({
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-brand">업무관리</p>
-          <h2 className="mt-2 text-2xl font-semibold text-ink">거래처 업무 진행 현황</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            {user.role === Role.MARKETER
+        <DashboardHeader
+          eyebrow="업무관리"
+          title="거래처 업무 진행 현황"
+          description={
+            user.role === Role.MARKETER
               ? "내가 담당하는 업무의 마감, 검수 요청, 진행 메모를 확인합니다."
-              : "권한 범위 안의 거래처와 담당자별 업무 흐름을 확인하고 지시 우선순위를 잡습니다."}
-          </p>
-        </div>
+              : "권한 범위 안의 거래처와 담당자별 업무 흐름을 확인하고 지시 우선순위를 잡습니다."
+          }
+        />
         <div className="grid grid-cols-3 gap-2 text-sm">
-          <div className="rounded-md border border-line bg-white px-4 py-3">
+          <div className="rounded-xl border border-line bg-white px-4 py-3">
             <p className="text-xs text-slate-500">전체</p>
-            <p className="mt-1 font-semibold text-ink">{workItems.length}</p>
+            <p className="mt-1 text-lg font-bold text-ink">{workItems.length}</p>
           </div>
-          <div className="rounded-md border border-line bg-white px-4 py-3">
+          <div className="rounded-xl border border-line bg-white px-4 py-3">
             <p className="text-xs text-slate-500">지연</p>
-            <p className="mt-1 font-semibold text-danger">{delayedCount}</p>
+            <p className="mt-1 text-lg font-bold text-danger">{delayedCount}</p>
           </div>
-          <div className="rounded-md border border-line bg-white px-4 py-3">
+          <div className="rounded-xl border border-line bg-white px-4 py-3">
             <p className="text-xs text-slate-500">검수</p>
-            <p className="mt-1 font-semibold text-warning">{reviewCount}</p>
+            <p className="mt-1 text-lg font-bold text-warning">{reviewCount}</p>
           </div>
         </div>
       </div>

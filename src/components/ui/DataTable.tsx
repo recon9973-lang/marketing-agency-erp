@@ -16,9 +16,9 @@ export function DataTable<Row extends { id: string }>({
   emptyMessage: string;
 }) {
   return (
-    <div className="overflow-hidden rounded-md border border-line bg-white">
+    <div className="overflow-x-auto rounded-xl border border-line bg-white">
       <table className="w-full border-collapse text-left text-sm">
-        <thead className="bg-surface text-xs font-semibold uppercase text-slate-500">
+        <thead className="border-b border-line bg-surface text-xs font-semibold uppercase tracking-wide text-slate-500">
           <tr>
             {columns.map((column) => (
               <th key={column.key} className="px-4 py-3">
@@ -30,7 +30,7 @@ export function DataTable<Row extends { id: string }>({
         <tbody>
           {rows.length > 0 ? (
             rows.map((row) => (
-              <tr key={row.id} className="border-t border-line">
+              <tr key={row.id} className="border-t border-line transition-colors hover:bg-surface">
                 {columns.map((column) => (
                   <td key={column.key} className="px-4 py-3 align-middle text-slate-700">
                     {column.render(row)}

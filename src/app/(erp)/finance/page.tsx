@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { BankReconcile } from "@/components/finance/BankReconcile";
+import { CreateBillingForm } from "@/components/finance/CreateBillingForm";
+import { RecordPaymentForm } from "@/components/finance/RecordPaymentForm";
+import { listClientsForUser } from "@/server/repositories/clients";
 import { billingStatusLabels, expenseReviewStatusLabels, paymentMethodLabels } from "@/domain/finance";
 import { ConnectionStatus, FinancialAccountType, Role } from "@/domain/types";
 import {
@@ -133,21 +137,26 @@ export default async function FinancePage() {
   }
 
   const canReconcile = user.role !== Role.MARKETER;
-  const [overview, bankSuggestions] = await Promise.all([
+  const canManage = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
+  const [overview, bankSuggestions, clientRows] = await Promise.all([
     fetchFinanceOverviewForUser(user),
-    canReconcile ? getBankMatchSuggestions(user) : Promise.resolve([])
+    canReconcile ? getBankMatchSuggestions(user) : Promise.resolve([]),
+    canManage ? listClientsForUser(user) : Promise.resolve([])
   ]);
+  const clientOptions = clientRows.map((c) => ({ id: c.id, name: c.name }));
+  const billingOptions = overview.billings.map((b) => ({
+    id: b.id,
+    label: `${b.clientName} · ${monthFormatter.format(b.billingMonth)}`
+  }));
 
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-brand">정산/지출</p>
-          <h2 className="mt-2 text-2xl font-semibold text-ink">거래처 입금 및 회사 지출 관리</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            V1은 PG 없이 수기 청구/입금 상태를 관리하고, 계좌·카드 지출 연동을 위한 기준 데이터를 함께 보여줍니다.
-          </p>
-        </div>
+        <DashboardHeader
+          eyebrow="정산/지출"
+          title="거래처 입금 및 회사 지출 관리"
+          description="V1은 PG 없이 수기 청구/입금 상태를 관리하고, 계좌·카드 지출 연동을 위한 기준 데이터를 함께 보여줍니다."
+        />
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div className="rounded-md border border-line bg-white px-4 py-3">
             <p className="text-xs text-slate-500">미수금</p>
@@ -169,7 +178,15 @@ export default async function FinancePage() {
       </div>
 
       <div className="space-y-3">
-        <h3 className="text-base font-semibold text-ink">거래처 청구/입금</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-ink">거래처 청구/입금</h3>
+          {canManage && (
+            <div className="flex gap-2">
+              <CreateBillingForm clients={clientOptions} />
+              <RecordPaymentForm billings={billingOptions} />
+            </div>
+          )}
+        </div>
         <DataTable columns={billingColumns} rows={overview.billings} emptyMessage="조회 가능한 청구 내역이 없습니다." />
       </div>
 

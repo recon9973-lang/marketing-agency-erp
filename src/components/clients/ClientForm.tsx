@@ -5,6 +5,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { createClient, updateClient } from "@/server/actions/clients";
 
 type IndustryNode = { id: string; name: string; parentId: string | null; colorTag: string | null };
@@ -19,6 +20,7 @@ export function ClientForm({
   marketers: Marketer[];
   initial?: { id: string; name: string; code: string; industryCategoryId?: string | null; industryCustom?: string | null; assignedMarketerId?: string | null };
 }) {
+  const router = useRouter();
   const parents = industries.filter((i) => i.parentId === null);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +40,6 @@ export function ClientForm({
     const payload = {
       id: initial?.id,
       name: String(formData.get("name") || ""),
-      code: String(formData.get("code") || ""),
       // 하위(진료과)가 있으면 그 id, 없으면 대분류 id
       industryCategoryId: childId || parentId || null,
       industryCustom: isEtc ? String(formData.get("industryCustom") || "") : null,
@@ -49,7 +50,11 @@ export function ClientForm({
     };
     start(async () => {
       const res = initial?.id ? await updateClient(payload) : await createClient(payload);
-      if (!res.ok) setError(res.error);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      router.refresh();
     });
   }
 
@@ -61,8 +66,18 @@ export function ClientForm({
           <input name="name" defaultValue={initial?.name} required className="mt-1 w-full rounded border px-3 py-2" />
         </label>
         <label className="block">
-          <span className="text-sm text-slate-600">거래처 코드 *</span>
-          <input name="code" defaultValue={initial?.code} required className="mt-1 w-full rounded border px-3 py-2" />
+          <span className="text-sm text-slate-600">거래처 코드</span>
+          {initial?.code ? (
+            <input
+              value={initial.code}
+              readOnly
+              className="mt-1 w-full rounded border bg-slate-50 px-3 py-2 text-slate-500"
+            />
+          ) : (
+            <div className="mt-1 flex items-center rounded border border-dashed bg-slate-50 px-3 py-2 text-sm text-slate-400">
+              저장 시 자동 생성 (VC-0001)
+            </div>
+          )}
         </label>
       </div>
 
