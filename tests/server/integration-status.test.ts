@@ -7,7 +7,7 @@ describe("getIntegrationStatuses", () => {
   it("lists every integration with env vars and fallback", () => {
     const statuses = getIntegrationStatuses();
     const keys = statuses.map((status) => status.key);
-    expect(keys).toEqual(["naverSearchAd", "kakaoLogin", "kakaoAlimtalk", "email", "toss"]);
+    expect(keys).toEqual(["naverSearchAd", "naverDatalab", "kakaoLogin", "kakaoAlimtalk", "email", "toss"]);
     for (const status of statuses) {
       expect(status.envVars.length).toBeGreaterThan(0);
       expect(status.usedIn).toBeTruthy();

@@ -6,7 +6,13 @@
  * 이 파일은 각 연동이 현재 환경에서 설정됐는지 한곳에서 보고한다.
  */
 
-export type IntegrationKey = "naverSearchAd" | "kakaoLogin" | "kakaoAlimtalk" | "email" | "toss";
+export type IntegrationKey =
+  | "naverSearchAd"
+  | "naverDatalab"
+  | "kakaoLogin"
+  | "kakaoAlimtalk"
+  | "email"
+  | "toss";
 
 export type IntegrationStatus = {
   key: IntegrationKey;
@@ -35,6 +41,15 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       description: "키워드 월간 검색수 조회",
       usedIn: "검색량 조회",
       fallback: "데모 추정치 표시"
+    },
+    {
+      key: "naverDatalab",
+      label: "네이버 데이터랩 (검색 트렌드)",
+      configured: has("NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET"),
+      envVars: ["NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET"],
+      description: "키워드 검색어 트렌드(상대 지표)",
+      usedIn: "검색량 조회",
+      fallback: "검색광고/데모로 대체"
     },
     {
       key: "kakaoLogin",

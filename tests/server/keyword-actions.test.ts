@@ -23,20 +23,50 @@ beforeEach(() => {
   vi.stubEnv("NAVER_AD_API_KEY", "");
   vi.stubEnv("NAVER_AD_SECRET", "");
   vi.stubEnv("NAVER_AD_CUSTOMER_ID", "");
+  vi.stubEnv("NAVER_CLIENT_ID", "");
+  vi.stubEnv("NAVER_CLIENT_SECRET", "");
 });
 
 afterEach(() => vi.unstubAllEnvs());
 
 describe("lookupKeywordVolumeAction", () => {
-  it("returns demo results when not configured", async () => {
+  it("returns demo volume when nothing is configured", async () => {
     const { lookupKeywordVolumeAction } = await loadActions();
 
     const result = await lookupKeywordVolumeAction(null, formData({ keywords: "강남치과, 임플란트" }));
 
     const data = expectOk(result);
-    expect(data.configured).toBe(false);
-    expect(data.results).toHaveLength(2);
-    expect(data.results.every((row) => row.estimated)).toBe(true);
+    expect(data.mode).toBe("volume");
+    if (data.mode === "volume") {
+      expect(data.source).toBe("demo");
+      expect(data.volume).toHaveLength(2);
+      expect(data.volume.every((row) => row.estimated)).toBe(true);
+    }
+  });
+
+  it("returns real trend when DataLab is configured", async () => {
+    const { lookupKeywordVolumeAction } = await loadActions();
+    vi.stubEnv("NAVER_CLIENT_ID", "cid");
+    vi.stubEnv("NAVER_CLIENT_SECRET", "csecret");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          results: [{ title: "강남치과", data: [{ period: "2026-01-01", ratio: 50 }, { period: "2026-02-01", ratio: 75 }] }]
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await lookupKeywordVolumeAction(null, formData({ keywords: "강남치과" }));
+
+    const data = expectOk(result);
+    expect(data.mode).toBe("trend");
+    if (data.mode === "trend") {
+      expect(data.source).toBe("datalab");
+      expect(data.trend[0].latestRatio).toBe(75);
+      expect(data.trend[0].delta).toBe(25);
+    }
+    vi.restoreAllMocks();
   });
 
   it("rejects empty input", async () => {

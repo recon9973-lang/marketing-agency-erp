@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { KeywordLookup } from "@/components/keywords/KeywordLookup";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { naverDatalabConfigured } from "@/server/integrations/naver-datalab";
 import { isIntegrationConfigured } from "@/server/integrations/status";
 import { getCurrentUser } from "@/server/session";
 
@@ -11,7 +12,9 @@ export default async function KeywordsPage() {
     redirect("/login");
   }
 
-  const configured = isIntegrationConfigured("naverSearchAd");
+  const searchAd = isIntegrationConfigured("naverSearchAd");
+  const datalab = naverDatalabConfigured();
+  const configured = searchAd || datalab;
 
   return (
     <section className="space-y-4">
@@ -28,9 +31,14 @@ export default async function KeywordsPage() {
             : "border-line bg-surface/60 text-slate-600"
         }`}
       >
-        {configured ? (
+        {searchAd ? (
           <p>
             <b>네이버 검색광고 연동됨</b> — 실제 월간 검색수가 표시됩니다.
+          </p>
+        ) : datalab ? (
+          <p>
+            <b>네이버 데이터랩 연동됨</b> — 실제 검색어 트렌드(최근 6개월, 상대 지표 0~100)가 표시됩니다. 절대 월간
+            검색수가 필요하면 검색광고 API 키를 추가하세요.
           </p>
         ) : (
           <p>
