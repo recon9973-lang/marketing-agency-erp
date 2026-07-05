@@ -10,6 +10,7 @@ import { z } from "zod";
 import { Role, ClientAccountPlatform } from "@/domain/types";
 import { assertCanAccessClient } from "@/domain/access-control";
 import { db } from "@/server/db";
+import { encryptSecret } from "@/server/crypto";
 import { getDefaultOrgId } from "@/server/org";
 import {
   getAdminScopes,
@@ -289,6 +290,8 @@ const addAccountSchema = z.object({
   label: z.string().trim().min(1),
   handle: z.string().trim().optional().nullable(),
   externalUrl: z.string().trim().url().optional().nullable().or(z.literal("")),
+  username: z.string().trim().optional().nullable(), // 평문 입력 → 암호화 저장
+  password: z.string().optional().nullable(), // 평문 입력 → 암호화 저장
   isPrimary: z.boolean().optional()
 });
 
@@ -323,7 +326,10 @@ export async function addClientAccount(input: unknown): Promise<ActionResult<{ i
           handle: data.handle || null,
           externalUrl: data.externalUrl || null,
           isPrimary: data.isPrimary ?? false,
-          managerId: client.assignedMarketerId ?? null
+          managerId: client.assignedMarketerId ?? null,
+          // 계정명·비밀번호는 AES-256-GCM 암호화 저장(입력된 경우만)
+          ...(data.username ? { usernameEnc: encryptSecret(data.username) } : {}),
+          ...(data.password ? { passwordEnc: encryptSecret(data.password) } : {})
         }
       });
       await recordAudit(tx, {
