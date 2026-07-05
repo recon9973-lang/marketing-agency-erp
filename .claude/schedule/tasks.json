@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "seq": 16,
+  "seq": 17,
   "tasks": [
     {
       "id": "TASK-001",
@@ -481,6 +481,40 @@
           "at": "2026-07-05T07:50:26.131Z",
           "type": "done",
           "note": "완료: DataLab 검색어 트렌드 드라이버 추가, /keywords가 검색광고>데이터랩>데모 순으로 소스 선택. 실키 유효 확인(직접 curl HTTP 200 + MCP 실데이터). 앱이 '데이터랩 연동됨'으로 정상 전환. 단, 이 샌드박스 egress 정책이 openapi.naver.com을 앱 fetch에 대해 차단(403)해 인-샌드박스 실렌더는 미확인 — Vercel엔 해당 제약 없어 배포 시 동작. 단위테스트 7개·빌드 통과."
+        }
+      ]
+    },
+    {
+      "id": "TASK-017",
+      "title": "워크플로우 19차 — Vercel 배포 실패 수정(Neon 풀링 db push)",
+      "status": "완료",
+      "tags": [
+        "배포",
+        "버그",
+        "prisma",
+        "neon"
+      ],
+      "plan": "Production 배포 Error 원인: DATABASE_URL이 Neon 풀링 주소라 빌드의 prisma db push가 실패. 빌드에서 db push만 직접연결(-pooler 제거)로 실행하도록 수정. 사용자 env 변경 불필요, 재배포만.",
+      "result": "Vercel Production Error 원인=Neon 풀링 URL로 빌드 db push 실패. prisma/db-push.mjs 추가: 앱은 풀링 유지, db push만 -pooler 제거한 직접연결로 실행. vercel-build 교체. 로컬 전체 재현 통과(exit 0). 사용자 env 변경 불필요 — 재배포만.",
+      "createdAt": "2026-07-05T17:56:26.766Z",
+      "updatedAt": "2026-07-05T17:59:00.110Z",
+      "startedAt": "2026-07-05T17:56:26.866Z",
+      "doneAt": "2026-07-05T17:59:00.109Z",
+      "log": [
+        {
+          "at": "2026-07-05T17:56:26.766Z",
+          "type": "created",
+          "note": "작업 등록"
+        },
+        {
+          "at": "2026-07-05T17:56:26.866Z",
+          "type": "started",
+          "note": "작업 시작"
+        },
+        {
+          "at": "2026-07-05T17:59:00.110Z",
+          "type": "done",
+          "note": "완료: Vercel Production Error 원인=Neon 풀링 URL로 빌드 db push 실패. prisma/db-push.mjs 추가: 앱은 풀링 유지, db push만 -pooler 제거한 직접연결로 실행. vercel-build 교체. 로컬 전체 재현 통과(exit 0). 사용자 env 변경 불필요 — 재배포만."
         }
       ]
     }
