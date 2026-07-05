@@ -5,6 +5,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { createClient, updateClient } from "@/server/actions/clients";
 
 type IndustryNode = { id: string; name: string; parentId: string | null; colorTag: string | null };
@@ -19,6 +20,7 @@ export function ClientForm({
   marketers: Marketer[];
   initial?: { id: string; name: string; code: string; industryCategoryId?: string | null; industryCustom?: string | null; assignedMarketerId?: string | null };
 }) {
+  const router = useRouter();
   const parents = industries.filter((i) => i.parentId === null);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +50,11 @@ export function ClientForm({
     };
     start(async () => {
       const res = initial?.id ? await updateClient(payload) : await createClient(payload);
-      if (!res.ok) setError(res.error);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      router.refresh();
     });
   }
 
