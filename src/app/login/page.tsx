@@ -4,7 +4,9 @@ import { signIn } from "@/server/auth";
 import { BrandLogo } from "@/components/erp/BrandLogo";
 import { LoginForm } from "./LoginForm";
 
-const emailConfigured = Boolean(process.env.EMAIL_SERVER);
+// Sensitive 환경변수(EMAIL_SERVER)는 Vercel 빌드 시점엔 안 보이고 런타임에만 주입된다.
+// 모듈 스코프/정적 평가로 굳으면 항상 false가 되므로, 요청마다(런타임) 읽도록 강제한다.
+export const dynamic = "force-dynamic";
 
 const ERROR_MESSAGES: Record<string, string> = {
   AccessDenied: "등록되지 않았거나 로그인 권한이 없는 이메일입니다. 관리자에게 계정 등록을 요청해 주세요.",
@@ -38,6 +40,8 @@ export default async function LoginPage({
 }) {
   const { error } = await searchParams;
   const errorMessage = error ? ERROR_MESSAGES[error] ?? ERROR_MESSAGES.default : null;
+  // 런타임에 읽어야 Sensitive 값이 잡힌다(모듈 스코프에서 읽으면 false로 박제됨).
+  const emailConfigured = Boolean(process.env.EMAIL_SERVER);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-surface px-6">
