@@ -19,19 +19,8 @@ function SendingOverlay() {
       aria-live="polite"
       className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-7 bg-surface/95 backdrop-blur-sm"
     >
-      {/* 로고: 오렌지 도트 광채 링 + 맥동 */}
-      <div className="relative flex items-center justify-center">
-        <span className="absolute h-28 w-28 animate-ping rounded-full bg-brand/10" />
-        <span className="absolute h-20 w-20 rounded-full bg-brand/5" />
-        <BrandLogo tone="light" className="animate-pulse text-5xl" />
-      </div>
-
-      {/* 브랜드 오렌지 도트 3개 바운스 */}
-      <div className="flex items-center gap-1.5" aria-hidden>
-        <span className="h-2 w-2 animate-bounce rounded-full bg-brand [animation-delay:-0.3s]" />
-        <span className="h-2 w-2 animate-bounce rounded-full bg-brand [animation-delay:-0.15s]" />
-        <span className="h-2 w-2 animate-bounce rounded-full bg-brand" />
-      </div>
+      {/* 로고: 오렌지 액센트 도트에서 링이 퍼지는 이팩트 */}
+      <BrandLogo tone="light" animateDot className="text-5xl" />
 
       <div className="text-center">
         <p className="text-sm font-semibold text-ink">로그인 링크를 보내는 중…</p>
