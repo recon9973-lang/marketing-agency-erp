@@ -1,0 +1,934 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VENOM ERP — 마케팅 에이전시 통합 관리</title>
+<style>
+  :root{
+    --brand:#d9662e; --brand-strong:#c2560f; --brand-soft:#fbeadd;
+    --ink:#1a1c20; --sub:#6b6660; --line:#e8e7e4; --surface:#f6f5f3; --card:#ffffff;
+    --side:#1c1b19; --side-hover:#2a2825; --side-border:#2f2d2a; --side-sub:#8f8a83;
+    --ok:#2f8a5b; --ok-soft:#e6f2ec; --warn:#b7791f; --warn-soft:#fbf1dd;
+    --danger:#b83232; --danger-soft:#f8e6e6; --info:#3a6ea5; --info-soft:#e7eef6;
+    --shadow:0 1px 2px rgba(20,22,25,.05),0 8px 24px rgba(20,22,25,.06);
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo",
+      "Malgun Gothic",Roboto,"Noto Sans KR",sans-serif;
+    color:var(--ink);background:var(--surface);
+    -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5;
+  }
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;cursor:pointer}
+  #app{display:flex;min-height:100vh}
+
+  /* ---------- Sidebar ---------- */
+  .side{width:236px;flex:0 0 236px;background:var(--side);color:#e9e6e1;
+    display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:.5px;padding:22px 20px 18px;
+    font-weight:900;font-size:22px;letter-spacing:-.5px;color:#fff}
+  .brand .dot{width:7px;height:7px;border-radius:50%;background:var(--brand);
+    margin-left:3px;margin-top:8px}
+  .brand small{display:block;font-size:10px;font-weight:600;letter-spacing:2px;
+    color:var(--side-sub);margin-top:2px}
+  .nav{padding:6px 12px;flex:1;overflow:auto}
+  .nav .grp{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--side-sub);padding:14px 12px 6px;font-weight:700}
+  .nav a{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:9px;
+    color:#c9c4bd;font-weight:500;margin:1px 0;font-size:13.5px}
+  .nav a .ic{width:17px;text-align:center;opacity:.9;font-size:15px}
+  .nav a:hover{background:var(--side-hover);color:#fff}
+  .nav a.active{background:var(--brand);color:#fff;box-shadow:0 4px 12px rgba(217,102,46,.35)}
+  .nav a.active .ic{opacity:1}
+  .side .foot{padding:14px 18px;border-top:1px solid var(--side-border);
+    font-size:11.5px;color:var(--side-sub)}
+  .side .foot b{color:#d9d4cd}
+
+  /* ---------- Main ---------- */
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:16px 30px;background:rgba(246,245,243,.85);backdrop-filter:blur(8px);
+    position:sticky;top:0;z-index:20;border-bottom:1px solid var(--line)}
+  .topbar h1{margin:0;font-size:19px;font-weight:800;letter-spacing:-.3px}
+  .topbar .crumb{font-size:12px;color:var(--sub);margin-top:2px}
+  .who{display:flex;align-items:center;gap:10px}
+  .who .av{width:34px;height:34px;border-radius:50%;background:var(--brand);color:#fff;
+    display:grid;place-items:center;font-weight:800;font-size:13px}
+  .who .nm{font-weight:700;font-size:13px;line-height:1.1}
+  .who .rl{font-size:11px;color:var(--sub)}
+  .content{padding:26px 30px 60px;max-width:1220px;width:100%}
+
+  /* ---------- Cards / bits ---------- */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow)}
+  .pad{padding:20px}
+  .grid{display:grid;gap:16px}
+  .kpis{grid-template-columns:repeat(4,1fr)}
+  .kpi{padding:18px 18px 16px}
+  .kpi .lab{font-size:12px;color:var(--sub);font-weight:600;display:flex;
+    align-items:center;gap:7px}
+  .kpi .val{font-size:26px;font-weight:800;letter-spacing:-.6px;margin-top:8px}
+  .kpi .sub{font-size:11.5px;margin-top:5px;color:var(--sub)}
+  .kpi .trend.up{color:var(--ok);font-weight:700}
+  .kpi .trend.down{color:var(--danger);font-weight:700}
+  .kpi .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+    background:var(--brand-soft);color:var(--brand-strong);font-size:15px;float:right}
+  .sect{display:flex;align-items:center;justify-content:space-between;margin:0 0 14px}
+  .sect h2{margin:0;font-size:15px;font-weight:800;letter-spacing:-.2px}
+  .sect .hint{font-size:12px;color:var(--sub)}
+  .cols{display:grid;gap:16px}
+  .cols.c2{grid-template-columns:1fr 1fr}
+  .cols.c32{grid-template-columns:1.6fr 1fr}
+
+  table{width:100%;border-collapse:collapse}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--sub);
+    text-align:left;font-weight:700;padding:11px 14px;border-bottom:1px solid var(--line)}
+  td{padding:12px 14px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#faf9f7}
+  .t-name{font-weight:700}
+  .muted{color:var(--sub)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;
+    font-size:11.5px;font-weight:700;line-height:1.6}
+  .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.9}
+  .b-ok{background:var(--ok-soft);color:var(--ok)}
+  .b-warn{background:var(--warn-soft);color:var(--warn)}
+  .b-danger{background:var(--danger-soft);color:var(--danger)}
+  .b-info{background:var(--info-soft);color:var(--info)}
+  .b-brand{background:var(--brand-soft);color:var(--brand-strong)}
+  .b-gray{background:#eeece9;color:#6b6660}
+
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:10px;
+    font-weight:700;font-size:13px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+  .btn:hover{background:#faf9f7}
+  .btn.pri{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.pri:hover{background:var(--brand-strong);border-color:var(--brand-strong)}
+  .btn.sm{padding:6px 11px;font-size:12px;border-radius:8px}
+  .btn.ghost{border-color:transparent;background:transparent}
+  .btn.ghost:hover{background:#f0efec}
+  .icon-btn{border:none;background:transparent;padding:5px 7px;border-radius:7px;
+    color:var(--sub);font-size:14px}
+  .icon-btn:hover{background:#f0efec;color:var(--ink)}
+
+  .avatar{width:30px;height:30px;border-radius:50%;display:inline-grid;place-items:center;
+    font-weight:800;font-size:11.5px;color:#fff;flex:0 0 30px}
+  .arow{display:flex;align-items:center;gap:9px}
+  .prog{height:7px;border-radius:99px;background:#eeece9;overflow:hidden;min-width:80px}
+  .prog>i{display:block;height:100%;background:var(--brand);border-radius:99px}
+
+  .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+  .search{flex:1;min-width:180px;position:relative}
+  .search input{width:100%;padding:9px 13px 9px 34px;border:1px solid var(--line);
+    border-radius:10px;background:#fff;font-size:13.5px;color:var(--ink)}
+  .search::before{content:"🔍";position:absolute;left:12px;top:8px;font-size:13px;opacity:.55}
+  select.f,input.f{padding:9px 12px;border:1px solid var(--line);border-radius:10px;
+    background:#fff;font-size:13px;color:var(--ink)}
+
+  /* Kanban */
+  .kb{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start}
+  .kb .col{background:#f0efec;border-radius:12px;padding:12px;min-height:120px}
+  .kb .col h3{margin:2px 4px 12px;font-size:12.5px;font-weight:800;display:flex;
+    justify-content:space-between;align-items:center}
+  .kb .col h3 .cnt{background:#fff;color:var(--sub);border-radius:99px;padding:1px 8px;font-size:11px}
+  .kb .tk{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;
+    margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .kb .tk .tt{font-weight:700;font-size:13px;margin-bottom:6px}
+  .kb .tk .meta{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+  .kb .tk .cl{font-size:11.5px;color:var(--sub)}
+
+  /* Modal */
+  .ov{position:fixed;inset:0;background:rgba(20,22,25,.42);backdrop-filter:blur(2px);
+    display:grid;place-items:center;z-index:100;padding:20px}
+  .modal{background:#fff;border-radius:16px;width:100%;max-width:520px;box-shadow:0 24px 64px rgba(0,0,0,.28);
+    max-height:90vh;overflow:auto}
+  .modal .mh{display:flex;justify-content:space-between;align-items:center;padding:20px 22px;
+    border-bottom:1px solid var(--line)}
+  .modal .mh h3{margin:0;font-size:16px;font-weight:800}
+  .modal .mb{padding:20px 22px}
+  .modal .mf{display:flex;justify-content:flex-end;gap:10px;padding:16px 22px;
+    border-top:1px solid var(--line);background:#faf9f7;border-radius:0 0 16px 16px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--sub);margin-bottom:6px}
+  .field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1px solid var(--line);
+    border-radius:10px;font-size:13.5px;font-family:inherit;color:var(--ink);background:#fff}
+  .field textarea{resize:vertical;min-height:70px}
+  .field.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .field.two>div{margin:0}
+
+  .empty{text-align:center;padding:50px 20px;color:var(--sub)}
+  .empty .em{font-size:34px;margin-bottom:10px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12px}
+  .legend span{display:flex;align-items:center;gap:6px;color:var(--sub)}
+  .legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+  .list-row{display:flex;align-items:center;justify-content:space-between;padding:12px 2px;
+    border-bottom:1px solid var(--line)}
+  .list-row:last-child{border-bottom:none}
+  .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .tag{display:inline-block;padding:2px 9px;border-radius:7px;background:#f0efec;
+    font-size:11.5px;font-weight:600;color:var(--sub);margin:2px}
+  .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--ink);
+    color:#fff;padding:11px 20px;border-radius:11px;font-size:13px;font-weight:600;z-index:200;
+    box-shadow:0 10px 30px rgba(0,0,0,.3);opacity:0;transition:opacity .2s,transform .2s}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(-4px)}
+
+  @media(max-width:960px){
+    .side{position:fixed;left:-260px;z-index:60;transition:left .2s}
+    .side.open{left:0}
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .cols.c2,.cols.c32{grid-template-columns:1fr}
+    .kb{grid-template-columns:1fr 1fr}
+    .content{padding:18px}
+    .topbar{padding:14px 16px}
+    .menu-btn{display:inline-flex!important}
+  }
+  .menu-btn{display:none}
+</style>
+
+<div id="app"></div>
+<div id="modal-root"></div>
+<div id="toast" class="toast"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   VENOM ERP — 마케팅 에이전시 통합 관리 시스템
+   자체 완결형 SPA · 데이터는 브라우저 localStorage에 저장
+   ===================================================================== */
+
+const KRW = n => "₩" + (n||0).toLocaleString("ko-KR");
+const K = n => n>=100000000 ? (n/100000000).toFixed(n%100000000?1:0)+"억"
+             : n>=10000 ? Math.round(n/10000).toLocaleString("ko-KR")+"만" : (n||0).toLocaleString();
+const uid = p => p + "-" + Math.random().toString(36).slice(2,8);
+const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const AV = ["#d9662e","#3a6ea5","#2f8a5b","#8657c9","#b7791f","#c14b7a","#0f8f9c","#5b6470"];
+const avColor = s => AV[[...String(s)].reduce((a,c)=>a+c.charCodeAt(0),0)%AV.length];
+const initials = s => String(s||"?").trim().slice(0,2);
+
+/* ---------- Seed data (VENOM) ---------- */
+const SEED = {
+  meta:{ org:"VENOM", tagline:"MARKETING AGENCY", currency:"KRW",
+         me:{ name:"김도현", role:"대표 · 최고관리자" } },
+  team:[
+    {id:"u1",name:"김도현",role:"대표",dept:"경영",email:"dohyun@venom.kr",util:62},
+    {id:"u2",name:"이서연",role:"퍼포먼스 마케터",dept:"미디어",email:"seoyeon@venom.kr",util:88},
+    {id:"u3",name:"박지훈",role:"콘텐츠 마케터",dept:"콘텐츠",email:"jihoon@venom.kr",util:74},
+    {id:"u4",name:"최유진",role:"아트 디렉터",dept:"디자인",email:"yujin@venom.kr",util:81},
+    {id:"u5",name:"정민석",role:"SEO 스페셜리스트",dept:"그로스",email:"minseok@venom.kr",util:69},
+    {id:"u6",name:"한소희",role:"어카운트 매니저",dept:"AE",email:"sohee@venom.kr",util:77},
+  ],
+  clients:[
+    {id:"c1",name:"글로우랩",industry:"뷰티·이커머스",tier:"핵심",status:"진행중",
+     mrr:8500000,manager:"u6",contact:"마케팅팀 서지원",since:"2024-03"},
+    {id:"c2",name:"프레시테이블",industry:"F&B",tier:"핵심",status:"진행중",
+     mrr:6200000,manager:"u6",contact:"대표 오세훈",since:"2024-07"},
+    {id:"c3",name:"노바핏",industry:"헬스·서플먼트",tier:"성장",status:"진행중",
+     mrr:4800000,manager:"u2",contact:"브랜드 이수민",since:"2025-01"},
+    {id:"c4",name:"어반스테이",industry:"여행·숙박",tier:"성장",status:"진행중",
+     mrr:3900000,manager:"u3",contact:"매니저 김하늘",since:"2025-02"},
+    {id:"c5",name:"코지홈",industry:"리빙·가구",tier:"일반",status:"온보딩",
+     mrr:2700000,manager:"u5",contact:"MD 장윤호",since:"2025-06"},
+    {id:"c6",name:"테크노바",industry:"IT·SaaS",tier:"일반",status:"보류",
+     mrr:0,manager:"u2",contact:"그로스 박태양",since:"2024-11"},
+  ],
+  campaigns:[
+    {id:"cp1",client:"c1",name:"여름 신제품 인스타 릴스",channel:"인스타그램",
+     status:"진행중",budget:12000000,spent:7400000,progress:62,owner:"u4",due:"2026-07-20"},
+    {id:"cp2",client:"c1",name:"네이버 SEO 블로그 상위노출",channel:"SEO",
+     status:"진행중",budget:6000000,spent:2100000,progress:35,owner:"u5",due:"2026-08-15"},
+    {id:"cp3",client:"c2",name:"메타 퍼포먼스 광고 Q3",channel:"퍼포먼스",
+     status:"진행중",budget:20000000,spent:13800000,progress:69,owner:"u2",due:"2026-09-30"},
+    {id:"cp4",client:"c3",name:"유튜브 숏폼 시딩",channel:"유튜브",
+     status:"기획",budget:9000000,spent:0,progress:8,owner:"u3",due:"2026-08-01"},
+    {id:"cp5",client:"c4",name:"가을 여행 브랜디드 콘텐츠",channel:"콘텐츠",
+     status:"진행중",budget:7500000,spent:4200000,progress:54,owner:"u3",due:"2026-07-28"},
+    {id:"cp6",client:"c2",name:"체험단 리뷰 캠페인",channel:"체험단",
+     status:"완료",budget:4000000,spent:3950000,progress:100,owner:"u6",due:"2026-06-30"},
+    {id:"cp7",client:"c5",name:"브랜드 리뉴얼 킥오프",channel:"브랜딩",
+     status:"기획",budget:15000000,spent:1200000,progress:12,owner:"u4",due:"2026-09-10"},
+  ],
+  tasks:[
+    {id:"t1",title:"릴스 3편 촬영 콘티 확정",client:"c1",owner:"u4",status:"doing",due:"2026-07-08",prio:"높음"},
+    {id:"t2",title:"메타 광고 소재 A/B 세팅",client:"c2",owner:"u2",status:"doing",due:"2026-07-07",prio:"높음"},
+    {id:"t3",title:"SEO 키워드 30개 리서치",client:"c1",owner:"u5",status:"review",due:"2026-07-09",prio:"보통"},
+    {id:"t4",title:"7월 성과 리포트 초안",client:"c3",owner:"u6",status:"todo",due:"2026-07-12",prio:"보통"},
+    {id:"t5",title:"유튜브 크리에이터 3인 컨택",client:"c3",owner:"u3",status:"todo",due:"2026-07-10",prio:"낮음"},
+    {id:"t6",title:"브랜드 무드보드 1차",client:"c5",owner:"u4",status:"todo",due:"2026-07-15",prio:"보통"},
+    {id:"t7",title:"체험단 정산 마감",client:"c2",owner:"u6",status:"done",due:"2026-07-02",prio:"보통"},
+    {id:"t8",title:"랜딩페이지 카피 검수",client:"c4",owner:"u3",status:"review",due:"2026-07-06",prio:"높음"},
+    {id:"t9",title:"광고 계정 픽셀 점검",client:"c2",owner:"u2",status:"done",due:"2026-07-01",prio:"낮음"},
+  ],
+  invoices:[
+    {id:"iv1",no:"INV-2607-01",client:"c1",amount:8500000,issued:"2026-07-01",due:"2026-07-15",status:"완납"},
+    {id:"iv2",no:"INV-2607-02",client:"c2",amount:6200000,issued:"2026-07-01",due:"2026-07-15",status:"입금대기"},
+    {id:"iv3",no:"INV-2607-03",client:"c3",amount:4800000,issued:"2026-07-03",due:"2026-07-18",status:"청구"},
+    {id:"iv4",no:"INV-2606-08",client:"c4",amount:3900000,issued:"2026-06-25",due:"2026-07-05",status:"연체"},
+    {id:"iv5",no:"INV-2607-04",client:"c5",amount:2700000,issued:"2026-07-04",due:"2026-07-20",status:"청구"},
+    {id:"iv6",no:"INV-2606-05",client:"c1",amount:8500000,issued:"2026-06-01",due:"2026-06-15",status:"완납"},
+  ],
+  leaves:[
+    {id:"l1",who:"u3",type:"연차",from:"2026-07-14",to:"2026-07-15",status:"대기",reason:"개인 사유"},
+    {id:"l2",who:"u4",type:"반차",from:"2026-07-09",to:"2026-07-09",status:"승인",reason:"병원 방문"},
+    {id:"l3",who:"u5",type:"연차",from:"2026-07-21",to:"2026-07-22",status:"대기",reason:"여행"},
+  ],
+};
+
+/* ---------- Store ---------- */
+const LS_KEY = "venom-erp-v1";
+let DB;
+function load(){
+  try{ const raw = localStorage.getItem(LS_KEY); if(raw) return JSON.parse(raw); }catch(e){}
+  return JSON.parse(JSON.stringify(SEED));
+}
+function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(DB)); }catch(e){} }
+function resetDB(){ localStorage.removeItem(LS_KEY); DB = load(); toast("시드 데이터로 초기화했습니다"); render(); }
+DB = load();
+
+/* ---------- Lookups ---------- */
+const clientName = id => (DB.clients.find(c=>c.id===id)||{}).name || "—";
+const member = id => DB.team.find(u=>u.id===id) || {name:"—"};
+const STATUS_BADGE = {
+  "진행중":"b-ok","완료":"b-gray","기획":"b-info","보류":"b-warn","온보딩":"b-brand",
+  "완납":"b-ok","입금대기":"b-warn","청구":"b-info","연체":"b-danger","미청구":"b-gray",
+  "승인":"b-ok","대기":"b-warn","반려":"b-danger",
+};
+const badge = s => `<span class="badge ${STATUS_BADGE[s]||"b-gray"}">${esc(s)}</span>`;
+const PRIO_BADGE = {"높음":"b-danger","보통":"b-info","낮음":"b-gray"};
+const avatar = id => { const u=member(id);
+  return `<span class="avatar" style="background:${avColor(u.name)}">${esc(initials(u.name))}</span>`; };
+
+/* ---------- Router ---------- */
+const NAV = [
+  {grp:"운영"},
+  {id:"dashboard",label:"대시보드",ic:"◎"},
+  {id:"clients",label:"클라이언트",ic:"◇"},
+  {id:"campaigns",label:"캠페인",ic:"◈"},
+  {id:"tasks",label:"업무 보드",ic:"▤"},
+  {grp:"경영"},
+  {id:"finance",label:"청구·재무",ic:"₩"},
+  {id:"team",label:"팀·근태",ic:"◐"},
+  {id:"reports",label:"리포트",ic:"▦"},
+  {grp:"시스템"},
+  {id:"settings",label:"설정",ic:"⚙"},
+];
+const TITLES = {dashboard:"대시보드",clients:"클라이언트",campaigns:"캠페인",tasks:"업무 보드",
+  finance:"청구·재무",team:"팀·근태",reports:"리포트",settings:"설정"};
+let route = (location.hash.replace("#/","")||"dashboard");
+window.addEventListener("hashchange",()=>{ route = location.hash.replace("#/","")||"dashboard"; render(); window.scrollTo(0,0); });
+
+/* ===================================================================== */
+/*  RENDER                                                               */
+/* ===================================================================== */
+function render(){
+  const app = document.getElementById("app");
+  app.innerHTML = sidebar() + `<div class="main">${topbar()}<div class="content">${view()}</div></div>`;
+}
+function sidebar(){
+  const items = NAV.map(n=> n.grp ? `<div class="grp">${n.grp}</div>`
+    : `<a href="#/${n.id}" class="${route===n.id?"active":""}"><span class="ic">${n.ic}</span>${n.label}</a>`).join("");
+  return `<aside class="side" id="side">
+    <div class="brand">VENOM<span class="dot"></span>
+      <small>${esc(DB.meta.tagline)} · ERP</small></div>
+    <nav class="nav">${items}</nav>
+    <div class="foot">v1.0 · <b>${esc(DB.meta.org)}</b> 통합 관리<br>데이터는 이 브라우저에 저장됩니다</div>
+  </aside>`;
+}
+function topbar(){
+  const me = DB.meta.me;
+  return `<header class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="icon-btn menu-btn" data-act="menu" style="font-size:18px">☰</button>
+      <div><h1>${TITLES[route]||"VENOM ERP"}</h1>
+        <div class="crumb">VENOM 마케팅 에이전시 · 2026 회계연도</div></div>
+    </div>
+    <div class="who">
+      <div style="text-align:right"><div class="nm">${esc(me.name)}</div>
+        <div class="rl">${esc(me.role)}</div></div>
+      <div class="av">${esc(initials(me.name))}</div>
+    </div>
+  </header>`;
+}
+function view(){
+  switch(route){
+    case "dashboard": return vDashboard();
+    case "clients":   return vClients();
+    case "campaigns": return vCampaigns();
+    case "tasks":     return vTasks();
+    case "finance":   return vFinance();
+    case "team":      return vTeam();
+    case "reports":   return vReports();
+    case "settings":  return vSettings();
+    default: return `<div class="empty"><div class="em">🧭</div>페이지를 찾을 수 없습니다.</div>`;
+  }
+}
+
+/* ---------- Dashboard ---------- */
+function vDashboard(){
+  const activeClients = DB.clients.filter(c=>c.status==="진행중").length;
+  const mrr = DB.clients.reduce((a,c)=>a+(c.mrr||0),0);
+  const runningC = DB.campaigns.filter(c=>c.status==="진행중").length;
+  const openTasks = DB.tasks.filter(t=>t.status!=="done").length;
+  const receivable = DB.invoices.filter(i=>i.status!=="완납").reduce((a,i)=>a+i.amount,0);
+  const overdue = DB.invoices.filter(i=>i.status==="연체").reduce((a,i)=>a+i.amount,0);
+
+  const kpi = (ic,lab,val,sub)=>`<div class="card kpi"><div class="ic">${ic}</div>
+    <div class="lab">${lab}</div><div class="val">${val}</div><div class="sub">${sub}</div></div>`;
+
+  // channel spend for bar chart
+  const byChannel = {};
+  DB.campaigns.forEach(c=>{ byChannel[c.channel]=(byChannel[c.channel]||0)+c.spent; });
+  const chData = Object.entries(byChannel).sort((a,b)=>b[1]-a[1]);
+  const maxSpend = Math.max(...chData.map(d=>d[1]),1);
+  const bars = chData.map(([k,v])=>`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:11px">
+      <div style="width:78px;font-size:12.5px;color:var(--sub);text-align:right">${esc(k)}</div>
+      <div class="prog" style="flex:1;height:22px;border-radius:7px">
+        <i style="width:${(v/maxSpend*100).toFixed(1)}%;border-radius:7px"></i></div>
+      <div style="width:64px;font-size:12.5px;font-weight:700;text-align:right">${K(v)}</div>
+    </div>`).join("");
+
+  // deadlines
+  const soon = [...DB.campaigns].filter(c=>c.status!=="완료")
+    .sort((a,b)=>a.due.localeCompare(b.due)).slice(0,5).map(c=>`
+    <div class="list-row">
+      <div><div class="t-name">${esc(c.name)}</div>
+        <div class="muted" style="font-size:12px">${clientName(c.client)} · ${esc(c.channel)}</div></div>
+      <div style="text-align:right"><div style="font-weight:700;font-size:12.5px">${esc(c.due)}</div>
+        <div style="margin-top:4px">${badge(c.status)}</div></div>
+    </div>`).join("");
+
+  // top clients donut
+  const top = [...DB.clients].filter(c=>c.mrr>0).sort((a,b)=>b.mrr-a.mrr).slice(0,5);
+  const donut = donutChart(top.map(c=>({label:c.name,value:c.mrr})));
+
+  return `
+  <div class="grid kpis" style="margin-bottom:22px">
+    ${kpi("◇","활성 클라이언트",activeClients+"곳",`전체 ${DB.clients.length}곳 · <span class="trend up">▲ 2</span> 이번 분기`)}
+    ${kpi("₩","월 반복 매출 (MRR)",K(mrr),`계약 기준 · <span class="trend up">▲ 8.4%</span> 전월 대비`)}
+    ${kpi("◈","진행 캠페인",runningC+"건",`미완료 업무 ${openTasks}건 연동`)}
+    ${kpi("!","미수금",K(receivable),overdue>0?`<span class="trend down">연체 ${K(overdue)}</span> 포함`:"연체 없음")}
+  </div>
+
+  <div class="cols c32" style="margin-bottom:16px">
+    <div class="card pad">
+      <div class="sect"><h2>채널별 집행 광고비</h2><span class="hint">캠페인 spent 합계</span></div>
+      ${bars || `<div class="muted">데이터 없음</div>`}
+    </div>
+    <div class="card pad">
+      <div class="sect"><h2>매출 비중 (MRR)</h2></div>
+      ${donut}
+    </div>
+  </div>
+
+  <div class="cols c2">
+    <div class="card pad">
+      <div class="sect"><h2>다가오는 캠페인 마감</h2>
+        <a class="btn sm ghost" href="#/campaigns">전체 →</a></div>
+      ${soon || `<div class="muted">예정된 마감이 없습니다</div>`}
+    </div>
+    <div class="card pad">
+      <div class="sect"><h2>오늘의 우선 업무</h2>
+        <a class="btn sm ghost" href="#/tasks">보드 →</a></div>
+      ${DB.tasks.filter(t=>t.status!=="done").sort((a,b)=>a.due.localeCompare(b.due)).slice(0,5).map(t=>`
+        <div class="list-row">
+          <div class="arow">${avatar(t.owner)}
+            <div><div class="t-name">${esc(t.title)}</div>
+              <div class="muted" style="font-size:12px">${clientName(t.client)} · 마감 ${esc(t.due)}</div></div></div>
+          <span class="badge ${PRIO_BADGE[t.prio]}">${esc(t.prio)}</span>
+        </div>`).join("")}
+    </div>
+  </div>`;
+}
+
+/* ---------- Clients ---------- */
+function vClients(){
+  const rows = DB.clients.map(c=>`
+    <tr>
+      <td><div class="arow"><span class="avatar" style="background:${avColor(c.name)}">${esc(initials(c.name))}</span>
+        <div><div class="t-name">${esc(c.name)}</div>
+          <div class="muted" style="font-size:12px">${esc(c.industry)}</div></div></div></td>
+      <td><span class="tag">${esc(c.tier)}</span></td>
+      <td>${badge(c.status)}</td>
+      <td class="num">${c.mrr?KRW(c.mrr):'<span class="muted">—</span>'}</td>
+      <td><div class="arow">${avatar(c.manager)}<span style="font-size:12.5px">${esc(member(c.manager).name)}</span></div></td>
+      <td class="muted" style="font-size:12.5px">${esc(c.contact)}</td>
+      <td style="text-align:right">
+        <button class="icon-btn" data-act="edit-client" data-id="${c.id}">✎</button>
+        <button class="icon-btn" data-act="del" data-col="clients" data-id="${c.id}">🗑</button></td>
+    </tr>`).join("");
+  return `
+  <div class="toolbar">
+    <div class="search"><input placeholder="클라이언트 검색…" data-filter="clients-tbody"></div>
+    <select class="f" data-rowfilter="clients-tbody" data-col="2">
+      <option value="">전체 상태</option><option>진행중</option><option>온보딩</option><option>보류</option></select>
+    <button class="btn pri" data-act="new-client">+ 신규 클라이언트</button>
+  </div>
+  <div class="card"><table>
+    <thead><tr><th>클라이언트</th><th>등급</th><th>상태</th><th class="num">월 매출</th>
+      <th>담당 AE</th><th>주요 연락처</th><th></th></tr></thead>
+    <tbody id="clients-tbody">${rows}</tbody></table></div>`;
+}
+
+/* ---------- Campaigns ---------- */
+function vCampaigns(){
+  const rows = DB.campaigns.map(c=>`
+    <tr>
+      <td><div class="t-name">${esc(c.name)}</div>
+        <div class="muted" style="font-size:12px">${clientName(c.client)}</div></td>
+      <td><span class="tag">${esc(c.channel)}</span></td>
+      <td>${badge(c.status)}</td>
+      <td style="min-width:150px">
+        <div class="arow"><div class="prog" style="flex:1"><i style="width:${c.progress}%"></i></div>
+          <span style="font-size:12px;font-weight:700;width:34px;text-align:right">${c.progress}%</span></div></td>
+      <td class="num" style="font-size:12.5px">${K(c.spent)} <span class="muted">/ ${K(c.budget)}</span></td>
+      <td>${avatar(c.owner)}</td>
+      <td class="muted" style="font-size:12.5px">${esc(c.due)}</td>
+      <td style="text-align:right">
+        <button class="icon-btn" data-act="edit-campaign" data-id="${c.id}">✎</button>
+        <button class="icon-btn" data-act="del" data-col="campaigns" data-id="${c.id}">🗑</button></td>
+    </tr>`).join("");
+  const totalBudget = DB.campaigns.reduce((a,c)=>a+c.budget,0);
+  const totalSpent = DB.campaigns.reduce((a,c)=>a+c.spent,0);
+  return `
+  <div class="grid kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+    <div class="card kpi"><div class="lab">총 캠페인 예산</div><div class="val">${K(totalBudget)}</div></div>
+    <div class="card kpi"><div class="lab">집행 광고비</div><div class="val">${K(totalSpent)}</div>
+      <div class="sub">소진율 ${(totalSpent/totalBudget*100||0).toFixed(0)}%</div></div>
+    <div class="card kpi"><div class="lab">진행중 캠페인</div><div class="val">${DB.campaigns.filter(c=>c.status==="진행중").length}건</div></div>
+  </div>
+  <div class="toolbar">
+    <div class="search"><input placeholder="캠페인 검색…" data-filter="camp-tbody"></div>
+    <button class="btn pri" data-act="new-campaign">+ 신규 캠페인</button>
+  </div>
+  <div class="card"><table>
+    <thead><tr><th>캠페인</th><th>채널</th><th>상태</th><th>진행률</th>
+      <th class="num">집행/예산</th><th>담당</th><th>마감</th><th></th></tr></thead>
+    <tbody id="camp-tbody">${rows}</tbody></table></div>`;
+}
+
+/* ---------- Tasks (Kanban) ---------- */
+function vTasks(){
+  const COLS = [["todo","대기"],["doing","진행"],["review","검수"],["done","완료"]];
+  const cols = COLS.map(([key,label])=>{
+    const items = DB.tasks.filter(t=>t.status===key);
+    const cards = items.map(t=>`
+      <div class="tk">
+        <div class="tt">${esc(t.title)}</div>
+        <div class="cl">${clientName(t.client)}</div>
+        <div class="meta">
+          <span class="badge ${PRIO_BADGE[t.prio]}" style="padding:2px 8px">${esc(t.prio)}</span>
+          <div class="arow" style="gap:6px">
+            <span class="muted" style="font-size:11px">${esc(t.due)}</span>${avatar(t.owner)}</div>
+        </div>
+        <div style="margin-top:9px;display:flex;gap:4px">
+          ${key!=="todo"?`<button class="btn sm ghost" data-act="task-move" data-id="${t.id}" data-dir="-1">←</button>`:""}
+          ${key!=="done"?`<button class="btn sm ghost" data-act="task-move" data-id="${t.id}" data-dir="1">진행 →</button>`:""}
+          <button class="icon-btn" data-act="edit-task" data-id="${t.id}" style="margin-left:auto">✎</button>
+        </div>
+      </div>`).join("");
+    return `<div class="col"><h3>${label}<span class="cnt">${items.length}</span></h3>${cards||`<div class="muted" style="font-size:12px;padding:8px 4px">비어 있음</div>`}</div>`;
+  }).join("");
+  return `
+  <div class="toolbar"><div style="flex:1"></div>
+    <button class="btn pri" data-act="new-task">+ 신규 업무</button></div>
+  <div class="kb">${cols}</div>`;
+}
+
+/* ---------- Finance ---------- */
+function vFinance(){
+  const paid = DB.invoices.filter(i=>i.status==="완납").reduce((a,i)=>a+i.amount,0);
+  const receivable = DB.invoices.filter(i=>i.status!=="완납").reduce((a,i)=>a+i.amount,0);
+  const overdue = DB.invoices.filter(i=>i.status==="연체").reduce((a,i)=>a+i.amount,0);
+  const rows = DB.invoices.map(i=>`
+    <tr>
+      <td class="t-name">${esc(i.no)}</td>
+      <td>${clientName(i.client)}</td>
+      <td class="num">${KRW(i.amount)}</td>
+      <td class="muted" style="font-size:12.5px">${esc(i.issued)}</td>
+      <td class="muted" style="font-size:12.5px">${esc(i.due)}</td>
+      <td>${badge(i.status)}</td>
+      <td style="text-align:right">
+        ${i.status!=="완납"?`<button class="btn sm" data-act="mark-paid" data-id="${i.id}">입금확인</button>`:""}
+        <button class="icon-btn" data-act="edit-invoice" data-id="${i.id}">✎</button>
+        <button class="icon-btn" data-act="del" data-col="invoices" data-id="${i.id}">🗑</button></td>
+    </tr>`).join("");
+  return `
+  <div class="grid kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+    <div class="card kpi"><div class="ic" style="background:var(--ok-soft);color:var(--ok)">✓</div>
+      <div class="lab">수금 완료</div><div class="val">${K(paid)}</div></div>
+    <div class="card kpi"><div class="ic" style="background:var(--warn-soft);color:var(--warn)">⏳</div>
+      <div class="lab">미수금</div><div class="val">${K(receivable)}</div></div>
+    <div class="card kpi"><div class="ic" style="background:var(--danger-soft);color:var(--danger)">!</div>
+      <div class="lab">연체</div><div class="val">${K(overdue)}</div></div>
+  </div>
+  <div class="toolbar">
+    <div class="search"><input placeholder="인보이스 검색…" data-filter="inv-tbody"></div>
+    <select class="f" data-rowfilter="inv-tbody" data-col="5">
+      <option value="">전체 상태</option><option>청구</option><option>입금대기</option>
+      <option>완납</option><option>연체</option></select>
+    <button class="btn pri" data-act="new-invoice">+ 인보이스 발행</button>
+  </div>
+  <div class="card"><table>
+    <thead><tr><th>인보이스</th><th>클라이언트</th><th class="num">금액</th><th>발행일</th>
+      <th>마감일</th><th>상태</th><th></th></tr></thead>
+    <tbody id="inv-tbody">${rows}</tbody></table></div>`;
+}
+
+/* ---------- Team ---------- */
+function vTeam(){
+  const cards = DB.team.map(u=>`
+    <div class="card pad" style="display:flex;gap:14px;align-items:center">
+      <span class="avatar" style="width:46px;height:46px;flex:0 0 46px;font-size:15px;background:${avColor(u.name)}">${esc(initials(u.name))}</span>
+      <div style="flex:1">
+        <div style="font-weight:800">${esc(u.name)} <span class="muted" style="font-weight:500;font-size:12px">· ${esc(u.dept)}</span></div>
+        <div class="muted" style="font-size:12.5px">${esc(u.role)}</div>
+        <div style="margin-top:8px" class="arow">
+          <span class="muted" style="font-size:11px">가동률</span>
+          <div class="prog" style="flex:1"><i style="width:${u.util}%;background:${u.util>85?'var(--danger)':'var(--brand)'}"></i></div>
+          <span style="font-size:12px;font-weight:700">${u.util}%</span></div>
+      </div>
+      <button class="icon-btn" data-act="edit-member" data-id="${u.id}">✎</button>
+    </div>`).join("");
+  const leaveRows = DB.leaves.map(l=>`
+    <tr>
+      <td><div class="arow">${avatar(l.who)}<span style="font-weight:700">${esc(member(l.who).name)}</span></div></td>
+      <td><span class="tag">${esc(l.type)}</span></td>
+      <td class="muted" style="font-size:12.5px">${esc(l.from)} ~ ${esc(l.to)}</td>
+      <td class="muted" style="font-size:12.5px">${esc(l.reason)}</td>
+      <td>${badge(l.status)}</td>
+      <td style="text-align:right">
+        ${l.status==="대기"?`<button class="btn sm" data-act="leave" data-id="${l.id}" data-v="승인">승인</button>
+          <button class="btn sm" data-act="leave" data-id="${l.id}" data-v="반려">반려</button>`:""}
+      </td>
+    </tr>`).join("");
+  return `
+  <div class="sect"><h2>구성원 (${DB.team.length}명)</h2>
+    <button class="btn pri sm" data-act="new-member">+ 구성원 추가</button></div>
+  <div class="grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:26px">${cards}</div>
+  <div class="sect"><h2>휴가·근태 승인</h2>
+    <button class="btn sm" data-act="new-leave">+ 휴가 신청</button></div>
+  <div class="card"><table>
+    <thead><tr><th>구성원</th><th>유형</th><th>기간</th><th>사유</th><th>상태</th><th></th></tr></thead>
+    <tbody>${leaveRows||'<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">신청 내역 없음</td></tr>'}</tbody></table></div>`;
+}
+
+/* ---------- Reports ---------- */
+function vReports(){
+  const mrr = DB.clients.reduce((a,c)=>a+c.mrr,0);
+  const byTier = {};
+  DB.clients.forEach(c=>{ byTier[c.tier]=(byTier[c.tier]||0)+1; });
+  const byDept = {};
+  DB.team.forEach(u=>{ byDept[u.dept]=(byDept[u.dept]||0)+u.util; });
+  const avgUtil = Math.round(DB.team.reduce((a,u)=>a+u.util,0)/DB.team.length);
+  const chan = {};
+  DB.campaigns.forEach(c=>{ chan[c.channel]=(chan[c.channel]||0)+c.budget; });
+
+  const donut1 = donutChart(Object.entries(byTier).map(([k,v])=>({label:k,value:v})));
+  const donut2 = donutChart(Object.entries(chan).map(([k,v])=>({label:k,value:v})));
+
+  return `
+  <div class="grid kpis" style="margin-bottom:22px">
+    <div class="card kpi"><div class="lab">연 환산 매출 (ARR)</div><div class="val">${K(mrr*12)}</div>
+      <div class="sub">MRR ${K(mrr)} × 12</div></div>
+    <div class="card kpi"><div class="lab">클라이언트 당 평균 매출</div>
+      <div class="val">${K(Math.round(mrr/DB.clients.filter(c=>c.mrr>0).length))}</div></div>
+    <div class="card kpi"><div class="lab">팀 평균 가동률</div><div class="val">${avgUtil}%</div>
+      <div class="sub">${avgUtil>80?'<span class="trend down">과부하 주의</span>':'<span class="trend up">건강</span>'}</div></div>
+    <div class="card kpi"><div class="lab">캠페인 완료율</div>
+      <div class="val">${Math.round(DB.campaigns.filter(c=>c.status==="완료").length/DB.campaigns.length*100)}%</div></div>
+  </div>
+  <div class="cols c2">
+    <div class="card pad"><div class="sect"><h2>클라이언트 등급 분포</h2></div>${donut1}</div>
+    <div class="card pad"><div class="sect"><h2>채널별 예산 배분</h2></div>${donut2}</div>
+  </div>
+  <div class="card pad" style="margin-top:16px">
+    <div class="sect"><h2>월간 경영 리포트 요약</h2><span class="hint">2026년 7월</span></div>
+    <p style="margin:0;line-height:1.8;color:#3a3833">
+      VENOM은 현재 <b>${DB.clients.filter(c=>c.status==="진행중").length}개</b>의 활성 클라이언트를 운영하며
+      월 <b>${K(mrr)}</b>의 반복 매출을 기록하고 있습니다.
+      진행 중인 캠페인은 <b>${DB.campaigns.filter(c=>c.status==="진행중").length}건</b>이며,
+      미수금은 <b>${K(DB.invoices.filter(i=>i.status!=="완납").reduce((a,i)=>a+i.amount,0))}</b> 규모입니다.
+      팀 평균 가동률은 <b>${avgUtil}%</b>로 ${avgUtil>80?"리소스 재분배 검토가 필요합니다.":"안정적으로 유지되고 있습니다."}
+    </p>
+    <div style="margin-top:16px"><button class="btn" data-act="export">⤓ 리포트 데이터(JSON) 내보내기</button></div>
+  </div>`;
+}
+
+/* ---------- Settings ---------- */
+function vSettings(){
+  const m = DB.meta;
+  return `
+  <div class="settings-grid">
+    <div class="card pad">
+      <div class="sect"><h2>조직 정보</h2></div>
+      <div class="field"><label>조직명</label><input class="f" id="set-org" value="${esc(m.org)}" style="width:100%"></div>
+      <div class="field"><label>태그라인</label><input class="f" id="set-tag" value="${esc(m.tagline)}" style="width:100%"></div>
+      <div class="field two">
+        <div><label>대표자명</label><input class="f" id="set-me" value="${esc(m.me.name)}" style="width:100%"></div>
+        <div><label>직책</label><input class="f" id="set-role" value="${esc(m.me.role)}" style="width:100%"></div>
+      </div>
+      <button class="btn pri" data-act="save-settings">저장</button>
+    </div>
+    <div class="card pad">
+      <div class="sect"><h2>데이터 관리</h2></div>
+      <p class="muted" style="margin-top:0">모든 데이터는 이 브라우저의 localStorage에 저장됩니다. 서버 전송이 없습니다.</p>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+        <button class="btn" data-act="export">⤓ 전체 데이터 내보내기 (JSON)</button>
+        <label class="btn" style="justify-content:center">⤒ 데이터 가져오기 (JSON)
+          <input type="file" accept="application/json" data-act="import" style="display:none"></label>
+        <button class="btn" data-act="reset" style="color:var(--danger);border-color:var(--danger-soft)">↺ 시드 데이터로 초기화</button>
+      </div>
+    </div>
+    <div class="card pad">
+      <div class="sect"><h2>브랜드 팔레트</h2></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        ${[["브랜드","#d9662e"],["스트롱","#c2560f"],["소프트","#fbeadd"],["사이드바","#1c1b19"],
+           ["잉크","#1a1c20"]].map(([n,c])=>`
+          <div style="text-align:center"><div style="width:56px;height:56px;border-radius:12px;background:${c};border:1px solid var(--line)"></div>
+            <div style="font-size:11px;margin-top:6px;font-weight:700">${n}</div>
+            <div style="font-size:10px;color:var(--sub)">${c}</div></div>`).join("")}
+      </div>
+    </div>
+    <div class="card pad">
+      <div class="sect"><h2>모듈 현황</h2></div>
+      ${[["대시보드","KPI·차트"],["클라이언트","CRM"],["캠페인","프로젝트"],["업무 보드","칸반"],
+         ["청구·재무","인보이스"],["팀·근태","HR"],["리포트","경영지표"]].map(([a,b])=>`
+        <div class="list-row"><span style="font-weight:700">${a}</span>
+          <span class="badge b-ok">활성 · ${b}</span></div>`).join("")}
+    </div>
+  </div>`;
+}
+
+/* ---------- Donut chart (SVG) ---------- */
+function donutChart(data){
+  const total = data.reduce((a,d)=>a+d.value,0)||1;
+  const R=52,C=2*Math.PI*R,cx=70,cy=70; let off=0;
+  const arcs = data.map((d,i)=>{
+    const frac=d.value/total, len=frac*C, col=AV[i%AV.length];
+    const seg=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${col}"
+      stroke-width="18" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}"
+      transform="rotate(-90 ${cx} ${cy})"/>`;
+    off+=len; return seg;
+  }).join("");
+  const legend = data.map((d,i)=>`<span><i style="background:${AV[i%AV.length]}"></i>
+    ${esc(d.label)} <b style="color:var(--ink);margin-left:2px">${Math.round(d.value/total*100)}%</b></span>`).join("");
+  return `<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+    <svg width="140" height="140" viewBox="0 0 140 140" style="flex:0 0 140px">${arcs}
+      <text x="70" y="66" text-anchor="middle" font-size="12" fill="#8f8a83">합계</text>
+      <text x="70" y="84" text-anchor="middle" font-size="15" font-weight="800" fill="#1a1c20">${data.length}</text>
+    </svg>
+    <div class="legend" style="flex-direction:column;gap:8px;margin:0">${legend}</div></div>`;
+}
+
+/* ===================================================================== */
+/*  MODAL / FORMS                                                        */
+/* ===================================================================== */
+function openModal(title, bodyHTML, onSave){
+  const root=document.getElementById("modal-root");
+  root.innerHTML=`<div class="ov" data-act="ov-close"><div class="modal">
+    <div class="mh"><h3>${esc(title)}</h3><button class="icon-btn" data-act="close" style="font-size:18px">✕</button></div>
+    <form id="mform"><div class="mb">${bodyHTML}</div>
+    <div class="mf"><button type="button" class="btn" data-act="close">취소</button>
+      <button type="submit" class="btn pri">저장</button></div></form></div></div>`;
+  document.getElementById("mform").addEventListener("submit",e=>{
+    e.preventDefault();
+    const data={}; new FormData(e.target).forEach((v,k)=>data[k]=v);
+    if(onSave(data)!==false) closeModal();
+  });
+}
+function closeModal(){ document.getElementById("modal-root").innerHTML=""; }
+
+const opt = (arr,sel)=>arr.map(o=>{const [v,l]=Array.isArray(o)?o:[o,o];
+  return `<option value="${esc(v)}" ${String(v)===String(sel)?"selected":""}>${esc(l)}</option>`;}).join("");
+const clientOpts = sel => opt(DB.clients.map(c=>[c.id,c.name]),sel);
+const memberOpts = sel => opt(DB.team.map(u=>[u.id,u.name]),sel);
+const F = (label,name,val="",type="text")=>`<div class="field"><label>${label}</label>
+  <input class="" name="${name}" value="${esc(val)}" type="${type}"></div>`;
+const FS = (label,name,options,sel)=>`<div class="field"><label>${label}</label>
+  <select name="${name}">${opt(options,sel)}</select></div>`;
+
+/* ----- Client form ----- */
+function clientForm(c){
+  c=c||{};
+  return openModal(c.id?"클라이언트 편집":"신규 클라이언트",`
+    ${F("회사명","name",c.name)}
+    <div class="field two"><div>${F("업종","industry",c.industry).replace(/^<div class="field">|<\/div>$/g,"")}</div>
+      <div><label>등급</label><select name="tier">${opt(["핵심","성장","일반"],c.tier)}</select></div></div>
+    <div class="field two"><div><label>상태</label><select name="status">${opt(["진행중","온보딩","보류"],c.status)}</select></div>
+      <div>${F("월 매출(원)","mrr",c.mrr||"","number").replace(/^<div class="field">|<\/div>$/g,"")}</div></div>
+    <div class="field"><label>담당 AE</label><select name="manager">${memberOpts(c.manager)}</select></div>
+    ${F("주요 연락처","contact",c.contact)}
+  `,d=>{
+    if(!d.name){toast("회사명을 입력하세요");return false;}
+    if(c.id){ Object.assign(DB.clients.find(x=>x.id===c.id),{...d,mrr:+d.mrr||0}); }
+    else{ DB.clients.push({id:uid("c"),since:"2026-07",...d,mrr:+d.mrr||0}); }
+    save();render();toast("저장되었습니다");
+  });
+}
+/* ----- Campaign form ----- */
+function campaignForm(c){
+  c=c||{};
+  return openModal(c.id?"캠페인 편집":"신규 캠페인",`
+    ${F("캠페인명","name",c.name)}
+    <div class="field"><label>클라이언트</label><select name="client">${clientOpts(c.client)}</select></div>
+    <div class="field two">
+      <div><label>채널</label><select name="channel">${opt(["인스타그램","퍼포먼스","SEO","유튜브","콘텐츠","체험단","브랜딩"],c.channel)}</select></div>
+      <div><label>상태</label><select name="status">${opt(["기획","진행중","완료"],c.status)}</select></div></div>
+    <div class="field two"><div>${F("예산(원)","budget",c.budget||"","number").replace(/^<div class="field">|<\/div>$/g,"")}</div>
+      <div>${F("집행(원)","spent",c.spent||"","number").replace(/^<div class="field">|<\/div>$/g,"")}</div></div>
+    <div class="field two"><div>${F("진행률(%)","progress",c.progress||0,"number").replace(/^<div class="field">|<\/div>$/g,"")}</div>
+      <div><label>담당</label><select name="owner">${memberOpts(c.owner)}</select></div></div>
+    ${F("마감일","due",c.due||"2026-07-31","date")}
+  `,d=>{
+    if(!d.name){toast("캠페인명을 입력하세요");return false;}
+    const obj={...d,budget:+d.budget||0,spent:+d.spent||0,progress:Math.min(100,+d.progress||0)};
+    if(c.id) Object.assign(DB.campaigns.find(x=>x.id===c.id),obj);
+    else DB.campaigns.push({id:uid("cp"),...obj});
+    save();render();toast("저장되었습니다");
+  });
+}
+/* ----- Task form ----- */
+function taskForm(t){
+  t=t||{};
+  return openModal(t.id?"업무 편집":"신규 업무",`
+    ${F("업무명","title",t.title)}
+    <div class="field two"><div><label>클라이언트</label><select name="client">${clientOpts(t.client)}</select></div>
+      <div><label>담당</label><select name="owner">${memberOpts(t.owner)}</select></div></div>
+    <div class="field two"><div><label>상태</label><select name="status">${opt([["todo","대기"],["doing","진행"],["review","검수"],["done","완료"]],t.status||"todo")}</select></div>
+      <div><label>우선순위</label><select name="prio">${opt(["높음","보통","낮음"],t.prio||"보통")}</select></div></div>
+    ${F("마감일","due",t.due||"2026-07-31","date")}
+  `,d=>{
+    if(!d.title){toast("업무명을 입력하세요");return false;}
+    if(t.id) Object.assign(DB.tasks.find(x=>x.id===t.id),d);
+    else DB.tasks.push({id:uid("t"),...d});
+    save();render();toast("저장되었습니다");
+  });
+}
+/* ----- Invoice form ----- */
+function invoiceForm(i){
+  i=i||{};
+  const nextNo = "INV-2607-"+String(DB.invoices.length+1).padStart(2,"0");
+  return openModal(i.id?"인보이스 편집":"인보이스 발행",`
+    ${F("인보이스 번호","no",i.no||nextNo)}
+    <div class="field"><label>클라이언트</label><select name="client">${clientOpts(i.client)}</select></div>
+    ${F("금액(원)","amount",i.amount||"","number")}
+    <div class="field two"><div>${F("발행일","issued",i.issued||"2026-07-06","date").replace(/^<div class="field">|<\/div>$/g,"")}</div>
+      <div>${F("마감일","due",i.due||"2026-07-20","date").replace(/^<div class="field">|<\/div>$/g,"")}</div></div>
+    <div class="field"><label>상태</label><select name="status">${opt(["청구","입금대기","완납","연체"],i.status||"청구")}</select></div>
+  `,d=>{
+    const obj={...d,amount:+d.amount||0};
+    if(i.id) Object.assign(DB.invoices.find(x=>x.id===i.id),obj);
+    else DB.invoices.push({id:uid("iv"),...obj});
+    save();render();toast("저장되었습니다");
+  });
+}
+/* ----- Member form ----- */
+function memberForm(u){
+  u=u||{};
+  return openModal(u.id?"구성원 편집":"구성원 추가",`
+    ${F("이름","name",u.name)}
+    <div class="field two"><div>${F("직책","role",u.role).replace(/^<div class="field">|<\/div>$/g,"")}</div>
+      <div>${F("부서","dept",u.dept).replace(/^<div class="field">|<\/div>$/g,"")}</div></div>
+    ${F("이메일","email",u.email)}
+    ${F("가동률(%)","util",u.util||0,"number")}
+  `,d=>{
+    if(!d.name){toast("이름을 입력하세요");return false;}
+    if(u.id) Object.assign(DB.team.find(x=>x.id===u.id),{...d,util:+d.util||0});
+    else DB.team.push({id:uid("u"),...d,util:+d.util||0});
+    save();render();toast("저장되었습니다");
+  });
+}
+/* ----- Leave form ----- */
+function leaveForm(){
+  return openModal("휴가 신청",`
+    <div class="field"><label>구성원</label><select name="who">${memberOpts()}</select></div>
+    <div class="field"><label>유형</label><select name="type">${opt(["연차","반차","병가","경조사"])}</select></div>
+    <div class="field two"><div>${F("시작일","from","2026-07-10","date").replace(/^<div class="field">|<\/div>$/g,"")}</div>
+      <div>${F("종료일","to","2026-07-10","date").replace(/^<div class="field">|<\/div>$/g,"")}</div></div>
+    ${F("사유","reason","")}
+  `,d=>{ DB.leaves.push({id:uid("l"),status:"대기",...d}); save();render();toast("신청되었습니다"); });
+}
+
+/* ===================================================================== */
+/*  EVENT DELEGATION                                                     */
+/* ===================================================================== */
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-act]"); if(!t) return;
+  const act=t.dataset.act, id=t.dataset.id;
+  switch(act){
+    case "menu": document.getElementById("side").classList.toggle("open"); break;
+    case "close": case "ov-close": if(e.target===t) closeModal(); break;
+    case "new-client": clientForm(); break;
+    case "edit-client": clientForm(DB.clients.find(c=>c.id===id)); break;
+    case "new-campaign": campaignForm(); break;
+    case "edit-campaign": campaignForm(DB.campaigns.find(c=>c.id===id)); break;
+    case "new-task": taskForm(); break;
+    case "edit-task": taskForm(DB.tasks.find(x=>x.id===id)); break;
+    case "new-invoice": invoiceForm(); break;
+    case "edit-invoice": invoiceForm(DB.invoices.find(x=>x.id===id)); break;
+    case "new-member": memberForm(); break;
+    case "edit-member": memberForm(DB.team.find(x=>x.id===id)); break;
+    case "new-leave": leaveForm(); break;
+    case "task-move":{
+      const order=["todo","doing","review","done"], tk=DB.tasks.find(x=>x.id===id);
+      const ni=order.indexOf(tk.status)+ +t.dataset.dir;
+      if(ni>=0&&ni<order.length){ tk.status=order[ni]; save();render(); }
+      break; }
+    case "mark-paid":{ const iv=DB.invoices.find(x=>x.id===id); iv.status="완납"; save();render();toast("입금 확인됨"); break; }
+    case "leave":{ const l=DB.leaves.find(x=>x.id===id); l.status=t.dataset.v; save();render();toast(t.dataset.v+" 처리됨"); break; }
+    case "del":{
+      const col=t.dataset.col;
+      if(confirm("삭제하시겠습니까?")){ DB[col]=DB[col].filter(x=>x.id!==id); save();render();toast("삭제되었습니다"); }
+      break; }
+    case "save-settings":{
+      DB.meta.org=val("set-org"); DB.meta.tagline=val("set-tag");
+      DB.meta.me.name=val("set-me"); DB.meta.me.role=val("set-role");
+      save();render();toast("설정이 저장되었습니다"); break; }
+    case "reset": if(confirm("모든 변경을 지우고 시드 데이터로 되돌립니다.")) resetDB(); break;
+    case "export": exportJSON(); break;
+  }
+});
+document.addEventListener("change",e=>{
+  const f=e.target.closest('[data-act="import"]'); if(f&&f.files[0]) importJSON(f.files[0]);
+});
+document.addEventListener("input",e=>{
+  const s=e.target.closest("[data-filter]");
+  if(s){ const q=e.target.value.toLowerCase();
+    document.querySelectorAll("#"+s.dataset.filter+" tr").forEach(tr=>{
+      tr.style.display=tr.textContent.toLowerCase().includes(q)?"":"none"; }); }
+});
+document.addEventListener("change",e=>{
+  const s=e.target.closest("[data-rowfilter]");
+  if(s){ const col=+s.dataset.col, v=e.target.value;
+    document.querySelectorAll("#"+s.dataset.rowfilter+" tr").forEach(tr=>{
+      const cell=tr.children[col]; tr.style.display=(!v||(cell&&cell.textContent.includes(v)))?"":"none"; }); }
+});
+
+function val(id){ return (document.getElementById(id)||{}).value||""; }
+
+/* ---------- Import / export ---------- */
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(DB,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="venom-erp-data.json"; a.click(); URL.revokeObjectURL(a.href);
+  toast("데이터를 내보냈습니다");
+}
+function importJSON(file){
+  const r=new FileReader();
+  r.onload=()=>{ try{ DB=JSON.parse(r.result); save();render();toast("데이터를 가져왔습니다"); }
+    catch(e){ toast("잘못된 파일입니다"); } };
+  r.readAsText(file);
+}
+
+/* ---------- Toast ---------- */
+let toastT;
+function toast(msg){
+  const el=document.getElementById("toast"); el.textContent=msg; el.classList.add("on");
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove("on"),2200);
+}
+
+render();
+</script>
