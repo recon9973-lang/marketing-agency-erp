@@ -1,18 +1,64 @@
-// 인증: 직원 전용 이메일 매직링크(인증메일) 가입/로그인.
-// next-auth v5(beta) + @auth/prisma-adapter, DB 세션 전략.
+// 인증: (1) 관리자 이메일+비밀번호 로그인(SMTP 불필요) + (2) 직원 이메일 매직링크(선택).
+// next-auth v5(beta) + @auth/prisma-adapter, JWT 세션 전략(비밀번호 로그인 요건).
 //
-// 필요 env: AUTH_SECRET, DATABASE_URL, EMAIL_SERVER(SMTP), EMAIL_FROM
-// 예) EMAIL_SERVER="smtp://user:pass@smtp.example.com:587"  EMAIL_FROM="no-reply@venom.co.kr"
+// 필요 env:
+//   AUTH_SECRET (필수)
+//   DATABASE_URL / DATABASE_URL_UNPOOLED
+//   ADMIN_EMAIL, ADMIN_PASSWORD  → 이메일+비밀번호로 최고관리자 로그인(계정 자동 생성)
+//   EMAIL_SERVER(SMTP), EMAIL_FROM → (선택) 직원 매직링크도 쓰려면 설정
 //
-// ⚠️ 직원 전용: 사전 등록/초대된 이메일만 로그인 허용(signIn 콜백 화이트리스트 검사).
+// ⚠️ 직원 전용: 사전 등록/초대된 이메일만 로그인 허용(signIn 콜백 화이트리스트).
+//    단, ADMIN_EMAIL은 비밀번호 로그인 시 최고관리자로 자동 등록된다.
 import NextAuth from "next-auth";
 import Email from "next-auth/providers/nodemailer";
+import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import nodemailer from "nodemailer";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 import { db } from "@/server/db";
-import { UserStatus } from "@/domain/types";
+import { Role, UserStatus } from "@/domain/types";
 import { recordLogin } from "@/server/tracking";
+
+/** 길이 노출/불일치 예외 없이 상수시간 비교(둘 다 SHA-256으로 고정길이화). */
+function secureEquals(a: string, b: string): boolean {
+  const ha = createHash("sha256").update(a).digest();
+  const hb = createHash("sha256").update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
+
+/**
+ * 이메일+비밀번호 관리자 로그인.
+ * env(ADMIN_EMAIL/ADMIN_PASSWORD)와 일치하면 해당 이메일을 최고관리자(ACTIVE)로
+ * upsert 하고 로그인시킨다. 비밀번호는 DB에 저장하지 않고 env로만 검증한다.
+ * env는 요청 시점(런타임)에 읽는다 — 빌드 시점 정적 평가로 굳는 것 방지.
+ */
+async function authorizeAdmin(rawEmail: unknown, rawPassword: unknown) {
+  const adminEmail = (process.env.ADMIN_EMAIL ?? "").trim().toLowerCase();
+  const adminPassword = process.env.ADMIN_PASSWORD ?? "";
+  if (!adminEmail || !adminPassword) return null;
+
+  const email = String(rawEmail ?? "").trim().toLowerCase();
+  const password = String(rawPassword ?? "");
+  if (!email || !password) return null;
+  if (!secureEquals(email, adminEmail)) return null;
+  if (!secureEquals(password, adminPassword)) return null;
+
+  const user = await db.user.upsert({
+    where: { email: adminEmail },
+    update: { status: UserStatus.ACTIVE, isActive: true, role: Role.SUPER_ADMIN, canAccessSettings: true },
+    create: {
+      email: adminEmail,
+      name: "최고관리자",
+      role: Role.SUPER_ADMIN,
+      status: UserStatus.ACTIVE,
+      isActive: true,
+      canAccessSettings: true
+    },
+    select: { id: true, email: true, name: true }
+  });
+  return { id: user.id, email: user.email, name: user.name };
+}
 
 const authSecret =
   process.env.AUTH_SECRET ?? (process.env.NODE_ENV === "production" ? undefined : "dev-auth-secret");
@@ -74,22 +120,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(db),
   secret: authSecret,
   trustHost: true,
-  session: { strategy: "database" },
-  providers: emailConfigured
-    ? [
-        Email({
-          server: process.env.EMAIL_SERVER,
-          from: process.env.EMAIL_FROM,
-          sendVerificationRequest
-          // maxAge: 기본 24h 매직링크 유효
-        })
-      ]
-    : [],
+  // 비밀번호(Credentials) 로그인은 JWT 세션이 필요하다. 매직링크도 JWT와 호환.
+  session: { strategy: "jwt" },
+  providers: [
+    Credentials({
+      id: "admin-password",
+      name: "관리자 로그인",
+      credentials: {
+        email: { label: "이메일", type: "email" },
+        password: { label: "비밀번호", type: "password" }
+      },
+      authorize: async (credentials) => authorizeAdmin(credentials?.email, credentials?.password)
+    }),
+    ...(emailConfigured
+      ? [
+          Email({
+            server: process.env.EMAIL_SERVER,
+            from: process.env.EMAIL_FROM,
+            sendVerificationRequest
+            // maxAge: 기본 24h 매직링크 유효
+          })
+        ]
+      : [])
+  ],
   pages: { signIn: "/login" },
   callbacks: {
     /**
      * 직원만 로그인 허용: 사전 등록된 ACTIVE/INVITED 사용자만 통과.
-     * (초대는 관리자가 User를 INVITED로 생성 → 첫 로그인 시 ACTIVE 전환)
+     * (관리자 비밀번호 로그인은 authorize에서 이미 ACTIVE로 upsert되어 통과)
      */
     async signIn({ user }) {
       const email = user?.email?.trim().toLowerCase();
@@ -99,9 +157,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         select: { id: true, status: true }
       });
       if (!staff) return false; // 미등록 이메일 차단
-      // INVITED→ACTIVE 전환은 실제 로그인 완료 시점(events.signIn)에서 처리.
-      // (초대 메일 발송 단계에서 signIn 콜백이 돌아도 여기서 활성화하지 않도록 분리)
       return true;
+    },
+    /** JWT에 이메일/이름 유지 (getCurrentUser가 세션 이메일로 DB 조회). */
+    async jwt({ token, user }) {
+      if (user?.email) token.email = user.email;
+      if (user?.name) token.name = user.name;
+      return token;
+    },
+    /** 세션에 이메일 노출 → resolveStaffUser가 DB 사용자 확정. */
+    async session({ session, token }) {
+      if (session.user) {
+        if (token?.email) session.user.email = token.email as string;
+        if (token?.name) session.user.name = token.name as string;
+      }
+      return session;
     }
   },
   events: {
