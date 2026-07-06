@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Role } from "@/domain/types";
 
+// process.env의 일부 키(NODE_ENV 등)가 @types/node에서 readonly라, 테스트 내 수정은 캐스팅 별칭을 통해 한다.
+const mutableEnv = process.env as Record<string, string | undefined>;
+
 const clientCountMock = vi.fn();
 const workItemFindManyMock = vi.fn();
 const billingFindManyMock = vi.fn();
@@ -25,8 +28,8 @@ describe("fetchDashboardInput", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    delete process.env.ALLOW_DEV_SESSION;
-    delete process.env.NODE_ENV;
+    delete mutableEnv.ALLOW_DEV_SESSION;
+    delete mutableEnv.NODE_ENV;
     clientCountMock.mockResolvedValue(0);
     workItemFindManyMock.mockResolvedValue([]);
     billingFindManyMock.mockResolvedValue([]);
@@ -40,7 +43,7 @@ describe("fetchDashboardInput", () => {
     const { fetchDashboardInput } = await import("@/server/repositories/dashboard");
 
     const input = await fetchDashboardInput(
-      { id: "root", name: "Root", email: "root@agency.test", role: Role.SUPER_ADMIN },
+      { id: "root", name: "Root", email: "root@agency.test", role: Role.SUPER_ADMIN, canAccessSettings: true },
       { today: "2026-06-28", timeZone: "Asia/Seoul" }
     );
 
@@ -60,7 +63,7 @@ describe("fetchDashboardInput", () => {
     const { fetchDashboardInput } = await import("@/server/repositories/dashboard");
 
     await fetchDashboardInput(
-      { id: "admin-1", name: "Admin", email: "admin@agency.test", role: Role.ADMIN },
+      { id: "admin-1", name: "Admin", email: "admin@agency.test", role: Role.ADMIN, canAccessSettings: false },
       { today: "2026-06-28", timeZone: "Asia/Seoul" }
     );
 
@@ -77,7 +80,7 @@ describe("fetchDashboardInput", () => {
     const { fetchDashboardInput } = await import("@/server/repositories/dashboard");
 
     await fetchDashboardInput(
-      { id: "admin-1", name: "Admin", email: "admin@agency.test", role: Role.ADMIN },
+      { id: "admin-1", name: "Admin", email: "admin@agency.test", role: Role.ADMIN, canAccessSettings: false },
       { today: "2026-06-28", timeZone: "Asia/Seoul" }
     );
 
@@ -88,7 +91,7 @@ describe("fetchDashboardInput", () => {
     const { fetchDashboardInput } = await import("@/server/repositories/dashboard");
 
     await fetchDashboardInput(
-      { id: "marketer-1", name: "Marketer", email: "marketer@agency.test", role: Role.MARKETER },
+      { id: "marketer-1", name: "Marketer", email: "marketer@agency.test", role: Role.MARKETER, canAccessSettings: false },
       { today: "2026-06-28", timeZone: "Asia/Seoul" }
     );
 
@@ -99,7 +102,7 @@ describe("fetchDashboardInput", () => {
     const { fetchDashboardInput } = await import("@/server/repositories/dashboard");
 
     await fetchDashboardInput(
-      { id: "marketer-1", name: "Marketer", email: "marketer@agency.test", role: Role.MARKETER },
+      { id: "marketer-1", name: "Marketer", email: "marketer@agency.test", role: Role.MARKETER, canAccessSettings: false },
       { today: "2026-06-28", timeZone: "Asia/Seoul" }
     );
 
@@ -109,13 +112,13 @@ describe("fetchDashboardInput", () => {
   });
 
   it("returns empty dashboard input for dev sessions when the database is unavailable", async () => {
-    process.env.NODE_ENV = "development";
-    process.env.ALLOW_DEV_SESSION = "true";
+    mutableEnv.NODE_ENV ="development";
+    mutableEnv.ALLOW_DEV_SESSION ="true";
     clientCountMock.mockRejectedValue(new Error("DATABASE_URL missing"));
     const { fetchDashboardInput } = await import("@/server/repositories/dashboard");
 
     const input = await fetchDashboardInput(
-      { id: "dev-user", name: "Local Preview", email: "dev@marketing-erp.local", role: Role.MARKETER },
+      { id: "dev-user", name: "Local Preview", email: "dev@marketing-erp.local", role: Role.MARKETER, canAccessSettings: false },
       { today: "2026-06-30", timeZone: "Asia/Seoul" }
     );
 
