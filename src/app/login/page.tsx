@@ -40,8 +40,6 @@ export default async function LoginPage({
 }) {
   const { error } = await searchParams;
   const errorMessage = error ? ERROR_MESSAGES[error] ?? ERROR_MESSAGES.default : null;
-  // 런타임에 읽어야 Sensitive 값이 잡힌다(모듈 스코프에서 읽으면 false로 박제됨).
-  const emailConfigured = Boolean(process.env.EMAIL_SERVER);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-surface px-6">
@@ -64,23 +62,7 @@ export default async function LoginPage({
           </div>
         ) : null}
 
-        {emailConfigured ? (
-          <LoginForm action={sendMagicLink} />
-        ) : (
-          <div className="mt-8 space-y-3">
-            <button
-              type="button"
-              disabled
-              className="inline-flex h-12 w-full items-center justify-center rounded-md bg-slate-200 px-4 text-sm font-semibold text-slate-500"
-            >
-              이메일 설정 필요
-            </button>
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-              <p className="font-semibold">이메일 로그인 환경 변수가 아직 비어 있습니다.</p>
-              <p className="mt-1">`EMAIL_SERVER`와 `EMAIL_FROM`을 설정하면 매직링크 로그인이 연결됩니다.</p>
-            </div>
-          </div>
-        )}
+        <LoginForm action={sendMagicLink} />
       </section>
     </main>
   );
