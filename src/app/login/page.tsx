@@ -2,6 +2,7 @@ import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { signIn } from "@/server/auth";
 import { BrandLogo } from "@/components/erp/BrandLogo";
+import { LoginForm } from "./LoginForm";
 
 const emailConfigured = Boolean(process.env.EMAIL_SERVER);
 
@@ -60,28 +61,7 @@ export default async function LoginPage({
         ) : null}
 
         {emailConfigured ? (
-          <form action={sendMagicLink} className="mt-8 space-y-3">
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-slate-500">직원 이메일</span>
-              <input
-                name="email"
-                type="email"
-                required
-                autoComplete="email"
-                placeholder="you@company.com"
-                className="h-12 w-full rounded-md border border-line px-4 text-sm text-ink outline-none focus:border-brand"
-              />
-            </label>
-            <button
-              type="submit"
-              className="inline-flex h-12 w-full items-center justify-center rounded-md bg-brand px-4 text-sm font-semibold text-white"
-            >
-              로그인 링크 받기
-            </button>
-            <p className="text-xs leading-5 text-slate-500">
-              사전 등록된 직원 이메일만 로그인할 수 있습니다. 메일이 보이지 않으면 스팸함도 확인해 주세요.
-            </p>
-          </form>
+          <LoginForm action={sendMagicLink} />
         ) : (
           <div className="mt-8 space-y-3">
             <button
