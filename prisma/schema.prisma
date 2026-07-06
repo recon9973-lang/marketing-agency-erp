@@ -3,8 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // 런타임: 풀링(pooled) 연결 — 서버리스 함수 다수 연결에 유리
+  url       = env("DATABASE_URL")
+  // 마이그레이션 전용: 직접(unpooled) 연결 — migrate deploy는 pgbouncer(pooled) 위에서 실패할 수 있음
+  // Neon/Vercel 통합을 "빈 prefix"로 연결하면 DATABASE_URL_UNPOOLED가 자동 생성됨(반드시 존재해야 함)
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 enum Role {
