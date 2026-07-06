@@ -3,10 +3,12 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BriefcaseBusiness,
+  CalendarCheck,
   CalendarDays,
   ChartNoAxesCombined,
   ClipboardList,
   CreditCard,
+  FileSignature,
   FileText,
   PenLine,
   Plane,
@@ -21,11 +23,13 @@ import { BrandLogo } from "@/components/erp/BrandLogo";
 type ErpRoute =
   | "/dashboard"
   | "/clients"
+  | "/contracts"
   | "/work"
   | "/manuscript"
   | "/calendar"
   | "/finance"
   | "/leave"
+  | "/weekly"
   | "/reports"
   | "/settings";
 
@@ -53,6 +57,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "거래처",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: BriefcaseBusiness,
+      group: "운영"
+    },
+    {
+      href: "/contracts",
+      label: "계약서",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: FileSignature,
       group: "운영"
     },
     {
@@ -88,6 +99,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "연차/휴가",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Plane,
+      group: "관리"
+    },
+    {
+      href: "/weekly",
+      label: "주간보고",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: CalendarCheck,
       group: "관리"
     },
     {

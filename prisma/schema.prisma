@@ -168,6 +168,8 @@ model User {
   accounts                Account[]
   sessions                Session[]
   loginHistory            LoginHistory[]  @relation("UserLoginHistory")
+  authoredContracts       Contract[]      @relation("ContractAuthor")
+  weeklyReports           WeeklyReport[]  @relation("WeeklyReportAuthor")
 
   @@index([orgId])
 }
@@ -219,6 +221,7 @@ model Client {
   billingRecords     BillingRecord[]
   expenseRecords     ExpenseRecord[]
   reports            Report[]
+  contracts          Contract[]
 
   @@index([assignedMarketerId])
   @@index([industryCategoryId])
@@ -708,4 +711,54 @@ model CompanySetting {
   workloadDailyMinutes  Int      @default(480) // 마케터 1일 가용시간(워크로드 기준)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+}
+
+/// 계약서 — 거래처별 계약 문서. 태블릿에서 서명(사인)까지 처리.
+/// signatureData 는 서명 이미지(PNG data URL, base64). status: DRAFT | SIGNED.
+model Contract {
+  id            String    @id @default(cuid())
+  clientId      String
+  authorId      String
+  title         String
+  body          String // 계약 내용(본문 텍스트)
+  amount        Decimal?  @db.Decimal(12, 2) // 계약 금액(원)
+  startDate     DateTime?
+  endDate       DateTime?
+  status        String    @default("DRAFT") // DRAFT | SIGNED
+  signerName    String? // 서명자 이름(태블릿 입력)
+  signerTitle   String? // 서명자 직함/소속
+  signatureData String? // 서명 이미지 (PNG data URL)
+  signedAt      DateTime?
+  orgId         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  client        Client    @relation(fields: [clientId], references: [id])
+  author        User      @relation("ContractAuthor", fields: [authorId], references: [id])
+
+  @@index([clientId])
+  @@index([authorId])
+  @@index([status])
+  @@index([orgId])
+}
+
+/// 주간 업무보고 — 직원이 한 주 단위로 작성. weekStart = 해당 주 월요일.
+/// status: DRAFT | SUBMITTED.
+model WeeklyReport {
+  id           String   @id @default(cuid())
+  authorId     String
+  weekStart    DateTime // 해당 주 시작일(월요일 00:00)
+  summary      String // 한 줄 요약
+  achievements String? // 이번 주 완료/성과
+  plans        String? // 다음 주 계획
+  issues       String? // 이슈/공유사항
+  status       String   @default("SUBMITTED") // DRAFT | SUBMITTED
+  orgId        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  author       User     @relation("WeeklyReportAuthor", fields: [authorId], references: [id])
+
+  @@unique([authorId, weekStart])
+  @@index([authorId])
+  @@index([weekStart])
+  @@index([orgId])
 }
