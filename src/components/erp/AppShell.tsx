@@ -2,6 +2,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import {
+  Archive,
   BriefcaseBusiness,
   CalendarCheck,
   CalendarDays,
@@ -31,6 +32,7 @@ type ErpRoute =
   | "/leave"
   | "/weekly"
   | "/reports"
+  | "/vault"
   | "/settings";
 
 type NavGroup = "운영" | "관리";
@@ -113,6 +115,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "보고서",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: FileText,
+      group: "관리"
+    },
+    {
+      href: "/vault",
+      label: "보관함",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Archive,
       group: "관리"
     },
     {
