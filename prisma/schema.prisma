@@ -4,10 +4,11 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // 런타임 연결은 pooled(DATABASE_URL) — Vercel 서버리스 권장, 마지막 성공 빌드(54a4402)와 동일.
+  // 런타임/쿼리는 직접연결(DATABASE_URL_UNPOOLED) 사용 — Neon 풀러+Prisma prepared-statement
+  // 이슈를 피한다. 이 프로젝트엔 DATABASE_URL_UNPOOLED 가 설정돼 있음.
   // 스키마 반영은 빌드의 `prisma db push`(전 배포를 깨뜨림)가 아니라,
-  // 추가전용 마이그레이션(prisma/apply-manual-migrations.mjs)이 직접연결로 안전 처리한다.
-  url      = env("DATABASE_URL")
+  // 추가전용 마이그레이션(prisma/apply-manual-migrations.mjs)이 처리한다.
+  url      = env("DATABASE_URL_UNPOOLED")
 }
 
 enum Role {
