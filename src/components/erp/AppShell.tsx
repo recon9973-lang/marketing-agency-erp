@@ -12,7 +12,8 @@ import {
   Plane,
   PlugZap,
   Search,
-  ShieldCheck
+  ShieldCheck,
+  Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -31,6 +32,7 @@ type ErpRoute =
   | "/messages"
   | "/vault"
   | "/studio"
+  | "/marketing-studio"
   | "/keywords"
   | "/calendar"
   | "/finance"
@@ -83,6 +85,12 @@ export function getNavigationItems(role: Role): NavItem[] {
       label: "이미지 스튜디오",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: ImagePlus
+    },
+    {
+      href: "/marketing-studio",
+      label: "마케팅 스튜디오",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Sparkles
     },
     {
       href: "/keywords",
