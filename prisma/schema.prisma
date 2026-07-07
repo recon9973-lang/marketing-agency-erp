@@ -4,11 +4,10 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // Neon 통합이 자동 생성하는 직접(unpooled) 연결을 그대로 사용.
-  // 이 계정은 pooled(DATABASE_URL) 값 노출에 2FA가 걸려 있어, 이미 존재하는
-  // DATABASE_URL_UNPOOLED 하나로 런타임+마이그레이션을 모두 처리한다.
-  // (내부 ERP·소규모 동시접속이라 direct 연결로 충분. 트래픽 증가 시 pooled로 전환.)
-  url      = env("DATABASE_URL_UNPOOLED")
+  // 런타임 연결은 pooled(DATABASE_URL) — Vercel 서버리스 권장, 마지막 성공 빌드(54a4402)와 동일.
+  // 스키마 반영은 빌드의 `prisma db push`(전 배포를 깨뜨림)가 아니라,
+  // 추가전용 마이그레이션(prisma/apply-manual-migrations.mjs)이 직접연결로 안전 처리한다.
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
