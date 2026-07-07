@@ -109,7 +109,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   DUPLICATE_CLIENT_CODE: "이미 사용 중인 거래처 코드입니다.",
   NOT_FOUND: "대상을 찾을 수 없습니다.",
   VALIDATION: "입력값을 확인해주세요.",
-  INACTIVE_MARKETER: "비활성 담당자에게는 배정할 수 없습니다."
+  INACTIVE_MARKETER: "비활성 담당자에게는 배정할 수 없습니다.",
+  AI_NOT_CONFIGURED: "AI가 아직 연결되지 않았습니다. 연동 화면에서 ANTHROPIC_API_KEY를 등록하면 켜집니다.",
+  AI_EMPTY: "AI가 결과를 만들지 못했습니다. 주제를 조금 더 구체적으로 입력해 다시 시도해주세요."
 };
 
 /** 표준 액션 래퍼: 에러를 사용자 친화 메시지로 변환해 ActionResult로 반환. */

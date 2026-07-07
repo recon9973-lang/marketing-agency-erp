@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/server/session";
 // env를 요청 시점에 읽어 연동 상태를 정확히 반영.
 export const dynamic = "force-dynamic";
 
-const CATEGORY_ORDER: IntegrationCategory[] = ["코어", "메시지·메일", "데이터·광고", "결제", "캘린더"];
+const CATEGORY_ORDER: IntegrationCategory[] = ["코어", "AI", "메시지·메일", "데이터·광고", "결제", "캘린더"];
 
 function StatusBadge({ configured }: { configured: boolean }) {
   return configured ? (

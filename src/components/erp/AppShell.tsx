@@ -14,7 +14,8 @@ import {
   PenLine,
   Plane,
   Plug,
-  ShieldCheck
+  ShieldCheck,
+  Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -28,6 +29,7 @@ type ErpRoute =
   | "/contracts"
   | "/work"
   | "/manuscript"
+  | "/ai-studio"
   | "/calendar"
   | "/finance"
   | "/leave"
@@ -82,6 +84,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "원고 스튜디오",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: PenLine,
+      group: "운영"
+    },
+    {
+      href: "/ai-studio",
+      label: "AI 마케팅",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Sparkles,
       group: "운영"
     },
     {

@@ -3,7 +3,7 @@
  * 규칙: "환경 변수에 자격증명을 넣으면 켜진다." 실서버 이관 시 같은 env만 채우면 됨.
  * 이 파일이 각 연동이 현재 환경에서 설정됐는지 한곳에서 보고한다(읽기 전용).
  */
-export type IntegrationCategory = "코어" | "메시지·메일" | "데이터·광고" | "결제" | "캘린더";
+export type IntegrationCategory = "코어" | "AI" | "메시지·메일" | "데이터·광고" | "결제" | "캘린더";
 
 export type IntegrationStatus = {
   key: string;
@@ -44,6 +44,16 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       description: "최고관리자 로그인(SMTP 불필요)",
       usedIn: "로그인",
       fallback: "미설정 시 로그인 폼 비활성"
+    },
+    {
+      key: "claudeAi",
+      label: "Claude AI (콘텐츠 생성)",
+      category: "AI",
+      configured: has("ANTHROPIC_API_KEY"),
+      envVars: ["ANTHROPIC_API_KEY"],
+      description: "블로그·카드뉴스·SNS·광고 문구 자동 생성",
+      usedIn: "AI 마케팅 엔진",
+      fallback: "미설정 시 생성 폼만 미리보기"
     },
     {
       key: "emailMagicLink",

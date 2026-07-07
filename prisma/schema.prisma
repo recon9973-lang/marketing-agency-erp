@@ -176,6 +176,7 @@ model User {
   weeklyReports           WeeklyReport[]  @relation("WeeklyReportAuthor")
   vaultFolders            VaultFolder[]   @relation("VaultFolderCreator")
   uploadedFiles           StoredFile[]    @relation("FileUploader")
+  aiContents              AiContent[]     @relation("AiContentAuthor")
 
   @@index([orgId])
 }
@@ -228,6 +229,7 @@ model Client {
   expenseRecords     ExpenseRecord[]
   reports            Report[]
   contracts          Contract[]
+  aiContents         AiContent[]
 
   @@index([assignedMarketerId])
   @@index([industryCategoryId])
@@ -797,4 +799,30 @@ model StoredFile {
 
   @@index([uploadedById])
   @@index([folderId])
+}
+
+/// AI 마케팅 엔진 — Claude로 블로그/카드뉴스/SNS 문구를 생성해 보관.
+/// kind: BLOG | CARD_NEWS | SNS | AD_COPY | KEYWORD. status: DONE | FAILED.
+/// 결과(result)는 생성된 본문. keywords/topic 등 입력을 함께 저장해 재사용.
+model AiContent {
+  id        String   @id @default(cuid())
+  authorId  String
+  clientId  String? // 거래처 연계(선택)
+  kind      String // BLOG | CARD_NEWS | SNS | AD_COPY | KEYWORD
+  topic     String // 주제/제품/핵심 메시지
+  keywords  String? // 강조 키워드(쉼표 구분)
+  tone      String? // 톤앤매너(선택)
+  result    String // 생성 결과 본문
+  model     String? // 사용한 모델 ID
+  status    String   @default("DONE") // DONE | FAILED
+  orgId     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  author    User     @relation("AiContentAuthor", fields: [authorId], references: [id])
+  client    Client?  @relation(fields: [clientId], references: [id])
+
+  @@index([authorId])
+  @@index([clientId])
+  @@index([kind])
+  @@index([orgId])
 }
