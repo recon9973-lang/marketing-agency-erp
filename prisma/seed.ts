@@ -18,6 +18,8 @@ import {
   WorkStatus
 } from "@prisma/client";
 
+import { seedMasters } from "./seed-masters";
+
 const prisma = new PrismaClient();
 
 async function main() {
@@ -449,6 +451,9 @@ async function main() {
       }
     ]
   });
+
+  // V2.1 마스터(업종/업무카테고리/채널/회사정책) 시드
+  await seedMasters(prisma);
 
   const summary = {
     users: await prisma.user.count(),

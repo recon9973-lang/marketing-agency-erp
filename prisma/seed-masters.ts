@@ -1,8 +1,8 @@
-// 목표: prisma/seed.ts 에 병합하거나 별도 `tsx prisma/seed-masters.ts` 로 실행.
+// V2.1 마스터 시드. `prisma db seed`(seed.ts)에서 seedMasters()로 호출되며,
+// 단독 실행(`tsx prisma/seed-masters.ts`)도 지원한다.
 // 업종/업무카테고리/채널 마스터 초기 시드 (이후 관리자가 설정에서 편집).
+import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
-
-const db = new PrismaClient();
 
 // 업종 대분류 → 하위(진료과). "기타"는 수기입력(industryCustom)로 처리하므로 항목 생략 가능.
 const INDUSTRIES: { name: string; color: string; children?: string[] }[] = [
@@ -46,7 +46,16 @@ const CHANNELS: string[] = [
   "네이버 애널리틱스/GA", "카카오채널"
 ];
 
-async function main() {
+/** 마스터 시드 (멱등). 참조 FK가 모두 ON DELETE SET NULL 이라 재실행 안전. */
+export async function seedMasters(db: PrismaClient) {
+  // 재실행 대비 마스터 초기화 (masters를 참조하는 FK는 전부 SET NULL)
+  await db.loginHistory.deleteMany();
+  await db.bankTransaction.deleteMany();
+  await db.channelType.deleteMany();
+  await db.workCategoryMaster.deleteMany();
+  await db.industryCategory.deleteMany();
+  await db.companySetting.deleteMany();
+
   // 업종
   for (let i = 0; i < INDUSTRIES.length; i++) {
     const cat = INDUSTRIES[i];
@@ -85,4 +94,8 @@ async function main() {
   console.log("Masters seeded: industries, work categories, channels, company setting.");
 }
 
-main().finally(() => db.$disconnect());
+// 단독 실행 지원: `tsx prisma/seed-masters.ts`
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const db = new PrismaClient();
+  seedMasters(db).finally(() => db.$disconnect());
+}
