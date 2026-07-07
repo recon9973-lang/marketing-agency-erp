@@ -13,6 +13,7 @@ import {
   FileText,
   PenLine,
   Plane,
+  Plug,
   ShieldCheck
 } from "lucide-react";
 import Link from "next/link";
@@ -33,6 +34,7 @@ type ErpRoute =
   | "/weekly"
   | "/reports"
   | "/vault"
+  | "/integrations"
   | "/settings";
 
 type NavGroup = "운영" | "관리";
@@ -125,6 +127,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       group: "관리"
     },
     {
+      href: "/integrations",
+      label: "연동",
+      roles: [Role.SUPER_ADMIN],
+      icon: Plug,
+      group: "관리"
+    },
+    {
       href: "/settings",
       label: "직원/권한",
       roles: [Role.SUPER_ADMIN],
@@ -134,8 +143,8 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
   ];
 
   return items.filter((item) => {
-    // 설정(직원/권한)은 최고관리자 전용이되, 승인받은 관리자/담당자에게도 노출.
-    if (item.href === "/settings") {
+    // 설정·연동은 최고관리자 전용이되, 승인받은 관리자/담당자에게도 노출.
+    if (item.href === "/settings" || item.href === "/integrations") {
       return role === Role.SUPER_ADMIN || canAccessSettings;
     }
     return item.roles.includes(role);
