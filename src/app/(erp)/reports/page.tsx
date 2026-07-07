@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { ReportStatus } from "@/domain/types";
@@ -68,6 +69,15 @@ const columns: DataTableColumn<ReportListItem>[] = [
         <p>검토 {report.reviewedAt ? dateFormatter.format(report.reviewedAt) : "-"}</p>
         <p className="mt-1">전달 {report.deliveredAt ? dateFormatter.format(report.deliveredAt) : "-"}</p>
       </div>
+    )
+  },
+  {
+    key: "edit",
+    header: "",
+    render: (report) => (
+      <Link href={`/reports/${report.id}`} className="text-xs text-brand underline">
+        편집
+      </Link>
     )
   }
 ];

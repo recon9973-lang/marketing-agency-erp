@@ -1,14 +1,50 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { billingStatusLabels, expenseReviewStatusLabels, paymentMethodLabels } from "@/domain/finance";
-import { ConnectionStatus, FinancialAccountType } from "@/domain/types";
+import { ConnectionStatus, FinancialAccountType, Role } from "@/domain/types";
 import {
   fetchFinanceOverviewForUser,
   type BillingListItem,
   type ExpenseListItem,
   type FinancialAccountListItem
 } from "@/server/repositories/finance";
+import { db } from "@/server/db";
 import { getCurrentUser } from "@/server/session";
+import { BankReconcile } from "@/components/finance/BankReconcile";
+
+const bankDateFormatter = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" });
+
+/** 미매칭 은행내역 × 미납 청구건을 금액/입금자명으로 매칭 후보 산출 (라벨 포함). */
+async function buildBankSuggestions() {
+  const [txs, bills] = await Promise.all([
+    db.bankTransaction.findMany({ where: { matchStatus: "UNMATCHED" }, orderBy: { txDate: "desc" } }),
+    db.billingRecord.findMany({
+      where: { status: { in: ["ISSUED", "UNPAID", "PARTIALLY_PAID", "OVERDUE"] } },
+      include: { client: { select: { name: true } } }
+    })
+  ]);
+
+  const suggestions = [];
+  for (const tx of txs) {
+    for (const b of bills) {
+      const remaining = Number(b.issuedAmount) - Number(b.paidAmount);
+      let score = 0;
+      if (Number(tx.amount) === remaining) score += 2;
+      else if (Math.abs(Number(tx.amount) - remaining) < 1) score += 1;
+      if (tx.counterpartyName && b.client?.name && tx.counterpartyName.includes(b.client.name)) score += 2;
+      if (score >= 2) {
+        suggestions.push({
+          bankTxId: tx.id,
+          billingId: b.id,
+          score,
+          bankLabel: `${bankDateFormatter.format(tx.txDate)} · ${Number(tx.amount).toLocaleString()}원${tx.counterpartyName ? ` · ${tx.counterpartyName}` : ""}`,
+          billingLabel: `${b.client?.name ?? "거래처"} · 잔액 ${remaining.toLocaleString()}원`
+        });
+      }
+    }
+  }
+  return suggestions.sort((a, b) => b.score - a.score);
+}
 
 const moneyFormatter = new Intl.NumberFormat("ko-KR");
 const monthFormatter = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long" });
@@ -131,6 +167,8 @@ export default async function FinancePage() {
   }
 
   const overview = await fetchFinanceOverviewForUser(user);
+  const canReconcile = user.role !== Role.MARKETER;
+  const bankSuggestions = canReconcile ? await buildBankSuggestions() : [];
 
   return (
     <section className="space-y-6">
@@ -171,6 +209,13 @@ export default async function FinancePage() {
         <h3 className="text-base font-semibold text-ink">회사 지출</h3>
         <DataTable columns={expenseColumns} rows={overview.expenses} emptyMessage="조회 가능한 지출 내역이 없습니다." />
       </div>
+
+      {canReconcile && (
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-ink">입금 반자동 대사</h3>
+          <BankReconcile suggestions={bankSuggestions} />
+        </div>
+      )}
     </section>
   );
 }

@@ -7,7 +7,10 @@ import {
   type ScopeSettingsItem,
   type StaffSettingsItem
 } from "@/server/repositories/settings";
+import { getWorkCategories, getCompanySetting } from "@/server/repositories/masters";
 import { getCurrentUser } from "@/server/session";
+import { MasterManager } from "@/components/settings/MasterManager";
+import { EmployeeSettings } from "@/components/settings/EmployeeSettings";
 
 const roleLabels: Record<Role, string> = {
   [Role.SUPER_ADMIN]: "최고관리자",
@@ -100,6 +103,11 @@ export default async function SettingsPage() {
   }
 
   const overview = await fetchSettingsOverview(user);
+  const canManage = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
+  const isSuperAdmin = user.role === Role.SUPER_ADMIN;
+  const [workCategories, companySetting] = canManage
+    ? await Promise.all([getWorkCategories(), getCompanySetting()])
+    : [[], null];
 
   return (
     <section className="space-y-6">
@@ -126,6 +134,24 @@ export default async function SettingsPage() {
         <h3 className="text-base font-semibold text-ink">관리자 접근 범위</h3>
         <DataTable columns={scopeColumns} rows={overview.scopes} emptyMessage="등록된 접근 범위가 없습니다." />
       </div>
+
+      {canManage && (
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-ink">직원 관리</h3>
+          <EmployeeSettings
+            employees={overview.staff}
+            isSuperAdmin={isSuperAdmin}
+            adminCanManageExpense={companySetting?.adminCanManageExpense ?? false}
+          />
+        </div>
+      )}
+
+      {canManage && (
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-ink">업무 카테고리 마스터</h3>
+          <MasterManager items={workCategories} isSuperAdmin={isSuperAdmin} />
+        </div>
+      )}
     </section>
   );
 }

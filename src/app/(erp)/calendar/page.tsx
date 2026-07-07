@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { calendarKindLabels, fetchCalendarEventsForUser, type CalendarListItem } from "@/server/repositories/calendar";
 import { CalendarProvider, ConnectionStatus } from "@/domain/types";
+import { getSchedulerDay } from "@/server/repositories/work";
 import { getCurrentUser } from "@/server/session";
+import { CalendarScheduler } from "@/components/calendar/CalendarScheduler";
 
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" });
 const timeFormatter = new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit" });
@@ -53,6 +55,9 @@ export default async function CalendarPage() {
 
   const events = await fetchCalendarEventsForUser(user);
   const groupedEvents = groupByDay(events);
+  const today = new Date();
+  const todayKey = today.toISOString().slice(0, 10);
+  const schedulerItems = await getSchedulerDay(user, user.id, today);
   const integrationCards = [
     { provider: CalendarProvider.GOOGLE, title: "Google Calendar", status: ConnectionStatus.DISCONNECTED },
     { provider: CalendarProvider.NAVER, title: "Naver Calendar", status: ConnectionStatus.DISCONNECTED }
@@ -85,6 +90,11 @@ export default async function CalendarPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="space-y-3">
+        <h3 className="text-base font-semibold text-ink">오늘 일정 배치 (내 업무)</h3>
+        <CalendarScheduler day={todayKey} items={schedulerItems} />
       </div>
 
       <div className="rounded-md border border-line bg-white">

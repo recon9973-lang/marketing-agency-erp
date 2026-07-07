@@ -3,7 +3,11 @@ import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { leaveStatusLabels, leaveTypeLabels } from "@/domain/leave";
 import { Role } from "@/domain/types";
 import { fetchLeaveOverviewForUser, type LeaveRequestListItem } from "@/server/repositories/leave";
+import { db } from "@/server/db";
 import { getCurrentUser } from "@/server/session";
+import { LeavePanel } from "@/components/leave/LeavePanel";
+
+const leaveDateFormatter = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" });
 
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" });
 
@@ -52,15 +56,6 @@ const requestColumns: DataTableColumn<LeaveRequestListItem>[] = [
   }
 ];
 
-const approvalColumns: DataTableColumn<LeaveRequestListItem>[] = [
-  {
-    key: "requester",
-    header: "신청자",
-    render: (request) => request.requesterName
-  },
-  ...requestColumns
-];
-
 export default async function LeavePage() {
   const user = await getCurrentUser();
 
@@ -69,6 +64,23 @@ export default async function LeavePage() {
   }
 
   const overview = await fetchLeaveOverviewForUser(user);
+  const canApprove = user.role !== Role.MARKETER;
+  const pendingLeaves = canApprove
+    ? (
+        await db.leaveRequest.findMany({
+          where: { status: "REQUESTED" },
+          orderBy: { startDate: "asc" },
+          include: { requester: { select: { name: true } } }
+        })
+      ).map((r) => ({
+        id: r.id,
+        requesterName: r.requester.name,
+        type: r.type,
+        startDate: leaveDateFormatter.format(r.startDate),
+        endDate: leaveDateFormatter.format(r.endDate),
+        daysRequested: Number(r.daysRequested)
+      }))
+    : [];
 
   return (
     <section className="space-y-6">
@@ -96,46 +108,7 @@ export default async function LeavePage() {
         </div>
       </div>
 
-      <form className="grid gap-3 rounded-md border border-line bg-white p-4 md:grid-cols-5">
-        <label className="text-sm text-slate-600">
-          <span className="mb-1 block text-xs font-semibold text-slate-500">유형</span>
-          <select name="type" className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink">
-            {Object.entries(leaveTypeLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm text-slate-600">
-          <span className="mb-1 block text-xs font-semibold text-slate-500">시작일</span>
-          <input type="date" name="startDate" className="w-full rounded-md border border-line px-3 py-2 text-sm text-ink" />
-        </label>
-        <label className="text-sm text-slate-600">
-          <span className="mb-1 block text-xs font-semibold text-slate-500">종료일</span>
-          <input type="date" name="endDate" className="w-full rounded-md border border-line px-3 py-2 text-sm text-ink" />
-        </label>
-        <label className="text-sm text-slate-600">
-          <span className="mb-1 block text-xs font-semibold text-slate-500">일수</span>
-          <input type="number" step="0.5" min="0.5" name="daysRequested" className="w-full rounded-md border border-line px-3 py-2 text-sm text-ink" />
-        </label>
-        <label className="text-sm text-slate-600">
-          <span className="mb-1 block text-xs font-semibold text-slate-500">사유</span>
-          <input name="reason" className="w-full rounded-md border border-line px-3 py-2 text-sm text-ink" />
-        </label>
-        <div className="flex items-end md:col-span-5">
-          <button type="button" className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white">
-            신청 저장 준비중
-          </button>
-        </div>
-      </form>
-
-      {user.role !== Role.MARKETER ? (
-        <div className="space-y-3">
-          <h3 className="text-base font-semibold text-ink">승인 대기</h3>
-          <DataTable columns={approvalColumns} rows={overview.approvalRequests} emptyMessage="승인 대기 중인 휴가 신청이 없습니다." />
-        </div>
-      ) : null}
+      <LeavePanel pending={pendingLeaves} canApprove={canApprove} />
 
       <div className="space-y-3">
         <h3 className="text-base font-semibold text-ink">내 신청 내역</h3>
