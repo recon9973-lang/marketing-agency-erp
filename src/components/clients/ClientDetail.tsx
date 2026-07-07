@@ -34,7 +34,7 @@ export function ClientDetail({
 
       <nav className="mb-4 flex gap-1 border-b">
         {tabs.map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`px-3 py-2 text-sm ${tab === t ? "border-b-2 border-[#533afd] text-[#533afd]" : "text-slate-500"}`}>{t}</button>
+          <button key={t} onClick={() => setTab(t)} className={`px-3 py-2 text-sm ${tab === t ? "border-b-2 border-brand text-brand" : "text-slate-500"}`}>{t}</button>
         ))}
       </nav>
 
@@ -52,7 +52,7 @@ export function ClientDetail({
               <tr key={c.id} className="border-t">
                 <td className="py-2">{c.channelName}</td>
                 <td>{c.label}</td>
-                <td>{c.externalUrl ? <a href={c.externalUrl} className="text-[#533afd] underline" target="_blank" rel="noreferrer">링크</a> : "-"}</td>
+                <td>{c.externalUrl ? <a href={c.externalUrl} className="text-brand underline" target="_blank" rel="noreferrer">링크</a> : "-"}</td>
                 <td><CredentialField accountId={c.id} hasCredentials={c.hasCredentials} /></td>
               </tr>
             ))}

@@ -68,7 +68,7 @@ export function ReportEditor({ report }: { report: Report }) {
 
       {error && <p className="text-sm text-rose-600">{error}</p>}
       <div className="flex items-center gap-2">
-        <button onClick={save} disabled={pending} className="rounded bg-[#533afd] px-4 py-2 text-sm text-white disabled:opacity-50">저장</button>
+        <button onClick={save} disabled={pending} className="rounded bg-brand px-4 py-2 text-sm text-white disabled:opacity-50">저장</button>
         {na && <button onClick={transition} disabled={pending} className="rounded bg-green-600 px-4 py-2 text-sm text-white disabled:opacity-50">{na.label}</button>}
         <a href={`/api/reports/${report.id}/pdf`} className="rounded border px-4 py-2 text-sm">PDF 다운로드</a>
         <span className="text-xs text-slate-400">상태: {report.status}</span>
