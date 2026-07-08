@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { Role, UserStatus } from "@/domain/types";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
@@ -107,10 +108,17 @@ function getDevUser(requestedRole?: unknown): CurrentUser | null {
   };
 }
 
+// 세션→직원 조회(auth JWT 복호화 + user.findFirst)를 요청 단위로 캐시한다.
+// 한 번의 네비게이션에서 레이아웃과 페이지가 각각 getCurrentUser를 호출해도
+// DB 왕복이 1회로 합쳐져 클릭 반응이 빨라진다. devRole은 개발 폴백에만 쓰여 제외.
+const loadSessionUser = cache(async (): Promise<CurrentUser | null> => {
+  const session = await auth();
+  return resolveStaffUser(session?.user as SessionUserLike | undefined);
+});
+
 export async function getCurrentUser(requestedDevRole?: unknown): Promise<CurrentUser | null> {
   try {
-    const session = await auth();
-    const user = await resolveStaffUser(session?.user as SessionUserLike | undefined);
+    const user = await loadSessionUser();
     return user ?? getDevUser(requestedDevRole);
   } catch {
     return getDevUser(requestedDevRole);
