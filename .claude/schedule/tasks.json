@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "seq": 17,
+  "seq": 19,
   "tasks": [
     {
       "id": "TASK-001",
@@ -515,6 +515,57 @@
           "at": "2026-07-05T17:59:00.110Z",
           "type": "done",
           "note": "완료: Vercel Production Error 원인=Neon 풀링 URL로 빌드 db push 실패. prisma/db-push.mjs 추가: 앱은 풀링 유지, db push만 -pooler 제거한 직접연결로 실행. vercel-build 교체. 로컬 전체 재현 통과(exit 0). 사용자 env 변경 불필요 — 재배포만."
+        }
+      ]
+    },
+    {
+      "id": "TASK-018",
+      "title": "워크플로우 20차 — AI 마케팅 엔진 + 이미지 생성 백엔드",
+      "status": "완료",
+      "tags": [
+        "AI",
+        "이미지",
+        "erp-v1"
+      ],
+      "plan": "erp-v1(오렌지)에 Claude 콘텐츠 생성(/ai-studio)과 원고 스튜디오 이미지 백엔드(/api/generate-image) 이식",
+      "result": "erp-v1 푸시 완료(커밋 7a04bd7, 6778666). /ai-studio: Claude(claude-opus-4-8)로 블로그·카드뉴스·SNS·광고·키워드 생성, ANTHROPIC_API_KEY로 켜짐. /api/generate-image: 원고 스튜디오 이미지 버튼 네이티브 백엔드, OPENAI_API_KEY로 켜짐. 연동 레지스트리에 AI 카테고리 추가. build/tsc green.",
+      "createdAt": "2026-07-08T08:37:38.969Z",
+      "updatedAt": "2026-07-08T08:37:47.558Z",
+      "startedAt": null,
+      "doneAt": "2026-07-08T08:37:47.558Z",
+      "log": [
+        {
+          "at": "2026-07-08T08:37:38.969Z",
+          "type": "created",
+          "note": "작업 등록"
+        },
+        {
+          "at": "2026-07-08T08:37:47.558Z",
+          "type": "done",
+          "note": "완료: erp-v1 푸시 완료(커밋 7a04bd7, 6778666). /ai-studio: Claude(claude-opus-4-8)로 블로그·카드뉴스·SNS·광고·키워드 생성, ANTHROPIC_API_KEY로 켜짐. /api/generate-image: 원고 스튜디오 이미지 버튼 네이티브 백엔드, OPENAI_API_KEY로 켜짐. 연동 레지스트리에 AI 카테고리 추가. build/tsc green."
+        }
+      ]
+    },
+    {
+      "id": "TASK-019",
+      "title": "ERP 클릭 반응속도 개선 (성능 최적화)",
+      "status": "등록됨",
+      "tags": [
+        "성능",
+        "erp-v1",
+        "예약"
+      ],
+      "plan": "ERP에서 메뉴 이동·버튼 클릭 시 응답이 느린 문제 분석·개선. 후보: (1) 페이지마다 force-dynamic + 서버 DB 왕복 지연, (2) Neon 콜드스타트/풀링, (3) 무거운 서버 컴포넌트 데이터 로드, (4) 클라이언트 라우팅 프리페치 부재, (5) 번들 크기. 우선 느린 화면 프로파일링 후 캐싱/프리페치/쿼리 최적화 적용",
+      "result": "",
+      "createdAt": "2026-07-08T08:37:39.044Z",
+      "updatedAt": "2026-07-08T08:37:39.044Z",
+      "startedAt": null,
+      "doneAt": null,
+      "log": [
+        {
+          "at": "2026-07-08T08:37:39.044Z",
+          "type": "created",
+          "note": "작업 등록"
         }
       ]
     }
