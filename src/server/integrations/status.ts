@@ -56,6 +56,16 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       fallback: "미설정 시 생성 폼만 미리보기"
     },
     {
+      key: "imageGen",
+      label: "이미지 생성 (OpenAI)",
+      category: "AI",
+      configured: has("OPENAI_API_KEY"),
+      envVars: ["OPENAI_API_KEY", "OPENAI_IMAGE_MODEL"],
+      description: "원고 스튜디오에서 이미지/카드뉴스 이미지 생성",
+      usedIn: "원고 스튜디오 · 이미지 엔진",
+      fallback: "미설정 시 프롬프트만 복사해 외부 툴 사용"
+    },
+    {
       key: "emailMagicLink",
       label: "직원 이메일 매직링크",
       category: "메시지·메일",
