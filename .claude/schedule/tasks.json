@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "seq": 20,
+  "seq": 21,
   "tasks": [
     {
       "id": "TASK-001",
@@ -605,6 +605,33 @@
           "at": "2026-07-09T05:53:16.191Z",
           "type": "done",
           "note": "완료: erp-v1 커밋 44402d9. 톤: studio.html accent 그린→오렌지, #1f7a68 잔재 제거(시맨틱/카테고리 색코딩은 유지). 병합: /api/generate-post(Claude 블로그+이미지), /api/keywords(Claude), /api/wp-draft(워드프레스 REST). generate-image는 공통 image.ts로 리팩터. build/tsc green."
+        }
+      ]
+    },
+    {
+      "id": "TASK-021",
+      "title": "이미지 스튜디오 독립 메뉴 추가",
+      "status": "완료",
+      "tags": [
+        "이미지",
+        "erp-v1"
+      ],
+      "plan": "원고 스튜디오에 묻힌 이미지 생성을 /image-studio 독립 페이지로. 프롬프트+스타일+비율, 다운로드, 보관함 저장.",
+      "result": "erp-v1 커밋 32de9a6. /image-studio 페이지+사이드바 메뉴, /api/generate-image 연동, 보관함 저장. build/tsc green.",
+      "createdAt": "2026-07-09T06:22:46.793Z",
+      "updatedAt": "2026-07-09T06:22:46.922Z",
+      "startedAt": null,
+      "doneAt": "2026-07-09T06:22:46.922Z",
+      "log": [
+        {
+          "at": "2026-07-09T06:22:46.793Z",
+          "type": "created",
+          "note": "작업 등록"
+        },
+        {
+          "at": "2026-07-09T06:22:46.922Z",
+          "type": "done",
+          "note": "완료: erp-v1 커밋 32de9a6. /image-studio 페이지+사이드바 메뉴, /api/generate-image 연동, 보관함 저장. build/tsc green."
         }
       ]
     }
