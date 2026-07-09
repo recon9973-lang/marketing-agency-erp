@@ -75,6 +75,7 @@ export function ClientDetail({
       summary: string | null;
       createdAt: string;
     } | null;
+    quotes: { id: string; tier: string; items: { productId: string | null; name: string; monthlyFee: number; quantity: number }[]; monthlyTotal: number; status: string; createdAt: string }[];
   };
   canViewFinance: boolean;
   canManage: boolean;
@@ -171,6 +172,7 @@ export function ClientDetail({
             aiConfigured={consulting.aiConfigured}
             defaults={consulting.defaults}
             report={consulting.report}
+            quotes={consulting.quotes}
             canRun={canManage}
           />
         </div>

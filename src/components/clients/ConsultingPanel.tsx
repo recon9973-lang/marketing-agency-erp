@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { runConsulting } from "@/server/actions/consulting";
+import { QuotePanel } from "@/components/clients/QuotePanel";
 
 type KeywordRow = { keyword: string; intent: string; priority: number; channel: string };
 type Report = {
@@ -23,17 +24,21 @@ const CHANNEL_LABEL: Record<string, string> = { blog: "블로그", place: "플�
 const inputCls = "mt-1 w-full rounded-md border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand";
 const dateFmt = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" });
 
+type QuoteRow = { id: string; tier: string; items: { productId: string | null; name: string; monthlyFee: number; quantity: number }[]; monthlyTotal: number; status: string; createdAt: string };
+
 export function ConsultingPanel({
   clientId,
   aiConfigured,
   defaults,
   report,
+  quotes,
   canRun
 }: {
   clientId: string;
   aiConfigured: boolean;
   defaults: { hospitalName: string; address: string; departments: string };
   report: Report;
+  quotes: QuoteRow[];
   canRun: boolean;
 }) {
   const router = useRouter();
@@ -131,6 +136,12 @@ export function ConsultingPanel({
       ) : (
         <p className="rounded-xl border border-dashed border-line bg-surface/40 px-4 py-8 text-center text-sm text-slate-500">아직 컨설팅 리포트가 없습니다.</p>
       )}
+
+      {/* 견적 3종 */}
+      <div className="border-t border-line pt-5">
+        <p className="mb-3 text-sm font-bold text-ink">가격대별 견적 (3종)</p>
+        <QuotePanel clientId={clientId} quotes={quotes} canManage={canRun} />
+      </div>
     </div>
   );
 }
