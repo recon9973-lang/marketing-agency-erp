@@ -1,5 +1,6 @@
 export {
   BillingStatus,
+  BusinessType,
   CalendarEventKind,
   CalendarProvider,
   ClientAccountPlatform,

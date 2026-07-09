@@ -35,6 +35,7 @@ export function ClientDetail({
     id: string;
     name: string;
     code: string;
+    businessType: "HOSPITAL" | "OTHER";
     industryName: string | null;
     assignedMarketerName: string | null;
     active: boolean;
@@ -91,6 +92,7 @@ export function ClientDetail({
                   id: client.id,
                   name: client.name,
                   code: client.code,
+                  businessType: client.businessType,
                   industryCategoryId: client.industryCategoryId,
                   industryCustom: client.industryCustom,
                   assignedMarketerId: client.assignedMarketerId

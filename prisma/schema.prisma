@@ -89,6 +89,13 @@ enum CalendarProvider {
   NAVER
 }
 
+// 거래처 상위 구분 — 병원 특화 기능(병원 프로파일·의료법 검수)의 적용 여부를 가른다.
+// 세부 업종(진료과/기타)은 IndustryCategory가 담당하고, 이 플래그는 병원 버티컬 on/off용.
+enum BusinessType {
+  HOSPITAL
+  OTHER
+}
+
 enum CalendarEventKind {
   TASK
   CLIENT_MEETING
@@ -214,6 +221,7 @@ model Client {
   id                 String            @id @default(cuid())
   name               String
   code               String            @unique
+  businessType       BusinessType      @default(HOSPITAL) // 병원 버티컬 on/off
   businessNumber     String?
   contactName        String?
   contactEmail       String?

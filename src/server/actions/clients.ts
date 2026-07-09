@@ -7,7 +7,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { Role, ClientAccountPlatform } from "@/domain/types";
+import { Role, ClientAccountPlatform, BusinessType } from "@/domain/types";
 import { assertCanAccessClient } from "@/domain/access-control";
 import { db } from "@/server/db";
 import { encryptSecret } from "@/server/crypto";
@@ -29,6 +29,7 @@ function assertManagerRole(role: Role) {
 
 const createClientSchema = z.object({
   name: z.string().trim().min(1),
+  businessType: z.nativeEnum(BusinessType).optional(),
   industryCategoryId: z.string().trim().optional().nullable(),
   industryCustom: z.string().trim().optional().nullable(),
   businessNumber: z.string().trim().optional().nullable(),
@@ -83,6 +84,7 @@ export async function createClient(input: unknown): Promise<ActionResult<{ id: s
               name: data.name,
               code,
               orgId,
+              businessType: data.businessType ?? BusinessType.HOSPITAL,
               industryCategoryId: data.industryCategoryId || null,
               industryCustom: data.industryCustom || null,
               businessNumber: data.businessNumber || null,
@@ -143,6 +145,7 @@ export async function updateClient(input: unknown): Promise<ActionResult> {
         where: { id },
         data: {
           name: fields.name ?? undefined,
+          businessType: fields.businessType ?? undefined,
           industryCategoryId: fields.industryCategoryId === undefined ? undefined : fields.industryCategoryId || null,
           industryCustom: fields.industryCustom === undefined ? undefined : fields.industryCustom || null,
           businessNumber: fields.businessNumber === undefined ? undefined : fields.businessNumber || null,

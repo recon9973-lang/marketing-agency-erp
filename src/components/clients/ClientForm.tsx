@@ -18,12 +18,13 @@ export function ClientForm({
 }: {
   industries: IndustryNode[];
   marketers: Marketer[];
-  initial?: { id: string; name: string; code: string; industryCategoryId?: string | null; industryCustom?: string | null; assignedMarketerId?: string | null };
+  initial?: { id: string; name: string; code: string; businessType?: "HOSPITAL" | "OTHER" | null; industryCategoryId?: string | null; industryCustom?: string | null; assignedMarketerId?: string | null };
 }) {
   const router = useRouter();
   const parents = industries.filter((i) => i.parentId === null);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [businessType, setBusinessType] = useState<"HOSPITAL" | "OTHER">(initial?.businessType ?? "HOSPITAL");
 
   const initialParent = initial?.industryCategoryId
     ? industries.find((i) => i.id === initial.industryCategoryId)?.parentId ?? initial.industryCategoryId
@@ -40,6 +41,7 @@ export function ClientForm({
     const payload = {
       id: initial?.id,
       name: String(formData.get("name") || ""),
+      businessType,
       // 하위(진료과)가 있으면 그 id, 없으면 대분류 id
       industryCategoryId: childId || parentId || null,
       industryCustom: isEtc ? String(formData.get("industryCustom") || "") : null,
@@ -79,6 +81,29 @@ export function ClientForm({
             </div>
           )}
         </label>
+      </div>
+
+      <div>
+        <span className="text-sm text-slate-600">거래처 유형 *</span>
+        <div className="mt-1 flex gap-2">
+          {(["HOSPITAL", "OTHER"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setBusinessType(t)}
+              className={
+                businessType === t
+                  ? "rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white"
+                  : "rounded-full border border-line bg-white px-4 py-1.5 text-sm text-slate-600 hover:bg-surface"
+              }
+            >
+              {t === "HOSPITAL" ? "🏥 병원" : "기타 업종"}
+            </button>
+          ))}
+        </div>
+        {businessType === "HOSPITAL" ? (
+          <p className="mt-1 text-xs text-slate-400">병원으로 지정하면 병원 프로파일·의료법 검수 기능이 적용됩니다.</p>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
