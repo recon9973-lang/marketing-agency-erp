@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createContract } from "@/server/actions/contracts";
+import { CONTRACT_TEMPLATES } from "@/lib/contract-templates";
 
 const inputCls = "mt-1 w-full rounded-md border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand";
 
@@ -11,6 +12,18 @@ export function CreateContractForm({ clients }: { clients: { id: string; name: s
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [clientId, setClientId] = useState("");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+
+  // 템플릿 선택 → 본문·계약명 채움. {거래처명}은 선택한 거래처로 치환.
+  function applyTemplate(templateId: string) {
+    const tpl = CONTRACT_TEMPLATES.find((t) => t.id === templateId);
+    if (!tpl) return;
+    const clientName = clients.find((c) => c.id === clientId)?.name ?? "{거래처명}";
+    setTitle(tpl.title);
+    setBody(tpl.body.replaceAll("{거래처명}", clientName));
+  }
 
   function onSubmit(fd: FormData) {
     setError(null);
@@ -47,14 +60,21 @@ export function CreateContractForm({ clients }: { clients: { id: string; name: s
       <div className="grid gap-3 md:grid-cols-2">
         <label className="block">
           <span className="text-xs font-semibold text-slate-500">거래처 *</span>
-          <select name="clientId" required className={inputCls} defaultValue="">
+          <select name="clientId" required value={clientId} onChange={(e) => setClientId(e.target.value)} className={inputCls}>
             <option value="" disabled>선택</option>
             {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </label>
         <label className="block">
+          <span className="text-xs font-semibold text-slate-500">서식 템플릿</span>
+          <select defaultValue="" onChange={(e) => { applyTemplate(e.target.value); e.target.value = ""; }} className={inputCls}>
+            <option value="" disabled>템플릿 선택(선택 시 본문 자동 채움)</option>
+            {CONTRACT_TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </label>
+        <label className="block">
           <span className="text-xs font-semibold text-slate-500">계약명 *</span>
-          <input name="title" required placeholder="예: 2026년 블로그 마케팅 대행 계약" className={inputCls} />
+          <input name="title" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 2026년 블로그 마케팅 대행 계약" className={inputCls} />
         </label>
         <label className="block">
           <span className="text-xs font-semibold text-slate-500">계약 금액(원)</span>
@@ -73,7 +93,7 @@ export function CreateContractForm({ clients }: { clients: { id: string; name: s
       </div>
       <label className="mt-3 block">
         <span className="text-xs font-semibold text-slate-500">계약 내용 *</span>
-        <textarea name="body" required rows={6} placeholder="계약 조항/내용을 입력하세요." className={`${inputCls} resize-y`} />
+        <textarea name="body" required value={body} onChange={(e) => setBody(e.target.value)} rows={10} placeholder="계약 조항/내용을 입력하거나 위에서 서식 템플릿을 선택하세요." className={`${inputCls} resize-y font-mono text-xs`} />
       </label>
       {error ? (
         <p className="mt-2 text-sm text-danger">{error === "VALIDATION" ? "입력값을 확인해 주세요." : "저장에 실패했습니다."}</p>
