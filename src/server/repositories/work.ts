@@ -227,3 +227,7 @@ export async function listWorkTree(user: CurrentUser, clientId?: string) {
   });
   return parents;
 }
+
+export async function listRecentWorkForClient(clientId: string, take = 3) {
+  return db.workItem.findMany({ where: { clientId }, orderBy: { updatedAt: "desc" }, take, select: { id: true, title: true, status: true } });
+}

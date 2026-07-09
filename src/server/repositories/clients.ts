@@ -245,3 +245,7 @@ export async function getClientDetail(user: CurrentUser, clientId: string) {
     }))
   };
 }
+
+export async function getClientAccessInfo(clientId: string) {
+  return db.client.findUnique({ where: { id: clientId }, select: { id: true, assignedMarketerId: true } });
+}

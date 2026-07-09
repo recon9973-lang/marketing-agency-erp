@@ -17,7 +17,10 @@ import {
   Plug,
   ShieldCheck,
   Sparkles,
-  Video
+  Video,
+  MessageSquare,
+  Search,
+  Megaphone
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -34,6 +37,8 @@ type ErpRoute =
   | "/manuscript"
   | "/ai-studio"
   | "/image-studio"
+  | "/keywords"
+  | "/marketing-studio"
   | "/meetings"
   | "/calendar"
   | "/finance"
@@ -110,6 +115,20 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "회의록",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Video,
+      group: "운영"
+    },
+    {
+      href: "/keywords",
+      label: "검색량 조회",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Search,
+      group: "운영"
+    },
+    {
+      href: "/marketing-studio",
+      label: "마케팅 스튜디오",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Megaphone,
       group: "운영"
     },
     {

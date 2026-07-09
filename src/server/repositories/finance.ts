@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { summarizeFinance } from "@/domain/finance";
-import { BillingStatus, ConnectionStatus, ExpenseReviewStatus, FinancialAccountType, PaymentMethod, Role } from "@/domain/types";
+import { BillingStatus, ConnectionStatus, ExpenseReviewStatus, FinancialAccountType, PaymentMethod, PaymentProvider, Role } from "@/domain/types";
 import { db } from "@/server/db";
 import type { CurrentUser } from "@/server/session";
 
@@ -296,4 +296,113 @@ export async function getBankMatchSuggestions(user: CurrentUser): Promise<BankMa
   }
 
   return suggestions.sort((a, b) => b.score - a.score).slice(0, 20);
+}
+
+export type BillingForPayment = {
+  id: string;
+  clientName: string;
+  billingMonth: string;
+  invoiceNumber: string | null;
+  currency: string;
+  issuedAmount: number;
+  paidAmount: number;
+  outstanding: number;
+  status: BillingStatus;
+  dueDate: string | null;
+};
+
+/** 공용 결제 링크(/pay/[id])에서 쓰는 청구 정보. 접근 제어 없이 링크 소지자에게 노출. */
+export async function getBillingForPayment(billingId: string): Promise<BillingForPayment | null> {
+  const billing = await db.billingRecord.findUnique({
+    where: { id: billingId },
+    select: {
+      id: true, billingMonth: true, invoiceNumber: true, currency: true,
+      issuedAmount: true, paidAmount: true, status: true, dueDate: true,
+      client: { select: { name: true } }
+    }
+  });
+  if (!billing) return null;
+  const issuedAmount = billing.issuedAmount.toNumber();
+  const paidAmount = billing.paidAmount.toNumber();
+  return {
+    id: billing.id,
+    clientName: billing.client.name,
+    billingMonth: billing.billingMonth.toISOString().slice(0, 10),
+    invoiceNumber: billing.invoiceNumber,
+    currency: billing.currency,
+    issuedAmount, paidAmount,
+    outstanding: Math.max(0, issuedAmount - paidAmount),
+    status: billing.status,
+    dueDate: billing.dueDate ? billing.dueDate.toISOString().slice(0, 10) : null
+  };
+}
+
+// ── 공용 결제 링크(/pay) 결제 기록 — 데모/토스 실결제 ──
+function computeBillingStatus(issuedAmount: number, paidAmount: number, dueDate: Date | null, now: Date): BillingStatus {
+  if (issuedAmount > 0 && paidAmount >= issuedAmount) return BillingStatus.PAID;
+  if (paidAmount > 0) return BillingStatus.PARTIALLY_PAID;
+  if (dueDate && dueDate.getTime() < now.getTime()) return BillingStatus.OVERDUE;
+  return BillingStatus.UNPAID;
+}
+
+export async function recordDemoPayment(
+  billingId: string
+): Promise<{ status: BillingStatus; paidAmount: number; alreadyPaid: boolean }> {
+  return db.$transaction(async (tx) => {
+    const billing = await tx.billingRecord.findUniqueOrThrow({
+      where: { id: billingId },
+      select: { id: true, issuedAmount: true, paidAmount: true, dueDate: true }
+    });
+    const issuedAmount = billing.issuedAmount.toNumber();
+    const currentPaid = billing.paidAmount.toNumber();
+    const now = new Date();
+    if (issuedAmount - currentPaid <= 0) {
+      return { status: computeBillingStatus(issuedAmount, currentPaid, billing.dueDate, now), paidAmount: currentPaid, alreadyPaid: true };
+    }
+    await tx.paymentRecord.create({
+      data: {
+        billingRecordId: billingId, recordedById: null, amount: issuedAmount - currentPaid,
+        method: PaymentMethod.CARD, provider: PaymentProvider.TOSSPAYMENTS,
+        transactionId: "DEMO", receivedAt: now
+      }
+    });
+    const agg = await tx.paymentRecord.aggregate({ where: { billingRecordId: billingId }, _sum: { amount: true } });
+    const paidAmount = agg._sum.amount?.toNumber() ?? 0;
+    const status = computeBillingStatus(issuedAmount, paidAmount, billing.dueDate, now);
+    await tx.billingRecord.update({ where: { id: billingId }, data: { paidAmount, status } });
+    return { status, paidAmount, alreadyPaid: false };
+  });
+}
+
+export async function recordTossPayment(
+  billingId: string,
+  input: { amount: number; paymentKey: string; method: string | null }
+): Promise<{ status: BillingStatus; paidAmount: number; duplicate: boolean }> {
+  return db.$transaction(async (tx) => {
+    const billing = await tx.billingRecord.findUniqueOrThrow({
+      where: { id: billingId },
+      select: { id: true, issuedAmount: true, dueDate: true }
+    });
+    const existing = await tx.paymentRecord.findFirst({
+      where: { billingRecordId: billingId, providerPaymentId: input.paymentKey },
+      select: { id: true }
+    });
+    const now = new Date();
+    if (!existing) {
+      await tx.paymentRecord.create({
+        data: {
+          billingRecordId: billingId, recordedById: null, amount: input.amount,
+          method: input.method === "카드" || input.method === "CARD" ? PaymentMethod.CARD : PaymentMethod.OTHER,
+          provider: PaymentProvider.TOSSPAYMENTS,
+          transactionId: input.paymentKey, providerPaymentId: input.paymentKey, receivedAt: now
+        }
+      });
+    }
+    const agg = await tx.paymentRecord.aggregate({ where: { billingRecordId: billingId }, _sum: { amount: true } });
+    const paidAmount = agg._sum.amount?.toNumber() ?? 0;
+    const issuedAmount = billing.issuedAmount.toNumber();
+    const status = computeBillingStatus(issuedAmount, paidAmount, billing.dueDate, now);
+    await tx.billingRecord.update({ where: { id: billingId }, data: { paidAmount, status } });
+    return { status, paidAmount, duplicate: Boolean(existing) };
+  });
 }

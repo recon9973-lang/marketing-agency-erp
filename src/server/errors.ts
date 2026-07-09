@@ -53,3 +53,17 @@ export function toSafeMessage(error: unknown): string {
   if (isAppError(error)) return error.message;
   return "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
 }
+
+// ── 통합 기능(채팅 등)이 쓰는 표준 에러 팩토리(standalone) ──
+export function forbidden(message?: string) {
+  return message ? AppError.forbidden(message) : AppError.forbidden();
+}
+export function notFound(message?: string) {
+  return message ? AppError.notFound(message) : AppError.notFound();
+}
+export function conflict(message?: string) {
+  return message ? AppError.conflict(message) : AppError.conflict();
+}
+export function validationError(message?: string, fieldErrors?: Record<string, string[]>) {
+  return AppError.validation(message ?? "입력값을 확인해주세요.", fieldErrors);
+}

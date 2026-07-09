@@ -66,3 +66,10 @@ export const paginationSchema = z.object({
 });
 
 export type Pagination = z.infer<typeof paginationSchema>;
+
+// 통합 기능(플레이스순위 등)에서 쓰는 ISO 날짜(YYYY-MM-DD) 스키마.
+export const isoDateSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "날짜는 YYYY-MM-DD 형식이어야 합니다.")
+  .refine((value) => !Number.isNaN(Date.parse(value)), "유효한 날짜가 아닙니다.");

@@ -183,6 +183,11 @@ model User {
   timeLogs                TimeLog[]       @relation("TimeLogUser")
   authoredMeetings        Meeting[]       @relation("MeetingAuthor")
   meetingAttendances      MeetingAttendee[] @relation("MeetingAttendeeUser")
+  chatMemberships   ChatMember[]
+  chatMessages      ChatMessage[]
+  chatRoomsCreated  ChatRoom[]        @relation("ChatRoomCreator")
+  placeRankRecords  PlaceRankRecord[] @relation("PlaceRankRecorder")
+  clientFavorites   ClientFavorite[]
 
   @@index([orgId])
 }
@@ -237,6 +242,9 @@ model Client {
   contracts          Contract[]
   aiContents         AiContent[]
   meetings           Meeting[]
+  chatRooms         ChatRoom[]
+  placeRankRecords  PlaceRankRecord[]
+  favoredBy         ClientFavorite[]
 
   @@index([assignedMarketerId])
   @@index([industryCategoryId])
@@ -804,6 +812,7 @@ model StoredFile {
   createdAt    DateTime     @default(now())
   uploadedBy   User?        @relation("FileUploader", fields: [uploadedById], references: [id])
   folder       VaultFolder? @relation(fields: [folderId], references: [id])
+  chatMessages      ChatMessage[]
 
   @@index([uploadedById])
   @@index([folderId])
@@ -929,4 +938,86 @@ model Notification {
 
   @@index([userId, isRead])
   @@index([userId, createdAt])
+}
+
+// ===== 통합 추가: 메시지(채팅)·플레이스순위·즐겨찾기 =====
+enum ChatRoomType {
+  DIRECT
+  GROUP
+}
+
+model ChatRoom {
+  id            String       @id @default(cuid())
+  type          ChatRoomType @default(DIRECT)
+  name          String?
+  clientId      String?
+  createdById   String?
+  lastMessageAt DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  client        Client?      @relation(fields: [clientId], references: [id])
+  createdBy     User?        @relation("ChatRoomCreator", fields: [createdById], references: [id])
+  members       ChatMember[]
+  messages      ChatMessage[]
+
+  @@index([lastMessageAt])
+  @@index([clientId])
+}
+
+model ChatMember {
+  id         String    @id @default(cuid())
+  roomId     String
+  userId     String
+  joinedAt   DateTime  @default(now())
+  lastReadAt DateTime?
+  room       ChatRoom  @relation(fields: [roomId], references: [id])
+  user       User      @relation(fields: [userId], references: [id])
+
+  @@unique([roomId, userId])
+  @@index([userId])
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  roomId    String
+  senderId  String
+  body      String
+  fileId    String?
+  createdAt DateTime    @default(now())
+  room      ChatRoom    @relation(fields: [roomId], references: [id])
+  sender    User        @relation(fields: [senderId], references: [id])
+  file      StoredFile? @relation(fields: [fileId], references: [id])
+
+  @@index([roomId, createdAt])
+  @@index([fileId])
+}
+
+model ClientFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  clientId  String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  client    Client   @relation(fields: [clientId], references: [id])
+
+  @@unique([userId, clientId])
+  @@index([userId])
+}
+
+model PlaceRankRecord {
+  id          String   @id @default(cuid())
+  clientId    String
+  keyword     String
+  rank        Int
+  recordedOn  DateTime @db.Date
+  memo        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  client      Client   @relation(fields: [clientId], references: [id])
+  createdBy   User?    @relation("PlaceRankRecorder", fields: [createdById], references: [id])
+
+  @@unique([clientId, keyword, recordedOn])
+  @@index([clientId, recordedOn])
+  @@index([createdById])
 }
