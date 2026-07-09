@@ -36,7 +36,7 @@ export function CredentialField({ accountId, hasCredentials }: { accountId: stri
   return (
     <div className="flex items-center gap-2">
       <span className="font-mono text-slate-400">••••••••</span>
-      <button onClick={reveal} disabled={pending} className="rounded border px-2 py-0.5 text-xs disabled:opacity-50">
+      <button onClick={reveal} disabled={pending} className="rounded-md border border-line px-2 py-0.5 text-xs disabled:opacity-50">
         {pending ? "확인 중..." : "보기"}
       </button>
       {error && <span className="text-xs text-rose-600">{error}</span>}

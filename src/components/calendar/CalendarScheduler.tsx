@@ -36,7 +36,7 @@ export function CalendarScheduler({ day, items, capacityMinutes = 480 }: { day: 
 
   return (
     <div className="grid grid-cols-[200px_1fr] gap-4">
-      <aside className="rounded border p-3">
+      <aside className="rounded-md border border-line p-3">
         <h3 className="text-sm font-medium">미배치 업무</h3>
         <div className="mt-2 space-y-1">
           {unscheduled.length === 0 && <p className="text-xs text-slate-400">없음</p>}
@@ -50,7 +50,7 @@ export function CalendarScheduler({ day, items, capacityMinutes = 480 }: { day: 
         </div>
       </aside>
 
-      <div className="rounded border">
+      <div className="rounded-md border border-line">
         {error && <p className="p-2 text-sm text-rose-600">{error}</p>}
         {HOURS.map((h) => {
           const at = scheduled.filter((i) => i.scheduledStart && new Date(i.scheduledStart).getHours() === h);
@@ -59,7 +59,7 @@ export function CalendarScheduler({ day, items, capacityMinutes = 480 }: { day: 
               className="flex min-h-[44px] items-center gap-2 border-b px-2">
               <span className="w-12 text-xs text-slate-400">{h}:00</span>
               {at.map((i) => (
-                <span key={i.id} className="rounded bg-brand px-2 py-0.5 text-xs text-white">
+                <span key={i.id} className="rounded-md bg-brand px-2 py-0.5 text-xs text-white">
                   {i.title}
                   <button onClick={() => remove(i.id)} disabled={pending} className="ml-1 opacity-70">✕</button>
                 </span>

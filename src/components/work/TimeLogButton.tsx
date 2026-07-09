@@ -74,7 +74,7 @@ export function TimeLogButton({
                 type="button"
                 onClick={() => log(q)}
                 disabled={pending}
-                className="rounded border border-line px-2 py-1 font-semibold text-slate-600 hover:bg-surface disabled:opacity-50"
+                className="rounded-md border border-line px-2 py-1 font-semibold text-slate-600 hover:bg-surface disabled:opacity-50"
               >
                 +{fmt(q)}
               </button>
@@ -87,13 +87,13 @@ export function TimeLogButton({
               value={minutes}
               onChange={(e) => setMinutes(e.target.value)}
               placeholder="분"
-              className="h-8 w-16 rounded border border-line px-2 text-xs outline-none focus:border-brand"
+              className="h-8 w-16 rounded-md border border-line px-2 text-xs outline-none focus:border-brand"
             />
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="메모(선택)"
-              className="h-8 flex-1 rounded border border-line px-2 text-xs outline-none focus:border-brand"
+              className="h-8 flex-1 rounded-md border border-line px-2 text-xs outline-none focus:border-brand"
             />
             <button
               type="button"

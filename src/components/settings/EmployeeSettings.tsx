@@ -32,13 +32,13 @@ export function EmployeeSettings({ employees, isSuperAdmin, adminCanManageExpens
 
   return (
     <div className="space-y-6">
-      <form action={invite} className="flex items-end gap-2 rounded border p-4">
-        <label className="block"><span className="text-xs text-slate-500">이메일</span><input name="email" type="email" required className="mt-1 rounded border px-2 py-1" /></label>
-        <label className="block"><span className="text-xs text-slate-500">이름</span><input name="name" required className="mt-1 rounded border px-2 py-1" /></label>
+      <form action={invite} className="flex items-end gap-2 rounded-md border border-line p-4">
+        <label className="block"><span className="text-xs text-slate-500">이메일</span><input name="email" type="email" required className="mt-1 rounded-md border border-line px-2 py-1" /></label>
+        <label className="block"><span className="text-xs text-slate-500">이름</span><input name="name" required className="mt-1 rounded-md border border-line px-2 py-1" /></label>
         <label className="block"><span className="text-xs text-slate-500">역할</span>
-          <select name="role" className="mt-1 rounded border px-2 py-1"><option value="MARKETER">마케터</option><option value="ADMIN">관리자</option></select>
+          <select name="role" className="mt-1 rounded-md border border-line px-2 py-1"><option value="MARKETER">마케터</option><option value="ADMIN">관리자</option></select>
         </label>
-        <button type="submit" disabled={pending} className="rounded bg-brand px-3 py-1.5 text-sm text-white disabled:opacity-50">초대</button>
+        <button type="submit" disabled={pending} className="rounded-md bg-brand px-3 py-1.5 text-sm text-white disabled:opacity-50">초대</button>
       </form>
       {error && <p className="text-sm text-rose-600">{error}</p>}
 
@@ -54,7 +54,7 @@ export function EmployeeSettings({ employees, isSuperAdmin, adminCanManageExpens
                 {e.role === "SUPER_ADMIN" ? (
                   <span className="text-xs text-slate-500">최고관리자</span>
                 ) : (
-                  <select value={e.role} onChange={(ev) => setRole(e.id, ev.target.value)} disabled={pending} className="rounded border px-2 py-0.5 text-xs">
+                  <select value={e.role} onChange={(ev) => setRole(e.id, ev.target.value)} disabled={pending} className="rounded-md border border-line px-2 py-0.5 text-xs">
                     <option value="MARKETER">마케터</option><option value="ADMIN">관리자</option>
                   </select>
                 )}
@@ -82,7 +82,7 @@ export function EmployeeSettings({ employees, isSuperAdmin, adminCanManageExpens
       </table>
 
       {isSuperAdmin && (
-        <label className="flex items-center gap-2 rounded border p-4">
+        <label className="flex items-center gap-2 rounded-md border border-line p-4">
           <input type="checkbox" defaultChecked={adminCanManageExpense} onChange={(e) => toggleExpense(e.target.checked)} disabled={pending} />
           <span className="text-sm">관리자에게 회사 지출 등록/검토 권한 허용</span>
         </label>

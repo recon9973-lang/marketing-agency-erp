@@ -34,15 +34,15 @@ export function MasterManager({ items, isSuperAdmin }: { items: Item[]; isSuperA
     <div className="space-y-4">
       <div className="flex items-end gap-2">
         <label className="block"><span className="text-xs text-slate-500">이름</span>
-          <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className="mt-1 rounded border px-2 py-1" />
+          <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className="mt-1 rounded-md border border-line px-2 py-1" />
         </label>
         <label className="block"><span className="text-xs text-slate-500">그룹</span>
-          <input value={draft.group} onChange={(e) => setDraft({ ...draft, group: e.target.value })} className="mt-1 rounded border px-2 py-1 w-24" />
+          <input value={draft.group} onChange={(e) => setDraft({ ...draft, group: e.target.value })} className="mt-1 rounded-md border border-line px-2 py-1 w-24" />
         </label>
         <label className="block"><span className="text-xs text-slate-500">색상</span>
-          <input type="color" value={draft.colorTag} onChange={(e) => setDraft({ ...draft, colorTag: e.target.value })} className="mt-1 h-8 w-10 rounded border" />
+          <input type="color" value={draft.colorTag} onChange={(e) => setDraft({ ...draft, colorTag: e.target.value })} className="mt-1 h-8 w-10 rounded-md border border-line" />
         </label>
-        <button onClick={add} disabled={pending || !draft.name} className="rounded bg-brand px-3 py-1.5 text-sm text-white disabled:opacity-50">추가</button>
+        <button onClick={add} disabled={pending || !draft.name} className="rounded-md bg-brand px-3 py-1.5 text-sm text-white disabled:opacity-50">추가</button>
       </div>
       {error && <p className="text-sm text-rose-600">{error}</p>}
 
@@ -57,7 +57,7 @@ export function MasterManager({ items, isSuperAdmin }: { items: Item[]; isSuperA
               <td>{it.isLocked ? <span className="text-xs text-amber-600">🔒 잠김</span> : <span className="text-xs text-slate-400">편집가능</span>}</td>
               <td className="text-right">
                 {isSuperAdmin && (
-                  <button onClick={() => toggleLock(it.id, !it.isLocked)} disabled={pending} className="rounded border px-2 py-0.5 text-xs">
+                  <button onClick={() => toggleLock(it.id, !it.isLocked)} disabled={pending} className="rounded-md border border-line px-2 py-0.5 text-xs">
                     {it.isLocked ? "잠금해제" : "잠금"}
                   </button>
                 )}

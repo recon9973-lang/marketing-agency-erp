@@ -65,7 +65,7 @@ export function HospitalProfileForm({
     });
   }
 
-  const inputCls = "mt-1 w-full rounded border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand";
+  const inputCls = "mt-1 w-full rounded-md border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand";
   const disabled = !canEdit || pending;
 
   return (
@@ -114,7 +114,7 @@ export function HospitalProfileForm({
       {error ? <p className="text-sm text-danger">{error}</p> : null}
       {canEdit ? (
         <div className="flex items-center gap-3">
-          <button type="submit" disabled={pending} className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+          <button type="submit" disabled={pending} className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
             {pending ? "저장 중…" : "저장"}
           </button>
           {saved ? <span className="text-sm text-emerald-600">저장됨 (v{(profile?.sotVersion ?? 0) + (profile ? 1 : 1)})</span> : null}

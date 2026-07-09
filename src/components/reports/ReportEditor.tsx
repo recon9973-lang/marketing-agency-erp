@@ -60,17 +60,17 @@ export function ReportEditor({ report }: { report: Report }) {
       </section>
 
       <label className="block"><span className="text-sm text-slate-600">수기 지표 (JSON)</span>
-        <textarea value={manual} onChange={(e) => setManual(e.target.value)} rows={6} className="mt-1 w-full rounded border px-3 py-2 font-mono text-xs" />
+        <textarea value={manual} onChange={(e) => setManual(e.target.value)} rows={6} className="mt-1 w-full rounded-md border border-line px-3 py-2 font-mono text-xs" />
       </label>
       <label className="block"><span className="text-sm text-slate-600">요약 코멘트</span>
-        <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={3} className="mt-1 w-full rounded border px-3 py-2" />
+        <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={3} className="mt-1 w-full rounded-md border border-line px-3 py-2" />
       </label>
 
       {error && <p className="text-sm text-rose-600">{error}</p>}
       <div className="flex items-center gap-2">
-        <button onClick={save} disabled={pending} className="rounded bg-brand px-4 py-2 text-sm text-white disabled:opacity-50">저장</button>
+        <button onClick={save} disabled={pending} className="rounded-md bg-brand px-4 py-2 text-sm text-white disabled:opacity-50">저장</button>
         {na && <button onClick={transition} disabled={pending} className="rounded bg-green-600 px-4 py-2 text-sm text-white disabled:opacity-50">{na.label}</button>}
-        <a href={`/api/reports/${report.id}/pdf`} className="rounded border px-4 py-2 text-sm">PDF 다운로드</a>
+        <a href={`/api/reports/${report.id}/pdf`} className="rounded-md border border-line px-4 py-2 text-sm">PDF 다운로드</a>
         <span className="text-xs text-slate-400">상태: {report.status}</span>
       </div>
     </div>

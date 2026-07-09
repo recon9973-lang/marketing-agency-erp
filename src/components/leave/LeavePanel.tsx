@@ -34,11 +34,11 @@ export function LeavePanel({ pending, canApprove }: { pending: Pending[]; canApp
 
   return (
     <div className="space-y-6">
-      <form action={submit} className="space-y-3 rounded border p-4">
+      <form action={submit} className="space-y-3 rounded-md border border-line p-4">
         <h3 className="font-medium">휴가 신청</h3>
         <div className="grid grid-cols-2 gap-3">
           <label className="block"><span className="text-xs text-slate-500">유형</span>
-            <select name="type" className="mt-1 w-full rounded border px-2 py-1">
+            <select name="type" className="mt-1 w-full rounded-md border border-line px-2 py-1">
               <option value="ANNUAL">연차</option>
               <option value="HALF_DAY_AM">오전 반차</option>
               <option value="HALF_DAY_PM">오후 반차</option>
@@ -47,16 +47,16 @@ export function LeavePanel({ pending, canApprove }: { pending: Pending[]; canApp
             </select>
           </label>
           <div />
-          <label className="block"><span className="text-xs text-slate-500">시작일</span><input name="startDate" type="date" required className="mt-1 w-full rounded border px-2 py-1" /></label>
-          <label className="block"><span className="text-xs text-slate-500">종료일</span><input name="endDate" type="date" required className="mt-1 w-full rounded border px-2 py-1" /></label>
+          <label className="block"><span className="text-xs text-slate-500">시작일</span><input name="startDate" type="date" required className="mt-1 w-full rounded-md border border-line px-2 py-1" /></label>
+          <label className="block"><span className="text-xs text-slate-500">종료일</span><input name="endDate" type="date" required className="mt-1 w-full rounded-md border border-line px-2 py-1" /></label>
         </div>
-        <label className="block"><span className="text-xs text-slate-500">사유</span><input name="reason" className="mt-1 w-full rounded border px-2 py-1" /></label>
+        <label className="block"><span className="text-xs text-slate-500">사유</span><input name="reason" className="mt-1 w-full rounded-md border border-line px-2 py-1" /></label>
         {error && <p className="text-sm text-rose-600">{error}</p>}
-        <button type="submit" disabled={isPending} className="rounded bg-brand px-3 py-1.5 text-sm text-white disabled:opacity-50">신청</button>
+        <button type="submit" disabled={isPending} className="rounded-md bg-brand px-3 py-1.5 text-sm text-white disabled:opacity-50">신청</button>
       </form>
 
       {canApprove && (
-        <div className="rounded border p-4">
+        <div className="rounded-md border border-line p-4">
           <h3 className="font-medium">승인 대기</h3>
           {pending.length === 0 ? (
             <p className="mt-2 text-sm text-slate-400">대기 중인 휴가 신청이 없습니다.</p>

@@ -65,7 +65,7 @@ export function ClientForm({
       <div className="grid grid-cols-2 gap-4">
         <label className="block">
           <span className="text-sm text-slate-600">거래처명 *</span>
-          <input name="name" defaultValue={initial?.name} required className="mt-1 w-full rounded border px-3 py-2" />
+          <input name="name" defaultValue={initial?.name} required className="mt-1 w-full rounded-md border border-line px-3 py-2" />
         </label>
         <label className="block">
           <span className="text-sm text-slate-600">거래처 코드</span>
@@ -73,10 +73,10 @@ export function ClientForm({
             <input
               value={initial.code}
               readOnly
-              className="mt-1 w-full rounded border bg-slate-50 px-3 py-2 text-slate-500"
+              className="mt-1 w-full rounded-md border border-line bg-slate-50 px-3 py-2 text-slate-500"
             />
           ) : (
-            <div className="mt-1 flex items-center rounded border border-dashed bg-slate-50 px-3 py-2 text-sm text-slate-400">
+            <div className="mt-1 flex items-center rounded-md border border-line border-dashed bg-slate-50 px-3 py-2 text-sm text-slate-400">
               저장 시 자동 생성 (VC-0001)
             </div>
           )}
@@ -109,7 +109,7 @@ export function ClientForm({
       <div className="grid grid-cols-2 gap-4">
         <label className="block">
           <span className="text-sm text-slate-600">업종 대분류 *</span>
-          <select value={parentId} onChange={(e) => { setParentId(e.target.value); setChildId(""); }} required className="mt-1 w-full rounded border px-3 py-2">
+          <select value={parentId} onChange={(e) => { setParentId(e.target.value); setChildId(""); }} required className="mt-1 w-full rounded-md border border-line px-3 py-2">
             <option value="">선택</option>
             {parents.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
@@ -117,7 +117,7 @@ export function ClientForm({
         {children.length > 0 && (
           <label className="block">
             <span className="text-sm text-slate-600">진료과목 *</span>
-            <select value={childId} onChange={(e) => setChildId(e.target.value)} required className="mt-1 w-full rounded border px-3 py-2">
+            <select value={childId} onChange={(e) => setChildId(e.target.value)} required className="mt-1 w-full rounded-md border border-line px-3 py-2">
               <option value="">선택</option>
               {children.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -126,7 +126,7 @@ export function ClientForm({
         {isEtc && (
           <label className="block">
             <span className="text-sm text-slate-600">업종 직접입력 *</span>
-            <input name="industryCustom" defaultValue={initial?.industryCustom ?? ""} required className="mt-1 w-full rounded border px-3 py-2" />
+            <input name="industryCustom" defaultValue={initial?.industryCustom ?? ""} required className="mt-1 w-full rounded-md border border-line px-3 py-2" />
           </label>
         )}
       </div>
@@ -134,24 +134,24 @@ export function ClientForm({
       <div className="grid grid-cols-2 gap-4">
         <label className="block">
           <span className="text-sm text-slate-600">담당 마케터</span>
-          <select name="assignedMarketerId" defaultValue={initial?.assignedMarketerId ?? ""} className="mt-1 w-full rounded border px-3 py-2">
+          <select name="assignedMarketerId" defaultValue={initial?.assignedMarketerId ?? ""} className="mt-1 w-full rounded-md border border-line px-3 py-2">
             <option value="">미배정</option>
             {marketers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </label>
         <label className="block">
           <span className="text-sm text-slate-600">월 계약금</span>
-          <input name="monthlyContractFee" type="number" min="0" className="mt-1 w-full rounded border px-3 py-2" />
+          <input name="monthlyContractFee" type="number" min="0" className="mt-1 w-full rounded-md border border-line px-3 py-2" />
         </label>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <label className="block"><span className="text-sm text-slate-600">담당자명</span><input name="contactName" className="mt-1 w-full rounded border px-3 py-2" /></label>
-        <label className="block"><span className="text-sm text-slate-600">연락처</span><input name="contactPhone" className="mt-1 w-full rounded border px-3 py-2" /></label>
+        <label className="block"><span className="text-sm text-slate-600">담당자명</span><input name="contactName" className="mt-1 w-full rounded-md border border-line px-3 py-2" /></label>
+        <label className="block"><span className="text-sm text-slate-600">연락처</span><input name="contactPhone" className="mt-1 w-full rounded-md border border-line px-3 py-2" /></label>
       </div>
 
-      {error && <p className="text-sm text-rose-600">{error}</p>}
-      <button type="submit" disabled={pending} className="rounded bg-brand px-4 py-2 text-white disabled:opacity-50">
+      {error && <p className="text-sm text-danger">{error}</p>}
+      <button type="submit" disabled={pending} className="rounded-md bg-brand px-4 py-2 font-semibold text-white disabled:opacity-50">
         {pending ? "저장 중..." : initial?.id ? "수정" : "등록"}
       </button>
     </form>
