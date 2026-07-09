@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { CredentialField } from "@/components/clients/CredentialField";
 import { ClientForm } from "@/components/clients/ClientForm";
+import { HospitalProfileForm } from "@/components/clients/HospitalProfileForm";
 import { AddChannelForm } from "@/components/clients/AddChannelForm";
 import { WorkStatusButtons } from "@/components/work/WorkStatusButtons";
 import { AddWorkForm } from "@/components/work/AddWorkForm";
@@ -26,6 +27,7 @@ export function ClientDetail({
   works,
   billings,
   reports,
+  hospitalProfile,
   canViewFinance,
   canManage,
   industries,
@@ -47,12 +49,32 @@ export function ClientDetail({
   works: WorkRow[];
   billings: Billing[];
   reports: ReportRow[];
+  hospitalProfile: {
+    departments: string | null;
+    doctors: string | null;
+    strengths: string | null;
+    cautionTerms: string | null;
+    preferredTone: string | null;
+    prohibitedClaims: string | null;
+    competitorHospitals: string | null;
+    medicalLawNotes: string | null;
+    sotVersion: number;
+    updatedAt: string;
+  } | null;
   canViewFinance: boolean;
   canManage: boolean;
   industries: IndustryNode[];
   marketers: Marketer[];
 }) {
-  const tabs = ["기본정보", "채널계정", "업무", ...(canViewFinance ? ["입금"] : []), "보고서"];
+  const isHospital = client.businessType === "HOSPITAL";
+  const tabs = [
+    "기본정보",
+    ...(isHospital ? ["병원정보"] : []),
+    "채널계정",
+    "업무",
+    ...(canViewFinance ? ["입금"] : []),
+    "보고서"
+  ];
   const [tab, setTab] = useState(tabs[0]);
   const [editing, setEditing] = useState(false);
 
@@ -61,6 +83,9 @@ export function ClientDetail({
       <div className="mb-4 flex items-center gap-3">
         <h1 className="text-xl font-bold text-ink">{client.name}</h1>
         <span className="text-sm text-slate-400">{client.code}</span>
+        <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${isHospital ? "bg-brand-soft text-brand-strong" : "bg-slate-100 text-slate-600"}`}>
+          {isHospital ? "🏥 병원" : "기타"}
+        </span>
         {client.industryName && <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{client.industryName}</span>}
         {!client.active && <span className="text-xs text-slate-400">비활성</span>}
       </div>
@@ -112,6 +137,13 @@ export function ClientDetail({
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {tab === "병원정보" && (
+        <div className="rounded-xl border border-line bg-white p-4">
+          <h3 className="mb-3 text-sm font-bold text-ink">병원 프로파일 (기준 데이터)</h3>
+          <HospitalProfileForm clientId={client.id} profile={hospitalProfile} canEdit={canManage} />
         </div>
       )}
 

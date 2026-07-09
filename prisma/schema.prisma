@@ -253,6 +253,7 @@ model Client {
   chatRooms         ChatRoom[]
   placeRankRecords  PlaceRankRecord[]
   favoredBy         ClientFavorite[]
+  hospitalProfile   HospitalProfile?
 
   @@index([assignedMarketerId])
   @@index([industryCategoryId])
@@ -770,6 +771,29 @@ model Contract {
   @@index([clientId])
   @@index([authorId])
   @@index([status])
+  @@index([orgId])
+}
+
+/// 병원 프로파일 — 거래처별 단일 기준 데이터(Source of Truth).
+/// 모든 AI 생성물·의료법 검수가 이 데이터를 참조한다. 변경 시 sotVersion 증가.
+/// businessType = HOSPITAL 인 거래처만 사용.
+model HospitalProfile {
+  id                  String   @id @default(cuid())
+  clientId            String   @unique
+  departments         String? // 진료과목(쉼표/줄바꿈 구분)
+  doctors             String? // 대표원장·의료진 소개
+  strengths           String? // 병원 강점
+  cautionTerms        String? // 주의 표현
+  preferredTone       String? // 선호 톤앤매너
+  prohibitedClaims    String? // 금지 표현(의료법 검수 규칙엔진 주입)
+  competitorHospitals String? // 경쟁 병원(쉼표/줄바꿈 구분)
+  medicalLawNotes     String? // 의료법 주의사항 메모
+  sotVersion          Int      @default(1) // 기준데이터 버전(변경 시 +1)
+  orgId               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  client              Client   @relation(fields: [clientId], references: [id])
+
   @@index([orgId])
 }
 

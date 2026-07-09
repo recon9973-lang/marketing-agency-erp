@@ -3,6 +3,7 @@ import { ClientDetail } from "@/components/clients/ClientDetail";
 import { CommentThread } from "@/components/collab/CommentThread";
 import { Role } from "@/domain/types";
 import { getClientDetail } from "@/server/repositories/clients";
+import { getHospitalProfile } from "@/server/repositories/hospital-profile";
 import { getIndustryTree } from "@/server/repositories/masters";
 import { listActiveMembers, listComments } from "@/server/repositories/collab";
 import { db } from "@/server/db";
@@ -22,11 +23,12 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
   const canViewFinance = user.role !== Role.MARKETER;
   const canManage = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
-  const [industries, marketers, comments, members] = await Promise.all([
+  const [industries, marketers, comments, members, hospitalProfile] = await Promise.all([
     getIndustryTree(),
     db.user.findMany({ where: { role: Role.MARKETER, status: "ACTIVE" }, select: { id: true, name: true } }),
     listComments("CLIENT", id),
-    listActiveMembers()
+    listActiveMembers(),
+    detail.client.businessType === "HOSPITAL" ? getHospitalProfile(id) : Promise.resolve(null)
   ]);
 
   return (
@@ -38,6 +40,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         works={detail.works}
         billings={detail.billings}
         reports={detail.reports}
+        hospitalProfile={hospitalProfile}
         canViewFinance={canViewFinance}
         canManage={canManage}
         industries={industries}
