@@ -5,34 +5,54 @@ import { useRouter } from "next/navigation";
 import { Bell, Check } from "lucide-react";
 import {
   getMyNotifications,
+  getUnreadNotificationCount,
   markAllNotificationsRead,
   markNotificationRead,
   type MyNotifications
 } from "@/server/actions/notifications";
 
 const dateFmt = new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
-const POLL_MS = 45_000;
+const POLL_MS = 60_000;
 
 export function NotificationBell() {
   const router = useRouter();
   const [data, setData] = useState<MyNotifications>({ items: [], unread: 0 });
+  const [loaded, setLoaded] = useState(false);
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
-  const refresh = useCallback(async () => {
+  // 배지용 — 읽지 않은 개수만 가볍게(단일 쿼리). 목록은 열 때만 로드.
+  const refreshCount = useCallback(async () => {
     try {
-      setData(await getMyNotifications());
+      const unread = await getUnreadNotificationCount();
+      setData((d) => ({ ...d, unread }));
     } catch {
       /* 폴링 실패는 조용히 무시 */
     }
   }, []);
 
-  // 최초 로드 + 주기적 폴링(서버리스라 실시간 대신 가벼운 폴링).
+  const loadList = useCallback(async () => {
+    try {
+      setData(await getMyNotifications());
+      setLoaded(true);
+    } catch {
+      /* 무시 */
+    }
+  }, []);
+
+  // 최초 개수 로드 + 탭이 보일 때만 주기적 폴링(백그라운드 부하 절감).
   useEffect(() => {
-    refresh();
-    const t = setInterval(refresh, POLL_MS);
+    refreshCount();
+    const t = setInterval(() => {
+      if (typeof document === "undefined" || document.visibilityState === "visible") refreshCount();
+    }, POLL_MS);
     return () => clearInterval(t);
-  }, [refresh]);
+  }, [refreshCount]);
+
+  // 드롭다운을 처음 열 때 목록을 가져온다.
+  useEffect(() => {
+    if (open && !loaded) loadList();
+  }, [open, loaded, loadList]);
 
   // 바깥 클릭 시 닫기.
   useEffect(() => {
@@ -47,7 +67,7 @@ export function NotificationBell() {
   async function onItem(id: string, link: string | null, isRead: boolean) {
     if (!isRead) {
       await markNotificationRead({ id });
-      refresh();
+      loadList();
     }
     setOpen(false);
     if (link) router.push(link as never);
@@ -55,7 +75,7 @@ export function NotificationBell() {
 
   async function onMarkAll() {
     await markAllNotificationsRead();
-    refresh();
+    loadList();
   }
 
   return (

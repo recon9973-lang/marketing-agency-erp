@@ -31,6 +31,17 @@ export async function getMyNotifications(): Promise<MyNotifications> {
   }
 }
 
+/** 헤더 벨 배지용 — 읽지 않은 개수만(가벼운 단일 쿼리). 폴링은 이것만 호출. */
+export async function getUnreadNotificationCount(): Promise<number> {
+  const user = await getCurrentUser().catch(() => null);
+  if (!user) return 0;
+  try {
+    return await countUnreadNotifications(user.id);
+  } catch {
+    return 0;
+  }
+}
+
 export async function markNotificationRead(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
     const user = await requireUser();
