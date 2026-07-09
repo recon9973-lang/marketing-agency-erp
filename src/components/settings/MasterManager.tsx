@@ -12,7 +12,7 @@ type Item = { id: string; name: string; group: string; colorTag: string | null; 
 export function MasterManager({ items, isSuperAdmin }: { items: Item[]; isSuperAdmin: boolean }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ name: "", group: "블로그", colorTag: "#1f7a68" });
+  const [draft, setDraft] = useState({ name: "", group: "블로그", colorTag: "#d9662e" });
 
   function add() {
     setError(null);

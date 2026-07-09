@@ -94,3 +94,97 @@ export async function generateMarketingContent(input: GenerateInput): Promise<st
   if (!text) throw new Error("AI_EMPTY");
   return text;
 }
+
+/** 응답에서 JSON 객체만 안전하게 추출(코드펜스/설명 섞여도). */
+function extractJson<T>(text: string): T {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const raw = fenced ? fenced[1] : text;
+  const start = raw.indexOf("{");
+  const end = raw.lastIndexOf("}");
+  if (start === -1 || end === -1) throw new Error("AI_EMPTY");
+  return JSON.parse(raw.slice(start, end + 1)) as T;
+}
+
+async function completeJson<T>(system: string, user: string, maxTokens = 8000): Promise<T> {
+  if (!isAiConfigured()) throw new Error("AI_NOT_CONFIGURED");
+  const client = new Anthropic();
+  const stream = client.messages.stream({
+    model: AI_MODEL,
+    max_tokens: maxTokens,
+    thinking: { type: "adaptive" },
+    system,
+    messages: [{ role: "user", content: user }]
+  });
+  const message = await stream.finalMessage();
+  const text = message.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n");
+  return extractJson<T>(text);
+}
+
+export type BlogPostInput = {
+  category?: string | null;
+  keyword: string;
+  region?: string | null;
+  extra?: string | null;
+  target?: string | null;
+  tone?: string | null;
+  detail?: string | null;
+};
+
+export type BlogPost = {
+  title: string;
+  html: string;
+  metaDesc: string;
+  keywords: string[];
+  publishable: boolean;
+};
+
+/** 원고 스튜디오 "원고 생성" — 구조화된 블로그 포스트(HTML 본문 포함)를 생성. */
+export async function generateBlogPost(input: BlogPostInput): Promise<BlogPost> {
+  const system =
+    "당신은 한국의 마케팅 대행사 소속 전문 블로그 카피라이터이자 SEO 에디터입니다. " +
+    "네이버/구글 검색에 잘 잡히는 정보성 블로그 글을 작성합니다. " +
+    "의료·건강 주제라면 의료광고법을 준수해 과장·단정·최상급 표현을 피합니다. " +
+    "반드시 아래 JSON 스키마 하나만 출력하세요(설명·코드펜스 금지):\n" +
+    '{"title": string, "html": string, "metaDesc": string, "keywords": string[], "publishable": boolean}\n' +
+    "html은 <h2>/<p>/<ul>/<li> 등 시맨틱 태그로 구성된 본문 HTML(‹html›/‹body› 태그 없이 본문만). " +
+    "publishable은 의료광고·과장표현 위반이 없어 바로 발행 가능하면 true.";
+
+  const lines = [
+    `핵심 키워드: ${input.keyword}`,
+    input.category ? `카테고리/업종: ${input.category}` : "",
+    input.region ? `지역: ${input.region}` : "",
+    input.target ? `타깃 독자: ${input.target}` : "",
+    input.tone ? `톤앤매너: ${input.tone}` : "",
+    input.detail ? `분량/세부 지시: ${input.detail}` : "",
+    input.extra ? `추가 요청: ${input.extra}` : ""
+  ].filter(Boolean);
+
+  const post = await completeJson<BlogPost>(system, `다음 조건으로 블로그 글을 작성하세요.\n${lines.join("\n")}`);
+  return {
+    title: String(post.title ?? ""),
+    html: String(post.html ?? ""),
+    metaDesc: String(post.metaDesc ?? ""),
+    keywords: Array.isArray(post.keywords) ? post.keywords.map(String) : [],
+    publishable: Boolean(post.publishable)
+  };
+}
+
+export type KeywordSuggestion = { related: string[]; questions: string[] };
+
+/** 원고 스튜디오 "연관 키워드" — 핵심 키워드로 연관어/질문형 키워드 제안. */
+export async function suggestKeywords(keyword: string, region?: string | null): Promise<KeywordSuggestion> {
+  const system =
+    "당신은 한국어 SEO 키워드 전문가입니다. 주어진 핵심 키워드로 검색 의도에 맞는 " +
+    "연관 키워드와 사람들이 실제로 검색하는 질문형 키워드를 제안합니다. " +
+    '반드시 이 JSON만 출력하세요: {"related": string[], "questions": string[]}. ' +
+    "related는 12~16개(롱테일 포함), questions는 6~10개.";
+  const user = `핵심 키워드: ${keyword}${region ? `\n지역: ${region}` : ""}`;
+  const res = await completeJson<KeywordSuggestion>(system, user, 2000);
+  return {
+    related: Array.isArray(res.related) ? res.related.map(String) : [],
+    questions: Array.isArray(res.questions) ? res.questions.map(String) : []
+  };
+}

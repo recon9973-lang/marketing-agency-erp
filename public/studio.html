@@ -6,12 +6,12 @@
 <title>원고 스튜디오 · Manuscript Studio</title>
 <style>
   :root{
-    --accent:#2f7d6b; --accent-soft:#e7f3f0; --ink:#1d2b29; --muted:#6b7d79;
+    --accent:#d9662e; --accent-soft:#fbeadd; --ink:#1d2b29; --muted:#6b7d79;
     --bg:#f6f8f7; --card:#ffffff; --line:#e4ebe9; --warn:#e8a33d; --bad:#d9534f; --good:#3aa07f;
     --radius:4px; --shadow:0 1px 2px rgba(30,50,46,.07);
   }
   body.dark{
-    --accent-soft:#1d3a33; --ink:#e8efed; --muted:#9fb2ad; --bg:#0f1715; --card:#16201d;
+    --accent-soft:#3a2418; --ink:#e8efed; --muted:#9fb2ad; --bg:#0f1715; --card:#16201d;
     --line:#26332f; --shadow:0 1px 2px rgba(0,0,0,.35);
   }
   *{box-sizing:border-box}
@@ -96,7 +96,7 @@
   .pbar{height:6px;background:var(--line);border-radius:4px;overflow:hidden;margin:0 0 18px}
   .pbar>i{display:block;height:100%;background:var(--accent);width:0;transition:.3s}
   .kicker{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;letter-spacing:.4px;color:#fff;
-    background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 60%,#5cc3aa));
+    background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 60%,#ec9a63));
     padding:6px 13px;border-radius:4px;margin-bottom:12px;box-shadow:0 4px 12px color-mix(in srgb,var(--accent) 28%,transparent)}
   .scoreWrap{display:flex;align-items:center;gap:18px;margin:14px 0}
   .ring{width:92px;height:92px;flex-shrink:0}
@@ -136,7 +136,7 @@
   .lp-nav{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 78%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
   .lp-nav .lp-in{max-width:1080px;margin:0 auto;padding:0 24px;height:66px;display:flex;align-items:center;justify-content:space-between}
   .lp-logo{font-weight:900;font-size:19px;letter-spacing:-.4px;display:flex;align-items:center;gap:8px}
-  .lp-logo .lp-dot{width:26px;height:26px;border-radius:4px;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#7fd0bd));display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px}
+  .lp-logo .lp-dot{width:26px;height:26px;border-radius:4px;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#f2b48c));display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px}
   .lp-logo b{color:var(--accent)}
   .lp-btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border:none;padding:15px 30px;border-radius:4px;font-weight:800;font-size:16px;cursor:pointer;font-family:inherit;box-shadow:0 8px 20px color-mix(in srgb,var(--accent) 32%,transparent);transition:.16s}
   .lp-btn:hover{transform:translateY(-2px);box-shadow:0 12px 26px color-mix(in srgb,var(--accent) 40%,transparent)}
@@ -148,7 +148,7 @@
   .lp-pill{display:inline-flex;align-items:center;gap:7px;background:color-mix(in srgb,var(--accent) 10%,var(--card));color:var(--accent);font-weight:700;font-size:13px;padding:7px 14px;border-radius:4px;margin-bottom:20px;border:1px solid color-mix(in srgb,var(--accent) 22%,transparent)}
   .lp-pill .lp-live{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 22%,transparent)}
   .lp-h1{font-size:50px;line-height:1.12;letter-spacing:-1.6px;font-weight:900;color:var(--ink)}
-  .lp-h1 em{font-style:normal;background:linear-gradient(120deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#5cc3aa));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lp-h1 em{font-style:normal;background:linear-gradient(120deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#ec9a63));-webkit-background-clip:text;background-clip:text;color:transparent}
   .lp-sub{font-size:18px;color:var(--muted);margin:22px 0 30px;max-width:500px;line-height:1.6}
   .lp-cta{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
   .lp-trust{margin-top:26px;display:flex;gap:10px 22px;flex-wrap:wrap;color:var(--muted);font-size:13.5px}
@@ -194,12 +194,12 @@
   /* process */
   .lp-steps3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:26px;counter-reset:st}
   .lp-step{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:24px;position:relative}
-  .lp-step .n{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#7fd0bd));color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+  .lp-step .n{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#f2b48c));color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
   .lp-step h3{font-size:17px;font-weight:800;margin-bottom:5px}
   .lp-step p{color:var(--muted);font-size:13.5px}
   /* band */
   .lp-band{margin:20px 0 60px;border-radius:4px;padding:56px 30px;text-align:center;color:#fff;
-    background:linear-gradient(125deg,var(--accent),color-mix(in srgb,var(--accent) 60%,#2aa588));box-shadow:0 26px 50px -18px color-mix(in srgb,var(--accent) 55%,transparent)}
+    background:linear-gradient(125deg,var(--accent),color-mix(in srgb,var(--accent) 60%,#e07d3e));box-shadow:0 26px 50px -18px color-mix(in srgb,var(--accent) 55%,transparent)}
   .lp-band h2{font-size:32px;font-weight:900;letter-spacing:-.7px}
   .lp-band p{opacity:.94;margin:12px 0 26px;font-size:16.5px}
   .lp-band .lp-btn{background:#fff;color:var(--accent);box-shadow:0 10px 24px rgba(0,0,0,.14)}
@@ -363,7 +363,7 @@
       <div><label class="f">이모지 사용</label><div class="chips" id="emojiChips"></div><input type="hidden" id="i_emoji" value="적게"></div>
       <div><label class="f">CTA(행동 유도)</label><select id="i_cta">
         <option>카카오 상담</option><option>온라인 예약</option><option>방문 안내</option><option>뉴스레터 구독</option><option>자가진단 체크</option></select></div>
-      <div><label class="f">브랜드 색</label><input type="color" id="i_color" value="#2f7d6b" style="height:44px;padding:4px"></div>
+      <div><label class="f">브랜드 색</label><input type="color" id="i_color" value="#d9662e" style="height:44px;padding:4px"></div>
     </div>
     <label class="f">추가 지시 <span class="hint">(특이사항·선택)</span></label>
     <input type="text" id="i_extra" placeholder="예: 비수술 치료 강조, 50대 타겟, 후기 톤 피하기">
@@ -649,7 +649,7 @@
 <script>
 /* ───────────── 상태 ───────────── */
 const S = { step:0, cat:'ortho', core:'', kw2:'', region:'', gtype:'정보형', channel:'블로그',
-  length:'1,500자', emoji:'적게', cta:'카카오 상담', color:'#2f7d6b', extra:'',
+  length:'1,500자', emoji:'적게', cta:'카카오 상담', color:'#d9662e', extra:'',
   topic:null, target:'직장인', age:'30대', detail:'', persona:null, custom:null,
   tone:35, story:'보통', verb:'표준', optQ:true, optFaq:true, charts:[] };
 const STEPS = ['시작','아이디어','타겟','톤·프롬프트','인포그래픽','검수'];
@@ -721,9 +721,9 @@ function toggleDark(){S.dark=!document.body.classList.contains('dark');
 function demo(){
   $('i_cat').value='ortho';$('i_core').value='거북목 도수치료';$('i_kw2').value='목디스크, 일자목, 자세교정';
   $('i_region').value='대전 둔산동';$('i_gtype').value='Q&A형';$('i_cta').value='카카오 상담';
-  $('i_extra').value='비수술 치료 강조';$('i_color').value='#2f7d6b';
-  document.documentElement.style.setProperty('--accent','#2f7d6b');
-  document.documentElement.style.setProperty('--accent-soft',hexSoft('#2f7d6b'));
+  $('i_extra').value='비수술 치료 강조';$('i_color').value='#d9662e';
+  document.documentElement.style.setProperty('--accent','#d9662e');
+  document.documentElement.style.setProperty('--accent-soft',hexSoft('#d9662e'));
   syncInputs();toast('예시가 채워졌어요 🎲 — "다음"을 눌러보세요');
 }
 
@@ -1155,7 +1155,7 @@ function renderCard(){
     ctx.textAlign='center';ctx.fillText('🖼️ 이미지를 선택하세요',W/2,H/2);ctx.textAlign='left';}
   const title=$('card_title').value.trim(),sub=$('card_sub').value.trim(),cap=$('card_cap').value.trim();
   const light=$('card_color').value==='light';const txt=light?'#ffffff':'#16201d';
-  const accent=S.color||'#2f7d6b';const margin=80,maxW=W-margin*2;
+  const accent=S.color||'#d9662e';const margin=80,maxW=W-margin*2;
   const tS=Math.round(W*0.075),sS=Math.round(W*0.042),cS=Math.round(W*0.030);
   const fF='"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
   ctx.textAlign='left';ctx.textBaseline='alphabetic';

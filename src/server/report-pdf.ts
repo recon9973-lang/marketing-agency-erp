@@ -32,7 +32,7 @@ export async function buildReportHtml(reportId: string): Promise<{ html: string;
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <style>
   body{font-family:'Malgun Gothic',sans-serif;color:#0d253d;padding:40px;}
-  h1{color:#1f7a68;font-size:22px;} h2{font-size:15px;margin-top:24px;border-bottom:2px solid #1f7a68;padding-bottom:6px;}
+  h1{color:#c2560f;font-size:22px;} h2{font-size:15px;margin-top:24px;border-bottom:2px solid #c2560f;padding-bottom:6px;}
   table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;}
   td{border-bottom:1px solid #e3e8ee;padding:8px;}
   .meta{color:#64748b;font-size:12px;margin-top:4px;}
