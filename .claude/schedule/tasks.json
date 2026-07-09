@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "seq": 29,
+  "seq": 30,
   "tasks": [
     {
       "id": "TASK-001",
@@ -855,6 +855,33 @@
           "at": "2026-07-09T19:35:15.950Z",
           "type": "done",
           "note": "완료: erp-v1 3de1f97(R1)·f63561f(상품27종)·931a52a(서명→업무자동생성)·91ab54f(서식템플릿). 빌드·tsc 통과. HWP 참고문서 7건 반영(PII 제외)"
+        }
+      ]
+    },
+    {
+      "id": "TASK-030",
+      "title": "서식 관리 시스템 + UI 톤앤매너 통일",
+      "status": "완료",
+      "tags": [
+        "개발",
+        "ui"
+      ],
+      "plan": "DocumentTemplate DB CRUD(사용처 카테고리·권한 minRole), 계약 생성 DB서식 연동, 서식 6종 시드. ERP 전역 입력/버튼 하우스 토큰 통일. 참고 대시보드 6종 분석",
+      "result": "erp-v1 99f30f9(서식 CRUD)·07aae1f(UI 통일). 빌드·tsc 통과. 대시보드 시각 개선은 후속",
+      "createdAt": "2026-07-09T19:52:56.898Z",
+      "updatedAt": "2026-07-09T19:52:57.010Z",
+      "startedAt": null,
+      "doneAt": "2026-07-09T19:52:57.009Z",
+      "log": [
+        {
+          "at": "2026-07-09T19:52:56.898Z",
+          "type": "created",
+          "note": "작업 등록"
+        },
+        {
+          "at": "2026-07-09T19:52:57.010Z",
+          "type": "done",
+          "note": "완료: erp-v1 99f30f9(서식 CRUD)·07aae1f(UI 통일). 빌드·tsc 통과. 대시보드 시각 개선은 후속"
         }
       ]
     }
