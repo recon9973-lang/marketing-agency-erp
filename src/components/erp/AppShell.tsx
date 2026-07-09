@@ -23,6 +23,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Role } from "@/domain/types";
 import { BrandLogo } from "@/components/erp/BrandLogo";
+import { NotificationBell } from "@/components/collab/NotificationBell";
 
 type ErpRoute =
   | "/dashboard"
@@ -264,6 +265,9 @@ export function AppShell({
             </div>
             <div className="ml-auto hidden items-center rounded-lg border border-line bg-surface px-3 py-2 text-xs text-slate-400 sm:flex">
               거래처·업무 검색…
+            </div>
+            <div className="ml-auto sm:ml-0">
+              <NotificationBell />
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-soft text-sm font-bold text-brand-strong">
               {ROLE_LABEL[role].charAt(0)}

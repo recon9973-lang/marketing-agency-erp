@@ -1,8 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 import { ClientDetail } from "@/components/clients/ClientDetail";
+import { CommentThread } from "@/components/collab/CommentThread";
 import { Role } from "@/domain/types";
 import { getClientDetail } from "@/server/repositories/clients";
 import { getIndustryTree } from "@/server/repositories/masters";
+import { listActiveMembers, listComments } from "@/server/repositories/collab";
 import { db } from "@/server/db";
 import { getCurrentUser } from "@/server/session";
 
@@ -20,9 +22,11 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
   const canViewFinance = user.role !== Role.MARKETER;
   const canManage = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
-  const [industries, marketers] = await Promise.all([
+  const [industries, marketers, comments, members] = await Promise.all([
     getIndustryTree(),
-    db.user.findMany({ where: { role: Role.MARKETER, status: "ACTIVE" }, select: { id: true, name: true } })
+    db.user.findMany({ where: { role: Role.MARKETER, status: "ACTIVE" }, select: { id: true, name: true } }),
+    listComments("CLIENT", id),
+    listActiveMembers()
   ]);
 
   return (
@@ -38,6 +42,14 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         canManage={canManage}
         industries={industries}
         marketers={marketers}
+      />
+      <CommentThread
+        targetType="CLIENT"
+        targetId={id}
+        initialComments={comments}
+        members={members}
+        currentUserId={user.id}
+        canModerate={canManage}
       />
     </div>
   );
