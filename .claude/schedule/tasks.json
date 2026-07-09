@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "seq": 24,
+  "seq": 25,
   "tasks": [
     {
       "id": "TASK-001",
@@ -719,6 +719,34 @@
           "at": "2026-07-09T15:35:02.795Z",
           "type": "done",
           "note": "완료: erp-v1 커밋 be81660. Meeting/MeetingAttendee 모델, /meetings 목록·상세, MediaRecorder 녹음→/api/meetings/transcribe(Whisper)→Claude 회의록, 참석 체크인, 메모 붙여넣기 폴백. Whisper 연동 레지스트리 추가. build/tsc green."
+        }
+      ]
+    },
+    {
+      "id": "TASK-025",
+      "title": "이미지 스튜디오 카드뉴스 탭 + 반응속도 2차",
+      "status": "완료",
+      "tags": [
+        "이미지",
+        "성능",
+        "erp-v1"
+      ],
+      "plan": "이미지 스튜디오 내부 탭(AI생성/카드뉴스). 성능 2차: Prisma 전역 재사용, 알림벨 카운트만 폴링.",
+      "result": "커밋 389e282(카드뉴스 탭), ab1a806(성능2차). 카드뉴스 canvas 제작 탭 이식. db.ts 전역 재사용, 알림벨 개수만 폴링·60s·visible-gated. 근본 지연(Neon 연결)은 커넥션 풀링 필요 — 실DB 테스트 불가로 미적용, 사용자 안내.",
+      "createdAt": "2026-07-09T16:23:46.111Z",
+      "updatedAt": "2026-07-09T16:23:46.287Z",
+      "startedAt": null,
+      "doneAt": "2026-07-09T16:23:46.287Z",
+      "log": [
+        {
+          "at": "2026-07-09T16:23:46.111Z",
+          "type": "created",
+          "note": "작업 등록"
+        },
+        {
+          "at": "2026-07-09T16:23:46.287Z",
+          "type": "done",
+          "note": "완료: 커밋 389e282(카드뉴스 탭), ab1a806(성능2차). 카드뉴스 canvas 제작 탭 이식. db.ts 전역 재사용, 알림벨 개수만 폴링·60s·visible-gated. 근본 지연(Neon 연결)은 커넥션 풀링 필요 — 실DB 테스트 불가로 미적용, 사용자 안내."
         }
       ]
     }
