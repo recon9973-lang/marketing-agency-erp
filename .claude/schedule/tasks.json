@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "seq": 23,
+  "seq": 24,
   "tasks": [
     {
       "id": "TASK-001",
@@ -690,6 +690,35 @@
           "at": "2026-07-09T15:13:20.316Z",
           "type": "done",
           "note": "완료: erp-v1 커밋 bd6f196. TimeLog 모델+액션, ⏱ 공수기록(표/보드), /work?view=board 칸반(전이규칙 준수), 관리자 워크로드 스트립(주간 기록 vs 가용). build/tsc green."
+        }
+      ]
+    },
+    {
+      "id": "TASK-024",
+      "title": "회의록 — 녹음→STT→AI 회의록 + 참석자 체크인",
+      "status": "완료",
+      "tags": [
+        "회의록",
+        "AI",
+        "녹음",
+        "erp-v1"
+      ],
+      "plan": "회의 생성, 브라우저 녹음(MediaRecorder)→/api/meetings/transcribe(OpenAI Whisper)→transcript→Claude로 회의록(마크다운) 자동 정리. 참석자 본인 클릭 체크인. 음성 외 메모 붙여넣기 폴백. Vercel 4.5MB 본문 제한 고려해 저비트레이트 녹음.",
+      "result": "erp-v1 커밋 be81660. Meeting/MeetingAttendee 모델, /meetings 목록·상세, MediaRecorder 녹음→/api/meetings/transcribe(Whisper)→Claude 회의록, 참석 체크인, 메모 붙여넣기 폴백. Whisper 연동 레지스트리 추가. build/tsc green.",
+      "createdAt": "2026-07-09T15:27:23.814Z",
+      "updatedAt": "2026-07-09T15:35:02.795Z",
+      "startedAt": null,
+      "doneAt": "2026-07-09T15:35:02.795Z",
+      "log": [
+        {
+          "at": "2026-07-09T15:27:23.814Z",
+          "type": "created",
+          "note": "작업 등록"
+        },
+        {
+          "at": "2026-07-09T15:35:02.795Z",
+          "type": "done",
+          "note": "완료: erp-v1 커밋 be81660. Meeting/MeetingAttendee 모델, /meetings 목록·상세, MediaRecorder 녹음→/api/meetings/transcribe(Whisper)→Claude 회의록, 참석 체크인, 메모 붙여넣기 폴백. Whisper 연동 레지스트리 추가. build/tsc green."
         }
       ]
     }
