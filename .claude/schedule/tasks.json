@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "seq": 25,
+  "seq": 28,
   "tasks": [
     {
       "id": "TASK-001",
@@ -747,6 +747,87 @@
           "at": "2026-07-09T16:23:46.287Z",
           "type": "done",
           "note": "완료: 커밋 389e282(카드뉴스 탭), ab1a806(성능2차). 카드뉴스 canvas 제작 탭 이식. db.ts 전역 재사용, 알림벨 개수만 폴링·60s·visible-gated. 근본 지연(Neon 연결)은 커넥션 풀링 필요 — 실DB 테스트 불가로 미적용, 사용자 안내."
+        }
+      ]
+    },
+    {
+      "id": "TASK-026",
+      "title": "Marketing OS 업그레이드 계획서 작성",
+      "status": "완료",
+      "tags": [
+        "기획",
+        "문서"
+      ],
+      "plan": "planning prompt 기준 현행 분석 + Phase 0~6 상세 + 부록 A~F(역할·화면·시나리오·공수·의료법 리서치·코워크 비교)",
+      "result": "docs/marketing-os-upgrade-plan.md 커밋(erp-v1 ba1c36b). Phase 0~6 + 부록 A~F 완성",
+      "createdAt": "2026-07-09T19:17:44.684Z",
+      "updatedAt": "2026-07-09T19:17:56.140Z",
+      "startedAt": null,
+      "doneAt": "2026-07-09T19:17:56.140Z",
+      "log": [
+        {
+          "at": "2026-07-09T19:17:44.684Z",
+          "type": "created",
+          "note": "작업 등록"
+        },
+        {
+          "at": "2026-07-09T19:17:56.140Z",
+          "type": "done",
+          "note": "완료: docs/marketing-os-upgrade-plan.md 커밋(erp-v1 ba1c36b). Phase 0~6 + 부록 A~F 완성"
+        }
+      ]
+    },
+    {
+      "id": "TASK-027",
+      "title": "Phase 0 — 거래처 유형(병원/기타) 구분",
+      "status": "완료",
+      "tags": [
+        "개발",
+        "phase0"
+      ],
+      "plan": "BusinessType enum + Client.businessType, 폼 토글·상세 배지·데이터 배선. 병원 버티컬 on/off 플래그",
+      "result": "BusinessType(HOSPITAL|OTHER) 추가, 빌드·tsc 통과, erp-v1 9f26867 푸시",
+      "createdAt": "2026-07-09T19:17:44.799Z",
+      "updatedAt": "2026-07-09T19:17:56.249Z",
+      "startedAt": null,
+      "doneAt": "2026-07-09T19:17:56.249Z",
+      "log": [
+        {
+          "at": "2026-07-09T19:17:44.799Z",
+          "type": "created",
+          "note": "작업 등록"
+        },
+        {
+          "at": "2026-07-09T19:17:56.249Z",
+          "type": "done",
+          "note": "완료: BusinessType(HOSPITAL|OTHER) 추가, 빌드·tsc 통과, erp-v1 9f26867 푸시"
+        }
+      ]
+    },
+    {
+      "id": "TASK-028",
+      "title": "Phase 1 — 병원 프로파일(Source of Truth)",
+      "status": "완료",
+      "tags": [
+        "개발",
+        "phase1"
+      ],
+      "plan": "HospitalProfile 모델(진료과·의료진·강점·톤·경쟁·금지표현·의료법메모+sotVersion) + 병원정보 탭 + upsert 액션(버전+1·감사)",
+      "result": "HospitalProfile 모델+병원정보 탭+upsert 액션. 빌드·tsc 통과, erp-v1 f3cc78c 푸시. Phase 1 계약↔상품(R1)은 다음",
+      "createdAt": "2026-07-09T19:17:44.910Z",
+      "updatedAt": "2026-07-09T19:17:56.354Z",
+      "startedAt": null,
+      "doneAt": "2026-07-09T19:17:56.354Z",
+      "log": [
+        {
+          "at": "2026-07-09T19:17:44.910Z",
+          "type": "created",
+          "note": "작업 등록"
+        },
+        {
+          "at": "2026-07-09T19:17:56.354Z",
+          "type": "done",
+          "note": "완료: HospitalProfile 모델+병원정보 탭+upsert 액션. 빌드·tsc 통과, erp-v1 f3cc78c 푸시. Phase 1 계약↔상품(R1)은 다음"
         }
       ]
     }
