@@ -3,6 +3,8 @@ import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { EmployeeSettings } from "@/components/settings/EmployeeSettings";
 import { MasterManager } from "@/components/settings/MasterManager";
+import { DocumentTemplateManager } from "@/components/settings/DocumentTemplateManager";
+import { listAllTemplates } from "@/server/repositories/document-templates";
 import { ConnectionStatus, Role, UserStatus } from "@/domain/types";
 import { db } from "@/server/db";
 import { getWorkCategories } from "@/server/repositories/masters";
@@ -112,10 +114,11 @@ export default async function SettingsPage() {
   const isAdmin = user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN;
   const isSuperAdmin = user.role === Role.SUPER_ADMIN;
 
-  const [overview, workCategories, companySetting] = await Promise.all([
+  const [overview, workCategories, companySetting, docTemplates] = await Promise.all([
     fetchSettingsOverview(user),
     isAdmin ? getWorkCategories() : Promise.resolve([]),
-    isSuperAdmin ? db.companySetting.findFirst() : Promise.resolve(null)
+    isSuperAdmin ? db.companySetting.findFirst() : Promise.resolve(null),
+    isAdmin ? listAllTemplates() : Promise.resolve([])
   ]);
 
   return (
@@ -173,6 +176,13 @@ export default async function SettingsPage() {
             }))}
             isSuperAdmin={isSuperAdmin}
           />
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-ink">서식(문서 템플릿) 관리</h3>
+          <DocumentTemplateManager templates={docTemplates} />
         </div>
       )}
     </section>

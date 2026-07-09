@@ -6,6 +6,7 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { CreateContractForm } from "@/components/contracts/CreateContractForm";
 import { fetchContractsForUser, type ContractListItem } from "@/server/repositories/contracts";
 import { listClientsForUser } from "@/server/repositories/clients";
+import { listTemplatesForUse } from "@/server/repositories/document-templates";
 import { getCurrentUser } from "@/server/session";
 
 const won = new Intl.NumberFormat("ko-KR");
@@ -44,7 +45,11 @@ export default async function ContractsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [contracts, clients] = await Promise.all([fetchContractsForUser(user), listClientsForUser(user)]);
+  const [contracts, clients, templates] = await Promise.all([
+    fetchContractsForUser(user),
+    listClientsForUser(user),
+    listTemplatesForUse(["CONTRACT", "CLIENT"], user.role)
+  ]);
 
   return (
     <div className="space-y-6">
@@ -53,7 +58,7 @@ export default async function ContractsPage() {
         title="계약서"
         description="거래처별 계약서를 작성하고, 태블릿에서 서명(사인)까지 처리합니다. 서명 완료된 계약은 인쇄/PDF로 보관하세요."
       />
-      <CreateContractForm clients={clients} />
+      <CreateContractForm clients={clients} templates={templates} />
       <DataTable columns={columns} rows={contracts} emptyMessage="등록된 계약서가 없습니다. ‘+ 새 계약서’로 시작하세요." />
     </div>
   );

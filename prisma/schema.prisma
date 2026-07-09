@@ -96,6 +96,14 @@ enum BusinessType {
   OTHER
 }
 
+// 서식(문서 템플릿) 사용처 카테고리 — 어느 화면에서 쓰이는지.
+enum DocumentCategory {
+  CONTRACT // 계약서
+  CLIENT // 거래처(비밀유지 등)
+  HR // 인사(근로계약·증명)
+  GENERAL // 일반
+}
+
 enum CalendarEventKind {
   TASK
   CLIENT_MEETING
@@ -180,6 +188,7 @@ model User {
   sessions                Session[]
   loginHistory            LoginHistory[]  @relation("UserLoginHistory")
   authoredContracts       Contract[]      @relation("ContractAuthor")
+  documentTemplates       DocumentTemplate[] @relation("DocTemplateAuthor")
   weeklyReports           WeeklyReport[]  @relation("WeeklyReportAuthor")
   vaultFolders            VaultFolder[]   @relation("VaultFolderCreator")
   uploadedFiles           StoredFile[]    @relation("FileUploader")
@@ -812,6 +821,28 @@ model ContractProduct {
 
   @@index([contractId])
   @@index([productId])
+}
+
+/// 서식(문서 템플릿) — 계약서·비밀유지·근로계약 등. 관리자가 추가/수정/삭제.
+/// category = 사용처(어느 화면에서 노출), minRole = 사용 가능 최소 권한.
+/// body의 {중괄호}는 사용 시 채우는 자리표시자.
+model DocumentTemplate {
+  id          String           @id @default(cuid())
+  name        String // 선택 라벨
+  category    DocumentCategory
+  title       String // 문서 제목 기본값
+  body        String // 본문(자리표시자 포함)
+  minRole     Role             @default(MARKETER) // 이 권한 이상만 사용/조회
+  isActive    Boolean          @default(true)
+  sortOrder   Int              @default(0)
+  createdById String?
+  orgId       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  createdBy   User?            @relation("DocTemplateAuthor", fields: [createdById], references: [id])
+
+  @@index([category, isActive, sortOrder])
+  @@index([orgId])
 }
 
 /// 병원 프로파일 — 거래처별 단일 기준 데이터(Source of Truth).

@@ -3,11 +3,12 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createContract } from "@/server/actions/contracts";
-import { CONTRACT_TEMPLATES } from "@/lib/contract-templates";
 
 const inputCls = "mt-1 w-full rounded-md border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand";
 
-export function CreateContractForm({ clients }: { clients: { id: string; name: string }[] }) {
+type Template = { id: string; name: string; title: string; body: string };
+
+export function CreateContractForm({ clients, templates }: { clients: { id: string; name: string }[]; templates: Template[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -18,7 +19,7 @@ export function CreateContractForm({ clients }: { clients: { id: string; name: s
 
   // 템플릿 선택 → 본문·계약명 채움. {거래처명}은 선택한 거래처로 치환.
   function applyTemplate(templateId: string) {
-    const tpl = CONTRACT_TEMPLATES.find((t) => t.id === templateId);
+    const tpl = templates.find((t) => t.id === templateId);
     if (!tpl) return;
     const clientName = clients.find((c) => c.id === clientId)?.name ?? "{거래처명}";
     setTitle(tpl.title);
@@ -65,13 +66,15 @@ export function CreateContractForm({ clients }: { clients: { id: string; name: s
             {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </label>
-        <label className="block">
-          <span className="text-xs font-semibold text-slate-500">서식 템플릿</span>
-          <select defaultValue="" onChange={(e) => { applyTemplate(e.target.value); e.target.value = ""; }} className={inputCls}>
-            <option value="" disabled>템플릿 선택(선택 시 본문 자동 채움)</option>
-            {CONTRACT_TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-        </label>
+        {templates.length > 0 ? (
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-500">서식 템플릿</span>
+            <select defaultValue="" onChange={(e) => { applyTemplate(e.target.value); e.target.value = ""; }} className={inputCls}>
+              <option value="" disabled>템플릿 선택(선택 시 본문 자동 채움)</option>
+              {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </label>
+        ) : null}
         <label className="block">
           <span className="text-xs font-semibold text-slate-500">계약명 *</span>
           <input name="title" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 2026년 블로그 마케팅 대행 계약" className={inputCls} />
