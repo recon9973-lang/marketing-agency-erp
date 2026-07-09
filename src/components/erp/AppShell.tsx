@@ -16,7 +16,8 @@ import {
   Plane,
   Plug,
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  Video
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -33,6 +34,7 @@ type ErpRoute =
   | "/manuscript"
   | "/ai-studio"
   | "/image-studio"
+  | "/meetings"
   | "/calendar"
   | "/finance"
   | "/leave"
@@ -101,6 +103,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "이미지 스튜디오",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: ImageIcon,
+      group: "운영"
+    },
+    {
+      href: "/meetings",
+      label: "회의록",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Video,
       group: "운영"
     },
     {

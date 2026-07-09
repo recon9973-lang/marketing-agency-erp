@@ -181,6 +181,8 @@ model User {
   notifications           Notification[]  @relation("NotificationRecipient")
   actedNotifications      Notification[]  @relation("NotificationActor")
   timeLogs                TimeLog[]       @relation("TimeLogUser")
+  authoredMeetings        Meeting[]       @relation("MeetingAuthor")
+  meetingAttendances      MeetingAttendee[] @relation("MeetingAttendeeUser")
 
   @@index([orgId])
 }
@@ -234,6 +236,7 @@ model Client {
   reports            Report[]
   contracts          Contract[]
   aiContents         AiContent[]
+  meetings           Meeting[]
 
   @@index([assignedMarketerId])
   @@index([industryCategoryId])
@@ -830,6 +833,43 @@ model AiContent {
   @@index([clientId])
   @@index([kind])
   @@index([orgId])
+}
+
+/// 회의 — 녹음→STT(전사)→AI 회의록 정리. 참석자는 본인이 체크인.
+/// transcript: 음성 전사 또는 붙여넣은 메모 원문. minutes: AI가 정리한 회의록(마크다운).
+model Meeting {
+  id          String            @id @default(cuid())
+  title       String
+  clientId    String?
+  authorId    String
+  meetingDate DateTime          @default(now())
+  transcript  String? // 원문(STT 결과 또는 수기 메모)
+  minutes     String? // AI 정리 회의록(마크다운)
+  status      String            @default("DRAFT") // DRAFT | DONE
+  orgId       String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  author      User              @relation("MeetingAuthor", fields: [authorId], references: [id])
+  client      Client?           @relation(fields: [clientId], references: [id])
+  attendees   MeetingAttendee[]
+
+  @@index([authorId])
+  @@index([clientId])
+  @@index([meetingDate])
+  @@index([orgId])
+}
+
+/// 회의 참석자 — 본인이 클릭해 체크인. (meetingId, userId) 유일.
+model MeetingAttendee {
+  id          String   @id @default(cuid())
+  meetingId   String
+  userId      String
+  checkedInAt DateTime @default(now())
+  meeting     Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user        User     @relation("MeetingAttendeeUser", fields: [userId], references: [id])
+
+  @@unique([meetingId, userId])
+  @@index([userId])
 }
 
 /// 업무 시간(공수) 기록 — 업무카드에 "언제 몇 분 작업했는지"를 남긴다.

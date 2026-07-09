@@ -66,6 +66,16 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       fallback: "미설정 시 프롬프트만 복사해 외부 툴 사용"
     },
     {
+      key: "speechToText",
+      label: "음성 → 텍스트 (OpenAI Whisper)",
+      category: "AI",
+      configured: has("OPENAI_API_KEY"),
+      envVars: ["OPENAI_API_KEY", "OPENAI_TRANSCRIBE_MODEL"],
+      description: "회의 녹음을 텍스트로 전사(회의록)",
+      usedIn: "회의록",
+      fallback: "미설정 시 메모 붙여넣기로 회의록 생성"
+    },
+    {
       key: "emailMagicLink",
       label: "직원 이메일 매직링크",
       category: "메시지·메일",

@@ -172,6 +172,43 @@ export async function generateBlogPost(input: BlogPostInput): Promise<BlogPost> 
   };
 }
 
+/** 회의 전사/메모를 구조화된 회의록(마크다운)으로 정리. */
+export async function generateMeetingMinutes(
+  transcript: string,
+  context?: { title?: string | null; clientName?: string | null; attendees?: string[] }
+): Promise<string> {
+  if (!isAiConfigured()) throw new Error("AI_NOT_CONFIGURED");
+  const client = new Anthropic();
+  const system =
+    "당신은 한국 마케팅 대행사의 회의록 서기입니다. 회의 녹취/메모를 받아 깔끔한 한국어 회의록으로 정리합니다. " +
+    "반드시 아래 마크다운 구조로만 출력하세요(추측성 내용 금지, 녹취에 없는 사실 지어내지 말 것):\n" +
+    "## 회의 개요 (한두 줄 요약)\n## 주요 논의\n- (항목별)\n## 결정 사항\n- (합의/결정)\n## 액션 아이템\n- [ ] 담당자 — 할 일 (기한)\n## 기타/공유";
+  const meta = [
+    context?.title ? `회의명: ${context.title}` : "",
+    context?.clientName ? `거래처: ${context.clientName}` : "",
+    context?.attendees && context.attendees.length ? `참석자: ${context.attendees.join(", ")}` : ""
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const user = `${meta ? meta + "\n\n" : ""}아래는 회의 녹취/메모 원문입니다. 이를 회의록으로 정리하세요.\n\n---\n${transcript}`;
+
+  const stream = client.messages.stream({
+    model: AI_MODEL,
+    max_tokens: 4000,
+    thinking: { type: "adaptive" },
+    system,
+    messages: [{ role: "user", content: user }]
+  });
+  const message = await stream.finalMessage();
+  const text = message.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n")
+    .trim();
+  if (!text) throw new Error("AI_EMPTY");
+  return text;
+}
+
 export type KeywordSuggestion = { related: string[]; questions: string[] };
 
 /** 원고 스튜디오 "연관 키워드" — 핵심 키워드로 연관어/질문형 키워드 제안. */
