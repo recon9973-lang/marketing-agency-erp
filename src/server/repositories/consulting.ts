@@ -1,0 +1,40 @@
+// 목표 경로: src/server/repositories/consulting.ts
+//
+// 컨설팅 리포트 조회. 권한은 호출부(거래처 접근)에서 확인.
+import { db } from "@/server/db";
+
+export type ConsultingKeywordRow = { keyword: string; intent: string; priority: number; channel: string };
+export type ConsultingReportView = {
+  id: string;
+  hospitalName: string;
+  address: string | null;
+  departments: string | null;
+  keywords: ConsultingKeywordRow[];
+  competitors: string | null;
+  marketAnalysis: string | null;
+  summary: string | null;
+  status: string;
+  createdAt: string;
+} | null;
+
+/** 거래처의 최신 컨설팅 리포트. 없으면 null. */
+export async function getLatestConsulting(clientId: string): Promise<ConsultingReportView> {
+  const r = await db.consultingReport.findFirst({
+    where: { clientId },
+    orderBy: { createdAt: "desc" }
+  });
+  if (!r) return null;
+  const kw = Array.isArray(r.keywords) ? (r.keywords as unknown as ConsultingKeywordRow[]) : [];
+  return {
+    id: r.id,
+    hospitalName: r.hospitalName,
+    address: r.address,
+    departments: r.departments,
+    keywords: kw,
+    competitors: typeof r.competitors === "string" ? r.competitors : null,
+    marketAnalysis: r.marketAnalysis,
+    summary: r.summary,
+    status: r.status,
+    createdAt: r.createdAt.toISOString()
+  };
+}

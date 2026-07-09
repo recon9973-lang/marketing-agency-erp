@@ -4,6 +4,8 @@ import { CommentThread } from "@/components/collab/CommentThread";
 import { Role } from "@/domain/types";
 import { getClientDetail } from "@/server/repositories/clients";
 import { getHospitalProfile } from "@/server/repositories/hospital-profile";
+import { getLatestConsulting } from "@/server/repositories/consulting";
+import { isAiConfigured } from "@/server/ai/claude";
 import { getIndustryTree } from "@/server/repositories/masters";
 import { listActiveMembers, listComments } from "@/server/repositories/collab";
 import { db } from "@/server/db";
@@ -23,13 +25,34 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
   const canViewFinance = user.role !== Role.MARKETER;
   const canManage = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
-  const [industries, marketers, comments, members, hospitalProfile] = await Promise.all([
+  const [industries, marketers, comments, members, hospitalProfile, consultingReport] = await Promise.all([
     getIndustryTree(),
     db.user.findMany({ where: { role: Role.MARKETER, status: "ACTIVE" }, select: { id: true, name: true } }),
     listComments("CLIENT", id),
     listActiveMembers(),
-    detail.client.businessType === "HOSPITAL" ? getHospitalProfile(id) : Promise.resolve(null)
+    detail.client.businessType === "HOSPITAL" ? getHospitalProfile(id) : Promise.resolve(null),
+    getLatestConsulting(id)
   ]);
+
+  const consulting = {
+    aiConfigured: isAiConfigured(),
+    defaults: {
+      hospitalName: detail.client.name,
+      address: "",
+      departments: hospitalProfile?.departments ?? ""
+    },
+    report: consultingReport
+      ? {
+          id: consultingReport.id,
+          hospitalName: consultingReport.hospitalName,
+          keywords: consultingReport.keywords,
+          competitors: consultingReport.competitors,
+          marketAnalysis: consultingReport.marketAnalysis,
+          summary: consultingReport.summary,
+          createdAt: consultingReport.createdAt
+        }
+      : null
+  };
 
   return (
     <div className="space-y-6">
@@ -41,6 +64,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         billings={detail.billings}
         reports={detail.reports}
         hospitalProfile={hospitalProfile}
+        consulting={consulting}
         canViewFinance={canViewFinance}
         canManage={canManage}
         industries={industries}

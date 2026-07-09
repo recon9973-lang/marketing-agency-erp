@@ -225,3 +225,44 @@ export async function suggestKeywords(keyword: string, region?: string | null): 
     questions: Array.isArray(res.questions) ? res.questions.map(String) : []
   };
 }
+
+export type ConsultingInput = { hospitalName: string; address?: string | null; departments?: string | null; competitors?: string | null };
+export type ConsultingKeyword = { keyword: string; intent: string; priority: number; channel: string };
+export type ConsultingResult = {
+  coreKeywords: ConsultingKeyword[];
+  competitorAnalysis: string;
+  marketAnalysis: string;
+  summary: string;
+};
+
+/** 영업 컨설팅 — 병원명·주소·진료과로 핵심 키워드·경쟁·상권 분석 초안을 생성한다. */
+export async function generateConsulting(input: ConsultingInput): Promise<ConsultingResult> {
+  const system =
+    "당신은 한국 병원 마케팅 컨설턴트입니다. 병원 정보를 바탕으로 지역 기반 온라인 마케팅 컨설팅 초안을 작성합니다. " +
+    "채널은 blog|place|powerlink|seo|geo|aeo 중에서 고릅니다. priority는 1(높음)~5(낮음). " +
+    "반드시 이 JSON만 출력하세요: " +
+    '{"coreKeywords": [{"keyword": string, "intent": string, "priority": number, "channel": string}], ' +
+    '"competitorAnalysis": string, "marketAnalysis": string, "summary": string}. ' +
+    "coreKeywords는 12~18개(지역명 결합·롱테일 포함). 분석은 한국어 3~6문장. " +
+    "의료광고법상 과장·최상급·치료보장 표현은 사용하지 마세요.";
+  const lines = [
+    `병원명: ${input.hospitalName}`,
+    input.address ? `주소: ${input.address}` : "",
+    input.departments ? `진료과목: ${input.departments}` : "",
+    input.competitors ? `경쟁 병원 후보: ${input.competitors}` : ""
+  ].filter(Boolean);
+  const res = await completeJson<ConsultingResult>(system, lines.join("\n"), 4000);
+  return {
+    coreKeywords: Array.isArray(res.coreKeywords)
+      ? res.coreKeywords.slice(0, 30).map((k) => ({
+          keyword: String(k.keyword ?? ""),
+          intent: String(k.intent ?? ""),
+          priority: Number.isFinite(k.priority) ? Math.min(5, Math.max(1, Math.round(k.priority))) : 3,
+          channel: ["blog", "place", "powerlink", "seo", "geo", "aeo"].includes(String(k.channel)) ? String(k.channel) : "blog"
+        })).filter((k) => k.keyword)
+      : [],
+    competitorAnalysis: String(res.competitorAnalysis ?? ""),
+    marketAnalysis: String(res.marketAnalysis ?? ""),
+    summary: String(res.summary ?? "")
+  };
+}

@@ -188,6 +188,7 @@ model User {
   sessions                Session[]
   loginHistory            LoginHistory[]  @relation("UserLoginHistory")
   authoredContracts       Contract[]      @relation("ContractAuthor")
+  consultingReports       ConsultingReport[] @relation("ConsultingAuthor")
   documentTemplates       DocumentTemplate[] @relation("DocTemplateAuthor")
   weeklyReports           WeeklyReport[]  @relation("WeeklyReportAuthor")
   vaultFolders            VaultFolder[]   @relation("VaultFolderCreator")
@@ -263,6 +264,9 @@ model Client {
   placeRankRecords  PlaceRankRecord[]
   favoredBy         ClientFavorite[]
   hospitalProfile   HospitalProfile?
+  keywords          Keyword[]
+  consultingReports ConsultingReport[]
+  quotes            Quote[]
 
   @@index([assignedMarketerId])
   @@index([industryCategoryId])
@@ -821,6 +825,66 @@ model ContractProduct {
 
   @@index([contractId])
   @@index([productId])
+}
+
+/// 키워드 — 영업 컨설팅에서 산출. 채널(blog/place/powerlink/seo/geo/aeo)·우선순위·검색량.
+model Keyword {
+  id           String   @id @default(cuid())
+  clientId     String
+  keyword      String
+  intent       String? // 검색 의도(정보/구매/비교 등)
+  searchVolume Int? // 월 검색량(있을 때)
+  trendRatio   Float? // 데이터랩 상대 트렌드(있을 때)
+  priority     Int      @default(3) // 1(높음)~5(낮음)
+  channel      String   @default("blog") // blog|place|powerlink|seo|geo|aeo
+  orgId        String?
+  createdAt    DateTime @default(now())
+  client       Client   @relation(fields: [clientId], references: [id])
+
+  @@index([clientId, priority])
+  @@index([orgId])
+}
+
+/// 컨설팅 리포트 — 신규 병원 영업 산출물. 병원명·주소 → 키워드·경쟁·상권 분석(AI).
+model ConsultingReport {
+  id             String   @id @default(cuid())
+  clientId       String
+  authorId       String
+  hospitalName   String
+  address        String?
+  departments    String?
+  keywords       Json? // 산출 키워드 요약
+  competitors    Json? // 경쟁 병원 분석
+  marketAnalysis String? // 상권 분석
+  summary        String? // 요약
+  status         String   @default("DRAFT") // DRAFT | SHARED
+  orgId          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  client         Client   @relation(fields: [clientId], references: [id])
+  author         User     @relation("ConsultingAuthor", fields: [authorId], references: [id])
+
+  @@index([clientId])
+  @@index([authorId])
+  @@index([orgId])
+}
+
+/// 견적서 — 가격대별 3종(BASIC/STANDARD/PREMIUM). 상품 마스터 기반 구성.
+model Quote {
+  id           String   @id @default(cuid())
+  clientId     String
+  tier         String // BASIC | STANDARD | PREMIUM
+  items        Json // [{productId?, name, monthlyFee, quantity}]
+  monthlyTotal Decimal  @db.Decimal(12, 2)
+  status       String   @default("DRAFT") // DRAFT | SENT | ACCEPTED | REJECTED
+  validUntil   DateTime?
+  orgId        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  client       Client   @relation(fields: [clientId], references: [id])
+
+  @@index([clientId, tier])
+  @@index([orgId])
 }
 
 /// 서식(문서 템플릿) — 계약서·비밀유지·근로계약 등. 관리자가 추가/수정/삭제.

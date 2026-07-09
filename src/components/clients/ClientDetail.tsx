@@ -8,6 +8,7 @@ import { useState } from "react";
 import { CredentialField } from "@/components/clients/CredentialField";
 import { ClientForm } from "@/components/clients/ClientForm";
 import { HospitalProfileForm } from "@/components/clients/HospitalProfileForm";
+import { ConsultingPanel } from "@/components/clients/ConsultingPanel";
 import { AddChannelForm } from "@/components/clients/AddChannelForm";
 import { WorkStatusButtons } from "@/components/work/WorkStatusButtons";
 import { AddWorkForm } from "@/components/work/AddWorkForm";
@@ -28,6 +29,7 @@ export function ClientDetail({
   billings,
   reports,
   hospitalProfile,
+  consulting,
   canViewFinance,
   canManage,
   industries,
@@ -61,6 +63,19 @@ export function ClientDetail({
     sotVersion: number;
     updatedAt: string;
   } | null;
+  consulting: {
+    aiConfigured: boolean;
+    defaults: { hospitalName: string; address: string; departments: string };
+    report: {
+      id: string;
+      hospitalName: string;
+      keywords: { keyword: string; intent: string; priority: number; channel: string }[];
+      competitors: string | null;
+      marketAnalysis: string | null;
+      summary: string | null;
+      createdAt: string;
+    } | null;
+  };
   canViewFinance: boolean;
   canManage: boolean;
   industries: IndustryNode[];
@@ -70,6 +85,7 @@ export function ClientDetail({
   const tabs = [
     "기본정보",
     ...(isHospital ? ["병원정보"] : []),
+    "컨설팅",
     "채널계정",
     "업무",
     ...(canViewFinance ? ["입금"] : []),
@@ -144,6 +160,19 @@ export function ClientDetail({
         <div className="rounded-xl border border-line bg-white p-4">
           <h3 className="mb-3 text-sm font-bold text-ink">병원 프로파일 (기준 데이터)</h3>
           <HospitalProfileForm clientId={client.id} profile={hospitalProfile} canEdit={canManage} />
+        </div>
+      )}
+
+      {tab === "컨설팅" && (
+        <div className="rounded-xl border border-line bg-white p-4">
+          <h3 className="mb-3 text-sm font-bold text-ink">영업 컨설팅 (키워드·경쟁·상권)</h3>
+          <ConsultingPanel
+            clientId={client.id}
+            aiConfigured={consulting.aiConfigured}
+            defaults={consulting.defaults}
+            report={consulting.report}
+            canRun={canManage}
+          />
         </div>
       )}
 
