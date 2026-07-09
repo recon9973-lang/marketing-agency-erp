@@ -45,6 +45,24 @@ const WORK_CATEGORIES = [
 const CHANNELS = ["네이버 블로그", "인스타그램", "페이스북", "유튜브", "스레드", "네이버 플레이스", "홈페이지", "네이버 검색광고(파워링크)", "네이버 애널리틱스/GA", "카카오채널"];
 const LOCKED_WORK = new Set(["브랜드블로그 작성", "플레이스 순위관리", "월간 보고서 작성"]);
 
+// 대행 상품 마스터(계약↔상품 브릿지의 기준). planning §B 상품 목록.
+const PRODUCTS = [
+  { name: "브랜드 블로그", category: "블로그" },
+  { name: "블로그 배포(일반)", category: "블로그" },
+  { name: "블로그 배포(최적)", category: "블로그" },
+  { name: "블로그 상위노출", category: "블로그" },
+  { name: "영수증 리뷰", category: "리뷰" },
+  { name: "플레이스 관리", category: "플레이스" },
+  { name: "플레이스 상위노출", category: "플레이스" },
+  { name: "SNS 관리", category: "SNS" },
+  { name: "SEO", category: "웹" },
+  { name: "GEO", category: "웹" },
+  { name: "AEO", category: "웹" },
+  { name: "홈페이지 제작", category: "웹" },
+  { name: "검색광고 파워링크", category: "검색광고" },
+  { name: "검색광고 플레이스", category: "검색광고" }
+];
+
 const prisma = new PrismaClient({ datasources: { db: { url: direct } }, log: ["error"] });
 
 async function seed() {
@@ -77,6 +95,13 @@ async function seed() {
       await prisma.channelType.create({ data: { name: CHANNELS[i], sortOrder: i } });
     }
     console.log(`[seed] 채널 ${CHANNELS.length}개 생성`);
+  }
+  // 대행 상품 마스터
+  if ((await prisma.product.count()) === 0) {
+    for (let i = 0; i < PRODUCTS.length; i++) {
+      await prisma.product.create({ data: { name: PRODUCTS[i].name, category: PRODUCTS[i].category, sortOrder: i } });
+    }
+    console.log(`[seed] 상품 마스터 ${PRODUCTS.length}개 생성`);
   }
   // 회사 정책 싱글턴
   if (!(await prisma.companySetting.findFirst())) {

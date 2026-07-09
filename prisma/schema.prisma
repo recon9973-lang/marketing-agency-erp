@@ -765,13 +765,53 @@ model Contract {
   orgId         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  client        Client    @relation(fields: [clientId], references: [id])
-  author        User      @relation("ContractAuthor", fields: [authorId], references: [id])
+  client        Client            @relation(fields: [clientId], references: [id])
+  author        User              @relation("ContractAuthor", fields: [authorId], references: [id])
+  products      ContractProduct[]
 
   @@index([clientId])
   @@index([authorId])
   @@index([status])
   @@index([orgId])
+}
+
+/// 상품 마스터 — 대행 상품 정의. 계약에 붙이면 defaultTasks로 업무가 자동 생성될 기준.
+/// defaultSurveyQuestions/defaultReportMetrics는 이후 설문·보고서 자동화에 사용.
+model Product {
+  id                     String            @id @default(cuid())
+  name                   String
+  category               String // 표시용 분류(블로그/플레이스/검색광고/웹 등)
+  description            String?
+  defaultTasks           Json? // 계약시 자동 생성할 업무 템플릿 목록
+  defaultSurveyQuestions Json? // 상품별 설문 문항(Phase 3)
+  defaultReportMetrics   Json? // 상품별 보고 지표(Phase 5)
+  isActive               Boolean           @default(true)
+  sortOrder              Int               @default(0)
+  orgId                  String?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  contractProducts       ContractProduct[]
+
+  @@index([isActive, sortOrder])
+  @@index([orgId])
+}
+
+/// 계약↔상품 브릿지 — "계약이 설문·콘텐츠·보고서로 자동 연결"되는 핵심(R1).
+/// 계약에 담긴 상품별 월단가·광고비·수량.
+model ContractProduct {
+  id         String   @id @default(cuid())
+  contractId String
+  productId  String
+  monthlyFee Decimal? @db.Decimal(12, 2) // 월 대행료
+  adBudget   Decimal? @db.Decimal(12, 2) // 월 광고비(대행료와 구분)
+  quantity   Int      @default(1)
+  notes      String?
+  createdAt  DateTime @default(now())
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id])
+
+  @@index([contractId])
+  @@index([productId])
 }
 
 /// 병원 프로파일 — 거래처별 단일 기준 데이터(Source of Truth).

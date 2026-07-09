@@ -18,6 +18,17 @@ export type ContractListItem = {
   updatedAt: Date;
 };
 
+export type ContractProductRow = {
+  id: string;
+  productId: string;
+  name: string;
+  category: string;
+  monthlyFee: number | null;
+  adBudget: number | null;
+  quantity: number;
+  notes: string | null;
+};
+
 export type ContractDetail = {
   id: string;
   clientId: string;
@@ -35,6 +46,9 @@ export type ContractDetail = {
   signedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  products: ContractProductRow[];
+  productMonthlyTotal: number; // 상품 월 대행료 합계(수량 반영)
+  productAdBudgetTotal: number; // 상품 월 광고비 합계(수량 반영)
 };
 
 function unique(values: Array<string | null>) {
@@ -99,7 +113,14 @@ export async function fetchContractsForUser(user: CurrentUser): Promise<Contract
 export async function getContractDetail(user: CurrentUser, id: string): Promise<ContractDetail | null> {
   const c = await db.contract.findUnique({
     where: { id },
-    include: { client: { select: { name: true, assignedMarketerId: true } }, author: { select: { name: true } } }
+    include: {
+      client: { select: { name: true, assignedMarketerId: true } },
+      author: { select: { name: true } },
+      products: {
+        orderBy: { createdAt: "asc" },
+        include: { product: { select: { name: true, category: true } } }
+      }
+    }
   });
   if (!c) return null;
   // 접근 권한 검증 (거래처 스코프). 권한 없으면 throw → 상위에서 notFound 처리.
@@ -115,6 +136,19 @@ export async function getContractDetail(user: CurrentUser, id: string): Promise<
   } catch {
     return null;
   }
+  const products: ContractProductRow[] = c.products.map((p) => ({
+    id: p.id,
+    productId: p.productId,
+    name: p.product.name,
+    category: p.product.category,
+    monthlyFee: p.monthlyFee ? Number(p.monthlyFee) : null,
+    adBudget: p.adBudget ? Number(p.adBudget) : null,
+    quantity: p.quantity,
+    notes: p.notes
+  }));
+  const productMonthlyTotal = products.reduce((s, p) => s + (p.monthlyFee ?? 0) * p.quantity, 0);
+  const productAdBudgetTotal = products.reduce((s, p) => s + (p.adBudget ?? 0) * p.quantity, 0);
+
   return {
     id: c.id,
     clientId: c.clientId,
@@ -131,6 +165,9 @@ export async function getContractDetail(user: CurrentUser, id: string): Promise<
     signatureData: c.signatureData,
     signedAt: c.signedAt,
     createdAt: c.createdAt,
-    updatedAt: c.updatedAt
+    updatedAt: c.updatedAt,
+    products,
+    productMonthlyTotal,
+    productAdBudgetTotal
   };
 }
