@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "seq": 22,
+  "seq": 23,
   "tasks": [
     {
       "id": "TASK-001",
@@ -661,6 +661,35 @@
           "at": "2026-07-09T14:38:55.615Z",
           "type": "done",
           "note": "완료: erp-v1 커밋 193a767. Comment/Notification 모델, CommentThread(거래처 상세 임베드, @멘션→알림), 헤더 알림벨(45s 폴링·배지·모두읽음). build/tsc green. 확대 여지: 업무/보고서/계약 상세에도 동일 CommentThread 임베드, 전용 알림 페이지."
+        }
+      ]
+    },
+    {
+      "id": "TASK-023",
+      "title": "업무 시간기록 + 칸반보드 + 워크로드",
+      "status": "완료",
+      "tags": [
+        "업무",
+        "시간기록",
+        "칸반",
+        "erp-v1"
+      ],
+      "plan": "GitHub 업무관리 툴 갭 반영: TimeLog(공수 기록), /work 칸반 보드 뷰(상태 6컬럼, 전이규칙 준수), 관리자 워크로드 스트립.",
+      "result": "erp-v1 커밋 bd6f196. TimeLog 모델+액션, ⏱ 공수기록(표/보드), /work?view=board 칸반(전이규칙 준수), 관리자 워크로드 스트립(주간 기록 vs 가용). build/tsc green.",
+      "createdAt": "2026-07-09T15:13:20.129Z",
+      "updatedAt": "2026-07-09T15:13:20.316Z",
+      "startedAt": null,
+      "doneAt": "2026-07-09T15:13:20.315Z",
+      "log": [
+        {
+          "at": "2026-07-09T15:13:20.129Z",
+          "type": "created",
+          "note": "작업 등록"
+        },
+        {
+          "at": "2026-07-09T15:13:20.316Z",
+          "type": "done",
+          "note": "완료: erp-v1 커밋 bd6f196. TimeLog 모델+액션, ⏱ 공수기록(표/보드), /work?view=board 칸반(전이규칙 준수), 관리자 워크로드 스트립(주간 기록 vs 가용). build/tsc green."
         }
       ]
     }
