@@ -45,22 +45,42 @@ const WORK_CATEGORIES = [
 const CHANNELS = ["네이버 블로그", "인스타그램", "페이스북", "유튜브", "스레드", "네이버 플레이스", "홈페이지", "네이버 검색광고(파워링크)", "네이버 애널리틱스/GA", "카카오채널"];
 const LOCKED_WORK = new Set(["브랜드블로그 작성", "플레이스 순위관리", "월간 보고서 작성"]);
 
-// 대행 상품 마스터(계약↔상품 브릿지의 기준). planning §B 상품 목록.
+// 대행 상품 마스터(계약↔상품 브릿지의 기준).
+// 실제 광고 대행 계약서의 "광고 품목 및 대행 범위"를 반영(온라인 + 오프라인).
 const PRODUCTS = [
+  // 블로그
   { name: "브랜드 블로그", category: "블로그" },
-  { name: "블로그 배포(일반)", category: "블로그" },
-  { name: "블로그 배포(최적)", category: "블로그" },
+  { name: "블로그 배포", category: "블로그" },
   { name: "블로그 상위노출", category: "블로그" },
-  { name: "영수증 리뷰", category: "리뷰" },
-  { name: "플레이스 관리", category: "플레이스" },
-  { name: "플레이스 상위노출", category: "플레이스" },
-  { name: "SNS 관리", category: "SNS" },
+  { name: "블로그 인플루언서", category: "블로그" },
+  // SNS
+  { name: "SNS 브랜드", category: "SNS" },
+  { name: "SNS 배포", category: "SNS" },
+  { name: "SNS 타겟광고", category: "SNS" },
+  { name: "SNS 인플루언서", category: "SNS" },
+  // 플레이스
+  { name: "플레이스 SEO", category: "플레이스" },
+  { name: "플레이스 방문자리뷰", category: "플레이스" },
+  { name: "플레이스 블로그리뷰", category: "플레이스" },
+  { name: "영수증 리뷰", category: "플레이스" },
+  // 검색광고
+  { name: "파워링크", category: "검색광고" },
+  { name: "검색광고 플레이스", category: "검색광고" },
+  // 기타 온라인
+  { name: "지식iN", category: "기타광고" },
+  { name: "뉴스", category: "기타광고" },
+  { name: "카페", category: "기타광고" },
+  { name: "홈페이지 제작", category: "웹" },
   { name: "SEO", category: "웹" },
   { name: "GEO", category: "웹" },
   { name: "AEO", category: "웹" },
-  { name: "홈페이지 제작", category: "웹" },
-  { name: "검색광고 파워링크", category: "검색광고" },
-  { name: "검색광고 플레이스", category: "검색광고" }
+  // 오프라인
+  { name: "전광판/횡단보도", category: "오프라인" },
+  { name: "버스/택시", category: "오프라인" },
+  { name: "지하철/지상철", category: "오프라인" },
+  { name: "마트", category: "오프라인" },
+  { name: "전단지/현수막/X배너", category: "오프라인" },
+  { name: "사진촬영", category: "오프라인" }
 ];
 
 const prisma = new PrismaClient({ datasources: { db: { url: direct } }, log: ["error"] });
