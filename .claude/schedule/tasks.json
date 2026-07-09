@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "seq": 19,
+  "seq": 20,
   "tasks": [
     {
       "id": "TASK-001",
@@ -576,6 +576,35 @@
           "at": "2026-07-08T09:30:01.381Z",
           "type": "update",
           "note": "1차 최적화 배포: (erp) loading.tsx 스켈레톤 추가(프리페치+즉시 피드백), getCurrentUser React cache()로 세션 DB 왕복 중복 제거. erp-v1 커밋 24e942f. 사용자 체감 확인 대기."
+        }
+      ]
+    },
+    {
+      "id": "TASK-020",
+      "title": "그린 톤 통일 + 원고 스튜디오 백엔드 완성(병합)",
+      "status": "완료",
+      "tags": [
+        "톤통일",
+        "원고스튜디오",
+        "병합",
+        "erp-v1"
+      ],
+      "plan": "(1) 그린 잔재 오렌지 통일: studio.html accent(#2f7d6b→#d9662e), MasterManager/report-pdf #1f7a68→오렌지. (2) 원고 스튜디오가 호출하던 미구현 백엔드 병합: /api/generate-post(Claude 구조화 블로그 생성+선택적 이미지), /api/keywords(Claude 연관키워드+네이버 검색량), /api/wp-draft(워드프레스 REST 발행/예약/임시). 이미지 생성(/api/generate-image)은 이미 완료.",
+      "result": "erp-v1 커밋 44402d9. 톤: studio.html accent 그린→오렌지, #1f7a68 잔재 제거(시맨틱/카테고리 색코딩은 유지). 병합: /api/generate-post(Claude 블로그+이미지), /api/keywords(Claude), /api/wp-draft(워드프레스 REST). generate-image는 공통 image.ts로 리팩터. build/tsc green.",
+      "createdAt": "2026-07-09T05:47:40.495Z",
+      "updatedAt": "2026-07-09T05:53:16.191Z",
+      "startedAt": null,
+      "doneAt": "2026-07-09T05:53:16.191Z",
+      "log": [
+        {
+          "at": "2026-07-09T05:47:40.495Z",
+          "type": "created",
+          "note": "작업 등록"
+        },
+        {
+          "at": "2026-07-09T05:53:16.191Z",
+          "type": "done",
+          "note": "완료: erp-v1 커밋 44402d9. 톤: studio.html accent 그린→오렌지, #1f7a68 잔재 제거(시맨틱/카테고리 색코딩은 유지). 병합: /api/generate-post(Claude 블로그+이미지), /api/keywords(Claude), /api/wp-draft(워드프레스 REST). generate-image는 공통 image.ts로 리팩터. build/tsc green."
         }
       ]
     }
