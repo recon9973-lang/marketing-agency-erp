@@ -1,10 +1,15 @@
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { WorkStatusButtons } from "@/components/work/WorkStatusButtons";
+import { WorkBoard } from "@/components/work/WorkBoard";
+import { TimeLogButton } from "@/components/work/TimeLogButton";
+import { WorkloadStrip } from "@/components/work/WorkloadStrip";
 import { workCategoryLabels, workStatusLabels } from "@/domain/work";
 import { Role, WorkCategory, WorkStatus } from "@/domain/types";
 import { fetchWorkItemsForUser, type WorkListFilters, type WorkListItem } from "@/server/repositories/work";
+import { weeklyWorkloadByOwner } from "@/server/repositories/time";
 import { getCurrentUser } from "@/server/session";
 
 type WorkPageSearchParams = {
@@ -13,6 +18,7 @@ type WorkPageSearchParams = {
   clientId?: string;
   ownerId?: string;
   dueDate?: string;
+  view?: string;
 };
 
 const categoryOptions = Object.values(WorkCategory);
@@ -101,6 +107,13 @@ const columns: DataTableColumn<WorkListItem>[] = [
     render: (item) => <span className="line-clamp-2 text-slate-600">{item.progressNotes ?? "-"}</span>
   },
   {
+    key: "time",
+    header: "공수",
+    render: (item) => (
+      <TimeLogButton workId={item.id} loggedMinutes={item.loggedMinutes} estimatedMinutes={item.estimatedMinutes} />
+    )
+  },
+  {
     key: "actions",
     header: "상태 변경",
     render: (item) => <WorkStatusButtons workId={item.id} status={item.status} />
@@ -120,9 +133,29 @@ export default async function WorkPage({
 
   const resolvedSearchParams = await searchParams;
   const filters = buildFilters(resolvedSearchParams);
-  const workItems = await fetchWorkItemsForUser(user, filters);
+  const isBoard = resolvedSearchParams.view === "board";
+  const isManager = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
+  const [workItems, workload] = await Promise.all([
+    fetchWorkItemsForUser(user, filters),
+    isManager ? weeklyWorkloadByOwner() : Promise.resolve([])
+  ]);
   const delayedCount = workItems.filter((item) => item.delayed).length;
   const reviewCount = workItems.filter((item) => item.status === WorkStatus.REVIEW_NEEDED).length;
+
+  // 현재 필터를 유지하며 뷰만 바꾸는 링크.
+  function viewHref(view: "table" | "board"): Route {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(resolvedSearchParams)) {
+      if (k !== "view" && typeof v === "string" && v) p.set(k, v);
+    }
+    if (view === "board") p.set("view", "board");
+    const qs = p.toString();
+    return (qs ? `/work?${qs}` : "/work") as Route;
+  }
+  const tabCls = (active: boolean) =>
+    active
+      ? "rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-white"
+      : "rounded-md border border-line bg-white px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-surface";
 
   return (
     <section className="space-y-6">
@@ -187,6 +220,7 @@ export default async function WorkPage({
           <span className="mb-1 block text-xs font-semibold text-slate-500">마감일</span>
           <input type="date" name="dueDate" defaultValue={filters.dueDate ?? ""} className="w-full rounded-md border border-line px-3 py-2 text-sm text-ink" />
         </label>
+        {isBoard ? <input type="hidden" name="view" value="board" /> : null}
         <div className="flex items-end gap-2 md:col-span-5">
           <button type="submit" className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white">
             필터 적용
@@ -197,7 +231,20 @@ export default async function WorkPage({
         </div>
       </form>
 
-      <DataTable columns={columns} rows={workItems} emptyMessage="조회 가능한 업무가 없습니다." />
+      {workload.length > 0 ? <WorkloadStrip rows={workload} /> : null}
+
+      {/* 뷰 전환: 표 / 보드 */}
+      <div className="flex items-center gap-2">
+        <a href={viewHref("table")} className={tabCls(!isBoard)}>표</a>
+        <a href={viewHref("board")} className={tabCls(isBoard)}>보드</a>
+        <span className="ml-2 text-xs text-slate-400">공수(⏱) 버튼으로 작업 시간을 바로 기록하세요.</span>
+      </div>
+
+      {isBoard ? (
+        <WorkBoard items={workItems} />
+      ) : (
+        <DataTable columns={columns} rows={workItems} emptyMessage="조회 가능한 업무가 없습니다." />
+      )}
     </section>
   );
 }

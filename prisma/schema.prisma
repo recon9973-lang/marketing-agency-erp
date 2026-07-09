@@ -180,6 +180,7 @@ model User {
   authoredComments        Comment[]       @relation("CommentAuthor")
   notifications           Notification[]  @relation("NotificationRecipient")
   actedNotifications      Notification[]  @relation("NotificationActor")
+  timeLogs                TimeLog[]       @relation("TimeLogUser")
 
   @@index([orgId])
 }
@@ -319,6 +320,7 @@ model WorkItem {
   workCategory     WorkCategoryMaster? @relation(fields: [workCategoryId], references: [id])
   calendarEvents   CalendarEvent[]
   reports          Report[]
+  timeLogs         TimeLog[]
 
   @@index([clientId, status, dueDate])
   @@index([ownerId, status, dueDate])
@@ -827,6 +829,25 @@ model AiContent {
   @@index([authorId])
   @@index([clientId])
   @@index([kind])
+  @@index([orgId])
+}
+
+/// 업무 시간(공수) 기록 — 업무카드에 "언제 몇 분 작업했는지"를 남긴다.
+/// 거래처별 투입시간·담당자 워크로드·수익성 계산의 기반 데이터.
+model TimeLog {
+  id         String   @id @default(cuid())
+  workItemId String
+  userId     String
+  minutes    Int // 작업 시간(분)
+  note       String?
+  workedOn   DateTime // 작업한 날짜(집계 기준)
+  orgId      String?
+  createdAt  DateTime @default(now())
+  workItem   WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  user       User     @relation("TimeLogUser", fields: [userId], references: [id])
+
+  @@index([workItemId])
+  @@index([userId, workedOn])
   @@index([orgId])
 }
 

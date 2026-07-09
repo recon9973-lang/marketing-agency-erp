@@ -23,12 +23,15 @@ export type WorkListItem = {
   title: string;
   clientName: string;
   ownerName: string;
+  ownerId: string;
   category: WorkCategory;
   status: WorkStatus;
   priority: number;
   dueDate: Date | string | null;
   progressNotes: string | null;
   delayed: boolean;
+  estimatedMinutes: number | null;
+  loggedMinutes: number;
 };
 
 function unique(values: Array<string | null>) {
@@ -143,6 +146,8 @@ export async function fetchWorkItemsForUser(
       priority: true,
       dueDate: true,
       progressNotes: true,
+      ownerId: true,
+      estimatedMinutes: true,
       client: {
         select: { name: true }
       },
@@ -152,17 +157,28 @@ export async function fetchWorkItemsForUser(
     }
   });
 
+  // 업무별 기록시간 합계(공수)를 한 번의 groupBy로.
+  const ids = workItems.map((w) => w.id);
+  const sums =
+    ids.length > 0
+      ? await db.timeLog.groupBy({ by: ["workItemId"], where: { workItemId: { in: ids } }, _sum: { minutes: true } })
+      : [];
+  const loggedByItem = new Map(sums.map((s) => [s.workItemId, s._sum.minutes ?? 0]));
+
   return workItems.map((item) => ({
     id: item.id,
     title: item.title,
     clientName: item.client.name,
     ownerName: item.owner.name,
+    ownerId: item.ownerId,
     category: item.category,
     status: item.status,
     priority: item.priority,
     dueDate: item.dueDate,
     progressNotes: item.progressNotes,
-    delayed: isWorkDelayed(item, today)
+    delayed: isWorkDelayed(item, today),
+    estimatedMinutes: item.estimatedMinutes,
+    loggedMinutes: loggedByItem.get(item.id) ?? 0
   }));
 }
 
