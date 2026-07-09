@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Download, ImageIcon, Save, Sparkles } from "lucide-react";
+import { Download, ImageIcon, LayoutTemplate, Save, Sparkles, Wand2 } from "lucide-react";
 import { uploadVaultFile } from "@/server/actions/vault";
+import { CardNewsMaker } from "@/components/ai/CardNewsMaker";
 
 type Folder = { id: string; name: string };
 
@@ -50,6 +51,7 @@ export function ImageStudio({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<Generated[]>([]);
+  const [tab, setTab] = useState<"generate" | "cardnews">("generate");
 
   function generate() {
     const p = prompt.trim();
@@ -80,8 +82,27 @@ export function ImageStudio({
     });
   }
 
+  const tabCls = (active: boolean) =>
+    active
+      ? "inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white"
+      : "inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-surface";
+
   return (
     <div className="space-y-6">
+      {/* 내부 탭: AI 생성 / 카드뉴스 제작 */}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => setTab("generate")} className={tabCls(tab === "generate")}>
+          <Wand2 className="h-4 w-4" /> AI 이미지 생성
+        </button>
+        <button type="button" onClick={() => setTab("cardnews")} className={tabCls(tab === "cardnews")}>
+          <LayoutTemplate className="h-4 w-4" /> 카드뉴스 제작
+        </button>
+      </div>
+
+      {tab === "cardnews" ? (
+        <CardNewsMaker generatedImages={items.map((i) => i.dataUrl)} />
+      ) : (
+        <div className="space-y-6">
       {!imageConfigured ? (
         <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           이미지 엔진이 아직 연결되지 않았습니다. <b>연동 화면</b>에서{" "}
@@ -154,6 +175,8 @@ export function ImageStudio({
           </div>
         )}
       </section>
+        </div>
+      )}
     </div>
   );
 }
