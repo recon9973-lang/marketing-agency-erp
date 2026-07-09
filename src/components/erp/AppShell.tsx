@@ -11,6 +11,7 @@ import {
   CreditCard,
   FileSignature,
   FileText,
+  ImageIcon,
   PenLine,
   Plane,
   Plug,
@@ -30,6 +31,7 @@ type ErpRoute =
   | "/work"
   | "/manuscript"
   | "/ai-studio"
+  | "/image-studio"
   | "/calendar"
   | "/finance"
   | "/leave"
@@ -91,6 +93,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "AI 마케팅",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Sparkles,
+      group: "운영"
+    },
+    {
+      href: "/image-studio",
+      label: "이미지 스튜디오",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: ImageIcon,
       group: "운영"
     },
     {
