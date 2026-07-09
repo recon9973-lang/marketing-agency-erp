@@ -1,6 +1,7 @@
 import { AlertTriangle, CalendarClock, CircleCheck, Plane } from "lucide-react";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { WorkOverview } from "@/components/dashboard/WorkOverview";
 import type { DashboardSummary } from "@/domain/dashboard";
 
 export function AdminDashboard({ summary }: { summary: DashboardSummary }) {
@@ -18,6 +19,8 @@ export function AdminDashboard({ summary }: { summary: DashboardSummary }) {
         <DashboardCard label="다가오는 마감" value={summary.upcomingDeadlineCount} tone="brand" icon={CalendarClock} description="오늘 이후 처리할 일정입니다." />
         <DashboardCard label="휴가 승인 대기" value={summary.pendingLeaveCount} tone="amber" icon={Plane} description="처리가 필요한 휴가 요청입니다." />
       </div>
+
+      <WorkOverview summary={summary} />
     </section>
   );
 }

@@ -38,6 +38,7 @@ const defaultTimeZone = "Asia/Seoul";
 
 export type DashboardSummary = {
   totalWorkCount: number;
+  completedWorkCount: number;
   delayedWorkCount: number;
   reviewNeededWorkCount: number;
   todayWorkCount: number;
@@ -137,6 +138,7 @@ export function summarizeDashboard(input: DashboardInput): DashboardSummary {
 
   return {
     totalWorkCount: input.workItems.length,
+    completedWorkCount: input.workItems.filter((item) => completedStatuses.has(item.status)).length,
     delayedWorkCount: input.workItems.filter((item) => isPastDue(item, today, timeZone)).length,
     reviewNeededWorkCount: input.workItems.filter((item) => item.status === WorkStatus.REVIEW_NEEDED).length,
     todayWorkCount: input.workItems.filter((item) => isDueToday(item, today, timeZone)).length,

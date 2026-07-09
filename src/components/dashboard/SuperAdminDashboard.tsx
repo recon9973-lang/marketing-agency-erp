@@ -1,6 +1,7 @@
 import { AlertTriangle, CalendarClock, ClipboardList, CreditCard, Wallet } from "lucide-react";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { WorkOverview } from "@/components/dashboard/WorkOverview";
 import type { DashboardSummary } from "@/domain/dashboard";
 
 const currencyFormatter = new Intl.NumberFormat("ko-KR");
@@ -21,6 +22,8 @@ export function SuperAdminDashboard({ summary }: { summary: DashboardSummary }) 
         <DashboardCard label="월 지출" value={`${currencyFormatter.format(summary.expenseTotal)}원`} tone="slate" icon={CreditCard} description="등록된 회사 지출 합계입니다." />
         <DashboardCard label="휴가 승인 대기" value={summary.pendingLeaveCount} tone="amber" icon={CalendarClock} description="처리가 필요한 휴가 요청입니다." />
       </div>
+
+      <WorkOverview summary={summary} />
     </section>
   );
 }

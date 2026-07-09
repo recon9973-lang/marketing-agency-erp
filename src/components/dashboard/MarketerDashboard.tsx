@@ -1,6 +1,7 @@
 import { BriefcaseBusiness, ClipboardList, FileText, Plane } from "lucide-react";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { WorkOverview } from "@/components/dashboard/WorkOverview";
 import type { DashboardSummary } from "@/domain/dashboard";
 
 export function MarketerDashboard({ summary }: { summary: DashboardSummary }) {
@@ -18,6 +19,8 @@ export function MarketerDashboard({ summary }: { summary: DashboardSummary }) {
         <DashboardCard label="보고서 작업" value={summary.reportTaskCount} tone="amber" icon={FileText} description="월간 보고서와 성과자료 작업입니다." />
         <DashboardCard label="잔여 연차" value={`${summary.leaveBalanceDays}일`} tone="green" icon={Plane} description="사용 가능한 연차 잔여일수입니다." />
       </div>
+
+      <WorkOverview summary={summary} />
     </section>
   );
 }
