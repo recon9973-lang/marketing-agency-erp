@@ -189,6 +189,8 @@ model User {
   loginHistory            LoginHistory[]  @relation("UserLoginHistory")
   authoredContracts       Contract[]      @relation("ContractAuthor")
   consultingReports       ConsultingReport[] @relation("ConsultingAuthor")
+  requestedApprovals      Approval[]      @relation("ApprovalRequester")
+  decidedApprovals        Approval[]      @relation("ApprovalApprover")
   documentTemplates       DocumentTemplate[] @relation("DocTemplateAuthor")
   weeklyReports           WeeklyReport[]  @relation("WeeklyReportAuthor")
   vaultFolders            VaultFolder[]   @relation("VaultFolderCreator")
@@ -269,6 +271,7 @@ model Client {
   quotes            Quote[]
   surveys           Survey[]
   contentPlans      ContentPlan[]
+  approvals         Approval[]
 
   @@index([assignedMarketerId])
   @@index([industryCategoryId])
@@ -887,6 +890,31 @@ model Quote {
   client       Client   @relation(fields: [clientId], references: [id])
 
   @@index([clientId, tier])
+  @@index([orgId])
+}
+
+/// 통합 승인 — 계약·견적·원고·콘텐츠·컴플라이언스 승인을 한 큐에서 관리.
+/// targetType/targetId로 대상 참조, title은 표시용 비정규화.
+model Approval {
+  id          String    @id @default(cuid())
+  targetType  String // CONTRACT | QUOTE | CONTENT | COMPLIANCE
+  targetId    String
+  title       String
+  clientId    String?
+  requesterId String
+  approverId  String?
+  status      String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  comment     String?
+  orgId       String?
+  createdAt   DateTime  @default(now())
+  decidedAt   DateTime?
+  requester   User      @relation("ApprovalRequester", fields: [requesterId], references: [id])
+  approver    User?     @relation("ApprovalApprover", fields: [approverId], references: [id])
+  client      Client?   @relation(fields: [clientId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+  @@index([requesterId])
   @@index([orgId])
 }
 

@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
 import { createContentPlan, updateContentPlanStatus, deleteContentPlan } from "@/server/actions/content-plans";
+import { requestApproval } from "@/server/actions/approvals";
 
 type Flag = { label: string; matched: string; code: number; severity: string };
 type Plan = {
@@ -73,6 +74,19 @@ export function ContentPlanPanel({ clientId, plans, aiConfigured, canManage }: {
     });
   }
 
+  const [requested, setRequested] = useState<string | null>(null);
+  function askApproval(id: string, topic: string) {
+    start(async () => {
+      const res = await requestApproval({ targetType: "CONTENT", targetId: id, title: topic, clientId });
+      if (!res.ok) setError("승인 요청 실패");
+      else {
+        setRequested(id);
+        setTimeout(() => setRequested(null), 1800);
+        router.refresh();
+      }
+    });
+  }
+
   return (
     <div className="space-y-4">
       {canManage ? (
@@ -122,11 +136,14 @@ export function ContentPlanPanel({ clientId, plans, aiConfigured, canManage }: {
                 </div>
 
                 {canManage ? (
-                  <div className="mt-2 flex flex-wrap gap-1">
+                  <div className="mt-2 flex flex-wrap items-center gap-1">
                     {STATUSES.map((s) => (
                       <button key={s} type="button" onClick={() => setStatus(pl.id, s)} disabled={pending || pl.status === s}
                         className={`rounded px-2 py-0.5 text-xs font-semibold ${pl.status === s ? "bg-brand text-white" : "border border-line text-slate-500 hover:bg-surface"}`}>{STATUS_LABEL[s]}</button>
                     ))}
+                    <button type="button" onClick={() => askApproval(pl.id, pl.topic)} disabled={pending} className="ml-1 rounded px-2 py-0.5 text-xs font-semibold text-brand-strong hover:bg-brand-soft disabled:opacity-50">
+                      {requested === pl.id ? "요청됨" : "승인 요청"}
+                    </button>
                   </div>
                 ) : null}
 

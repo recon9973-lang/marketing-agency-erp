@@ -7,6 +7,7 @@ import {
   CalendarCheck,
   CalendarDays,
   ChartNoAxesCombined,
+  CircleCheck,
   ClipboardList,
   CreditCard,
   FileSignature,
@@ -38,6 +39,7 @@ type ErpRoute =
   | "/ai-studio"
   | "/image-studio"
   | "/compliance"
+  | "/approvals"
   | "/keywords"
   | "/marketing-studio"
   | "/meetings"
@@ -116,6 +118,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "의료법 검수",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: ShieldCheck,
+      group: "운영"
+    },
+    {
+      href: "/approvals",
+      label: "승인함",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: CircleCheck,
       group: "운영"
     },
     {
