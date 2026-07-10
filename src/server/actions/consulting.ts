@@ -9,6 +9,7 @@ import { z } from "zod";
 import { assertCanAccessClient } from "@/domain/access-control";
 import { db } from "@/server/db";
 import { generateConsulting, isAiConfigured } from "@/server/ai/claude";
+import { fetchKeywordVolumes } from "@/server/integrations/naver-search";
 import { getDefaultOrgId } from "@/server/org";
 import {
   getAdminScopes,
@@ -47,6 +48,21 @@ export async function runConsulting(input: unknown): Promise<ActionResult<{ id: 
       competitors: d.competitors
     });
 
+    // 네이버 검색광고 API로 실제 검색량 보강(미연동 시 데모 추정치). 최대 100개.
+    const volMap = new Map<string, { total: number | null; estimated: boolean }>();
+    try {
+      const vols = await fetchKeywordVolumes(result.coreKeywords.map((k) => k.keyword).slice(0, 100));
+      for (const v of vols) volMap.set(v.keyword, { total: v.total, estimated: v.estimated });
+    } catch {
+      /* 검색량 조회 실패는 무시하고 진행 */
+    }
+    // 리포트에 저장할 키워드에 검색량 부착.
+    const enrichedKeywords = result.coreKeywords.map((k) => ({
+      ...k,
+      searchVolume: volMap.get(k.keyword)?.total ?? null,
+      estimated: volMap.get(k.keyword)?.estimated ?? true
+    }));
+
     const meta = await requestMeta();
     const orgId = await getDefaultOrgId();
     const saved = await db.$transaction(async (tx) => {
@@ -57,7 +73,7 @@ export async function runConsulting(input: unknown): Promise<ActionResult<{ id: 
           hospitalName: d.hospitalName,
           address: d.address || null,
           departments: d.departments || null,
-          keywords: result.coreKeywords,
+          keywords: enrichedKeywords,
           competitors: result.competitorAnalysis,
           marketAnalysis: result.marketAnalysis,
           summary: result.summary,
@@ -69,11 +85,11 @@ export async function runConsulting(input: unknown): Promise<ActionResult<{ id: 
       const existing = new Set(
         (await tx.keyword.findMany({ where: { clientId: d.clientId }, select: { keyword: true } })).map((k) => k.keyword)
       );
-      for (const k of result.coreKeywords) {
+      for (const k of enrichedKeywords) {
         if (existing.has(k.keyword)) continue;
         existing.add(k.keyword);
         await tx.keyword.create({
-          data: { clientId: d.clientId, keyword: k.keyword, intent: k.intent || null, priority: k.priority, channel: k.channel, orgId }
+          data: { clientId: d.clientId, keyword: k.keyword, intent: k.intent || null, priority: k.priority, channel: k.channel, searchVolume: k.searchVolume, orgId }
         });
       }
       await recordAudit(tx, {

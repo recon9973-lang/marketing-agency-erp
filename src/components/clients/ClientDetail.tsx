@@ -73,7 +73,7 @@ export function ClientDetail({
     report: {
       id: string;
       hospitalName: string;
-      keywords: { keyword: string; intent: string; priority: number; channel: string }[];
+      keywords: { keyword: string; intent: string; priority: number; channel: string; searchVolume?: number | null; estimated?: boolean }[];
       competitors: string | null;
       marketAnalysis: string | null;
       summary: string | null;

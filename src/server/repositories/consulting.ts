@@ -3,7 +3,7 @@
 // 컨설팅 리포트 조회. 권한은 호출부(거래처 접근)에서 확인.
 import { db } from "@/server/db";
 
-export type ConsultingKeywordRow = { keyword: string; intent: string; priority: number; channel: string };
+export type ConsultingKeywordRow = { keyword: string; intent: string; priority: number; channel: string; searchVolume?: number | null; estimated?: boolean };
 export type ConsultingReportView = {
   id: string;
   hospitalName: string;
