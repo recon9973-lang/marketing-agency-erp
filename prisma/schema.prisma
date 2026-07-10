@@ -267,6 +267,7 @@ model Client {
   keywords          Keyword[]
   consultingReports ConsultingReport[]
   quotes            Quote[]
+  surveys           Survey[]
 
   @@index([assignedMarketerId])
   @@index([industryCategoryId])
@@ -781,6 +782,7 @@ model Contract {
   client        Client            @relation(fields: [clientId], references: [id])
   author        User              @relation("ContractAuthor", fields: [authorId], references: [id])
   products      ContractProduct[]
+  surveys       Survey[]
 
   @@index([clientId])
   @@index([authorId])
@@ -885,6 +887,41 @@ model Quote {
 
   @@index([clientId, tier])
   @@index([orgId])
+}
+
+/// 설문폼 — 계약 상품 기반 맞춤 설문. publicToken으로 외부(거래처)가 로그인 없이 응답.
+model Survey {
+  id          String           @id @default(cuid())
+  clientId    String
+  contractId  String?
+  title       String
+  questions   Json // [{id, label, type: text|textarea|choice, options?, required}]
+  sentVia     String           @default("LINK") // LINK | KAKAO | SMS | EMAIL
+  status      String           @default("DRAFT") // DRAFT | SENT | COMPLETED
+  round       Int              @default(1) // 분기별 재설문 회차
+  publicToken String           @unique
+  orgId       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  sentAt      DateTime?
+  client      Client           @relation(fields: [clientId], references: [id])
+  contract    Contract?        @relation(fields: [contractId], references: [id])
+  responses   SurveyResponse[]
+
+  @@index([clientId])
+  @@index([contractId])
+  @@index([orgId])
+}
+
+/// 설문 응답 — 외부(거래처)가 제출. 완료 시 콘텐츠 기획 태스크로 연결(Phase 4).
+model SurveyResponse {
+  id          String   @id @default(cuid())
+  surveyId    String
+  answers     Json // {questionId: value}
+  submittedAt DateTime @default(now())
+  survey      Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+
+  @@index([surveyId])
 }
 
 /// 서식(문서 템플릿) — 계약서·비밀유지·근로계약 등. 관리자가 추가/수정/삭제.

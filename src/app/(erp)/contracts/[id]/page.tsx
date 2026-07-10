@@ -2,8 +2,10 @@ import { notFound, redirect } from "next/navigation";
 import { Role } from "@/domain/types";
 import { getContractDetail } from "@/server/repositories/contracts";
 import { listActiveProducts } from "@/server/repositories/products";
+import { listSurveysForContract } from "@/server/repositories/surveys";
 import { ContractDetailView } from "@/components/contracts/ContractDetailView";
 import { ContractProducts } from "@/components/contracts/ContractProducts";
+import { ContractSurveys } from "@/components/contracts/ContractSurveys";
 import { getCurrentUser } from "@/server/session";
 
 export default async function ContractDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -15,7 +17,9 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
   if (!contract) notFound();
 
   const canDelete = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN || contract.authorName === user.name;
-  const productOptions = await listActiveProducts();
+  // 계약 상세를 볼 수 있는 사람은 이미 거래처 접근 권한이 있으므로 설문 관리 허용.
+  const canManageSurvey = true;
+  const [productOptions, surveys] = await Promise.all([listActiveProducts(), listSurveysForContract(id)]);
 
   return (
     <div className="space-y-6">
@@ -29,6 +33,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
         options={productOptions}
         locked={contract.status === "SIGNED"}
       />
+      <ContractSurveys contractId={contract.id} surveys={surveys} canManage={canManageSurvey} />
     </div>
   );
 }
