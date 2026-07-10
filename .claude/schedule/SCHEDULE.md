@@ -408,6 +408,7 @@ _진행 전/진행 중_
 - `2026. 07. 08. 17:37` [created] 작업 등록
 - `2026. 07. 08. 18:25` [started] 느린 화면 원인 분석 착수
 - `2026. 07. 08. 18:30` [update] 1차 최적화 배포: (erp) loading.tsx 스켈레톤 추가(프리페치+즉시 피드백), getCurrentUser React cache()로 세션 DB 왕복 중복 제거. erp-v1 커밋 24e942f. 사용자 체감 확인 대기.
+- `2026. 07. 10. 15:27` [update] 근본 해결 시도 — Neon 서버리스 WS 드라이버 어댑터(@prisma/adapter-neon) 적용. 런타임 직접TCP연결→WebSocket으로 전환해 매 요청 핸드셰이크 제거. erp-v1 f9ea591 배포. 실환경 버튼 속도 검증 대기
 
 ---
 
