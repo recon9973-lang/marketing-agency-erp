@@ -20,9 +20,15 @@ export const viewport: Viewport = {
   initialScale: 1
 };
 
+// 무-FOUC 테마 초기화 — 페인트 전에 저장값(또는 OS 선호)을 data-theme으로 지정.
+const themeInit = `(function(){try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+      </head>
       <body>
         {children}
         <RegisterServiceWorker />

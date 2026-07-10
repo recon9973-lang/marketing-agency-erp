@@ -2,12 +2,65 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * 테마 토큰 — RGB 채널 3원색으로 정의해 Tailwind `/opacity` 수식어를 유지한다.
+ * (tailwind.config: rgb(var(--x-rgb) / <alpha-value>))
+ * 라이트가 기본, [data-theme="dark"]에서 반전. 초기값은 layout의 무-FOUC 스크립트가 지정.
+ */
 :root {
-  color: #18202f;
-  background: #f7f8fb;
+  --surface-rgb: 246 245 243; /* 페이지 배경 */
+  --card-rgb: 255 255 255; /* 카드/패널 배경 (기존 bg-white 대응) */
+  --panel-rgb: 255 255 255; /* 사이드바/헤더 */
+  --ink-rgb: 26 28 32; /* 본문 텍스트 */
+  --line-rgb: 232 231 228; /* 경계선 */
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --surface-rgb: 14 15 18;
+  --card-rgb: 23 24 28;
+  --panel-rgb: 19 20 24;
+  --ink-rgb: 232 234 237;
+  --line-rgb: 42 44 49;
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
   font-family: Arial, Helvetica, sans-serif;
+  background: rgb(var(--surface-rgb));
+  color: rgb(var(--ink-rgb));
+}
+
+/*
+ * 다크 브리지 — 토큰(surface/ink/line)은 위 변수로 이미 반전되지만,
+ * 기존 페이지 72곳이 쓰는 하드코딩 유틸리티(bg-white·slate)는 built-in이라 별도 보정.
+ * 토큰 기반으로 새로 짜는 셸/신규 화면은 이 브리지 없이도 자동 반전된다.
+ */
+:root[data-theme="dark"] .bg-white {
+  background-color: rgb(var(--card-rgb)) !important;
+}
+:root[data-theme="dark"] .bg-white\/95 {
+  background-color: rgb(var(--card-rgb) / 0.95) !important;
+}
+:root[data-theme="dark"] .bg-slate-50,
+:root[data-theme="dark"] .bg-slate-100 {
+  background-color: rgb(var(--surface-rgb)) !important;
+}
+:root[data-theme="dark"] .border-slate-100,
+:root[data-theme="dark"] .border-slate-200 {
+  border-color: rgb(var(--line-rgb)) !important;
+}
+:root[data-theme="dark"] .text-slate-900,
+:root[data-theme="dark"] .text-slate-800,
+:root[data-theme="dark"] .text-slate-700 {
+  color: #d7dade !important;
+}
+:root[data-theme="dark"] .text-slate-600,
+:root[data-theme="dark"] .text-slate-500 {
+  color: #a3a9b3 !important;
+}
+:root[data-theme="dark"] .text-slate-400,
+:root[data-theme="dark"] .text-slate-300 {
+  color: #6b7280 !important;
 }

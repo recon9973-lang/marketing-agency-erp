@@ -6,13 +6,13 @@ export function BrandLogo({
   className = "",
   animateDot = false
 }: {
-  /** light: 밝은 배경용(검정 글자) · dark: 어두운 배경용(흰 글자) */
-  tone?: "light" | "dark";
+  /** light: 밝은 배경(검정 글자) · dark: 어두운 배경(흰 글자) · auto: 테마 토큰(ink) 자동 대응 */
+  tone?: "light" | "dark" | "auto";
   className?: string;
   /** 오렌지 액센트 도트에서 링이 퍼지는 이팩트(로딩 등). 기본 off. */
   animateDot?: boolean;
 }) {
-  const wordColor = tone === "dark" ? "#ffffff" : "#18202f";
+  const wordColor = tone === "auto" ? "rgb(var(--ink-rgb))" : tone === "dark" ? "#ffffff" : "#18202f";
   const dotSize = { width: "0.23em", height: "0.23em" };
   return (
     <span
