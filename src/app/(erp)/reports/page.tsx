@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { CreateReportForm } from "@/components/reports/CreateReportForm";
+import { GenerateMonthlyReport } from "@/components/reports/GenerateMonthlyReport";
 import { ReportStatus } from "@/domain/types";
 import { fetchReportsForUser, type ReportListItem } from "@/server/repositories/reports";
 import { listClientsForUser } from "@/server/repositories/clients";
@@ -110,6 +111,8 @@ export default async function ReportsPage() {
           </div>
         </div>
       </div>
+
+      <GenerateMonthlyReport clients={clientOptions} />
 
       <CreateReportForm clients={clientOptions} />
 

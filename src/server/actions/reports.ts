@@ -66,6 +66,75 @@ export async function createReport(input: unknown): Promise<ActionResult<{ id: s
   });
 }
 
+const genSchema = z.object({
+  clientId: z.string().min(1),
+  reportingMonth: z.string().regex(/^\d{4}-\d{2}$/)
+});
+
+/**
+ * 월간 보고서 자동 초안 — 계약 상품·완료 업무·순위·게시 콘텐츠를 집계해 지표를 채운다.
+ * (clientId, reportingMonth) 기준 upsert. 이미 있으면 지표만 갱신(DRAFT로).
+ */
+export async function generateMonthlyReport(input: unknown): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const p = genSchema.safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    const { clientId, reportingMonth } = p.data;
+
+    const client = await db.client.findUnique({ where: { id: clientId }, select: { name: true, assignedMarketerId: true } });
+    if (!client) throw new Error("NOT_FOUND");
+    await assertClient(user, clientId, client.assignedMarketerId);
+
+    const start = new Date(`${reportingMonth}-01T00:00:00.000Z`);
+    const end = new Date(start);
+    end.setUTCMonth(end.getUTCMonth() + 1);
+
+    // 집계
+    const [contractProducts, completedWork, publishedContent, rankRows] = await Promise.all([
+      db.contractProduct.findMany({ where: { contract: { clientId } }, select: { product: { select: { name: true } } } }),
+      db.workItem.count({ where: { clientId, status: "COMPLETED", updatedAt: { gte: start, lt: end } } }),
+      db.contentPlan.count({ where: { clientId, status: "PUBLISHED", month: reportingMonth } }),
+      db.placeRankRecord.findMany({ where: { clientId, recordedOn: { gte: start, lt: end } }, orderBy: { recordedOn: "desc" }, select: { keyword: true, rank: true } })
+    ]);
+
+    const products = [...new Set(contractProducts.map((cp) => cp.product.name))];
+    // 키워드별 최신 순위(내림차순 정렬이라 첫 등장이 최신).
+    const rankMap = new Map<string, number>();
+    for (const r of rankRows) if (!rankMap.has(r.keyword)) rankMap.set(r.keyword, r.rank);
+    const keywordRanks = [...rankMap.entries()].map(([keyword, rank]) => ({ keyword, rank }));
+
+    const monthLabel = `${start.getUTCFullYear()}년 ${start.getUTCMonth() + 1}월`;
+    const summary =
+      `${client.name} ${monthLabel} 운영 요약: 계약 상품 ${products.length}종 운영, ` +
+      `완료 업무 ${completedWork}건, 게시 콘텐츠 ${publishedContent}건` +
+      (keywordRanks.length ? `, 순위 추적 ${keywordRanks.length}개 키워드.` : ".");
+
+    const metrics = {
+      summary,
+      "계약 상품": products.join(", ") || "-",
+      "완료 업무": `${completedWork}건`,
+      "게시 콘텐츠": `${publishedContent}건`,
+      keywordRanks
+    };
+
+    const meta = await requestMeta();
+    const saved = await db.$transaction(async (tx) => {
+      const rep = await tx.report.upsert({
+        where: { clientId_reportingMonth: { clientId, reportingMonth: start } },
+        create: { clientId, authorId: user.id, reportingMonth: start, title: `${client.name} ${monthLabel} 월간보고서`, status: "DRAFT", metrics },
+        update: { metrics, status: "DRAFT" }
+      });
+      await recordAudit(tx, { actorId: user.id, action: "report.autoGenerate", targetType: "Report", targetId: rep.id, afterState: { completedWork, publishedContent, products: products.length }, ...meta });
+      return rep;
+    });
+
+    revalidatePath("/reports");
+    revalidatePath(`/clients/${clientId}`);
+    return { id: saved.id };
+  });
+}
+
 /** 성과 지표 저장 (JSON). 키워드 순위 자동수집분 + 수기분 병합. */
 export async function updateReportMetrics(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
