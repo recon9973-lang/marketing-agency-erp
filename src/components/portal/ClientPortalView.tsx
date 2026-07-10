@@ -4,13 +4,44 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckCircle2, MessageSquare } from "lucide-react";
+import { CheckCircle2, MessageSquare, TrendingUp } from "lucide-react";
 import { confirmContentByClient, submitClientFeedback } from "@/server/actions/client-portal";
+import type { PortalPerformance } from "@/server/repositories/client-portal";
 
 type Report = { id: string; title: string; month: string; summary: string; keywordRanks: { keyword: string; rank: number | null }[] };
 type Plan = { id: string; month: string; topic: string; angle: string | null; faq: string[]; qa: { q: string; a: string }[] };
 
-export function ClientPortalView({ token, reports, reviewPlans }: { token: string; reports: Report[]; reviewPlans: Plan[] }) {
+const won = new Intl.NumberFormat("ko-KR");
+const CHANNEL_COLOR: Record<string, string> = { place: "#d9662e", blog: "#3b6fe0", homepage: "#10b981" };
+
+// 방문자 추이 스파크라인 — 끝점 원 없음(직선 캡).
+function Sparkline({ points, color }: { points: number[]; color: string }) {
+  if (points.length < 2) return null;
+  const max = Math.max(1, ...points);
+  const min = Math.min(...points);
+  const range = max - min || 1;
+  const w = 120;
+  const h = 34;
+  const step = w / (points.length - 1);
+  const d = points.map((v, i) => `${i * step},${h - ((v - min) / range) * h}`).join(" ");
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="h-9 w-full" preserveAspectRatio="none" role="img">
+      <polyline points={d} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="miter" strokeLinecap="butt" />
+    </svg>
+  );
+}
+
+export function ClientPortalView({
+  token,
+  reports,
+  reviewPlans,
+  performance
+}: {
+  token: string;
+  reports: Report[];
+  reviewPlans: Plan[];
+  performance: PortalPerformance;
+}) {
   const [pending, start] = useTransition();
   const [confirmed, setConfirmed] = useState<Record<string, boolean>>({});
   const [comments, setComments] = useState<Record<string, string>>({});
@@ -35,8 +66,51 @@ export function ClientPortalView({ token, reports, reviewPlans }: { token: strin
     });
   }
 
+  const hasPerformance = performance.channels.length > 0 || performance.ranks.length > 0;
+
   return (
     <div className="space-y-8">
+      {/* 마케팅 성과 요약 */}
+      {hasPerformance ? (
+        <section>
+          <h2 className="mb-3 flex items-center gap-1.5 text-lg font-bold text-ink">
+            <TrendingUp className="h-5 w-5 text-brand" /> 마케팅 성과 <span className="text-sm font-normal text-slate-400">최근 {performance.rangeDays}일</span>
+          </h2>
+          {performance.channels.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-3">
+              {performance.channels.map((c) => (
+                <div key={c.channel} className="rounded-xl border border-line bg-white p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-slate-600">{c.label} 방문자</span>
+                    <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: CHANNEL_COLOR[c.channel] ?? "#94a3b8" }} />
+                  </div>
+                  <p className="mt-1 text-2xl font-extrabold tabular-nums text-ink">{won.format(c.latest)}</p>
+                  <p className={`text-xs font-semibold ${c.delta7 > 0 ? "text-emerald-600" : c.delta7 < 0 ? "text-rose-500" : "text-slate-400"}`}>
+                    {c.delta7 > 0 ? `▲ ${won.format(c.delta7)}` : c.delta7 < 0 ? `▼ ${won.format(Math.abs(c.delta7))}` : "변동 없음"} <span className="font-normal text-slate-400">지난주 대비</span>
+                  </p>
+                  <div className="mt-2">
+                    <Sparkline points={c.points} color={CHANNEL_COLOR[c.channel] ?? "#94a3b8"} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {performance.ranks.length > 0 ? (
+            <div className="mt-3 rounded-xl border border-line bg-white p-4">
+              <p className="mb-2 text-sm font-bold text-ink">검색 순위</p>
+              <ul className="flex flex-wrap gap-2">
+                {performance.ranks.map((r) => (
+                  <li key={r.keyword} className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-sm text-slate-600">
+                    {r.keyword} <b className="text-brand-strong">{r.latest != null ? `${r.latest}위` : "-"}</b>
+                    {r.delta ? <span className={r.delta > 0 ? "text-emerald-600" : "text-rose-500"}>{r.delta > 0 ? `▲${r.delta}` : `▼${Math.abs(r.delta)}`}</span> : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       {/* 컨펌 대기 콘텐츠 */}
       <section>
         <h2 className="mb-3 text-lg font-bold text-ink">컨펌 요청 콘텐츠 ({reviewPlans.length})</h2>

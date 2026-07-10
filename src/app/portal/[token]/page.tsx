@@ -25,7 +25,7 @@ export default async function ClientPortalPage({ params }: { params: Promise<{ t
         <h1 className="mt-1 text-2xl font-bold text-ink">{portal.clientName}</h1>
         <p className="mt-1 text-sm text-slate-500">콘텐츠 컨펌, 월간 보고서 확인, 피드백을 남기실 수 있습니다.</p>
       </header>
-      <ClientPortalView token={token} reports={portal.reports} reviewPlans={portal.reviewPlans} />
+      <ClientPortalView token={token} reports={portal.reports} reviewPlans={portal.reviewPlans} performance={portal.performance} />
     </main>
   );
 }
