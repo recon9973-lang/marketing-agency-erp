@@ -1,10 +1,8 @@
 import { redirect } from "next/navigation";
-import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
-import { MarketerDashboard } from "@/components/dashboard/MarketerDashboard";
-import { SuperAdminDashboard } from "@/components/dashboard/SuperAdminDashboard";
+import { DashboardHome } from "@/components/dashboard/DashboardHome";
 import { summarizeDashboard } from "@/domain/dashboard";
-import { Role } from "@/domain/types";
 import { fetchDashboardInput } from "@/server/repositories/dashboard";
+import { listComplianceRiskItems } from "@/server/repositories/dashboard-extras";
 import { getCurrentUser } from "@/server/session";
 
 const businessTimeZone = "Asia/Seoul";
@@ -30,19 +28,14 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const dashboardInput = await fetchDashboardInput(user, {
-    today: getBusinessDate(),
-    timeZone: businessTimeZone
-  });
+  const [dashboardInput, riskItems] = await Promise.all([
+    fetchDashboardInput(user, {
+      today: getBusinessDate(),
+      timeZone: businessTimeZone
+    }),
+    listComplianceRiskItems(user)
+  ]);
   const summary = summarizeDashboard(dashboardInput);
 
-  if (user.role === Role.SUPER_ADMIN) {
-    return <SuperAdminDashboard summary={summary} />;
-  }
-
-  if (user.role === Role.ADMIN) {
-    return <AdminDashboard summary={summary} />;
-  }
-
-  return <MarketerDashboard summary={summary} />;
+  return <DashboardHome userName={user.name} role={user.role} summary={summary} riskItems={riskItems} />;
 }

@@ -21,7 +21,6 @@ function ProgressDonut({ value, total }: { value: number; total: number }) {
           fill="none"
           stroke="#d9662e"
           strokeWidth="12"
-          strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={offset}
         />
