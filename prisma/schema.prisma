@@ -268,6 +268,7 @@ model Client {
   consultingReports ConsultingReport[]
   quotes            Quote[]
   surveys           Survey[]
+  contentPlans      ContentPlan[]
 
   @@index([assignedMarketerId])
   @@index([industryCategoryId])
@@ -886,6 +887,30 @@ model Quote {
   client       Client   @relation(fields: [clientId], references: [id])
 
   @@index([clientId, tier])
+  @@index([orgId])
+}
+
+/// 콘텐츠 기획안 — 월별·키워드별 주제 기획. AI 초안(방향·FAQ·Q&A) + 의료법 위험 표시.
+/// status: PLANNED → DRAFTED → REVIEWED → APPROVED → PUBLISHED.
+model ContentPlan {
+  id             String   @id @default(cuid())
+  clientId       String
+  month          String // "YYYY-MM"
+  keyword        String?
+  topic          String
+  angle          String? // 콘텐츠 방향
+  faq            Json? // string[]
+  qa             Json? // [{q, a}]
+  draft          String? // 원고 초안(선택)
+  complianceRisk Json? // {high, medium, flags:[{label,matched,code,severity}]}
+  status         String   @default("PLANNED")
+  orgId          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  client         Client   @relation(fields: [clientId], references: [id])
+
+  @@index([clientId, month])
+  @@index([status])
   @@index([orgId])
 }
 

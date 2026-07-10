@@ -6,6 +6,7 @@ import { getClientDetail } from "@/server/repositories/clients";
 import { getHospitalProfile } from "@/server/repositories/hospital-profile";
 import { getLatestConsulting } from "@/server/repositories/consulting";
 import { listQuotes } from "@/server/repositories/quotes";
+import { listContentPlans } from "@/server/repositories/content-plans";
 import { isAiConfigured } from "@/server/ai/claude";
 import { getIndustryTree } from "@/server/repositories/masters";
 import { listActiveMembers, listComments } from "@/server/repositories/collab";
@@ -34,7 +35,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
     detail.client.businessType === "HOSPITAL" ? getHospitalProfile(id) : Promise.resolve(null),
     getLatestConsulting(id)
   ]);
-  const quotes = await listQuotes(id);
+  const [quotes, contentPlans] = await Promise.all([listQuotes(id), listContentPlans(id)]);
 
   const consulting = {
     aiConfigured: isAiConfigured(),
@@ -68,6 +69,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         reports={detail.reports}
         hospitalProfile={hospitalProfile}
         consulting={consulting}
+        contentPlans={contentPlans}
         canViewFinance={canViewFinance}
         canManage={canManage}
         industries={industries}

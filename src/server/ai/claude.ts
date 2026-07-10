@@ -266,3 +266,28 @@ export async function generateConsulting(input: ConsultingInput): Promise<Consul
     summary: String(res.summary ?? "")
   };
 }
+
+export type ContentPlanInput = { topic: string; keyword?: string | null; hospitalContext?: string | null; prohibited?: string | null };
+export type ContentPlanDraft = { angle: string; faq: string[]; qa: { q: string; a: string }[] };
+
+/** 콘텐츠 기획 — 주제·키워드로 콘텐츠 방향·FAQ·Q&A 초안을 생성한다(의료법 준수). */
+export async function generateContentPlan(input: ContentPlanInput): Promise<ContentPlanDraft> {
+  const system =
+    "당신은 한국 병원 콘텐츠 기획자입니다. 주제로 블로그/콘텐츠 방향(angle), 자주 묻는 질문(FAQ), 환자 Q&A를 기획합니다. " +
+    "반드시 이 JSON만 출력하세요: " +
+    '{"angle": string, "faq": string[], "qa": [{"q": string, "a": string}]}. ' +
+    "angle은 2~4문장, faq 5~8개, qa 4~6개. " +
+    "의료광고법상 치료효과 보장·최상급(최고/유일)·완치·부작용 없음·비급여 할인 유인·후기성 표현은 절대 쓰지 마세요." +
+    (input.prohibited ? ` 특히 다음 표현은 금지: ${input.prohibited}` : "");
+  const lines = [
+    `주제: ${input.topic}`,
+    input.keyword ? `핵심 키워드: ${input.keyword}` : "",
+    input.hospitalContext ? `병원 정보: ${input.hospitalContext}` : ""
+  ].filter(Boolean);
+  const res = await completeJson<ContentPlanDraft>(system, lines.join("\n"), 3000);
+  return {
+    angle: String(res.angle ?? ""),
+    faq: Array.isArray(res.faq) ? res.faq.map(String).slice(0, 12) : [],
+    qa: Array.isArray(res.qa) ? res.qa.slice(0, 10).map((x) => ({ q: String(x.q ?? ""), a: String(x.a ?? "") })).filter((x) => x.q) : []
+  };
+}

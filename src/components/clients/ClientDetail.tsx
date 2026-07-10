@@ -9,6 +9,7 @@ import { CredentialField } from "@/components/clients/CredentialField";
 import { ClientForm } from "@/components/clients/ClientForm";
 import { HospitalProfileForm } from "@/components/clients/HospitalProfileForm";
 import { ConsultingPanel } from "@/components/clients/ConsultingPanel";
+import { ContentPlanPanel } from "@/components/clients/ContentPlanPanel";
 import { AddChannelForm } from "@/components/clients/AddChannelForm";
 import { WorkStatusButtons } from "@/components/work/WorkStatusButtons";
 import { AddWorkForm } from "@/components/work/AddWorkForm";
@@ -30,6 +31,7 @@ export function ClientDetail({
   reports,
   hospitalProfile,
   consulting,
+  contentPlans,
   canViewFinance,
   canManage,
   industries,
@@ -77,6 +79,18 @@ export function ClientDetail({
     } | null;
     quotes: { id: string; tier: string; items: { productId: string | null; name: string; monthlyFee: number; quantity: number }[]; monthlyTotal: number; status: string; createdAt: string }[];
   };
+  contentPlans: {
+    id: string;
+    month: string;
+    topic: string;
+    keyword: string | null;
+    angle: string | null;
+    faq: string[];
+    qa: { q: string; a: string }[];
+    complianceRisk: { high: number; medium: number; flags: { label: string; matched: string; code: number; severity: string }[] } | null;
+    status: string;
+    createdAt: string;
+  }[];
   canViewFinance: boolean;
   canManage: boolean;
   industries: IndustryNode[];
@@ -87,6 +101,7 @@ export function ClientDetail({
     "기본정보",
     ...(isHospital ? ["병원정보"] : []),
     "컨설팅",
+    "콘텐츠",
     "채널계정",
     "업무",
     ...(canViewFinance ? ["입금"] : []),
@@ -175,6 +190,13 @@ export function ClientDetail({
             quotes={consulting.quotes}
             canRun={canManage}
           />
+        </div>
+      )}
+
+      {tab === "콘텐츠" && (
+        <div className="rounded-xl border border-line bg-white p-4">
+          <h3 className="mb-3 text-sm font-bold text-ink">콘텐츠 기획 (AI 초안 + 의료법 검수)</h3>
+          <ContentPlanPanel clientId={client.id} plans={contentPlans} aiConfigured={consulting.aiConfigured} canManage={canManage} />
         </div>
       )}
 
