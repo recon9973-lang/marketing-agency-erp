@@ -5,10 +5,11 @@ import {
   CreditCard, FileSignature, FileText, ImageIcon, Plane, ShieldCheck, Sparkles, Wallet
 } from "lucide-react";
 import { Role } from "@/domain/types";
+import { ClientMonitor } from "@/components/dashboard/ClientMonitor";
 import { RolePipeline } from "@/components/dashboard/RolePipeline";
 import { WorkOverview } from "@/components/dashboard/WorkOverview";
 import type { DashboardSummary } from "@/domain/dashboard";
-import type { RiskItem } from "@/server/repositories/dashboard-extras";
+import type { ClientMonitorRow, RiskItem } from "@/server/repositories/dashboard-extras";
 
 const won = new Intl.NumberFormat("ko-KR");
 
@@ -71,12 +72,14 @@ export function DashboardHome({
   userName,
   role,
   summary,
-  riskItems
+  riskItems,
+  clientMonitor = []
 }: {
   userName: string;
   role: Role;
   summary: DashboardSummary;
   riskItems: RiskItem[];
+  clientMonitor?: ClientMonitorRow[];
 }) {
   const kpis = kpisFor(role, summary);
   const riskCount = riskItems.reduce((n, r) => n + (r.high > 0 ? 1 : 0), 0);
@@ -165,6 +168,9 @@ export function DashboardHome({
 
       {/* 업무 개요(완료율·상태·대기) */}
       <WorkOverview summary={summary} />
+
+      {/* 전사 운영 모니터링(최고관리자 전용) */}
+      <ClientMonitor rows={clientMonitor} />
 
       {/* 의료법 위험 콘텐츠 + 리마인더 */}
       <section className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">

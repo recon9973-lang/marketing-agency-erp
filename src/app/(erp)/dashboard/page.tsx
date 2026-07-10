@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { DashboardHome } from "@/components/dashboard/DashboardHome";
 import { summarizeDashboard } from "@/domain/dashboard";
 import { fetchDashboardInput } from "@/server/repositories/dashboard";
-import { listComplianceRiskItems } from "@/server/repositories/dashboard-extras";
+import { listClientMonitor, listComplianceRiskItems } from "@/server/repositories/dashboard-extras";
 import { getCurrentUser } from "@/server/session";
 
 const businessTimeZone = "Asia/Seoul";
@@ -28,14 +28,21 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const [dashboardInput, riskItems] = await Promise.all([
-    fetchDashboardInput(user, {
-      today: getBusinessDate(),
-      timeZone: businessTimeZone
-    }),
-    listComplianceRiskItems(user)
+  const today = getBusinessDate();
+  const [dashboardInput, riskItems, clientMonitor] = await Promise.all([
+    fetchDashboardInput(user, { today, timeZone: businessTimeZone }),
+    listComplianceRiskItems(user),
+    listClientMonitor(user, today)
   ]);
   const summary = summarizeDashboard(dashboardInput);
 
-  return <DashboardHome userName={user.name} role={user.role} summary={summary} riskItems={riskItems} />;
+  return (
+    <DashboardHome
+      userName={user.name}
+      role={user.role}
+      summary={summary}
+      riskItems={riskItems}
+      clientMonitor={clientMonitor}
+    />
+  );
 }
