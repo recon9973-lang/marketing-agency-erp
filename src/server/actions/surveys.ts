@@ -8,7 +8,14 @@ import { z } from "zod";
 
 import { assertCanAccessClient } from "@/domain/access-control";
 import { db } from "@/server/db";
+import { sendAlimtalk } from "@/server/integrations/kakao";
 import { getDefaultOrgId } from "@/server/org";
+
+// 배포 환경의 공개 베이스 URL(설문 링크 구성용).
+function appBaseUrl(): string | null {
+  const raw = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+  return raw ? raw.replace(/\/$/, "") : null;
+}
 import {
   getAdminScopes,
   recordAudit,
@@ -119,11 +126,26 @@ export async function sendSurvey(input: unknown): Promise<ActionResult> {
     const survey = await loadSurveyForEdit(p.data.id);
     const scopes = await getAdminScopes(user);
     assertCanAccessClient(user, survey.clientId, scopes, survey.client.assignedMarketerId);
+    const via = p.data.sentVia ?? "LINK";
+
+    // 카카오 알림톡 선택 시 발송 시도(미연동/실패면 링크 복사로 폴백).
+    let deliveryNote: string | undefined;
+    if (via === "KAKAO") {
+      const detail = await db.survey.findUnique({ where: { id: p.data.id }, select: { publicToken: true, title: true, client: { select: { contactPhone: true } } } });
+      const base = appBaseUrl();
+      const phone = detail?.client.contactPhone ?? "";
+      if (!phone) deliveryNote = "수신 연락처 없음 — 링크로 전달하세요";
+      else {
+        const link = base ? `${base}/survey/${detail!.publicToken}` : undefined;
+        const r = await sendAlimtalk({ to: phone, text: `[베놈] ${detail!.title} 설문을 부탁드립니다.`, link });
+        deliveryNote = r.ok ? "알림톡 발송됨" : r.provider === "none" ? "알림톡 미연동 — 링크로 전달하세요" : `알림톡 실패(${r.skipped}) — 링크로 전달하세요`;
+      }
+    }
 
     const meta = await requestMeta();
     await db.$transaction(async (tx) => {
-      await tx.survey.update({ where: { id: p.data.id }, data: { status: "SENT", sentVia: p.data.sentVia ?? "LINK", sentAt: new Date() } });
-      await recordAudit(tx, { actorId: user.id, action: "survey.send", targetType: "Survey", targetId: p.data.id, afterState: { sentVia: p.data.sentVia ?? "LINK" }, ...meta });
+      await tx.survey.update({ where: { id: p.data.id }, data: { status: "SENT", sentVia: via, sentAt: new Date() } });
+      await recordAudit(tx, { actorId: user.id, action: "survey.send", targetType: "Survey", targetId: p.data.id, afterState: { sentVia: via, delivery: deliveryNote ?? "링크" }, ...meta });
     });
     revalidatePath(`/clients/${survey.clientId}`);
     if (survey.contractId) revalidatePath(`/contracts/${survey.contractId}`);
