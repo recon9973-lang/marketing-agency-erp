@@ -5,6 +5,7 @@ import {
   CreditCard, FileSignature, FileText, ImageIcon, Plane, ShieldCheck, Sparkles, Wallet
 } from "lucide-react";
 import { Role } from "@/domain/types";
+import { RolePipeline } from "@/components/dashboard/RolePipeline";
 import { WorkOverview } from "@/components/dashboard/WorkOverview";
 import type { DashboardSummary } from "@/domain/dashboard";
 import type { RiskItem } from "@/server/repositories/dashboard-extras";
@@ -126,6 +127,9 @@ export function DashboardHome({
           </Link>
         </div>
       </section>
+
+      {/* 역할별 워크플로우 파이프라인 */}
+      <RolePipeline role={role} summary={summary} riskCount={riskCount} />
 
       {/* KPI */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
