@@ -149,19 +149,60 @@ export async function deleteSurvey(input: unknown): Promise<ActionResult> {
   });
 }
 
+function currentMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 // 외부(거래처) 응답 제출 — 로그인 불필요. publicToken으로만 접근.
+// 완료 시: 설문 키워드 답변으로 콘텐츠 기획(PLANNED) 자동 생성 + 담당자 알림.
 export async function submitSurveyResponse(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
     const p = z.object({ token: z.string().min(1), answers: z.record(z.string(), z.string()) }).safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
 
-    const survey = await db.survey.findUnique({ where: { publicToken: p.data.token }, select: { id: true, status: true } });
+    const survey = await db.survey.findUnique({
+      where: { publicToken: p.data.token },
+      select: { id: true, status: true, clientId: true, orgId: true, title: true, client: { select: { name: true, assignedMarketerId: true } } }
+    });
     if (!survey) throw new Error("NOT_FOUND");
     if (survey.status === "COMPLETED") throw new Error("ALREADY_SUBMITTED");
+
+    // 응답의 키워드로 콘텐츠 기획 초안(최대 5개). 없으면 온보딩 기반 1개.
+    const kwRaw = p.data.answers["keywords"] ?? "";
+    const keywords = kwRaw.split(/[,\n]/).map((s) => s.trim()).filter((s) => s.length > 0).slice(0, 5);
+    const month = currentMonth();
 
     await db.$transaction(async (tx) => {
       await tx.surveyResponse.create({ data: { surveyId: survey.id, answers: p.data.answers } });
       await tx.survey.update({ where: { id: survey.id }, data: { status: "COMPLETED" } });
+
+      const plans = keywords.length > 0
+        ? keywords.map((kw) => ({ topic: `${kw} 콘텐츠 기획`, keyword: kw }))
+        : [{ topic: "온보딩 설문 기반 콘텐츠 기획", keyword: null as string | null }];
+      for (const pl of plans) {
+        await tx.contentPlan.create({
+          data: { clientId: survey.clientId, month, topic: pl.topic, keyword: pl.keyword, status: "PLANNED", orgId: survey.orgId }
+        });
+      }
+
+      // 담당 마케터에게 알림(외부 제출이라 actorId 없음).
+      if (survey.client.assignedMarketerId) {
+        await tx.notification.create({
+          data: {
+            userId: survey.client.assignedMarketerId,
+            type: "SURVEY_COMPLETED",
+            title: `${survey.client.name} 설문 응답 완료`,
+            body: `콘텐츠 기획 ${plans.length}건이 자동 생성되었습니다.`,
+            link: `/clients/${survey.clientId}`,
+            targetType: "Survey",
+            targetId: survey.id,
+            orgId: survey.orgId
+          }
+        });
+      }
     });
+
+    revalidatePath(`/clients/${survey.clientId}`);
   });
 }
