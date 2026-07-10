@@ -5,8 +5,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { FileSpreadsheet } from "lucide-react";
+import { FileDown, FileSpreadsheet } from "lucide-react";
 import { generateQuoteSet, updateQuoteStatus } from "@/server/actions/quotes";
+import { printDocument, escapeHtml } from "@/lib/print-doc";
 
 type Item = { productId: string | null; name: string; monthlyFee: number; quantity: number };
 type Quote = { id: string; tier: string; items: Item[]; monthlyTotal: number; status: string; createdAt: string };
@@ -30,6 +31,15 @@ export function QuotePanel({ clientId, quotes, canManage }: { clientId: string; 
     });
   }
 
+  function exportQuotes() {
+    const tiers = quotes.map((q) => {
+      const rows = q.items.map((it) => `<tr><td>${escapeHtml(it.name)}</td><td style="text-align:right">${won.format(it.monthlyFee)}원</td><td style="text-align:center">${it.quantity}</td></tr>`).join("");
+      return `<div class="tier"><h2>${TIER_LABEL[q.tier] ?? q.tier} — <span class="total">${won.format(q.monthlyTotal)}원/월</span></h2>
+        <table><thead><tr><th>상품</th><th style="text-align:right">월 단가</th><th style="text-align:center">수량</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }).join("");
+    printDocument("견적서", `<p class="eyebrow">견적서 · 주식회사 베놈</p><h1>가격대별 견적 (3종)</h1><p class="muted">VAT 별도 · 유효기간 협의</p>${tiers}`);
+  }
+
   function setStatus(id: string, status: string) {
     start(async () => {
       const res = await updateQuoteStatus({ id, status });
@@ -43,9 +53,16 @@ export function QuotePanel({ clientId, quotes, canManage }: { clientId: string; 
       {canManage ? (
         <div className="flex items-center justify-between">
           <p className="text-xs text-slate-500">상품 마스터 기반 3종 견적을 생성합니다. 초안 재생성 시 기존 초안은 대체됩니다.</p>
-          <button type="button" onClick={generate} disabled={pending} className="inline-flex items-center gap-1.5 rounded-md bg-brand px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">
-            <FileSpreadsheet className="h-4 w-4" /> {pending ? "생성 중…" : quotes.length ? "견적 재생성" : "견적 3종 생성"}
-          </button>
+          <div className="flex items-center gap-2">
+            {quotes.length > 0 ? (
+              <button type="button" onClick={exportQuotes} className="inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-2 text-sm font-semibold text-slate-700 hover:bg-surface">
+                <FileDown className="h-4 w-4" /> PDF
+              </button>
+            ) : null}
+            <button type="button" onClick={generate} disabled={pending} className="inline-flex items-center gap-1.5 rounded-md bg-brand px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">
+              <FileSpreadsheet className="h-4 w-4" /> {pending ? "생성 중…" : quotes.length ? "견적 재생성" : "견적 3종 생성"}
+            </button>
+          </div>
         </div>
       ) : null}
       {error ? <p className="text-sm text-danger">{error}</p> : null}

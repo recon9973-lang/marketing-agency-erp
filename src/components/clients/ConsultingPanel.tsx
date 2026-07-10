@@ -5,9 +5,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles } from "lucide-react";
+import { FileDown, Sparkles } from "lucide-react";
 import { runConsulting } from "@/server/actions/consulting";
 import { QuotePanel } from "@/components/clients/QuotePanel";
+import { printDocument, escapeHtml } from "@/lib/print-doc";
 
 type KeywordRow = { keyword: string; intent: string; priority: number; channel: string };
 type Report = {
@@ -45,6 +46,20 @@ export function ConsultingPanel({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ ...defaults, competitors: "" });
+
+  function exportReport(r: NonNullable<Report>) {
+    const kwRows = r.keywords.map((k) => `<tr><td>${escapeHtml(k.keyword)}</td><td>${escapeHtml(k.intent)}</td><td>${escapeHtml(CHANNEL_LABEL[k.channel] ?? k.channel)}</td><td>${k.priority}</td></tr>`).join("");
+    const html = `
+      <p class="eyebrow">컨설팅 리포트 · 주식회사 베놈</p>
+      <h1>${escapeHtml(r.hospitalName)}</h1>
+      ${r.summary ? `<p>${escapeHtml(r.summary)}</p>` : ""}
+      <h2>핵심 키워드 (${r.keywords.length})</h2>
+      <table><thead><tr><th>키워드</th><th>의도</th><th>채널</th><th>우선</th></tr></thead><tbody>${kwRows}</tbody></table>
+      ${r.competitors ? `<h2>경쟁 병원 분석</h2><div>${escapeHtml(r.competitors)}</div>` : ""}
+      ${r.marketAnalysis ? `<h2>상권 분석</h2><div>${escapeHtml(r.marketAnalysis)}</div>` : ""}
+    `;
+    printDocument(`${r.hospitalName} 컨설팅 리포트`, html);
+  }
 
   function run() {
     setError(null);
@@ -92,7 +107,12 @@ export function ConsultingPanel({
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm font-bold text-ink">최신 컨설팅 리포트</p>
-            <span className="text-xs text-slate-400">{dateFmt.format(new Date(report.createdAt))}</span>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => exportReport(report)} className="inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-surface">
+                <FileDown className="h-3.5 w-3.5" /> PDF
+              </button>
+              <span className="text-xs text-slate-400">{dateFmt.format(new Date(report.createdAt))}</span>
+            </div>
           </div>
 
           {report.summary ? <p className="rounded-lg border border-line bg-surface/40 p-3 text-sm leading-6 text-slate-700">{report.summary}</p> : null}
