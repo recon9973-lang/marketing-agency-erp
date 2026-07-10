@@ -14,12 +14,10 @@ export async function listInsightClients(user: CurrentUser): Promise<InsightClie
     user.role === Role.MARKETER
       ? { active: true, assignedMarketerId: user.id }
       : { active: true };
-  const clients = await db.client.findMany({
-    where,
-    orderBy: { name: "asc" },
-    select: { id: true, name: true }
-  });
-  return clients;
+  // 방어적: DB 일시 오류에도 화면이 죽지 않도록 빈 목록으로 강등.
+  return db.client
+    .findMany({ where, orderBy: { name: "asc" }, select: { id: true, name: true } })
+    .catch(() => []);
 }
 
 export type SeriesPoint = { date: string; value: number };
@@ -90,35 +88,45 @@ export async function getClientInsight(
   clientId: string,
   rangeDays = 30
 ): Promise<ClientInsight | null> {
-  const client = await db.client.findFirst({
-    where:
-      user.role === Role.MARKETER
-        ? { id: clientId, assignedMarketerId: user.id }
-        : { id: clientId },
-    select: { id: true, name: true }
-  });
+  const client = await db.client
+    .findFirst({
+      where:
+        user.role === Role.MARKETER
+          ? { id: clientId, assignedMarketerId: user.id }
+          : { id: clientId },
+      select: { id: true, name: true }
+    })
+    .catch(() => null);
   if (!client) return null;
 
   const since = new Date();
   since.setUTCHours(0, 0, 0, 0);
   since.setUTCDate(since.getUTCDate() - (rangeDays - 1));
 
+  // 각 쿼리를 독립적으로 방어(.catch) — 예: ChannelMetric 테이블 미생성 시에도
+  // 순위/키워드는 살아있고, 채널 위젯만 빈 상태로 강등되어 화면이 죽지 않는다.
   const [metrics, rankRows, keywords] = await Promise.all([
-    db.channelMetric.findMany({
-      where: { clientId: client.id, recordedOn: { gte: since } },
-      orderBy: { recordedOn: "asc" },
-      select: { channel: true, metric: true, recordedOn: true, value: true }
-    }),
-    db.placeRankRecord.findMany({
-      where: { clientId: client.id, recordedOn: { gte: since } },
-      orderBy: { recordedOn: "asc" },
-      select: { keyword: true, rank: true, recordedOn: true }
-    }),
-    db.keyword.findMany({
-      where: { clientId: client.id },
-      orderBy: [{ priority: "asc" }, { searchVolume: "desc" }],
-      select: { id: true, keyword: true, channel: true, intent: true, searchVolume: true, priority: true }
-    })
+    db.channelMetric
+      .findMany({
+        where: { clientId: client.id, recordedOn: { gte: since } },
+        orderBy: { recordedOn: "asc" },
+        select: { channel: true, metric: true, recordedOn: true, value: true }
+      })
+      .catch(() => []),
+    db.placeRankRecord
+      .findMany({
+        where: { clientId: client.id, recordedOn: { gte: since } },
+        orderBy: { recordedOn: "asc" },
+        select: { keyword: true, rank: true, recordedOn: true }
+      })
+      .catch(() => []),
+    db.keyword
+      .findMany({
+        where: { clientId: client.id },
+        orderBy: [{ priority: "asc" }, { searchVolume: "desc" }],
+        select: { id: true, keyword: true, channel: true, intent: true, searchVolume: true, priority: true }
+      })
+      .catch(() => [])
   ]);
 
   const visitorSeries = buildChannelSeries(metrics.filter((m) => m.metric === "visitors"));

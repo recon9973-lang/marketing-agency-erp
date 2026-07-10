@@ -64,3 +64,79 @@ body {
 :root[data-theme="dark"] .text-slate-300 {
   color: #6b7280 !important;
 }
+
+/*
+ * 액센트 틴트 카드 다크 보정 — KPI/상태 카드의 bg-*-50/100·테두리를 다크에서
+ * 은은한 반투명 틴트로 낮춘다(밝은 파스텔 방지). 아이콘/텍스트 색(500/600)은 유지해
+ * 멀티컬러 포인트를 살린다. 값 색상 500 기준 RGB, 배경 10% / 칩 18% / 테두리 22%.
+ */
+:root[data-theme="dark"] .bg-blue-50,
+:root[data-theme="dark"] .bg-blue-50\/70 {
+  background-color: rgb(59 130 246 / 0.1) !important;
+}
+:root[data-theme="dark"] .bg-blue-100 {
+  background-color: rgb(59 130 246 / 0.18) !important;
+}
+:root[data-theme="dark"] .border-blue-100,
+:root[data-theme="dark"] .border-blue-200 {
+  border-color: rgb(59 130 246 / 0.22) !important;
+}
+
+:root[data-theme="dark"] .bg-emerald-50,
+:root[data-theme="dark"] .bg-emerald-50\/70 {
+  background-color: rgb(16 185 129 / 0.1) !important;
+}
+:root[data-theme="dark"] .bg-emerald-100 {
+  background-color: rgb(16 185 129 / 0.18) !important;
+}
+:root[data-theme="dark"] .border-emerald-100,
+:root[data-theme="dark"] .border-emerald-200 {
+  border-color: rgb(16 185 129 / 0.22) !important;
+}
+
+:root[data-theme="dark"] .bg-violet-50,
+:root[data-theme="dark"] .bg-violet-50\/70 {
+  background-color: rgb(139 92 246 / 0.1) !important;
+}
+:root[data-theme="dark"] .bg-violet-100 {
+  background-color: rgb(139 92 246 / 0.18) !important;
+}
+:root[data-theme="dark"] .border-violet-100,
+:root[data-theme="dark"] .border-violet-200 {
+  border-color: rgb(139 92 246 / 0.22) !important;
+}
+
+:root[data-theme="dark"] .bg-amber-50,
+:root[data-theme="dark"] .bg-amber-50\/70,
+:root[data-theme="dark"] .bg-amber-50\/60 {
+  background-color: rgb(245 158 11 / 0.1) !important;
+}
+:root[data-theme="dark"] .bg-amber-100 {
+  background-color: rgb(245 158 11 / 0.18) !important;
+}
+:root[data-theme="dark"] .border-amber-100,
+:root[data-theme="dark"] .border-amber-200 {
+  border-color: rgb(245 158 11 / 0.22) !important;
+}
+
+:root[data-theme="dark"] .bg-rose-50,
+:root[data-theme="dark"] .bg-rose-50\/70,
+:root[data-theme="dark"] .bg-rose-50\/60 {
+  background-color: rgb(244 63 94 / 0.1) !important;
+}
+:root[data-theme="dark"] .bg-rose-100 {
+  background-color: rgb(244 63 94 / 0.18) !important;
+}
+:root[data-theme="dark"] .border-rose-100,
+:root[data-theme="dark"] .border-rose-200 {
+  border-color: rgb(244 63 94 / 0.22) !important;
+}
+
+:root[data-theme="dark"] .bg-red-50 {
+  background-color: rgb(239 68 68 / 0.1) !important;
+}
+
+/* 브랜드 소프트(오렌지 틴트) 칩/아바타 — 다크에서 오렌지 반투명으로. */
+:root[data-theme="dark"] .bg-brand-soft {
+  background-color: rgb(217 102 46 / 0.16) !important;
+}

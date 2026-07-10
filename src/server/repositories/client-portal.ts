@@ -26,17 +26,23 @@ async function getPortalPerformance(clientId: string): Promise<PortalPerformance
   since.setUTCHours(0, 0, 0, 0);
   since.setUTCDate(since.getUTCDate() - (PORTAL_RANGE_DAYS - 1));
 
+  // 방어적(.catch): ChannelMetric 테이블 미생성 등 DB 오류에도 포털이 죽지 않도록
+  // 성과 섹션만 빈 상태로 강등한다.
   const [metrics, rankRows] = await Promise.all([
-    db.channelMetric.findMany({
-      where: { clientId, metric: "visitors", recordedOn: { gte: since } },
-      orderBy: { recordedOn: "asc" },
-      select: { channel: true, value: true, recordedOn: true }
-    }),
-    db.placeRankRecord.findMany({
-      where: { clientId, recordedOn: { gte: since } },
-      orderBy: { recordedOn: "asc" },
-      select: { keyword: true, rank: true, recordedOn: true }
-    })
+    db.channelMetric
+      .findMany({
+        where: { clientId, metric: "visitors", recordedOn: { gte: since } },
+        orderBy: { recordedOn: "asc" },
+        select: { channel: true, value: true, recordedOn: true }
+      })
+      .catch(() => []),
+    db.placeRankRecord
+      .findMany({
+        where: { clientId, recordedOn: { gte: since } },
+        orderBy: { recordedOn: "asc" },
+        select: { keyword: true, rank: true, recordedOn: true }
+      })
+      .catch(() => [])
   ]);
 
   const byChannel = new Map<string, number[]>();
