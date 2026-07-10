@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { DashboardHome } from "@/components/dashboard/DashboardHome";
 import { summarizeDashboard } from "@/domain/dashboard";
 import { fetchDashboardInput } from "@/server/repositories/dashboard";
-import { listClientMonitor, listComplianceRiskItems } from "@/server/repositories/dashboard-extras";
+import { listClientConfirmations, listClientMonitor, listComplianceRiskItems } from "@/server/repositories/dashboard-extras";
 import { getCurrentUser } from "@/server/session";
 
 const businessTimeZone = "Asia/Seoul";
@@ -29,10 +29,11 @@ export default async function DashboardPage() {
   }
 
   const today = getBusinessDate();
-  const [dashboardInput, riskItems, clientMonitor] = await Promise.all([
+  const [dashboardInput, riskItems, clientMonitor, confirmations] = await Promise.all([
     fetchDashboardInput(user, { today, timeZone: businessTimeZone }),
     listComplianceRiskItems(user),
-    listClientMonitor(user, today)
+    listClientMonitor(user, today),
+    listClientConfirmations(user)
   ]);
   const summary = summarizeDashboard(dashboardInput);
 
@@ -43,6 +44,7 @@ export default async function DashboardPage() {
       summary={summary}
       riskItems={riskItems}
       clientMonitor={clientMonitor}
+      confirmations={confirmations}
     />
   );
 }

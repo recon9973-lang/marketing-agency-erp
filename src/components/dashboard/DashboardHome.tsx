@@ -5,11 +5,14 @@ import {
   CreditCard, FileSignature, FileText, ImageIcon, Plane, ShieldCheck, Sparkles, Wallet
 } from "lucide-react";
 import { Role } from "@/domain/types";
+import { ClientConfirmations } from "@/components/dashboard/ClientConfirmations";
 import { ClientMonitor } from "@/components/dashboard/ClientMonitor";
 import { RolePipeline } from "@/components/dashboard/RolePipeline";
 import { WorkOverview } from "@/components/dashboard/WorkOverview";
 import type { DashboardSummary } from "@/domain/dashboard";
-import type { ClientMonitorRow, RiskItem } from "@/server/repositories/dashboard-extras";
+import type { ClientConfirmations as Confirmations, ClientMonitorRow, RiskItem } from "@/server/repositories/dashboard-extras";
+
+const EMPTY_CONFIRMATIONS: Confirmations = { pending: [], recent: [] };
 
 const won = new Intl.NumberFormat("ko-KR");
 
@@ -73,13 +76,15 @@ export function DashboardHome({
   role,
   summary,
   riskItems,
-  clientMonitor = []
+  clientMonitor = [],
+  confirmations = EMPTY_CONFIRMATIONS
 }: {
   userName: string;
   role: Role;
   summary: DashboardSummary;
   riskItems: RiskItem[];
   clientMonitor?: ClientMonitorRow[];
+  confirmations?: Confirmations;
 }) {
   const kpis = kpisFor(role, summary);
   const riskCount = riskItems.reduce((n, r) => n + (r.high > 0 ? 1 : 0), 0);
@@ -171,6 +176,9 @@ export function DashboardHome({
 
       {/* 전사 운영 모니터링(최고관리자 전용) */}
       <ClientMonitor rows={clientMonitor} />
+
+      {/* 거래처 컨펌 관리(관리자·담당자 파이프라인) */}
+      <ClientConfirmations data={confirmations} />
 
       {/* 의료법 위험 콘텐츠 + 리마인더 */}
       <section className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">

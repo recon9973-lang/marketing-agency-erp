@@ -81,3 +81,37 @@ export async function listClientMonitor(user: CurrentUser, today: string): Promi
   rows.sort((a, b) => b.delayed - a.delayed || b.outstanding - a.outstanding || b.total - a.total);
   return rows.slice(0, 8);
 }
+
+export type PendingConfirm = { id: string; clientName: string; topic: string; month: string };
+export type ClientResponse = { id: string; clientName: string; message: string; kind: string; createdAt: string };
+export type ClientConfirmations = { pending: PendingConfirm[]; recent: ClientResponse[] };
+
+/**
+ * 거래처 컨펌 관리 — 포털에 나간 콘텐츠(REVIEWED) 중 컨펌 대기 + 최근 거래처 응답.
+ * 담당자는 본인 거래처만, 관리자/최고관리자는 전체.
+ */
+export async function listClientConfirmations(user: CurrentUser): Promise<ClientConfirmations> {
+  const clientScope = user.role === Role.MARKETER ? { assignedMarketerId: user.id } : undefined;
+  const planWhere = clientScope ? { status: "REVIEWED", clientConfirmedAt: null, client: clientScope } : { status: "REVIEWED", clientConfirmedAt: null };
+  const feedbackWhere = clientScope ? { client: clientScope } : {};
+
+  const [pendingRows, recentRows] = await Promise.all([
+    db.contentPlan.findMany({
+      where: planWhere,
+      orderBy: { updatedAt: "desc" },
+      take: 6,
+      select: { id: true, topic: true, month: true, client: { select: { name: true } } }
+    }),
+    db.clientFeedback.findMany({
+      where: feedbackWhere,
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      select: { id: true, message: true, kind: true, createdAt: true, client: { select: { name: true } } }
+    })
+  ]);
+
+  return {
+    pending: pendingRows.map((p) => ({ id: p.id, clientName: p.client.name, topic: p.topic, month: p.month })),
+    recent: recentRows.map((r) => ({ id: r.id, clientName: r.client.name, message: r.message, kind: r.kind, createdAt: r.createdAt.toISOString() }))
+  };
+}
