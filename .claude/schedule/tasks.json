@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "seq": 32,
+  "seq": 33,
   "tasks": [
     {
       "id": "TASK-001",
@@ -937,6 +937,34 @@
           "at": "2026-07-10T01:46:10.203Z",
           "type": "done",
           "note": "완료: erp-v1 c03cd8b. 빌드·tsc 통과, /survey/[token] 공개 라우트 생성"
+        }
+      ]
+    },
+    {
+      "id": "TASK-033",
+      "title": "Phase 4 핵심 — 의료법 검수 규칙엔진(§56)",
+      "status": "완료",
+      "tags": [
+        "개발",
+        "phase4",
+        "컴플라이언스"
+      ],
+      "plan": "의료광고법 14유형 규칙엔진(최상급·완치·후기·할인·비교·인증 등)+거래처 금지어. /compliance 검수 도구: 하이라이트+유형·심각도. AI 아닌 1차 필터",
+      "result": "erp-v1 d315dc9. 빌드·tsc 통과, 규칙엔진 스팟검증 OK. ContentPlan+통합승인은 후속",
+      "createdAt": "2026-07-10T02:28:51.330Z",
+      "updatedAt": "2026-07-10T02:28:51.447Z",
+      "startedAt": null,
+      "doneAt": "2026-07-10T02:28:51.447Z",
+      "log": [
+        {
+          "at": "2026-07-10T02:28:51.330Z",
+          "type": "created",
+          "note": "작업 등록"
+        },
+        {
+          "at": "2026-07-10T02:28:51.447Z",
+          "type": "done",
+          "note": "완료: erp-v1 d315dc9. 빌드·tsc 통과, 규칙엔진 스팟검증 OK. ContentPlan+통합승인은 후속"
         }
       ]
     }
