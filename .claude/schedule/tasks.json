@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "seq": 31,
+  "seq": 32,
   "tasks": [
     {
       "id": "TASK-001",
@@ -910,6 +910,33 @@
           "at": "2026-07-09T20:12:03.911Z",
           "type": "done",
           "note": "완료: erp-v1: 2dd5a8a(대시보드)·70b7cc6(HR발급)·a3e5095(컨설팅)·3913067(견적3종). 빌드·tsc 전부 통과"
+        }
+      ]
+    },
+    {
+      "id": "TASK-032",
+      "title": "Phase 3 — 설문폼 자동생성·발송·응답",
+      "status": "완료",
+      "tags": [
+        "개발",
+        "phase3"
+      ],
+      "plan": "Survey/SurveyResponse 모델. 계약 상품 기반 맞춤 문항(병원 기본+카테고리별). 계약 상세 생성·공개링크·발송·응답확인. 외부 응답 /survey/[token] 비로그인",
+      "result": "erp-v1 c03cd8b. 빌드·tsc 통과, /survey/[token] 공개 라우트 생성",
+      "createdAt": "2026-07-10T01:46:10.092Z",
+      "updatedAt": "2026-07-10T01:46:10.203Z",
+      "startedAt": null,
+      "doneAt": "2026-07-10T01:46:10.203Z",
+      "log": [
+        {
+          "at": "2026-07-10T01:46:10.092Z",
+          "type": "created",
+          "note": "작업 등록"
+        },
+        {
+          "at": "2026-07-10T01:46:10.203Z",
+          "type": "done",
+          "note": "완료: erp-v1 c03cd8b. 빌드·tsc 통과, /survey/[token] 공개 라우트 생성"
         }
       ]
     }
