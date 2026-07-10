@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "seq": 39,
+  "seq": 40,
   "tasks": [
     {
       "id": "TASK-001",
@@ -1129,6 +1129,34 @@
           "at": "2026-07-10T03:20:28.566Z",
           "type": "done",
           "note": "완료: erp-v1 ab7e0ea. 빌드·tsc 통과, /portal/[token] 공개 라우트. CLIENT_PORTAL 역할 대신 토큰방식으로 R2 보안경계 안전 확보"
+        }
+      ]
+    },
+    {
+      "id": "TASK-040",
+      "title": "Phase 6 — 네이버 검색량을 컨설팅 키워드 연동",
+      "status": "완료",
+      "tags": [
+        "개발",
+        "phase6",
+        "연동"
+      ],
+      "plan": "기존 fetchKeywordVolumes(HMAC) 실배선을 컨설팅에 연결. AI 키워드에 월 검색량 보강+저장, 데모 폴백, 표에 컬럼",
+      "result": "erp-v1 2233819. 빌드·tsc 통과. '키 넣으면 켜짐' 유지",
+      "createdAt": "2026-07-10T04:42:29.505Z",
+      "updatedAt": "2026-07-10T04:42:29.596Z",
+      "startedAt": null,
+      "doneAt": "2026-07-10T04:42:29.596Z",
+      "log": [
+        {
+          "at": "2026-07-10T04:42:29.505Z",
+          "type": "created",
+          "note": "작업 등록"
+        },
+        {
+          "at": "2026-07-10T04:42:29.596Z",
+          "type": "done",
+          "note": "완료: erp-v1 2233819. 빌드·tsc 통과. '키 넣으면 켜짐' 유지"
         }
       ]
     }
