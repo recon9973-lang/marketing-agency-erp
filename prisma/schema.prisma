@@ -234,6 +234,7 @@ model Client {
   name               String
   code               String            @unique
   businessType       BusinessType      @default(HOSPITAL) // 병원 버티컬 on/off
+  portalToken        String?           @unique // 거래처 포털 공개 접근 토큰(로그인 불필요)
   businessNumber     String?
   contactName        String?
   contactEmail       String?
@@ -272,6 +273,7 @@ model Client {
   surveys           Survey[]
   contentPlans      ContentPlan[]
   approvals         Approval[]
+  clientFeedback    ClientFeedback[]
 
   @@index([assignedMarketerId])
   @@index([industryCategoryId])
@@ -893,6 +895,19 @@ model Quote {
   @@index([orgId])
 }
 
+/// 거래처 피드백 — 포털에서 거래처가 남긴 의견(로그인 불필요). 담당자에게 알림.
+model ClientFeedback {
+  id        String   @id @default(cuid())
+  clientId  String
+  message   String
+  kind      String   @default("GENERAL") // GENERAL | CONTENT_CONFIRM
+  orgId     String?
+  createdAt DateTime @default(now())
+  client    Client   @relation(fields: [clientId], references: [id])
+
+  @@index([clientId, createdAt])
+}
+
 /// 통합 승인 — 계약·견적·원고·콘텐츠·컴플라이언스 승인을 한 큐에서 관리.
 /// targetType/targetId로 대상 참조, title은 표시용 비정규화.
 model Approval {
@@ -926,12 +941,14 @@ model ContentPlan {
   month          String // "YYYY-MM"
   keyword        String?
   topic          String
-  angle          String? // 콘텐츠 방향
-  faq            Json? // string[]
-  qa             Json? // [{q, a}]
-  draft          String? // 원고 초안(선택)
-  complianceRisk Json? // {high, medium, flags:[{label,matched,code,severity}]}
-  status         String   @default("PLANNED")
+  angle           String? // 콘텐츠 방향
+  faq             Json? // string[]
+  qa              Json? // [{q, a}]
+  draft           String? // 원고 초안(선택)
+  complianceRisk  Json? // {high, medium, flags:[{label,matched,code,severity}]}
+  status          String   @default("PLANNED")
+  clientConfirmedAt DateTime? // 거래처 포털 컨펌 시각
+  clientComment   String? // 거래처 컨펌 의견
   orgId          String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

@@ -10,6 +10,7 @@ import { ClientForm } from "@/components/clients/ClientForm";
 import { HospitalProfileForm } from "@/components/clients/HospitalProfileForm";
 import { ConsultingPanel } from "@/components/clients/ConsultingPanel";
 import { ContentPlanPanel } from "@/components/clients/ContentPlanPanel";
+import { ClientPortalLink } from "@/components/clients/ClientPortalLink";
 import { AddChannelForm } from "@/components/clients/AddChannelForm";
 import { WorkStatusButtons } from "@/components/work/WorkStatusButtons";
 import { AddWorkForm } from "@/components/work/AddWorkForm";
@@ -42,6 +43,7 @@ export function ClientDetail({
     name: string;
     code: string;
     businessType: "HOSPITAL" | "OTHER";
+    portalToken: string | null;
     industryName: string | null;
     assignedMarketerName: string | null;
     active: boolean;
@@ -167,6 +169,7 @@ export function ClientDetail({
                   정보 수정
                 </button>
               )}
+              {canManage && <ClientPortalLink clientId={client.id} token={client.portalToken} />}
             </div>
           )}
         </div>
