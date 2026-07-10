@@ -47,7 +47,7 @@ function stagesFor(role: Role, s: DashboardSummary, riskCount: number): Stage[] 
     ];
   }
   return [
-    { title: "거래처 파악", desc: "컨설팅·마케팅 인사이트", href: "/clients" as Route, tone: "amber", metric: { label: "담당", value: String(s.assignedClientCount) } },
+    { title: "거래처 파악", desc: "채널별 마케팅 인사이트", href: "/insights" as Route, tone: "amber", metric: { label: "담당", value: String(s.assignedClientCount) } },
     { title: "콘텐츠 기획", desc: "주제·키워드·FAQ", href: "/ai-studio" as Route, tone: "blue" },
     { title: "제작", desc: "원고·이미지·카드뉴스", href: "/image-studio" as Route, tone: "violet" },
     { title: "의료법 검수", desc: "자동 검수·위험 수정", href: "/compliance" as Route, tone: "rose", metric: { label: "위험", value: String(riskCount) } },

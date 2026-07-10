@@ -21,7 +21,8 @@ import {
   Video,
   MessageSquare,
   Search,
-  Megaphone
+  Megaphone,
+  LineChart
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -33,6 +34,7 @@ import { NotificationBell } from "@/components/collab/NotificationBell";
 type ErpRoute =
   | "/dashboard"
   | "/clients"
+  | "/insights"
   | "/contracts"
   | "/work"
   | "/manuscript"
@@ -76,6 +78,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "거래처",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: BriefcaseBusiness,
+      group: "운영"
+    },
+    {
+      href: "/insights",
+      label: "거래처 인사이트",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: LineChart,
       group: "운영"
     },
     {

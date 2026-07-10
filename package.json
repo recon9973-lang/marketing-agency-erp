@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && (prisma db push --skip-generate || echo '[build] db push 건너뜀 — DB 미연결') && node prisma/apply-manual-migrations.mjs && node prisma/seed-if-empty.mjs && next build",
+    "build": "prisma generate && (prisma db push --skip-generate || echo '[build] db push 건너뜀 — DB 미연결') && node prisma/apply-manual-migrations.mjs && node prisma/seed-if-empty.mjs && node prisma/backfill-insights.mjs && next build",
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "next lint",
