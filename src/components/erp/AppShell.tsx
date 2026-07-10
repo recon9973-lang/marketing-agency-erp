@@ -37,6 +37,7 @@ type ErpRoute =
   | "/manuscript"
   | "/ai-studio"
   | "/image-studio"
+  | "/compliance"
   | "/keywords"
   | "/marketing-studio"
   | "/meetings"
@@ -108,6 +109,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "이미지 스튜디오",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: ImageIcon,
+      group: "운영"
+    },
+    {
+      href: "/compliance",
+      label: "의료법 검수",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: ShieldCheck,
       group: "운영"
     },
     {
