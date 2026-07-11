@@ -211,6 +211,7 @@ model User {
   assignedLeads     Lead[]            @relation("LeadAssignee")
   geoQuestionApprovals GeoQuestion[]     @relation("GeoQuestionApprover")
   geoAnswerRecords     GeoAnswerRecord[] @relation("GeoAnswerRecorder")
+  channelConnections   ChannelConnection[] @relation("ChannelConnector")
 
   @@index([orgId])
 }
@@ -281,6 +282,7 @@ model Client {
   channelMetrics    ChannelMetric[]
   leads             Lead[]
   geoQuestions      GeoQuestion[]
+  channelConnections ChannelConnection[]
 
   @@index([assignedMarketerId])
   @@index([industryCategoryId])
@@ -1324,6 +1326,29 @@ model ChannelMetric {
 
   @@unique([clientId, channel, metric, recordedOn])
   @@index([clientId, recordedOn])
+  @@index([orgId])
+}
+
+/// 거래처 채널 API 연결 — GSC·GA4(구글 OAuth)·GBP 자격증명과 대상 리소스(§13 리포트 소스, §9 권한 회수).
+/// refreshTokenEnc: AES-256-GCM 암호화 저장(crypto.ts). 회수(§14) = 레코드 상태 DISCONNECTED + 토큰 삭제.
+model ChannelConnection {
+  id              String    @id @default(cuid())
+  clientId        String
+  provider        String // GOOGLE (GSC+GA4 통합 동의) | GBP | NAVER_SA
+  refreshTokenEnc String? // OAuth refresh token(암호화)
+  gscSiteUrl      String? // 예: sc-domain:myclinic.co.kr 또는 https://myclinic.co.kr/
+  ga4PropertyId   String? // 예: 123456789
+  status          String    @default("DISCONNECTED") // DISCONNECTED | CONNECTED | ERROR
+  lastSyncAt      DateTime?
+  lastError       String?
+  connectedById   String?
+  orgId           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  client          Client    @relation(fields: [clientId], references: [id])
+  connectedBy     User?     @relation("ChannelConnector", fields: [connectedById], references: [id])
+
+  @@unique([clientId, provider])
   @@index([orgId])
 }
 

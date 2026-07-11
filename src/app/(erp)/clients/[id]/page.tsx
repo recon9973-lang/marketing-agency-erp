@@ -1,5 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { ClientDetail } from "@/components/clients/ClientDetail";
+import { GoogleIntegrationPanel } from "@/components/clients/GoogleIntegrationPanel";
+import { isGoogleConfigured } from "@/server/integrations/google";
 import { CommentThread } from "@/components/collab/CommentThread";
 import { Role } from "@/domain/types";
 import { getClientDetail } from "@/server/repositories/clients";
@@ -35,7 +37,16 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
     detail.client.businessType === "HOSPITAL" ? getHospitalProfile(id) : Promise.resolve(null),
     getLatestConsulting(id)
   ]);
-  const [quotes, contentPlans] = await Promise.all([listQuotes(id), listContentPlans(id)]);
+  const [quotes, contentPlans, googleConnection] = await Promise.all([
+    listQuotes(id),
+    listContentPlans(id),
+    db.channelConnection
+      .findUnique({
+        where: { clientId_provider: { clientId: id, provider: "GOOGLE" } },
+        select: { status: true, gscSiteUrl: true, ga4PropertyId: true, lastSyncAt: true, lastError: true }
+      })
+      .catch(() => null)
+  ]);
 
   const consulting = {
     aiConfigured: isAiConfigured(),
@@ -74,6 +85,21 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         canManage={canManage}
         industries={industries}
         marketers={marketers}
+      />
+      <GoogleIntegrationPanel
+        clientId={id}
+        googleConfigured={isGoogleConfigured()}
+        connection={
+          googleConnection
+            ? {
+                status: googleConnection.status,
+                gscSiteUrl: googleConnection.gscSiteUrl,
+                ga4PropertyId: googleConnection.ga4PropertyId,
+                lastSyncAt: googleConnection.lastSyncAt?.toISOString() ?? null,
+                lastError: googleConnection.lastError
+              }
+            : null
+        }
       />
       <CommentThread
         targetType="CLIENT"

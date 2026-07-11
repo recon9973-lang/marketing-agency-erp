@@ -96,6 +96,16 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       fallback: "발송 없이 미리보기"
     },
     {
+      key: "googleData",
+      label: "구글 GSC·GA4 (검색·방문 지표)",
+      category: "데이터·광고",
+      configured: has("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"),
+      envVars: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"],
+      description: "Search Console 노출·클릭 + GA4 세션 일일 수집 (거래처 상세에서 계정 연결)",
+      usedIn: "거래처 인사이트·월간 리포트",
+      fallback: "수기 입력/미표시"
+    },
+    {
       key: "naverDatalab",
       label: "네이버 데이터랩 (검색 트렌드)",
       category: "데이터·광고",

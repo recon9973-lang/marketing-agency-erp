@@ -11,12 +11,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runMonthlyPerformanceCollection } from "@/server/marketing/research";
 import { runDailyAlerts } from "@/server/jobs/daily-alerts";
+import { runChannelSync } from "@/server/jobs/channel-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type CronBody = {
-  job?: "alerts" | "collection";
+  job?: "alerts" | "sync" | "collection";
   reportingMonth?: string;
   configByClient?: Record<string, { keywords: string[]; target: string; channel?: "blog" | "web" | "local" }>;
 };
@@ -42,6 +43,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, ...result });
     } catch (e) {
       console.error("[marketing/cron] daily alerts failed", e);
+      return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
+    }
+  }
+
+  // 채널 지표 동기화(§13) — {"job":"sync"}로 하루 1회. GSC/GA4 → ChannelMetric upsert(멱등).
+  if (body.job === "sync") {
+    try {
+      const result = await runChannelSync();
+      return NextResponse.json({ ok: true, ...result });
+    } catch (e) {
+      console.error("[marketing/cron] channel sync failed", e);
       return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
     }
   }
