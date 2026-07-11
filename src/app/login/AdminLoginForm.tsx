@@ -55,7 +55,7 @@ export function AdminLoginForm({ action }: { action: (formData: FormData) => Pro
         <span className="mb-1.5 block font-mono text-[11px] uppercase tracking-wider text-white/45">Email</span>
         <div className="relative">
           <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
-          <input name="email" type="email" required autoComplete="username" placeholder="you@company.com" className={fieldCls} />
+          <input name="email" type="email" required autoComplete="username" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="you@company.com" className={fieldCls} />
         </div>
       </label>
 
@@ -68,6 +68,9 @@ export function AdminLoginForm({ action }: { action: (formData: FormData) => Pro
             type={show ? "text" : "password"}
             required
             autoComplete="current-password"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             placeholder="••••••••"
             className={`${fieldCls} pr-11`}
           />
