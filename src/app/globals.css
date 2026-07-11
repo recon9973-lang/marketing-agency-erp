@@ -140,3 +140,20 @@ body {
 :root[data-theme="dark"] .bg-brand-soft {
   background-color: rgb(217 102 46 / 0.16) !important;
 }
+
+/* ── 로딩 인터랙션(FunLoader) 애니메이션 ── */
+@keyframes venomSweep {
+  0% { transform: translateX(-130%); }
+  100% { transform: translateX(360%); }
+}
+@keyframes venomFloat {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.5; }
+  50% { transform: translateY(-10px) scale(1.15); opacity: 1; }
+}
+@keyframes venomFadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-venom-sweep { animation: venomSweep 1.15s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+.animate-venom-float { animation: venomFloat 2.4s ease-in-out infinite; }
+.animate-venom-fadeup { animation: venomFadeUp 0.35s ease-out; }
