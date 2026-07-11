@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { Role, UserStatus } from "@/domain/types";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
@@ -57,25 +58,38 @@ function buildUserLookup(user?: SessionUserLike | null) {
   };
 }
 
+const STAFF_SELECT = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+  status: true,
+  isActive: true,
+  canAccessSettings: true
+} as const;
+
+// 이메일 로그인(주 경로)의 직원 조회를 요청 간 캐시 — 매 네비게이션마다 도는
+// db.user.findFirst 왕복을 제거해 화면 전환 지연을 줄인다. 30초 후 자동 갱신
+// (권한/상태 변경은 최대 30초 내 반영). 소셜 로그인은 캐시 없이 직접 조회.
+const loadStaffByEmail = unstable_cache(
+  async (email: string) =>
+    db.user.findFirst({ where: { email, isActive: true, status: UserStatus.ACTIVE }, select: STAFF_SELECT }),
+  ["staff-by-email"],
+  { revalidate: 30 }
+);
+
 async function resolveStaffUser(user?: SessionUserLike | null): Promise<CurrentUser | null> {
-  const where = buildUserLookup(user);
+  const email = user?.email?.trim().toLowerCase();
+  const provider = user?.authProvider?.trim();
+  const providerAccountId = user?.authProviderAccountId?.trim();
 
-  if (!where) {
-    return null;
+  let staffUser;
+  if (!provider && !providerAccountId && email) {
+    staffUser = await loadStaffByEmail(email);
+  } else {
+    const where = buildUserLookup(user);
+    staffUser = where ? await db.user.findFirst({ where, select: STAFF_SELECT }) : null;
   }
-
-  const staffUser = await db.user.findFirst({
-    where,
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      status: true,
-      isActive: true,
-      canAccessSettings: true
-    }
-  });
 
   const role = parseRole(staffUser?.role);
 
