@@ -180,7 +180,7 @@ export function CardNewsMaker({ generatedImages }: { generatedImages: string[] }
   const stageH = size.h * scale;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_300px]">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_300px]">
       {/* 좌: 스테이지 + 툴바 */}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">

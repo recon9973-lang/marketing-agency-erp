@@ -58,7 +58,7 @@ export function CreateContractForm({ clients, templates }: { clients: { id: stri
 
   return (
     <form action={onSubmit} className="rounded-2xl border border-line bg-white p-4">
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <label className="block">
           <span className="text-xs font-semibold text-slate-500">거래처 *</span>
           <select name="clientId" required value={clientId} onChange={(e) => setClientId(e.target.value)} className={inputCls}>

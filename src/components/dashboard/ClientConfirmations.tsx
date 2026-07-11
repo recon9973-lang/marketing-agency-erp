@@ -19,7 +19,7 @@ const KIND_LABEL: Record<string, string> = { CONTENT_CONFIRM: "콘텐츠 컨펌"
 
 export function ClientConfirmations({ data }: { data: Confirmations }) {
   return (
-    <section className="grid gap-4 lg:grid-cols-2">
+    <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       {/* 컨펌 대기 */}
       <div className="rounded-2xl border border-line bg-white p-5">
         <div className="mb-1 flex items-center justify-between">

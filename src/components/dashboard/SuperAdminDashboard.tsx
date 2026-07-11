@@ -15,7 +15,7 @@ export function SuperAdminDashboard({ summary }: { summary: DashboardSummary }) 
         description="전체 업무, 정산, 지출, 휴가 승인 상태를 한눈에 확인합니다."
       />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
         <DashboardCard label="전체 업무" value={summary.totalWorkCount} tone="brand" icon={ClipboardList} description="현재 관리 중인 전체 업무입니다." />
         <DashboardCard label="지연 업무" value={summary.delayedWorkCount} tone="rose" icon={AlertTriangle} description="마감일이 지난 미완료 업무입니다." />
         <DashboardCard label="미수금" value={`${currencyFormatter.format(summary.unpaidAmount)}원`} tone="amber" icon={Wallet} description="입금 확인이 필요한 금액입니다." />

@@ -144,7 +144,7 @@ export function ConsultingPanel({
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {report.competitors ? (
               <div className="rounded-lg border border-line bg-white p-3">
                 <p className="mb-1 text-xs font-bold text-slate-500">경쟁 병원 분석</p>

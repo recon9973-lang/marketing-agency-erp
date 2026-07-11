@@ -56,7 +56,7 @@ export function AddWorkForm({
 
   return (
     <form action={onSubmit} className="rounded-2xl border border-line bg-white p-4">
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <label className="block md:col-span-2">
           <span className="text-xs font-semibold text-slate-500">업무명 *</span>
           <input name="title" required placeholder="예: 7월 블로그 원고 5건" className={inputCls} />

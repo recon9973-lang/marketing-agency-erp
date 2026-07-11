@@ -59,7 +59,7 @@ export function TemplateFiller({ templates }: { templates: Template[] }) {
       </label>
 
       {selected ? (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* 자리표시자 입력 */}
           <div className="space-y-2 rounded-2xl border border-line bg-white p-4">
             <p className="text-sm font-bold text-ink">항목 채우기</p>

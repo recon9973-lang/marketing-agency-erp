@@ -93,7 +93,7 @@ export function DashboardHome({
   return (
     <div className="space-y-4">
       {/* 히어로 */}
-      <section className="grid gap-4 lg:grid-cols-[1.55fr_1fr]">
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.55fr_1fr]">
         {/* 다크에서는 그라디언트를 끄고(dark:bg-none) 솔리드 다크 카드(dark:bg-card)로 —
             Tailwind 그라디언트 변수 충돌 없이 확실히 반전. 라이트는 기존 그라디언트 유지. */}
         <div className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-blue-50 via-violet-50 to-white p-6 dark:bg-card dark:bg-none">
@@ -118,7 +118,7 @@ export function DashboardHome({
             오늘 업무 보기 <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
-        <div className="grid gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <Link href={"/clients" as Route} className="flex items-start gap-3 rounded-2xl border border-line bg-white p-4 transition hover:shadow-sm">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600"><Sparkles className="h-[18px] w-[18px]" /></span>
             <div>
@@ -142,7 +142,7 @@ export function DashboardHome({
       <RolePipeline role={role} summary={summary} riskCount={riskCount} />
 
       {/* KPI */}
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {kpis.map((k) => (
           <div key={k.label} className={`rounded-2xl border p-4 ${TONE[k.tone].card}`}>
             <div className="flex items-start justify-between">
@@ -183,7 +183,7 @@ export function DashboardHome({
       <ClientConfirmations data={confirmations} />
 
       {/* 의료법 위험 콘텐츠 + 리마인더 */}
-      <section className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
         <div className="rounded-2xl border border-line bg-white p-5">
           <div className="mb-1 flex items-center justify-between">
             <p className="flex items-center gap-1.5 text-sm font-bold text-ink"><ShieldCheck className="h-4 w-4 text-rose-500" /> 의료법 위험 콘텐츠</p>

@@ -51,7 +51,7 @@ export function CreateWeeklyReportForm() {
 
   return (
     <form action={onSubmit} className="rounded-2xl border border-line bg-white p-4">
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <label className="block">
           <span className="text-xs font-semibold text-slate-500">주 시작일(월요일) *</span>
           <input name="weekStart" type="date" required defaultValue={thisMonday()} className={inputCls} />

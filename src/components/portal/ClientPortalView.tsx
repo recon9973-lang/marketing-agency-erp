@@ -77,7 +77,7 @@ export function ClientPortalView({
             <TrendingUp className="h-5 w-5 text-brand" /> 마케팅 성과 <span className="text-sm font-normal text-slate-400">최근 {performance.rangeDays}일</span>
           </h2>
           {performance.channels.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {performance.channels.map((c) => (
                 <div key={c.channel} className="rounded-2xl border border-line bg-white p-4">
                   <div className="flex items-center justify-between">

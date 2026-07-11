@@ -139,7 +139,7 @@ export function ContractProducts({
 
       {!locked ? (
         <div className="mt-4 rounded-lg border border-dashed border-line bg-surface/40 p-3">
-          <div className="grid gap-2 sm:grid-cols-[1.4fr_1fr_1fr_0.6fr_auto] sm:items-end">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1.4fr_1fr_1fr_0.6fr_auto] sm:items-end">
             <label className="block">
               <span className="text-xs font-semibold text-slate-500">상품</span>
               <select value={productId} onChange={(e) => setProductId(e.target.value)} className={inputCls}>

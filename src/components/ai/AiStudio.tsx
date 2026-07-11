@@ -87,7 +87,7 @@ export function AiStudio({
           {KIND_OPTIONS.find((k) => k.value === kind)?.hint}
         </p>
 
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <label className="block">
             <span className="text-xs font-semibold text-slate-500">거래처 (선택)</span>
             <select name="clientId" className={inputCls} defaultValue="">

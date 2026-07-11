@@ -92,7 +92,7 @@ export function DocumentTemplateManager({ templates }: { templates: Template[] }
       {draft ? (
         <div className="rounded-2xl border border-line bg-white p-4">
           <h4 className="mb-3 text-sm font-bold text-ink">{draft.id ? "서식 수정" : "새 서식"}</h4>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="text-xs font-semibold text-slate-500">서식 이름 *</span>
               <input value={draft.name ?? ""} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className={inputCls} />

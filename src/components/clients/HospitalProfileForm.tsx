@@ -75,7 +75,7 @@ export function HospitalProfileForm({
         {profile ? <span className="text-xs text-slate-400">기준 버전 v{profile.sotVersion}</span> : null}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {FIELDS.map((f) => (
           <label key={f.key} className={f.rows ? "block sm:col-span-2" : "block"}>
             <span className="text-sm text-slate-600">{f.label}</span>

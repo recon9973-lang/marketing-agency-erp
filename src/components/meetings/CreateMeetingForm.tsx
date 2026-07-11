@@ -42,7 +42,7 @@ export function CreateMeetingForm({ clients }: { clients: { id: string; name: st
 
   return (
     <form action={onSubmit} className="rounded-2xl border border-line bg-white p-4">
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <label className="block md:col-span-1">
           <span className="text-xs font-semibold text-slate-500">회의명 *</span>
           <input name="title" required placeholder="예: OO의원 3월 마케팅 정기회의" className={inputCls} />

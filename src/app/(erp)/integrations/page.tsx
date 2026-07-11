@@ -70,7 +70,7 @@ export default async function IntegrationsPage() {
         return (
           <section key={category} className="space-y-3">
             <h3 className="text-sm font-bold text-brand-strong">{category}</h3>
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {items.map((item) => (
                 <IntegrationCard key={item.key} item={item} />
               ))}

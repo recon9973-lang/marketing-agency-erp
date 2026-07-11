@@ -58,7 +58,7 @@ export function AddChannelForm({ clientId }: { clientId: string }) {
 
   return (
     <form action={onSubmit} className="rounded-2xl border border-line bg-white p-4">
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <label className="block">
           <span className="text-xs font-semibold text-slate-500">채널 종류 *</span>
           <select name="platform" value={platform} onChange={(e) => setPlatform(e.target.value)} className={inputCls}>

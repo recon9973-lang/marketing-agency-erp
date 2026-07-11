@@ -70,7 +70,7 @@ export function QuotePanel({ clientId, quotes, canManage }: { clientId: string; 
       {quotes.length === 0 ? (
         <p className="rounded-xl border border-dashed border-line bg-surface/40 px-4 py-8 text-center text-sm text-slate-500">아직 견적이 없습니다.</p>
       ) : (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {quotes.map((q) => (
             <div key={q.id} className={`rounded-xl border bg-white p-4 ${q.status === "ACCEPTED" ? "border-brand" : "border-line"}`}>
               <div className="flex items-center justify-between">

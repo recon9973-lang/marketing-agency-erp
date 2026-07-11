@@ -281,7 +281,7 @@ export function AppShell({
           {operate.length > 0 ? (
             <>
               <p className="px-2.5 pb-1.5 pt-2 text-[10px] uppercase tracking-[0.12em] text-slate-400">운영</p>
-              <div className="grid gap-0.5">
+              <div className="grid grid-cols-1 gap-0.5">
                 {operate.map((item) => (
                   <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} />
                 ))}
@@ -291,7 +291,7 @@ export function AppShell({
           {manage.length > 0 ? (
             <>
               <p className="px-2.5 pb-1.5 pt-4 text-[10px] uppercase tracking-[0.12em] text-slate-400">관리</p>
-              <div className="grid gap-0.5">
+              <div className="grid grid-cols-1 gap-0.5">
                 {manage.map((item) => (
                   <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} />
                 ))}

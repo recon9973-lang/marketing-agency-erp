@@ -39,7 +39,7 @@ function connectionCopy(status: ConnectionStatus) {
 
 function EventRow({ event }: { event: CalendarListItem }) {
   return (
-    <li className="grid gap-3 border-t border-line py-4 md:grid-cols-[9rem_1fr_8rem] md:items-center">
+    <li className="grid grid-cols-1 gap-3 border-t border-line py-4 md:grid-cols-[9rem_1fr_8rem] md:items-center">
       <div className="text-sm text-slate-500">
         {timeFormatter.format(event.startsAt)} - {timeFormatter.format(event.endsAt)}
       </div>
@@ -85,7 +85,7 @@ export default async function CalendarPage() {
         <div className="shrink-0 rounded-lg border border-line bg-surface px-4 py-3 text-sm text-slate-600">예정 일정 {events.length}건</div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {integrationCards.map((card) => (
           <div key={card.provider} className="rounded-2xl border border-line bg-white p-4">
             <div className="flex items-center justify-between gap-3">

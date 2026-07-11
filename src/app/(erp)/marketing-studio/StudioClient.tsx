@@ -58,7 +58,7 @@ export function StudioClient({ clients }: { clients: Client[] }) {
   );
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
       {/* ① 리서치 */}
       <div className={cardCls}>
         <h3 className="text-sm font-semibold text-ink">① 키워드 리서치</h3>

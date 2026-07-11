@@ -207,7 +207,7 @@ export function InsightsView({
           </section>
 
           {/* 채널별 방문자 추이 + 노출 현황 */}
-          <section className="grid gap-4 lg:grid-cols-3">
+          <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="rounded-2xl border border-line bg-white p-5 lg:col-span-2">
               <div className="mb-3 flex items-center justify-between">
                 <p className="flex items-center gap-1.5 text-sm font-bold text-ink"><Activity className="h-4 w-4 text-brand" /> 채널별 일별 방문자 추이</p>
@@ -264,7 +264,7 @@ export function InsightsView({
           </section>
 
           {/* 핵심 키워드 표 + 연관 키워드 */}
-          <section className="grid gap-4 lg:grid-cols-2">
+          <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="rounded-2xl border border-line bg-white p-5">
               <p className="mb-2 flex items-center gap-1.5 text-sm font-bold text-ink"><Search className="h-4 w-4 text-amber-500" /> 핵심 키워드 성과</p>
               {insight.coreKeywords.length > 0 ? (

@@ -131,7 +131,7 @@ export default async function SettingsPage() {
         description="직원 역할, 관리자 접근 범위, 이메일 로그인, 구글/네이버 캘린더, 향후 PG와 계좌·카드 연동 준비 상태를 확인합니다."
       />
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {overview.integrations.map((integration) => (
           <IntegrationCard key={integration.id} integration={integration} />
         ))}

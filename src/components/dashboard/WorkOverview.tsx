@@ -53,7 +53,7 @@ export function WorkOverview({ summary }: { summary: DashboardSummary }) {
   const total = summary.totalWorkCount;
   const inProgress = Math.max(0, total - summary.completedWorkCount);
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       {/* 완료율 */}
       <div className="flex items-center gap-5 rounded-2xl border border-line bg-white p-5">
         <ProgressDonut value={summary.completedWorkCount} total={total} />

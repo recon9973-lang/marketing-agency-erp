@@ -168,7 +168,7 @@ export function ImageStudio({
             아직 생성한 이미지가 없습니다. 위에서 프롬프트를 넣고 만들어 보세요.
           </p>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {items.map((it) => (
               <ImageCard key={it.id} item={it} folders={folders} />
             ))}

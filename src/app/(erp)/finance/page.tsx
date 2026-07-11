@@ -169,7 +169,7 @@ export default async function FinancePage() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {overview.accounts.length > 0 ? (
           overview.accounts.map((account) => <AccountCard key={account.id} account={account} />)
         ) : (
