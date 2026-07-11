@@ -42,7 +42,10 @@ export function AddLeadForm() {
         return;
       }
       if (res.data && res.data.duplicates.length > 0) {
-        setNotice(`중복 후보 ${res.data.duplicates.length}건: ${res.data.duplicates.join(", ")} — 병합 여부를 확인해주세요.`);
+        // 리드는 이미 등록됨 — 중복 병합은 사후 판단(기획서 §5-1 병합 대기)
+        setNotice(
+          `등록 완료. 유사 리드 ${res.data.duplicates.length}건 발견: ${res.data.duplicates.join(", ")} — 중복이면 관리자에게 병합(삭제)을 요청하세요.`
+        );
       } else {
         setOpen(false);
       }

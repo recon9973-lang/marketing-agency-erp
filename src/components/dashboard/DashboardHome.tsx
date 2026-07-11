@@ -11,6 +11,8 @@ import { RolePipeline } from "@/components/dashboard/RolePipeline";
 import { WorkOverview } from "@/components/dashboard/WorkOverview";
 import type { DashboardSummary } from "@/domain/dashboard";
 import type { ClientConfirmations as Confirmations, ClientMonitorRow, RiskItem } from "@/server/repositories/dashboard-extras";
+import type { LeadPipelineSummary } from "@/server/repositories/leads";
+import { ACTIVE_LEAD_STAGES, leadStatusLabels } from "@/domain/sales/lead-stages";
 
 const EMPTY_CONFIRMATIONS: Confirmations = { pending: [], recent: [] };
 
@@ -77,7 +79,8 @@ export function DashboardHome({
   summary,
   riskItems,
   clientMonitor = [],
-  confirmations = EMPTY_CONFIRMATIONS
+  confirmations = EMPTY_CONFIRMATIONS,
+  leadPipeline = { byStatus: {}, recontactDueThisWeek: 0 }
 }: {
   userName: string;
   role: Role;
@@ -85,6 +88,7 @@ export function DashboardHome({
   riskItems: RiskItem[];
   clientMonitor?: ClientMonitorRow[];
   confirmations?: Confirmations;
+  leadPipeline?: LeadPipelineSummary;
 }) {
   const kpis = kpisFor(role, summary);
   const riskCount = riskItems.reduce((n, r) => n + (r.high > 0 ? 1 : 0), 0);
@@ -135,6 +139,30 @@ export function DashboardHome({
               <span className="mt-1.5 inline-block rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-600">콘텐츠 만들기 →</span>
             </div>
           </Link>
+        </div>
+      </section>
+
+      {/* 영업 리드 파이프라인 요약 — 단계별 리드 수 + 이번 주 재접촉 (기획서 §1 대표/AE 경영판) */}
+      <section className="rounded-2xl border border-line bg-white p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href={"/leads" as Route} className="text-sm font-bold text-ink hover:underline">
+            영업 파이프라인 →
+          </Link>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {ACTIVE_LEAD_STAGES.map((stage) => (
+              <span key={stage} className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-[11px] font-medium text-slate-600">
+                {leadStatusLabels[stage]} <b className="text-ink">{leadPipeline.byStatus[stage] ?? 0}</b>
+              </span>
+            ))}
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700">
+              계약성공 <b>{leadPipeline.byStatus["WON"] ?? 0}</b>
+            </span>
+          </div>
+          {leadPipeline.recontactDueThisWeek > 0 ? (
+            <span className="ml-auto text-xs font-semibold text-amber-600">
+              이번 주 재접촉 {leadPipeline.recontactDueThisWeek}건
+            </span>
+          ) : null}
         </div>
       </section>
 

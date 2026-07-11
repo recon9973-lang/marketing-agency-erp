@@ -326,7 +326,8 @@ export async function convertLeadToClient(input: unknown): Promise<ActionResult<
           await tx.hospitalProfile.create({
             data: {
               clientId: client.id,
-              departments: existing.department
+              departments: existing.department,
+              orgId
             }
           });
           await tx.lead.update({
@@ -344,6 +345,7 @@ export async function convertLeadToClient(input: unknown): Promise<ActionResult<
           return client.id;
         });
         revalidatePath("/leads");
+        revalidatePath(`/leads/${existing.id}`);
         revalidatePath("/clients");
         return { clientId };
       } catch (error) {

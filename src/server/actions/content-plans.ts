@@ -96,6 +96,72 @@ export async function createContentPlan(input: unknown): Promise<ActionResult<{ 
   });
 }
 
+const reviseSchema = z.object({
+  id: z.string().min(1),
+  angle: z.string().trim().max(4000).optional().nullable(),
+  faq: z.array(z.string().trim().min(1).max(500)).max(20).optional(),
+  qa: z.array(z.object({ q: z.string().trim().min(1).max(500), a: z.string().trim().min(1).max(2000) })).max(20).optional()
+});
+
+/**
+ * 콘텐츠(방향/FAQ/QA) 수정 + 의료법 재검수 — 게시 잠금 해소 경로(§15 수정중→재검수).
+ * 위험 플래그는 angle/faq/qa 결합 텍스트에서 산출되므로 같은 필드를 수정해 재검수한다.
+ * high 위험이 남으면 잠금 유지, 해소되면 승인/게시가 가능해진다.
+ */
+export async function reviseContentPlan(input: unknown): Promise<ActionResult<{ high: number; medium: number }>> {
+  return runAction(async () => {
+    const p = reviseSchema.safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    const plan = await db.contentPlan.findUnique({
+      where: { id: p.data.id },
+      select: { clientId: true, status: true, angle: true, faq: true, qa: true }
+    });
+    if (!plan) throw new Error("NOT_FOUND");
+    const user = await assertClientAccess(plan.clientId);
+
+    // 미전달 필드는 기존 값 유지 — 부분 수정 허용
+    const angle = p.data.angle !== undefined ? p.data.angle : (plan.angle as string | null);
+    const faq = p.data.faq ?? ((Array.isArray(plan.faq) ? plan.faq : []) as string[]);
+    const qa = p.data.qa ?? ((Array.isArray(plan.qa) ? plan.qa : []) as { q: string; a: string }[]);
+
+    const profile = await db.hospitalProfile.findUnique({
+      where: { clientId: plan.clientId },
+      select: { prohibitedClaims: true }
+    });
+    const combined = [angle, ...faq, ...qa.flatMap((x) => [x.q, x.a])].filter(Boolean).join("\n");
+    const check = checkMedicalLaw(combined, profile?.prohibitedClaims);
+    const complianceRisk = { high: check.highCount, medium: check.mediumCount, flags: check.flags };
+
+    const meta = await requestMeta();
+    await db.$transaction(async (tx) => {
+      await tx.contentPlan.update({
+        where: { id: p.data.id },
+        data: {
+          angle,
+          faq,
+          qa,
+          complianceRisk,
+          // 수정하면 재검수 단계로 되돌림(승인 상태였다면 내부검수부터 다시)
+          ...(plan.status === "APPROVED" ? { status: "REVIEWED" } : {}),
+          ...(plan.status === "PLANNED" ? { status: "DRAFTED" } : {}),
+          // 내용이 바뀌었으므로 병원 재확인 필요
+          clientConfirmedAt: null
+        }
+      });
+      await recordAudit(tx, {
+        actorId: user.id,
+        action: "contentPlan.revise",
+        targetType: "ContentPlan",
+        targetId: p.data.id,
+        afterState: { high: check.highCount, medium: check.mediumCount },
+        ...meta
+      });
+    });
+    revalidatePath(`/clients/${plan.clientId}`);
+    return { high: check.highCount, medium: check.mediumCount };
+  });
+}
+
 export async function updateContentPlanStatus(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
     const p = z.object({ id: z.string().min(1), status: z.enum(STATUSES) }).safeParse(input);
