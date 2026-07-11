@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/server/session";
 
-export default async function HomePage() {
-  const user = await getCurrentUser();
+// 공개 랜딩 — 정적(프리렌더). 인증/DB를 첫 화면 경로에서 제거해 콜드스타트 대기 없이 즉시 뜬다.
+// (로그인 여부는 필요 없음: "ERP 바로가기"는 /dashboard로 보내고, 미인증이면 거기서 /login 리다이렉트)
+export const dynamic = "force-static";
 
+export default function HomePage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-surface px-6">
       <section className="w-full max-w-xl">
@@ -16,14 +17,12 @@ export default async function HomePage() {
           <Link href="/login" className="inline-flex h-11 items-center rounded-md bg-brand px-5 text-sm font-semibold text-white">
             관리자 로그인
           </Link>
-          {user ? (
-            <Link
-              href="/dashboard"
-              className="inline-flex h-11 items-center rounded-md border border-line bg-white px-5 text-sm font-semibold text-ink"
-            >
-              ERP 바로가기
-            </Link>
-          ) : null}
+          <Link
+            href="/dashboard"
+            className="inline-flex h-11 items-center rounded-md border border-line bg-white px-5 text-sm font-semibold text-ink"
+          >
+            ERP 바로가기
+          </Link>
         </div>
       </section>
     </main>
