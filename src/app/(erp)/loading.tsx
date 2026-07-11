@@ -5,10 +5,10 @@
 export default function ErpLoading() {
   return (
     <div className="space-y-6 animate-pulse" aria-hidden="true">
-      {/* 헤더 자리 */}
-      <div className="border-l-2 border-brand/40 pl-4">
-        <div className="h-3 w-24 rounded bg-brand-soft" />
-        <div className="mt-2.5 h-7 w-56 rounded bg-slate-200" />
+      {/* 헤더 자리 (신규 PageHeader 톤과 일치 — 좌측바 없음) */}
+      <div>
+        <div className="h-3 w-24 rounded bg-line" />
+        <div className="mt-2 h-6 w-56 rounded bg-line" />
         <div className="mt-3 h-4 w-80 max-w-full rounded bg-slate-100" />
       </div>
 
@@ -17,14 +17,14 @@ export default function ErpLoading() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="rounded-2xl border border-line bg-white p-4">
             <div className="h-3 w-16 rounded bg-slate-100" />
-            <div className="mt-3 h-6 w-24 rounded bg-slate-200" />
+            <div className="mt-3 h-6 w-24 rounded bg-line" />
           </div>
         ))}
       </div>
 
       {/* 표/목록 자리 */}
       <div className="rounded-2xl border border-line bg-white p-4">
-        <div className="h-4 w-40 rounded bg-slate-200" />
+        <div className="h-4 w-40 rounded bg-line" />
         <div className="mt-4 space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4">
