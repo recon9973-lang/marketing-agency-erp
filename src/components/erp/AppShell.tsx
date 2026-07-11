@@ -20,9 +20,11 @@ import {
   Sparkles,
   Video,
   MessageSquare,
+  Radar,
   Search,
   Megaphone,
-  LineChart
+  LineChart,
+  Target
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -34,8 +36,10 @@ import { NotificationBell } from "@/components/collab/NotificationBell";
 
 type ErpRoute =
   | "/dashboard"
+  | "/leads"
   | "/clients"
   | "/insights"
+  | "/geo"
   | "/contracts"
   | "/work"
   | "/manuscript"
@@ -72,6 +76,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "대시보드",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: ChartNoAxesCombined,
+      group: "운영"
+    },
+    {
+      href: "/leads",
+      label: "영업 리드",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Target,
       group: "운영"
     },
     {
@@ -149,6 +160,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "검색량 조회",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Search,
+      group: "운영"
+    },
+    {
+      href: "/geo",
+      label: "GEO 모니터링",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Radar,
       group: "운영"
     },
     {

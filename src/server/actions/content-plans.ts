@@ -100,9 +100,22 @@ export async function updateContentPlanStatus(input: unknown): Promise<ActionRes
   return runAction(async () => {
     const p = z.object({ id: z.string().min(1), status: z.enum(STATUSES) }).safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
-    const plan = await db.contentPlan.findUnique({ where: { id: p.data.id }, select: { clientId: true } });
+    const plan = await db.contentPlan.findUnique({
+      where: { id: p.data.id },
+      select: { clientId: true, complianceRisk: true, clientConfirmedAt: true }
+    });
     if (!plan) throw new Error("NOT_FOUND");
     const user = await assertClientAccess(plan.clientId);
+
+    // 게시 잠금(기획서 §7 콘텐츠·§15): high 위험표현 미해소 시 승인/게시 불가,
+    // 병원(거래처) 확인 전에는 게시 불가. 위험 해소는 원고 수정→재검수로만 가능하다.
+    if (p.data.status === "APPROVED" || p.data.status === "PUBLISHED") {
+      const risk = plan.complianceRisk as { high?: number } | null;
+      if ((risk?.high ?? 0) > 0) throw new Error("COMPLIANCE_BLOCKED");
+    }
+    if (p.data.status === "PUBLISHED" && !plan.clientConfirmedAt) {
+      throw new Error("CLIENT_APPROVAL_REQUIRED");
+    }
 
     const meta = await requestMeta();
     await db.$transaction(async (tx) => {

@@ -2,13 +2,21 @@
 //
 // 업무 상태전이 버튼. 현재 상태에서 허용된 액션만 노출(도메인 transitionMap 일치).
 // changeWorkStatus(server action) 호출.
+// 완료승인 시 증빙(산출물 링크·적용 URL·요약) 입력을 요구한다 — 기획서 §15.
 "use client";
 
 import { useState, useTransition } from "react";
 import { changeWorkStatus } from "@/server/actions/work";
 
-type WorkStatus = "NOT_STARTED" | "IN_PROGRESS" | "WAITING" | "REVIEW_NEEDED" | "COMPLETED" | "BLOCKED";
-type Action = "start" | "submit_for_review" | "approve" | "block" | "resume";
+type WorkStatus =
+  | "NOT_STARTED"
+  | "IN_PROGRESS"
+  | "WAITING"
+  | "REVIEW_NEEDED"
+  | "CLIENT_APPROVAL"
+  | "COMPLETED"
+  | "BLOCKED";
+type Action = "start" | "submit_for_review" | "request_client_approval" | "approve" | "block" | "resume";
 
 // 도메인 transitionMap과 동일한 허용표(현재 상태 → 가능한 액션)
 const allowed: Record<WorkStatus, { action: Action; label: string; tone: string }[]> = {
@@ -25,6 +33,11 @@ const allowed: Record<WorkStatus, { action: Action; label: string; tone: string 
     { action: "block", label: "차단", tone: "bg-rose-600" }
   ],
   REVIEW_NEEDED: [
+    { action: "request_client_approval", label: "병원승인요청", tone: "bg-violet-600" },
+    { action: "approve", label: "완료승인", tone: "bg-green-600" },
+    { action: "block", label: "차단", tone: "bg-rose-600" }
+  ],
+  CLIENT_APPROVAL: [
     { action: "approve", label: "완료승인", tone: "bg-green-600" },
     { action: "block", label: "차단", tone: "bg-rose-600" }
   ],
@@ -41,8 +54,18 @@ export function WorkStatusButtons({ workId, status }: { workId: string; status: 
 
   function run(action: Action) {
     setError(null);
+    // 완료에는 증빙 필수(§15) — 산출물 링크/적용 URL/요약을 함께 기록
+    let evidence: string | null = null;
+    if (action === "approve") {
+      evidence = window.prompt("완료 증빙을 입력해주세요 (산출물 링크·적용 URL·결과 요약 중 하나)");
+      if (evidence === null) return; // 취소
+      if (!evidence.trim()) {
+        setError("완료 처리에는 증빙이 필요합니다.");
+        return;
+      }
+    }
     start(async () => {
-      const res = await changeWorkStatus({ id: workId, action });
+      const res = await changeWorkStatus({ id: workId, action, evidence });
       if (!res.ok) setError(res.error);
     });
   }

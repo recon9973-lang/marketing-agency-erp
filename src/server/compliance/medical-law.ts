@@ -139,3 +139,78 @@ export function checkMedicalLaw(text: string, prohibitedClaims?: string | null):
     mediumCount: flags.filter((f) => f.severity === "medium").length
   };
 }
+
+// ── 성과 보장성 문구 검사 (기획서 §9 성과표현·§15) ─────────────────────────
+// 의료법 §56과 별개의 리스크(표시광고법·계약 분쟁)이므로 MEDICAL_LAW_TYPES에
+// 합치지 않고 별도 사전으로 분리한다(기존 콘텐츠 검수 결과 오염 방지).
+// 제안서·계약서·리포트 본문에서 "상위노출/AI노출/문의증가 보장" 오인 문구를 감지한다.
+
+export const GUARANTEE_CLAIM_TYPES: MedicalLawType[] = [
+  {
+    code: 0,
+    key: "rank_guarantee",
+    label: "상위노출·순위 보장",
+    severity: "high",
+    patterns: [
+      T("상위\\s*노출\\s*보장"),
+      T("1\\s*페이지\\s*보장"),
+      T("상단\\s*(노출|고정)\\s*보장"),
+      T("순위\\s*보장"),
+      // "상위노출 보장"·"AI 노출 보장"과의 중복 집계 방지(lookbehind)
+      T("(?<!상위\\s{0,3})(?<!AI\\s{0,3})노출\\s*보장"),
+      T("무조건\\s*상위")
+    ]
+  },
+  {
+    code: 0,
+    key: "ai_guarantee",
+    label: "AI 답변 노출 보장",
+    severity: "high",
+    patterns: [
+      T("AI\\s*(답변|검색|추천)?\\s*노출\\s*(을|이)?\\s*보장"),
+      T("AI\\s*답변\\s*(출현|인용)\\s*(을|이)?\\s*보장"),
+      T("챗\\s*GPT[\\s가-힣]{0,6}보장"),
+      T("AI\\s*추천\\s*보장")
+    ]
+  },
+  {
+    code: 0,
+    key: "outcome_guarantee",
+    label: "문의·매출 증가 보장",
+    severity: "high",
+    patterns: [
+      T("문의\\s*(수|량)?\\s*(증가|상승)\\s*보장"),
+      T("환자\\s*(수)?\\s*증가\\s*보장"),
+      T("매출\\s*(증가|상승)?\\s*보장"),
+      T("방문자\\s*(수)?\\s*(증가)?\\s*보장"),
+      T("효과\\s*(를)?\\s*보장"),
+      T("성과\\s*(를)?\\s*보장")
+    ]
+  }
+];
+
+/** 제안·계약·리포트 텍스트에서 성과 보장성 문구를 검사(의료법 검사와 별도). */
+export function checkGuaranteeClaims(text: string): ComplianceResult {
+  const flags: ComplianceFlag[] = [];
+  const seen = new Set<string>();
+  for (const type of GUARANTEE_CLAIM_TYPES) {
+    for (const re of type.patterns) {
+      for (const m of text.matchAll(re)) {
+        const dedupe = `${type.key}:${m[0]}`;
+        if (seen.has(dedupe)) continue;
+        seen.add(dedupe);
+        flags.push({ type: type.key, label: type.label, code: type.code, severity: type.severity, matched: m[0] });
+      }
+    }
+  }
+  return {
+    flags,
+    highCount: flags.filter((f) => f.severity === "high").length,
+    mediumCount: flags.filter((f) => f.severity === "medium").length
+  };
+}
+
+/** 제안서·계약서·리포트에 자동 삽입하는 미보장 고지(기획서 §9). */
+export const NON_GUARANTEE_DISCLAIMER =
+  "[성과 미보장 고지] 검색 상위노출, AI 답변 노출, 문의·매출 증가는 검색엔진 및 AI 서비스의 정책·알고리즘에 따라 변동되며, " +
+  "본 계약은 특정 순위·노출·성과를 보장하지 않습니다. 모든 지표는 모니터링·개선 활동의 참고 자료로 제공됩니다.";
