@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/erp/AppShell";
+import { KeepWarm } from "@/components/erp/KeepWarm";
 import { getCurrentUser } from "@/server/session";
 
 export default async function ErpLayout({ children }: { children: ReactNode }) {
@@ -15,6 +16,7 @@ export default async function ErpLayout({ children }: { children: ReactNode }) {
 
   return (
     <AppShell role={user.role} canAccessSettings={user.canAccessSettings}>
+      <KeepWarm />
       {children}
     </AppShell>
   );
