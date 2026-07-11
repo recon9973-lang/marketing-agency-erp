@@ -10,11 +10,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { runMonthlyPerformanceCollection } from "@/server/marketing/research";
+import { runDailyAlerts } from "@/server/jobs/daily-alerts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type CronBody = {
+  job?: "alerts" | "collection";
   reportingMonth?: string;
   configByClient?: Record<string, { keywords: string[]; target: string; channel?: "blog" | "web" | "local" }>;
 };
@@ -31,6 +33,17 @@ export async function POST(req: NextRequest) {
     body = (await req.json()) as CronBody;
   } catch {
     return NextResponse.json({ ok: false, error: "INVALID_JSON" }, { status: 400 });
+  }
+
+  // 일일 알림 스위프(§7·§15) — {"job":"alerts"}로 하루 1회 호출(같은 날 중복 발송 방지, 멱등).
+  if (body.job === "alerts") {
+    try {
+      const result = await runDailyAlerts();
+      return NextResponse.json({ ok: true, ...result });
+    } catch (e) {
+      console.error("[marketing/cron] daily alerts failed", e);
+      return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
+    }
   }
 
   const { reportingMonth, configByClient } = body;

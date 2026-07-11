@@ -8,9 +8,15 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge, toneForStatus } from "@/components/ui/StatusBadge";
 import { LeadStatusButtons } from "@/components/leads/LeadStatusButtons";
 import { LeadAuditPanel } from "@/components/leads/LeadAuditPanel";
+import { LeadEditForm } from "@/components/leads/LeadEditForm";
+import { LeadQuotesPanel } from "@/components/leads/LeadQuotesPanel";
 import { ConvertLeadButton } from "@/components/leads/ConvertLeadButton";
 import { leadStatusLabels } from "@/domain/sales/lead-stages";
+import { Role } from "@/domain/types";
+import { NON_GUARANTEE_DISCLAIMER } from "@/server/compliance/medical-law";
+import { db } from "@/server/db";
 import { getLead } from "@/server/repositories/leads";
+import { listLeadQuotes } from "@/server/repositories/quotes";
 import { getCurrentUser } from "@/server/session";
 
 const dateTimeFmt = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" });
@@ -32,8 +38,15 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const lead = await getLead(user, id);
   if (!lead) notFound();
 
+  const [quotes, marketers] = await Promise.all([
+    listLeadQuotes(lead.id),
+    db.user.findMany({ where: { role: Role.MARKETER, status: "ACTIVE" }, select: { id: true, name: true } }).catch(() => [])
+  ]);
+
   const statusLabel = leadStatusLabels[lead.status as keyof typeof leadStatusLabels] ?? lead.status;
   const canConvert = lead.status === "PROPOSAL" && !lead.clientId;
+  const canDelete = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
+  const showQuotes = ["AUDIT", "MEETING", "PROPOSAL", "WON"].includes(lead.status) || quotes.length > 0;
 
   return (
     <section className="space-y-5">
@@ -137,8 +150,14 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             initialScore={lead.auditScore}
             initialNote={lead.auditNote}
           />
+
+          {/* 제안 견적 3안 — 진단 이후 단계부터 노출 */}
+          {showQuotes && <LeadQuotesPanel leadId={lead.id} quotes={quotes} disclaimer={NON_GUARANTEE_DISCLAIMER} />}
         </div>
       </div>
+
+      {/* 리드 수정·삭제 */}
+      <LeadEditForm lead={lead} marketers={marketers} canDelete={canDelete} />
     </section>
   );
 }

@@ -334,6 +334,11 @@ export async function convertLeadToClient(input: unknown): Promise<ActionResult<
             where: { id: existing.id },
             data: { status: "WON", clientId: client.id }
           });
+          // 리드 단계 견적을 거래처로 링크 — 제안서·계약서 문구 일치 추적(워크플로우 02 게이트)
+          await tx.quote.updateMany({
+            where: { leadId: existing.id, clientId: null },
+            data: { clientId: client.id }
+          });
           await recordAudit(tx, {
             actorId: user.id,
             action: "lead.convert",

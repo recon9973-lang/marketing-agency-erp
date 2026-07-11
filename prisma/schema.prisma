@@ -887,18 +887,22 @@ model ConsultingReport {
 /// 견적서 — 가격대별 3종(BASIC/STANDARD/PREMIUM). 상품 마스터 기반 구성.
 model Quote {
   id           String   @id @default(cuid())
-  clientId     String
+  clientId     String? // 리드 단계 견적은 거래처 없이 발급(전환 시 링크) — 제안 전 게이트(워크플로우 02)
+  leadId       String? // 제안발송 단계의 영업 리드 견적
   tier         String // BASIC | STANDARD | PREMIUM
   items        Json // [{productId?, name, monthlyFee, quantity}]
   monthlyTotal Decimal  @db.Decimal(12, 2)
   status       String   @default("DRAFT") // DRAFT | SENT | ACCEPTED | REJECTED
+  note         String? // 미보장 고지 등 하단 문구(자동 삽입)
   validUntil   DateTime?
   orgId        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  client       Client   @relation(fields: [clientId], references: [id])
+  client       Client?  @relation(fields: [clientId], references: [id])
+  lead         Lead?    @relation(fields: [leadId], references: [id])
 
   @@index([clientId, tier])
+  @@index([leadId])
   @@index([orgId])
 }
 
@@ -956,6 +960,7 @@ model ContentPlan {
   status          String   @default("PLANNED")
   clientConfirmedAt DateTime? // 거래처 포털 컨펌 시각
   clientComment   String? // 거래처 컨펌 의견
+  publishedUrl    String? // 게시 URL(§5-9 게시 증빙 — PUBLISHED 전이 시 기록)
   orgId          String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -1355,6 +1360,7 @@ model Lead {
   updatedAt          DateTime  @updatedAt
   assignee           User?     @relation("LeadAssignee", fields: [assigneeId], references: [id])
   client             Client?   @relation(fields: [clientId], references: [id])
+  quotes             Quote[]
 
   @@index([status, nextActionAt])
   @@index([assigneeId])
@@ -1370,6 +1376,7 @@ model GeoQuestion {
   clientId      String
   department    String?
   question      String
+  qtype         String? // SOP 5유형: 정의형|판단형|비교형|위험형|지역형 (업무매뉴얼 05)
   priority      Int       @default(3) // 1(높음)~5(낮음)
   status        String    @default("CANDIDATE")
   approvedAt    DateTime?

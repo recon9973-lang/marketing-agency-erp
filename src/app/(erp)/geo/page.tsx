@@ -6,7 +6,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { GeoMatrix } from "@/components/geo/GeoMatrix";
-import { GeoCandidateGenerator, GeoAnswerRecorder } from "@/components/geo/GeoTools";
+import { GeoCandidateGenerator, GeoAnswerRecorder, GeoQuestionAdder } from "@/components/geo/GeoTools";
 import { GeoChannelGuide } from "@/components/geo/GeoChannelGuide";
 import { GEO_DISCLAIMER } from "@/domain/sales/geo";
 import { geoMonthlyTrend, listGeoMatrix, summarizeGeoMatrix } from "@/server/repositories/geo";
@@ -88,6 +88,7 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
           {selectedId && (
             <>
               <GeoCandidateGenerator clientId={selectedId} />
+              <GeoQuestionAdder clientId={selectedId} />
               <GeoMatrix clientId={selectedId} rows={rows} />
               <GeoAnswerRecorder questions={rows} />
               <GeoChannelGuide />

@@ -164,7 +164,13 @@ export async function reviseContentPlan(input: unknown): Promise<ActionResult<{ 
 
 export async function updateContentPlanStatus(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
-    const p = z.object({ id: z.string().min(1), status: z.enum(STATUSES) }).safeParse(input);
+    const p = z
+      .object({
+        id: z.string().min(1),
+        status: z.enum(STATUSES),
+        publishedUrl: z.string().trim().max(500).optional().nullable()
+      })
+      .safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const plan = await db.contentPlan.findUnique({
       where: { id: p.data.id },
@@ -185,8 +191,15 @@ export async function updateContentPlanStatus(input: unknown): Promise<ActionRes
 
     const meta = await requestMeta();
     await db.$transaction(async (tx) => {
-      await tx.contentPlan.update({ where: { id: p.data.id }, data: { status: p.data.status } });
-      await recordAudit(tx, { actorId: user.id, action: "contentPlan.status", targetType: "ContentPlan", targetId: p.data.id, afterState: { status: p.data.status }, ...meta });
+      await tx.contentPlan.update({
+        where: { id: p.data.id },
+        data: {
+          status: p.data.status,
+          // 게시 증빙 URL(§5-9) — PUBLISHED 전이 시 기록
+          ...(p.data.status === "PUBLISHED" && p.data.publishedUrl ? { publishedUrl: p.data.publishedUrl } : {})
+        }
+      });
+      await recordAudit(tx, { actorId: user.id, action: "contentPlan.status", targetType: "ContentPlan", targetId: p.data.id, afterState: { status: p.data.status, publishedUrl: p.data.publishedUrl ?? undefined }, ...meta });
     });
     revalidatePath(`/clients/${plan.clientId}`);
   });

@@ -11,6 +11,8 @@ import { LeadBoard } from "@/components/leads/LeadBoard";
 import { AddLeadForm } from "@/components/leads/AddLeadForm";
 import { LeadStatusButtons } from "@/components/leads/LeadStatusButtons";
 import { isLeadStatus, leadStatusLabels, ACTIVE_LEAD_STAGES } from "@/domain/sales/lead-stages";
+import { Role } from "@/domain/types";
+import { db } from "@/server/db";
 import { listLeads, leadPipelineSummary, type LeadListItem } from "@/server/repositories/leads";
 import { getCurrentUser } from "@/server/session";
 
@@ -28,10 +30,16 @@ export default async function LeadsPage({
   const statusFilter = params.status && isLeadStatus(params.status) ? params.status : undefined;
   const view = params.view === "table" ? "table" : "board";
 
-  const [leads, summary] = await Promise.all([
+  const [leads, summary, marketers] = await Promise.all([
     listLeads(user, { status: statusFilter, search: params.search?.trim() || undefined }),
-    leadPipelineSummary(user)
+    leadPipelineSummary(user),
+    db.user.findMany({ where: { role: Role.MARKETER, status: "ACTIVE" }, select: { id: true, name: true } }).catch(() => [])
   ]);
+
+  // 영업 퍼널 전환율(§7) — 종결(성공+실패) 대비 성공 비율
+  const won = summary.byStatus["WON"] ?? 0;
+  const lost = summary.byStatus["LOST"] ?? 0;
+  const conversionRate = won + lost > 0 ? Math.round((won / (won + lost)) * 100) : null;
 
   const activeLeads = statusFilter ? leads : leads.filter((l) => (ACTIVE_LEAD_STAGES as string[]).includes(l.status));
 
@@ -108,6 +116,11 @@ export default async function LeadsPage({
         {chip("WON", "계약성공")}
         {chip("LOST", "계약실패")}
         {chip("RECONTACT", "재접촉예약")}
+        {conversionRate !== null && (
+          <span className="rounded-full border border-line bg-panel px-3 py-1 text-xs font-medium text-slate-600">
+            전환율 <b className="text-ink">{conversionRate}%</b>
+          </span>
+        )}
         {summary.recontactDueThisWeek > 0 && (
           <span className="text-xs font-medium text-amber-600">
             이번 주 재접촉 예정 {summary.recontactDueThisWeek}건
@@ -115,7 +128,7 @@ export default async function LeadsPage({
         )}
       </div>
 
-      <AddLeadForm />
+      <AddLeadForm marketers={marketers} />
 
       {view === "board" && !statusFilter ? (
         <LeadBoard items={activeLeads} />

@@ -85,6 +85,14 @@ export const GEO_CHANNEL_PLAYBOOK: GeoChannel[] = [
     note: "Claude 인용 최상 — 진료 데이터 리포트·건강 백서 발행(의료법 검수 필수)"
   },
   {
+    channel: "GBP·네이버 플레이스 (로컬 프로필)",
+    ratings: { chatgpt: 3, gemini: 5, claude: 2, perplexity: 4 },
+    priority: "A+",
+    automationLevel: "B",
+    hospitalFit: "높음",
+    note: "지역형 질문의 1차 소스 — 주소·시간·전화 일치, 진료과 카테고리, 사진·리뷰 관리(온보딩 권한 요청과 연동)"
+  },
+  {
     channel: "llms.txt·색인 인프라",
     ratings: { chatgpt: 3, gemini: 3, claude: 3, perplexity: 4 },
     priority: "A",

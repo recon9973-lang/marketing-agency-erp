@@ -30,12 +30,22 @@ export function LeadStatusButtons({ leadId, status, compact = false }: { leadId:
   function run(to: LeadStatus) {
     setError(null);
     let lostReason: string | null = null;
+    let nextActionAt: string | null = null;
     if (to === "LOST") {
       lostReason = window.prompt("실패 사유를 입력해주세요 (재접촉 판단에 사용)");
       if (lostReason === null) return;
     }
+    if (to === "RECONTACT") {
+      const defaultDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      nextActionAt = window.prompt("재접촉 예정일 (YYYY-MM-DD)", defaultDate);
+      if (nextActionAt === null) return;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(nextActionAt.trim())) {
+        setError("날짜 형식이 올바르지 않습니다 (YYYY-MM-DD).");
+        return;
+      }
+    }
     start(async () => {
-      const res = await transitionLead({ id: leadId, to, lostReason });
+      const res = await transitionLead({ id: leadId, to, lostReason, nextActionAt });
       if (!res.ok) setError(res.error);
       else router.refresh();
     });

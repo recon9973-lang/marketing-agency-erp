@@ -17,6 +17,7 @@ export type GeoQuestionRow = {
   id: string;
   question: string;
   department: string | null;
+  qtype: string | null;
   priority: number;
   status: string;
   targetPageUrl: string | null;
@@ -26,7 +27,7 @@ export type GeoQuestionRow = {
 
 export async function listGeoMatrix(clientId: string): Promise<GeoQuestionRow[]> {
   const questions = await db.geoQuestion.findMany({
-    where: { clientId, status: { not: "RETIRED" } },
+    where: { clientId },
     orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
     include: {
       answerRecords: {
@@ -36,7 +37,7 @@ export async function listGeoMatrix(clientId: string): Promise<GeoQuestionRow[]>
     }
   });
 
-  return questions.map((q) => {
+  const rows = questions.map((q) => {
     const cells: Partial<Record<GeoEngine, GeoCell>> = {};
     for (const rec of q.answerRecords) {
       const engine = rec.engine as GeoEngine;
@@ -53,6 +54,7 @@ export async function listGeoMatrix(clientId: string): Promise<GeoQuestionRow[]>
       id: q.id,
       question: q.question,
       department: q.department,
+      qtype: q.qtype,
       priority: q.priority,
       status: q.status,
       targetPageUrl: q.targetPageUrl,
@@ -60,6 +62,8 @@ export async function listGeoMatrix(clientId: string): Promise<GeoQuestionRow[]>
       cells
     };
   });
+  // 종료(RETIRED) 질문은 맨 뒤 — 복원(오조작 복구)용으로만 노출
+  return rows.sort((a, b) => Number(a.status === "RETIRED") - Number(b.status === "RETIRED"));
 }
 
 export type GeoSummary = {
@@ -146,7 +150,8 @@ export async function geoMonthlyTrend(clientId: string, months = 6): Promise<Geo
     }));
 }
 
-export function summarizeGeoMatrix(rows: GeoQuestionRow[]): GeoSummary {
+export function summarizeGeoMatrix(allRows: GeoQuestionRow[]): GeoSummary {
+  const rows = allRows.filter((r) => r.status !== "RETIRED"); // 종료 질문은 지표에서 제외
   const monitored = rows.filter((r) => Object.keys(r.cells).length > 0);
   return {
     totalQuestions: rows.length,

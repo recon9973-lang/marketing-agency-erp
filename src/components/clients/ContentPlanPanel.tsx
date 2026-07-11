@@ -58,9 +58,15 @@ export function ContentPlanPanel({ clientId, plans, aiConfigured, canManage }: {
   }
 
   function setStatus(id: string, status: string) {
+    // 게시 전이 시 게시 URL 증빙 입력(§5-9)
+    let publishedUrl: string | null = null;
+    if (status === "PUBLISHED") {
+      publishedUrl = window.prompt("게시된 URL을 입력해주세요 (게시 증빙으로 기록됩니다)");
+      if (publishedUrl === null) return;
+    }
     start(async () => {
-      const res = await updateContentPlanStatus({ id, status });
-      if (!res.ok) setError("상태 변경 실패");
+      const res = await updateContentPlanStatus({ id, status, publishedUrl: publishedUrl || null });
+      if (!res.ok) setError(res.error || "상태 변경 실패");
       else router.refresh();
     });
   }

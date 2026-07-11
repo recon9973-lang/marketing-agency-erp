@@ -22,7 +22,7 @@ export const STANDARD_ONBOARDING_TASKS: OnboardingTaskTemplate[] = [
     offsetFrom: "START"
   },
   {
-    title: "자료 요청 폼 발송 (병원명·진료과·의료진·진료시간·주소·전화·대표 시술)",
+    title: "자료 요청 폼 발송 (병원명·진료과·의료진·장비·진료시간·주소·전화·주차/교통·상담 가능 시간·대표 시술)",
     category: WorkCategory.ACCOUNT_MANAGEMENT,
     offsetDays: 1,
     offsetFrom: "START"
@@ -32,7 +32,14 @@ export const STANDARD_ONBOARDING_TASKS: OnboardingTaskTemplate[] = [
     category: WorkCategory.ACCOUNT_MANAGEMENT,
     offsetDays: 2,
     offsetFrom: "START",
-    checklist: ["GSC", "GA4", "Google Business Profile", "네이버 서치어드바이저", "네이버 플레이스", "CMS"]
+    checklist: ["GSC", "GA4", "Google Business Profile", "네이버 서치어드바이저", "네이버 플레이스", "CMS", "도메인/DNS"]
+  },
+  {
+    title: "금지·주의 표현 안내문 전달 + 병원 승인 담당자 1인 지정",
+    category: WorkCategory.ACCOUNT_MANAGEMENT,
+    offsetDays: 3,
+    offsetFrom: "START",
+    checklist: ["의료광고 금지 표현 안내문 발송", "병원 측 승인 담당자 지정 확인", "승인 채널(포털) 안내"]
   },
   {
     title: "초기 SEO 진단",

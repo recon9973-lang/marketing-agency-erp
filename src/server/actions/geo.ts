@@ -63,6 +63,7 @@ export async function generateGeoCandidates(input: unknown): Promise<ActionResul
             clientId: d.clientId,
             department: d.department,
             question: c.question,
+            qtype: c.type,
             priority: c.priority,
             status: "CANDIDATE",
             orgId
@@ -89,6 +90,7 @@ const addQuestionSchema = z.object({
   clientId: z.string().min(1),
   question: z.string().trim().min(5).max(300),
   department: z.string().trim().max(100).optional().nullable(),
+  qtype: z.enum(["정의형", "판단형", "비교형", "위험형", "지역형"]).optional().nullable(),
   targetPageUrl: z.string().trim().max(500).optional().nullable(),
   priority: z.coerce.number().int().min(1).max(5).default(3)
 });
@@ -115,6 +117,7 @@ export async function addGeoQuestion(input: unknown): Promise<ActionResult<{ id:
           clientId: d.clientId,
           question: d.question,
           department: d.department || null,
+          qtype: d.qtype || null,
           targetPageUrl: d.targetPageUrl || null,
           priority: d.priority,
           status: "CANDIDATE",
@@ -191,6 +194,74 @@ export async function retireGeoQuestion(input: unknown): Promise<ActionResult> {
         targetType: "GeoQuestion",
         targetId: p.data.id,
         beforeState: { status: existing.status },
+        ...meta
+      });
+    });
+    revalidatePath("/geo");
+  });
+}
+
+/** 종료 질문 복원 — RETIRED → CANDIDATE(재승인 필요, 오조작 복구용). */
+export async function reactivateGeoQuestion(input: unknown): Promise<ActionResult> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const p = retireSchema.safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    const existing = await db.geoQuestion.findUnique({ where: { id: p.data.id } });
+    if (!existing) throw new Error("NOT_FOUND");
+    if (existing.status !== "RETIRED") throw new Error("ILLEGAL_TRANSITION");
+    await assertClient(user, existing.clientId);
+
+    const meta = await requestMeta();
+    await db.$transaction(async (tx) => {
+      await tx.geoQuestion.update({
+        where: { id: p.data.id },
+        data: { status: "CANDIDATE", approvedAt: null, approvedById: null }
+      });
+      await recordAudit(tx, {
+        actorId: user.id,
+        action: "geo.question.reactivate",
+        targetType: "GeoQuestion",
+        targetId: p.data.id,
+        beforeState: { status: existing.status },
+        ...meta
+      });
+    });
+    revalidatePath("/geo");
+  });
+}
+
+const updateQuestionSchema = z.object({
+  id: z.string().min(1),
+  targetPageUrl: z.string().trim().max(500).optional().nullable(),
+  priority: z.coerce.number().int().min(1).max(5).optional()
+});
+
+/** 질문 메타 수정 — 대응 페이지 URL·우선순위(질문 텍스트는 승인 무결성 때문에 불변). */
+export async function updateGeoQuestion(input: unknown): Promise<ActionResult> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const p = updateQuestionSchema.safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    const existing = await db.geoQuestion.findUnique({ where: { id: p.data.id } });
+    if (!existing) throw new Error("NOT_FOUND");
+    await assertClient(user, existing.clientId);
+
+    const meta = await requestMeta();
+    await db.$transaction(async (tx) => {
+      await tx.geoQuestion.update({
+        where: { id: p.data.id },
+        data: {
+          ...(p.data.targetPageUrl !== undefined ? { targetPageUrl: p.data.targetPageUrl || null } : {}),
+          ...(p.data.priority !== undefined ? { priority: p.data.priority } : {})
+        }
+      });
+      await recordAudit(tx, {
+        actorId: user.id,
+        action: "geo.question.update",
+        targetType: "GeoQuestion",
+        targetId: p.data.id,
+        afterState: { targetPageUrl: p.data.targetPageUrl ?? undefined, priority: p.data.priority },
         ...meta
       });
     });

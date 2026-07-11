@@ -10,7 +10,9 @@ import { useRouter } from "next/navigation";
 import { createLead } from "@/server/actions/leads";
 import { LEAD_CONSENT_TEXT } from "@/domain/sales/lead-stages";
 
-export function AddLeadForm() {
+export type LeadMarketer = { id: string; name: string };
+
+export function AddLeadForm({ marketers = [] }: { marketers?: LeadMarketer[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -34,6 +36,7 @@ export function AddLeadForm() {
         placeUrl: String(form.get("placeUrl") ?? "") || null,
         adBudgetEstimate: form.get("adBudgetEstimate") ? Number(form.get("adBudgetEstimate")) : null,
         grade: (String(form.get("grade") ?? "") || null) as "A" | "B" | "C" | null,
+        assigneeId: String(form.get("assigneeId") ?? "") || null,
         note: String(form.get("note") ?? "") || null,
         consent
       });
@@ -93,6 +96,17 @@ export function AddLeadForm() {
                 <option value="A">A (높음)</option>
                 <option value="B">B</option>
                 <option value="C">C (낮음)</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-xs font-medium text-slate-600">
+              담당 AE
+              <select name="assigneeId" className={inputCls} defaultValue="">
+                <option value="">미배정</option>
+                {marketers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="space-y-1 text-xs font-medium text-slate-600">

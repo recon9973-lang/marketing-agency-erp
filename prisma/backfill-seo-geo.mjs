@@ -23,8 +23,9 @@ const D = "[데모]";
 // 표준 온보딩 업무 — src/domain/sales/onboarding-tasks.ts 와 동기 유지(기획서 §11).
 const STANDARD_ONBOARDING_TASKS = [
   { title: "계약서·견적서·미보장 문구 확인", category: "ACCOUNT_MANAGEMENT", offsetDays: 0, offsetFrom: "START" },
-  { title: "자료 요청 폼 발송 (병원명·진료과·의료진·진료시간·주소·전화·대표 시술)", category: "ACCOUNT_MANAGEMENT", offsetDays: 1, offsetFrom: "START" },
-  { title: "권한 요청 발송", category: "ACCOUNT_MANAGEMENT", offsetDays: 2, offsetFrom: "START", checklist: ["GSC", "GA4", "Google Business Profile", "네이버 서치어드바이저", "네이버 플레이스", "CMS"] },
+  { title: "자료 요청 폼 발송 (병원명·진료과·의료진·장비·진료시간·주소·전화·주차/교통·상담 가능 시간·대표 시술)", category: "ACCOUNT_MANAGEMENT", offsetDays: 1, offsetFrom: "START" },
+  { title: "권한 요청 발송", category: "ACCOUNT_MANAGEMENT", offsetDays: 2, offsetFrom: "START", checklist: ["GSC", "GA4", "Google Business Profile", "네이버 서치어드바이저", "네이버 플레이스", "CMS", "도메인/DNS"] },
+  { title: "금지·주의 표현 안내문 전달 + 병원 승인 담당자 1인 지정", category: "ACCOUNT_MANAGEMENT", offsetDays: 3, offsetFrom: "START", checklist: ["의료광고 금지 표현 안내문 발송", "병원 측 승인 담당자 지정 확인", "승인 채널(포털) 안내"] },
   { title: "초기 SEO 진단", category: "BLOG_SEO", offsetDays: 7, offsetFrom: "START", checklist: ["색인", "메타", "사이트맵", "robots", "모바일", "진료과 구조", "CTA", "프로필"] },
   { title: "SEO 기본 적용 (title/description·내부링크·진료과 랜딩·FAQ·전환 버튼)", category: "BLOG_SEO", offsetDays: 14, offsetFrom: "START" },
   { title: "GEO 질문 20개 (후보 생성·병원 승인·페이지 매핑·모니터링 기준)", category: "BLOG_SEO", offsetDays: 21, offsetFrom: "START" },
@@ -142,6 +143,7 @@ async function seedGeo(clients) {
         clientId: client.id,
         department: "정형외과",
         question: `${D} ${q.question}`,
+        qtype: q.type,
         priority: q.priority,
         status: q.status,
         approvedAt: q.status === "CANDIDATE" ? null : new Date()

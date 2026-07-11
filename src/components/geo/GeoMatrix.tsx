@@ -8,7 +8,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { GEO_ENGINES, geoEngineLabels, geoQuestionStatusLabels, type GeoEngine } from "@/domain/sales/geo";
-import { approveGeoQuestions, retireGeoQuestion } from "@/server/actions/geo";
+import { approveGeoQuestions, retireGeoQuestion, reactivateGeoQuestion, updateGeoQuestion } from "@/server/actions/geo";
 import type { GeoQuestionRow } from "@/server/repositories/geo";
 import { StatusBadge, toneForStatus } from "@/components/ui/StatusBadge";
 
@@ -66,6 +66,24 @@ export function GeoMatrix({ clientId, rows }: { clientId: string; rows: GeoQuest
     if (!window.confirm("이 질문을 모니터링에서 종료할까요?")) return;
     start(async () => {
       const res = await retireGeoQuestion({ id });
+      if (!res.ok) setError(res.error);
+      else router.refresh();
+    });
+  }
+
+  function reactivate(id: string) {
+    start(async () => {
+      const res = await reactivateGeoQuestion({ id });
+      if (!res.ok) setError(res.error);
+      else router.refresh();
+    });
+  }
+
+  function editTargetPage(row: GeoQuestionRow) {
+    const url = window.prompt("이 질문에 대응하는 병원 페이지 URL (비우면 제거)", row.targetPageUrl ?? "");
+    if (url === null) return;
+    start(async () => {
+      const res = await updateGeoQuestion({ id: row.id, targetPageUrl: url.trim() || null });
       if (!res.ok) setError(res.error);
       else router.refresh();
     });
@@ -136,12 +154,20 @@ export function GeoMatrix({ clientId, rows }: { clientId: string; rows: GeoQuest
                   )}
                 </td>
                 <td className="sticky left-0 z-10 max-w-[320px] bg-white px-3 py-2 align-middle text-slate-700">
-                  <span className="line-clamp-2">{row.question}</span>
-                  {row.targetPageUrl && (
-                    <a href={row.targetPageUrl} target="_blank" rel="noreferrer" className="block text-[10px] text-blue-600">
-                      대응 페이지 ↗
-                    </a>
-                  )}
+                  <span className="line-clamp-2">
+                    {row.qtype ? <span className="mr-1 rounded bg-surface px-1 py-0.5 text-[10px] text-slate-500">{row.qtype}</span> : null}
+                    {row.question}
+                  </span>
+                  <span className="flex items-center gap-1.5 text-[10px]">
+                    {row.targetPageUrl ? (
+                      <a href={row.targetPageUrl} target="_blank" rel="noreferrer" className="text-blue-600">
+                        대응 페이지 ↗
+                      </a>
+                    ) : null}
+                    <button type="button" onClick={() => editTargetPage(row)} className="text-slate-400 hover:text-blue-600" aria-label="대응 페이지 URL 편집">
+                      {row.targetPageUrl ? "✎" : "＋ 대응 페이지"}
+                    </button>
+                  </span>
                 </td>
                 <td className="px-2 py-2 align-middle">
                   <StatusBadge tone={toneForStatus(row.status)}>
@@ -154,13 +180,21 @@ export function GeoMatrix({ clientId, rows }: { clientId: string; rows: GeoQuest
                   </td>
                 ))}
                 <td className="px-2 py-2 text-right align-middle">
-                  {row.status !== "RETIRED" && (
+                  {row.status !== "RETIRED" ? (
                     <button
                       type="button"
                       onClick={() => retire(row.id)}
                       className="text-[11px] text-slate-400 hover:text-rose-600"
                     >
                       종료
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => reactivate(row.id)}
+                      className="text-[11px] text-slate-400 hover:text-emerald-600"
+                    >
+                      복원
                     </button>
                   )}
                 </td>
@@ -185,7 +219,10 @@ export function GeoMatrix({ clientId, rows }: { clientId: string; rows: GeoQuest
                 />
               )}
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-slate-700">{row.question}</p>
+                <p className="text-sm text-slate-700">
+                  {row.qtype ? <span className="mr-1 rounded bg-surface px-1 py-0.5 text-[10px] text-slate-500">{row.qtype}</span> : null}
+                  {row.question}
+                </p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   <StatusBadge tone={toneForStatus(row.status)}>
                     {geoQuestionStatusLabels[row.status as keyof typeof geoQuestionStatusLabels] ?? row.status}
@@ -195,6 +232,15 @@ export function GeoMatrix({ clientId, rows }: { clientId: string; rows: GeoQuest
                       {geoEngineLabels[e]} <CellMark cell={row.cells[e]} />
                     </span>
                   ))}
+                  {row.status !== "RETIRED" ? (
+                    <button type="button" onClick={() => retire(row.id)} className="text-[10px] text-slate-400 hover:text-rose-600">
+                      종료
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => reactivate(row.id)} className="text-[10px] text-slate-400 hover:text-emerald-600">
+                      복원
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

@@ -104,7 +104,16 @@ const columns: DataTableColumn<WorkListItem>[] = [
   {
     key: "notes",
     header: "진행 메모",
-    render: (item) => <span className="line-clamp-2 text-slate-600">{item.progressNotes ?? "-"}</span>
+    // 온보딩 체크리스트 등 긴 메모는 잘리므로 클릭해 전문 확인(§11 체크리스트 가시성)
+    render: (item) =>
+      item.progressNotes ? (
+        <details>
+          <summary className="line-clamp-2 cursor-pointer list-none text-slate-600">{item.progressNotes}</summary>
+          <p className="mt-1 whitespace-pre-wrap text-xs text-slate-500">{item.progressNotes}</p>
+        </details>
+      ) : (
+        <span className="text-slate-600">-</span>
+      )
   },
   {
     key: "time",
