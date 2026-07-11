@@ -94,7 +94,9 @@ export function DashboardHome({
     <div className="space-y-4">
       {/* 히어로 */}
       <section className="grid gap-4 lg:grid-cols-[1.55fr_1fr]">
-        <div className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-blue-50 via-violet-50 to-white p-6 dark:bg-card dark:from-blue-500/12 dark:via-violet-500/12 dark:to-transparent">
+        {/* 다크에서는 그라디언트를 끄고(dark:bg-none) 솔리드 다크 카드(dark:bg-card)로 —
+            Tailwind 그라디언트 변수 충돌 없이 확실히 반전. 라이트는 기존 그라디언트 유지. */}
+        <div className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-blue-50 via-violet-50 to-white p-6 dark:bg-card dark:bg-none">
           <Sparkles className="pointer-events-none absolute right-9 top-6 h-5 w-5 text-violet-300" />
           <Sparkles className="pointer-events-none absolute right-28 top-14 h-3 w-3 text-brand/40" />
           <h1 className="text-2xl font-extrabold tracking-tight text-ink">
