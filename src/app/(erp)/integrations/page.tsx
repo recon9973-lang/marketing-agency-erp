@@ -23,7 +23,7 @@ function StatusBadge({ configured }: { configured: boolean }) {
 
 function IntegrationCard({ item }: { item: IntegrationStatus }) {
   return (
-    <div className="rounded-xl border border-line bg-white p-4">
+    <div className="rounded-2xl border border-line bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-semibold text-ink">{item.label}</p>

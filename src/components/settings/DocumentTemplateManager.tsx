@@ -90,7 +90,7 @@ export function DocumentTemplateManager({ templates }: { templates: Template[] }
       </div>
 
       {draft ? (
-        <div className="rounded-xl border border-line bg-white p-4">
+        <div className="rounded-2xl border border-line bg-white p-4">
           <h4 className="mb-3 text-sm font-bold text-ink">{draft.id ? "서식 수정" : "새 서식"}</h4>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">

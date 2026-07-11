@@ -13,7 +13,7 @@ export default async function ClientPortalPage({ params }: { params: Promise<{ t
   if (!portal) {
     return (
       <main className="mx-auto min-h-screen max-w-3xl bg-surface px-4 py-10">
-        <div className="rounded-xl border border-line bg-white p-8 text-center text-slate-500">유효하지 않은 포털 링크입니다.</div>
+        <div className="rounded-2xl border border-line bg-white p-8 text-center text-slate-500">유효하지 않은 포털 링크입니다.</div>
       </main>
     );
   }

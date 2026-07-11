@@ -90,7 +90,7 @@ export function ContentPlanPanel({ clientId, plans, aiConfigured, canManage }: {
   return (
     <div className="space-y-4">
       {canManage ? (
-        <div className="rounded-xl border border-line bg-white p-4">
+        <div className="rounded-2xl border border-line bg-white p-4">
           <p className="text-sm font-bold text-ink">콘텐츠 기획 추가</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_120px]">
             <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="주제 (예: 여름철 피부 관리)" className={inputCls} />

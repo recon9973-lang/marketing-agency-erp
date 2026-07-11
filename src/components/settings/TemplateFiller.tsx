@@ -61,7 +61,7 @@ export function TemplateFiller({ templates }: { templates: Template[] }) {
       {selected ? (
         <div className="grid gap-4 lg:grid-cols-2">
           {/* 자리표시자 입력 */}
-          <div className="space-y-2 rounded-xl border border-line bg-white p-4">
+          <div className="space-y-2 rounded-2xl border border-line bg-white p-4">
             <p className="text-sm font-bold text-ink">항목 채우기</p>
             {tokens.length === 0 ? (
               <p className="text-xs text-slate-400">채울 항목이 없습니다.</p>

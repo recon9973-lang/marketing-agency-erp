@@ -41,7 +41,7 @@ export function CreateMeetingForm({ clients }: { clients: { id: string; name: st
   }
 
   return (
-    <form action={onSubmit} className="rounded-xl border border-line bg-white p-4">
+    <form action={onSubmit} className="rounded-2xl border border-line bg-white p-4">
       <div className="grid gap-3 md:grid-cols-3">
         <label className="block md:col-span-1">
           <span className="text-xs font-semibold text-slate-500">회의명 *</span>

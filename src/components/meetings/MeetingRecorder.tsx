@@ -123,7 +123,7 @@ export function MeetingRecorder({
   const busy = phase !== "idle" || pending;
 
   return (
-    <div className="space-y-4 rounded-xl border border-line bg-white p-4">
+    <div className="space-y-4 rounded-2xl border border-line bg-white p-4">
       <div className="flex flex-wrap items-center gap-3">
         {!recording ? (
           <button

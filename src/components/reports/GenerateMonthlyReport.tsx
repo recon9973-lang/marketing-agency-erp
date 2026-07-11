@@ -39,7 +39,7 @@ export function GenerateMonthlyReport({ clients }: { clients: { id: string; name
   }
 
   return (
-    <div className="rounded-xl border border-line bg-white p-4">
+    <div className="rounded-2xl border border-line bg-white p-4">
       <p className="text-sm font-bold text-ink">월간 보고서 자동 생성</p>
       <p className="mt-1 text-xs text-slate-500">계약 상품·완료 업무·순위·게시 콘텐츠를 집계해 지표가 채워진 초안을 만듭니다.</p>
       <div className="mt-3 flex flex-wrap items-center gap-2">

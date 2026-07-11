@@ -57,7 +57,7 @@ export function CreateContractForm({ clients, templates }: { clients: { id: stri
   }
 
   return (
-    <form action={onSubmit} className="rounded-xl border border-line bg-white p-4">
+    <form action={onSubmit} className="rounded-2xl border border-line bg-white p-4">
       <div className="grid gap-3 md:grid-cols-2">
         <label className="block">
           <span className="text-xs font-semibold text-slate-500">거래처 *</span>

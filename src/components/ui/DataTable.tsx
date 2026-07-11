@@ -16,7 +16,7 @@ export function DataTable<Row extends { id: string }>({
   emptyMessage: string;
 }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-line bg-white">
+    <div className="overflow-x-auto rounded-2xl border border-line bg-white">
       <table className="w-full border-collapse text-left text-sm">
         <thead className="border-b border-line bg-surface text-xs font-semibold uppercase tracking-wide text-slate-500">
           <tr>

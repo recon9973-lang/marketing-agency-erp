@@ -110,7 +110,7 @@ export function ImageStudio({
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-line bg-white p-4">
+      <div className="rounded-2xl border border-line bg-white p-4">
         <label className="block">
           <span className="text-xs font-semibold text-slate-500">이미지 설명 (프롬프트) *</span>
           <textarea
@@ -204,7 +204,7 @@ function ImageCard({ item, folders }: { item: Generated; folders: Folder[] }) {
   }
 
   return (
-    <article className="overflow-hidden rounded-xl border border-line bg-white">
+    <article className="overflow-hidden rounded-2xl border border-line bg-white">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={item.dataUrl} alt={item.prompt} className="w-full bg-surface object-contain" />
       <div className="space-y-2 p-3">

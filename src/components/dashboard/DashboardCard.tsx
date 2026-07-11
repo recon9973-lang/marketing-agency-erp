@@ -26,7 +26,7 @@ export function DashboardCard({
 }) {
   const t = TONE[tone] ?? TONE.slate;
   return (
-    <div className="rounded-xl border border-line bg-white p-5 transition hover:shadow-sm">
+    <div className="rounded-2xl border border-line bg-white p-5 transition hover:shadow-sm">
       <div className="flex items-start justify-between">
         <p className="flex items-center gap-2 text-xs font-medium text-slate-500">
           <span className={`h-2 w-2 rounded-full ${t.dot}`} />

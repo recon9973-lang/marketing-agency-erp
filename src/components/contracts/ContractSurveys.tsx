@@ -65,7 +65,7 @@ export function ContractSurveys({ contractId, surveys, canManage }: { contractId
   }
 
   return (
-    <section className="rounded-xl border border-line bg-white p-5 print:hidden">
+    <section className="rounded-2xl border border-line bg-white p-5 print:hidden">
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-1.5 text-sm font-bold text-ink"><ClipboardList className="h-4 w-4 text-slate-400" /> 온보딩 설문</h3>
         {canManage ? (

@@ -139,7 +139,7 @@ export function ClientDetail({
       {tab === "기본정보" && (
         <div>
           {editing ? (
-            <div className="rounded-xl border border-line bg-white p-4">
+            <div className="rounded-2xl border border-line bg-white p-4">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-bold text-ink">거래처 정보 수정</h3>
                 <button onClick={() => setEditing(false)} className="text-xs text-slate-500 hover:underline">닫기</button>
@@ -176,14 +176,14 @@ export function ClientDetail({
       )}
 
       {tab === "병원정보" && (
-        <div className="rounded-xl border border-line bg-white p-4">
+        <div className="rounded-2xl border border-line bg-white p-4">
           <h3 className="mb-3 text-sm font-bold text-ink">병원 프로파일 (기준 데이터)</h3>
           <HospitalProfileForm clientId={client.id} profile={hospitalProfile} canEdit={canManage} />
         </div>
       )}
 
       {tab === "컨설팅" && (
-        <div className="rounded-xl border border-line bg-white p-4">
+        <div className="rounded-2xl border border-line bg-white p-4">
           <h3 className="mb-3 text-sm font-bold text-ink">영업 컨설팅 (키워드·경쟁·상권)</h3>
           <ConsultingPanel
             clientId={client.id}
@@ -197,7 +197,7 @@ export function ClientDetail({
       )}
 
       {tab === "콘텐츠" && (
-        <div className="rounded-xl border border-line bg-white p-4">
+        <div className="rounded-2xl border border-line bg-white p-4">
           <h3 className="mb-3 text-sm font-bold text-ink">콘텐츠 기획 (AI 초안 + 의료법 검수)</h3>
           <ContentPlanPanel clientId={client.id} plans={contentPlans} aiConfigured={consulting.aiConfigured} canManage={canManage} />
         </div>

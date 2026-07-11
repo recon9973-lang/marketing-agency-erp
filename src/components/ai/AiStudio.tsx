@@ -66,7 +66,7 @@ export function AiStudio({
         </div>
       ) : null}
 
-      <form action={onSubmit} className="rounded-xl border border-line bg-white p-4">
+      <form action={onSubmit} className="rounded-2xl border border-line bg-white p-4">
         <div className="mb-3 flex flex-wrap gap-2">
           {KIND_OPTIONS.map((k) => (
             <button
@@ -177,7 +177,7 @@ function ResultCard({ item }: { item: AiContentItem }) {
   }
 
   return (
-    <article className="rounded-xl border border-line bg-white p-4">
+    <article className="rounded-2xl border border-line bg-white p-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-md bg-brand-soft px-2.5 py-1 text-xs font-bold text-brand-strong">
           {KIND_LABEL[item.kind] ?? item.kind}

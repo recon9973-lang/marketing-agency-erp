@@ -61,7 +61,7 @@ export function MeetingMinutesView({ minutes }: { minutes: string }) {
     }
   }
   return (
-    <div className="rounded-xl border border-line bg-white p-4">
+    <div className="rounded-2xl border border-line bg-white p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-ink">📝 회의록</h3>
         <button

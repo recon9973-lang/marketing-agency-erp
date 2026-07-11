@@ -55,7 +55,7 @@ export function ApprovalQueue({ pending, myRequests, canDecide }: { pending: App
           ) : (
             <ul className="space-y-2">
               {pending.map((a) => (
-                <li key={a.id} className="rounded-xl border border-line bg-white p-3">
+                <li key={a.id} className="rounded-2xl border border-line bg-white p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <TypeChip t={a.targetType} />
                     <span className="text-sm font-semibold text-ink">{a.title}</span>
@@ -81,7 +81,7 @@ export function ApprovalQueue({ pending, myRequests, canDecide }: { pending: App
         ) : (
           <ul className="space-y-2">
             {myRequests.map((a) => (
-              <li key={a.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white p-3">
+              <li key={a.id} className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-white p-3">
                 <TypeChip t={a.targetType} />
                 <span className="text-sm font-semibold text-ink">{a.title}</span>
                 {a.clientName ? <span className="text-xs text-slate-400">· {a.clientName}</span> : null}

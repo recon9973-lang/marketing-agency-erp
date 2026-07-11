@@ -233,7 +233,7 @@ export function CardNewsMaker({ generatedImages }: { generatedImages: string[] }
       {/* 우: 속성 패널 */}
       <div className="space-y-4">
         {/* 배경 */}
-        <div className="rounded-xl border border-line bg-white p-3">
+        <div className="rounded-2xl border border-line bg-white p-3">
           <p className="mb-2 flex items-center gap-1.5 text-xs font-bold text-slate-500"><ImageIcon className="h-3.5 w-3.5" /> 배경</p>
           <div className="flex flex-wrap gap-1.5">
             {PALETTE.map((c) => <button key={c} type="button" onClick={() => { setBgColor(c); setBgImage(null); }} className="h-6 w-6 rounded-full border border-line" style={{ background: c }} />)}
@@ -255,7 +255,7 @@ export function CardNewsMaker({ generatedImages }: { generatedImages: string[] }
 
         {/* 선택 요소 속성 */}
         {sel ? (
-          <div className="rounded-xl border border-line bg-white p-3">
+          <div className="rounded-2xl border border-line bg-white p-3">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-xs font-bold text-slate-500">{sel.kind === "text" ? "텍스트 속성" : "박스 속성"}</p>
               <div className="flex gap-1">

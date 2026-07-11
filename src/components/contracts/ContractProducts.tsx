@@ -82,7 +82,7 @@ export function ContractProducts({
   }
 
   return (
-    <section className="rounded-xl border border-line bg-white p-5 print:break-inside-avoid">
+    <section className="rounded-2xl border border-line bg-white p-5 print:break-inside-avoid">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-ink">상품 구성</h3>
         {locked ? <span className="text-xs text-slate-400">서명 완료 — 잠김</span> : null}

@@ -7,7 +7,7 @@ function hours(min: number) {
 
 export function WorkloadStrip({ rows }: { rows: WorkloadRow[] }) {
   return (
-    <div className="rounded-xl border border-line bg-white p-4">
+    <div className="rounded-2xl border border-line bg-white p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-ink">이번 주 워크로드 (기록 공수 / 가용)</h3>
         <span className="text-[11px] text-slate-400">담당자별 시간 기록 합계 기준</span>

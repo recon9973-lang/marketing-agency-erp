@@ -51,7 +51,7 @@ export function RecordPaymentForm({ billings }: { billings: { id: string; label:
   }
 
   return (
-    <form action={onSubmit} className="rounded-xl border border-line bg-white p-4">
+    <form action={onSubmit} className="rounded-2xl border border-line bg-white p-4">
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         <label className="block lg:col-span-2">
           <span className="text-xs font-semibold text-slate-500">청구 건 *</span>

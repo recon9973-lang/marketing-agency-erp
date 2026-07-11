@@ -110,7 +110,7 @@ export function ContractDetailView({ contract, canDelete }: { contract: Contract
 
       {/* 계약 본문 */}
       {editing ? (
-        <form action={onSave} className="rounded-xl border border-line bg-white p-5">
+        <form action={onSave} className="rounded-2xl border border-line bg-white p-5">
           <label className="block"><span className="text-xs font-semibold text-slate-500">계약명 *</span>
             <input name="title" required defaultValue={contract.title} className={inputCls} /></label>
           <div className="mt-3 grid grid-cols-3 gap-3">
@@ -129,7 +129,7 @@ export function ContractDetailView({ contract, canDelete }: { contract: Contract
           </div>
         </form>
       ) : (
-        <article className="rounded-xl border border-line bg-white p-6 md:p-8">
+        <article className="rounded-2xl border border-line bg-white p-6 md:p-8">
           <h1 className="text-2xl font-bold text-ink">{contract.title}</h1>
           <dl className="mt-4 grid grid-cols-2 gap-x-8 gap-y-2 text-sm md:grid-cols-3">
             <div><dt className="text-xs text-slate-500">거래처</dt><dd className="font-medium text-ink">{contract.clientName}</dd></div>
@@ -163,7 +163,7 @@ export function ContractDetailView({ contract, canDelete }: { contract: Contract
 
       {/* 서명 패널 (미서명 + 편집중 아님) */}
       {!signed && !editing ? (
-        <section className="rounded-xl border border-line bg-white p-5 print:hidden">
+        <section className="rounded-2xl border border-line bg-white p-5 print:hidden">
           <h3 className="text-sm font-bold text-ink">✍️ 태블릿 서명</h3>
           <p className="mt-1 text-xs text-slate-500">서명자 정보를 입력하고 아래 칸에 사인하면 계약이 <b>서명 완료</b>로 확정됩니다.</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">

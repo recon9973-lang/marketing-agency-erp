@@ -65,7 +65,7 @@ function TrendCard({ item }: { item: KeywordTrend }) {
   const deltaColor = delta > 0 ? "text-brand" : delta < 0 ? "text-danger" : "text-slate-400";
 
   return (
-    <div className="rounded-md border border-line bg-white p-4">
+    <div className="rounded-2xl border border-line bg-white p-4">
       <div className="flex items-baseline justify-between gap-2">
         <p className="truncate font-medium text-ink">{item.keyword}</p>
         <span className={`shrink-0 text-xs font-semibold ${deltaColor}`}>{deltaLabel}</span>
@@ -99,7 +99,7 @@ export function KeywordLookup() {
 
   return (
     <div className="space-y-4">
-      <form action={formAction} className="space-y-2 rounded-md border border-line bg-white p-4">
+      <form action={formAction} className="space-y-2 rounded-2xl border border-line bg-white p-4">
         <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
           <span>키워드 (쉼표 또는 줄바꿈으로 구분, 최대 5개)</span>
           <textarea

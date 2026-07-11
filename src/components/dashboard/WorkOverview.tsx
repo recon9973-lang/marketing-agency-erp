@@ -55,7 +55,7 @@ export function WorkOverview({ summary }: { summary: DashboardSummary }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {/* 완료율 */}
-      <div className="flex items-center gap-5 rounded-xl border border-line bg-white p-5">
+      <div className="flex items-center gap-5 rounded-2xl border border-line bg-white p-5">
         <ProgressDonut value={summary.completedWorkCount} total={total} />
         <div className="min-w-0">
           <p className="text-sm font-bold text-ink">업무 완료율</p>
@@ -65,7 +65,7 @@ export function WorkOverview({ summary }: { summary: DashboardSummary }) {
       </div>
 
       {/* 상태 분해 */}
-      <div className="space-y-3 rounded-xl border border-line bg-white p-5">
+      <div className="space-y-3 rounded-2xl border border-line bg-white p-5">
         <p className="text-sm font-bold text-ink">업무 상태 분포</p>
         <StatBar label="완료" value={summary.completedWorkCount} total={total} color="bg-emerald-500" />
         <StatBar label="지연" value={summary.delayedWorkCount} total={total} color="bg-rose-500" />
@@ -74,7 +74,7 @@ export function WorkOverview({ summary }: { summary: DashboardSummary }) {
       </div>
 
       {/* 처리 대기 큐 */}
-      <div className="rounded-xl border border-line bg-white p-5">
+      <div className="rounded-2xl border border-line bg-white p-5">
         <p className="text-sm font-bold text-ink">처리 대기</p>
         <ul className="mt-3 space-y-2.5">
           <QueueRow label="지연된 업무" count={summary.delayedWorkCount} tone="rose" />

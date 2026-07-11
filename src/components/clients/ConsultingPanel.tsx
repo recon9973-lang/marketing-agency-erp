@@ -84,7 +84,7 @@ export function ConsultingPanel({
       ) : null}
 
       {canRun ? (
-        <div className="rounded-xl border border-line bg-white p-4">
+        <div className="rounded-2xl border border-line bg-white p-4">
           <p className="text-sm font-bold text-ink">컨설팅 분석 생성</p>
           <p className="mt-1 text-xs text-slate-500">병원 정보를 입력하면 핵심 키워드·경쟁·상권 분석 초안을 만듭니다. (사람이 검토 후 거래처에 공유)</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">

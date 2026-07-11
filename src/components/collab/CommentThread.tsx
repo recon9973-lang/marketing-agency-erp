@@ -76,7 +76,7 @@ export function CommentThread({
   }
 
   return (
-    <section className="rounded-xl border border-line bg-white p-4">
+    <section className="rounded-2xl border border-line bg-white p-4">
       <div className="flex items-center gap-2">
         <MessageSquare className="h-4 w-4 text-brand-strong" />
         <h3 className="text-sm font-bold text-ink">댓글 ({initialComments.length})</h3>

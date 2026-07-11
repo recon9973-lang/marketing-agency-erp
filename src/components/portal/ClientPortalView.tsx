@@ -79,7 +79,7 @@ export function ClientPortalView({
           {performance.channels.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-3">
               {performance.channels.map((c) => (
-                <div key={c.channel} className="rounded-xl border border-line bg-white p-4">
+                <div key={c.channel} className="rounded-2xl border border-line bg-white p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-600">{c.label} 방문자</span>
                     <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: CHANNEL_COLOR[c.channel] ?? "#94a3b8" }} />
@@ -96,7 +96,7 @@ export function ClientPortalView({
             </div>
           ) : null}
           {performance.ranks.length > 0 ? (
-            <div className="mt-3 rounded-xl border border-line bg-white p-4">
+            <div className="mt-3 rounded-2xl border border-line bg-white p-4">
               <p className="mb-2 text-sm font-bold text-ink">검색 순위</p>
               <ul className="flex flex-wrap gap-2">
                 {performance.ranks.map((r) => (
@@ -115,11 +115,11 @@ export function ClientPortalView({
       <section>
         <h2 className="mb-3 text-lg font-bold text-ink">컨펌 요청 콘텐츠 ({reviewPlans.length})</h2>
         {reviewPlans.length === 0 ? (
-          <p className="rounded-xl border border-line bg-white px-4 py-6 text-center text-sm text-slate-400">컨펌 대기 중인 콘텐츠가 없습니다.</p>
+          <p className="rounded-2xl border border-line bg-white px-4 py-6 text-center text-sm text-slate-400">컨펌 대기 중인 콘텐츠가 없습니다.</p>
         ) : (
           <ul className="space-y-3">
             {reviewPlans.map((p) => (
-              <li key={p.id} className="rounded-xl border border-line bg-white p-4">
+              <li key={p.id} className="rounded-2xl border border-line bg-white p-4">
                 <div className="flex items-center gap-2">
                   <span className="rounded bg-surface px-1.5 py-0.5 text-xs text-slate-500">{p.month}</span>
                   <span className="text-sm font-bold text-ink">{p.topic}</span>
@@ -146,11 +146,11 @@ export function ClientPortalView({
       <section>
         <h2 className="mb-3 text-lg font-bold text-ink">월간 보고서 ({reports.length})</h2>
         {reports.length === 0 ? (
-          <p className="rounded-xl border border-line bg-white px-4 py-6 text-center text-sm text-slate-400">전달된 보고서가 없습니다.</p>
+          <p className="rounded-2xl border border-line bg-white px-4 py-6 text-center text-sm text-slate-400">전달된 보고서가 없습니다.</p>
         ) : (
           <ul className="space-y-3">
             {reports.map((r) => (
-              <li key={r.id} className="rounded-xl border border-line bg-white p-4">
+              <li key={r.id} className="rounded-2xl border border-line bg-white p-4">
                 <div className="flex items-center gap-2">
                   <span className="rounded bg-surface px-1.5 py-0.5 text-xs text-slate-500">{r.month}</span>
                   <span className="text-sm font-bold text-ink">{r.title}</span>
@@ -172,7 +172,7 @@ export function ClientPortalView({
       {/* 피드백 */}
       <section>
         <h2 className="mb-3 flex items-center gap-1.5 text-lg font-bold text-ink"><MessageSquare className="h-5 w-5 text-slate-400" /> 피드백 보내기</h2>
-        <div className="rounded-xl border border-line bg-white p-4">
+        <div className="rounded-2xl border border-line bg-white p-4">
           <textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} rows={3} placeholder="요청사항·만족도·궁금한 점을 남겨주세요." className="w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-brand" />
           <div className="mt-2 flex items-center gap-3">
             <button type="button" onClick={sendFeedback} disabled={pending} className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">보내기</button>

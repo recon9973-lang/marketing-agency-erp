@@ -1,4 +1,5 @@
-// 대시보드 공통 헤더 — 오렌지 아이라인 · 제목 · 설명.
+// 페이지 공통 헤더 — 랜딩(대시보드) 톤앤매너 통일: eyebrow(뮤트 대문자) · 제목 · 설명.
+// PageHeader와 동일한 시각 언어. (기존 호출부 16개 그대로 유지)
 export function DashboardHeader({
   eyebrow,
   title,
@@ -9,10 +10,10 @@ export function DashboardHeader({
   description: string;
 }) {
   return (
-    <div className="border-l-2 border-brand pl-4">
-      <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-strong">{eyebrow}</p>
-      <h2 className="mt-1.5 text-2xl font-bold tracking-tight text-ink">{title}</h2>
-      <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{description}</p>
+    <div>
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">{eyebrow}</p>
+      <h1 className="text-xl font-semibold text-ink">{title}</h1>
+      <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">{description}</p>
     </div>
   );
 }

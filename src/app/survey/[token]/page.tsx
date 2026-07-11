@@ -13,9 +13,9 @@ export default async function PublicSurveyPage({ params }: { params: Promise<{ t
   return (
     <main className="mx-auto min-h-screen max-w-2xl bg-surface px-4 py-10">
       {!survey ? (
-        <div className="rounded-xl border border-line bg-white p-8 text-center text-slate-500">유효하지 않은 설문 링크입니다.</div>
+        <div className="rounded-2xl border border-line bg-white p-8 text-center text-slate-500">유효하지 않은 설문 링크입니다.</div>
       ) : survey.status === "COMPLETED" ? (
-        <div className="rounded-xl border border-line bg-white p-8 text-center">
+        <div className="rounded-2xl border border-line bg-white p-8 text-center">
           <p className="text-2xl">✅</p>
           <p className="mt-2 text-lg font-bold text-ink">이미 제출된 설문입니다</p>
           <p className="mt-1 text-sm text-slate-500">감사합니다.</p>

@@ -88,7 +88,7 @@ const scopeColumns: DataTableColumn<ScopeSettingsItem>[] = [
 
 function IntegrationCard({ integration }: { integration: IntegrationSettingsItem }) {
   return (
-    <div className="rounded-md border border-line bg-white p-4">
+    <div className="rounded-2xl border border-line bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-semibold text-ink">{integration.label}</p>

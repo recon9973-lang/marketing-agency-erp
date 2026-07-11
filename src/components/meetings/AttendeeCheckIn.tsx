@@ -28,7 +28,7 @@ export function AttendeeCheckIn({
   }
 
   return (
-    <div className="rounded-xl border border-line bg-white p-4">
+    <div className="rounded-2xl border border-line bg-white p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-ink">참석자 ({attendees.length})</h3>
         <button

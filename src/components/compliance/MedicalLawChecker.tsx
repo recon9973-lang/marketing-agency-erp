@@ -94,7 +94,7 @@ export function MedicalLawChecker({ clients }: { clients: { id: string; name: st
                 </li>
               ))}
             </ul>
-            <div className="rounded-xl border border-line bg-white p-3">
+            <div className="rounded-2xl border border-line bg-white p-3">
               <p className="mb-1.5 text-xs font-bold text-slate-500">원고 미리보기(위험 표현 강조)</p>
               <div className="whitespace-pre-wrap text-sm leading-6 text-slate-700" dangerouslySetInnerHTML={{ __html: highlight(text, result.flags) }} />
             </div>

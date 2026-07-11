@@ -38,7 +38,7 @@ function AccountCard({ account }: { account: FinancialAccountListItem }) {
   const last4 = account.accountLast4 ?? account.cardLast4 ?? "----";
 
   return (
-    <div className="rounded-md border border-line bg-white p-4">
+    <div className="rounded-2xl border border-line bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold text-slate-500">{account.type === FinancialAccountType.BANK ? "계좌" : "카드"}</p>
@@ -173,7 +173,7 @@ export default async function FinancePage() {
         {overview.accounts.length > 0 ? (
           overview.accounts.map((account) => <AccountCard key={account.id} account={account} />)
         ) : (
-          <div className="rounded-md border border-line bg-white p-4 text-sm text-slate-500">등록된 지출 연동 계좌/카드가 없습니다.</div>
+          <div className="rounded-2xl border border-line bg-white p-4 text-sm text-slate-500">등록된 지출 연동 계좌/카드가 없습니다.</div>
         )}
       </div>
 
@@ -198,7 +198,7 @@ export default async function FinancePage() {
       {canReconcile && (
         <div className="space-y-3">
           <h3 className="text-base font-semibold text-ink">입금 반자동 대사</h3>
-          <div className="rounded-md border border-line bg-white p-4">
+          <div className="rounded-2xl border border-line bg-white p-4">
             <BankReconcile suggestions={bankSuggestions} />
           </div>
         </div>

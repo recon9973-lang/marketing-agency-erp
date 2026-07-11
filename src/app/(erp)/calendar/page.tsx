@@ -88,7 +88,7 @@ export default async function CalendarPage() {
 
       <div className="grid gap-3 md:grid-cols-2">
         {integrationCards.map((card) => (
-          <div key={card.provider} className="rounded-md border border-line bg-white p-4">
+          <div key={card.provider} className="rounded-2xl border border-line bg-white p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-semibold text-ink">{card.title}</p>

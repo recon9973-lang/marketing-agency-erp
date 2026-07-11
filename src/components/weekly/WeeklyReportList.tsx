@@ -49,7 +49,7 @@ export function WeeklyReportList({ items }: { items: WeeklyItem[] }) {
 
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-line bg-white px-4 py-8 text-center text-sm text-slate-500">
+      <div className="rounded-2xl border border-line bg-white px-4 py-8 text-center text-sm text-slate-500">
         작성된 주간보고가 없습니다. ‘+ 주간보고 작성’으로 시작하세요.
       </div>
     );
@@ -58,7 +58,7 @@ export function WeeklyReportList({ items }: { items: WeeklyItem[] }) {
   return (
     <div className="space-y-3">
       {items.map((w) => (
-        <article key={w.id} className="rounded-xl border border-line bg-white p-4">
+        <article key={w.id} className="rounded-2xl border border-line bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <span className="rounded-md bg-brand-soft px-2 py-0.5 text-xs font-bold text-brand-strong">{weekLabel(w.weekStart)}</span>

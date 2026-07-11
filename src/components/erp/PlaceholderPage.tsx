@@ -15,7 +15,7 @@ export function PlaceholderPage({
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">{description}</p>
       </div>
 
-      <div className="rounded-md border border-line bg-white p-5 text-sm text-slate-500">다음 작업에서 실제 기능과 데이터가 연결됩니다.</div>
+      <div className="rounded-2xl border border-line bg-white p-5 text-sm text-slate-500">다음 작업에서 실제 기능과 데이터가 연결됩니다.</div>
     </section>
   );
 }

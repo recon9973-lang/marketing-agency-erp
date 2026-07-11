@@ -85,7 +85,7 @@ export function UploadForm({ folderId }: { folderId: string | null }) {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white p-3">
+    <form onSubmit={submit} className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-white p-3">
       <input
         ref={fileRef}
         type="file"

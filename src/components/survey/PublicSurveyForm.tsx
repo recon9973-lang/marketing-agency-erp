@@ -35,7 +35,7 @@ export function PublicSurveyForm({ token, questions }: { token: string; question
 
   if (done) {
     return (
-      <div className="rounded-xl border border-line bg-white p-8 text-center">
+      <div className="rounded-2xl border border-line bg-white p-8 text-center">
         <p className="text-2xl">✅</p>
         <p className="mt-2 text-lg font-bold text-ink">제출되었습니다</p>
         <p className="mt-1 text-sm text-slate-500">소중한 답변 감사합니다. 담당자가 확인 후 진행하겠습니다.</p>
@@ -46,7 +46,7 @@ export function PublicSurveyForm({ token, questions }: { token: string; question
   return (
     <div className="space-y-4">
       {questions.map((q) => (
-        <div key={q.id} className="rounded-xl border border-line bg-white p-4">
+        <div key={q.id} className="rounded-2xl border border-line bg-white p-4">
           <label className="block">
             <span className="text-sm font-semibold text-ink">
               {q.label}

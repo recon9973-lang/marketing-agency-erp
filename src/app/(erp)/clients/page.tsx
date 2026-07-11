@@ -33,7 +33,7 @@ export default async function ClientsPage() {
       </section>
 
       {canCreate && (
-        <section className="rounded-xl border border-line bg-white p-6">
+        <section className="rounded-2xl border border-line bg-white p-6">
           <h2 className="mb-4 text-sm font-bold text-ink">신규 거래처 등록</h2>
           <ClientForm industries={industries} marketers={marketers} />
         </section>
