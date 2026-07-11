@@ -41,7 +41,20 @@ const SEO_GEO_PRODUCTS = [
   { name: "GEO 기반 구축 (질문 20개)", category: "GEO", description: "질문 20개 세트·FAQ·근거형 답변 페이지 (50만원+, AI답변 노출 보장 없음)" },
   { name: "AI 원고 콘텐츠", category: "콘텐츠", description: "AI 초안 생산·자체검수·기본 게시 (묶음 견적, 핵심 의료 페이지 단독 사용 지양)" },
   { name: "사람 검수 콘텐츠", category: "콘텐츠", description: "기획·작성·의료광고 체크·게시·리포팅 (묶음 견적, 검수 이력 보관)" },
-  { name: "SEO·GEO 통합 패키지", category: "SEO", description: "SEO 리뉴얼 + GEO 질문 20개 + 월 콘텐츠 운영 (계약 시 표준 온보딩 업무 10종 자동 생성)" }
+  { name: "SEO·GEO 통합 패키지", category: "SEO", description: "SEO 리뉴얼 + GEO 질문 20개 + 월 콘텐츠 운영 (계약 시 표준 온보딩 업무 10종 자동 생성)" },
+  { name: "AI 채널 구축 패키지", category: "GEO", description: "Schema/llms.txt·보도자료·YouTube·전문가 아티클·커뮤니티 Q&A·인용 모니터링 (계약 시 채널 업무 8종 자동 생성, AI답변 노출 보장 없음)" }
+];
+
+// AI 채널 구축 업무 — src/domain/sales/geo-channels.ts AI_CHANNEL_TASKS 와 동기 유지.
+const AI_CHANNEL_TASKS = [
+  { title: "[자동화 A] FAQPage/Article Schema 적용 + BLUF(답변 선두 배치) 구조 점검", category: "BLOG_SEO", offsetDays: 7, offsetFrom: "START", checklist: ["FAQ Schema", "Article Schema", "핵심 답변 첫 문단 배치", "구조 검증"] },
+  { title: "[자동화 A] llms.txt 생성·업데이트 + 색인 요청 루틴 세팅", category: "BLOG_SEO", offsetDays: 10, offsetFrom: "START", checklist: ["llms.txt 생성", "사이트맵 갱신", "색인 요청 자동화 설정"] },
+  { title: "[자동화 B] 언론 보도자료 1건 (AI 초안 → 원장 인용문·배포는 사람)", category: "BRAND_BLOG", offsetDays: 21, offsetFrom: "START", checklist: ["보도자료 초안", "의료광고 검수", "원장 인용문", "배포처 선정"] },
+  { title: "[자동화 B] YouTube 진료 설명 영상 1건 + 자막(SRT)·제목/설명 SEO", category: "SNS_MANAGEMENT", offsetDays: 30, offsetFrom: "START", checklist: ["대본(의료광고 검수)", "촬영/편집", "자막 자동 생성", "제목·설명 최적화"] },
+  { title: "[자동화 B] 의료진 전문가 아티클 게시 (LinkedIn/블로그 — E-E-A-T 신호)", category: "BRAND_BLOG", offsetDays: 30, offsetFrom: "START" },
+  { title: "[자동화 C] 커뮤니티 Q&A 참여 — AI 초안만, 게시·소통은 사람 (지식iN·카페)", category: "SNS_MANAGEMENT", offsetDays: 30, offsetFrom: "START", checklist: ["질문 모니터링", "답변 초안(의료광고 검수)", "직접 게시", "이력 기록"] },
+  { title: "[자동화 B] AI 인용 모니터링 루틴 — 승인 질문 20개 월 1회 실행·기록·캡처", category: "PERFORMANCE_COLLECTION", offsetDays: 30, offsetFrom: "START", checklist: ["엔진별 실행", "출현/인용 기록", "캡처 증빙", "경쟁사 언급 기록"] },
+  { title: "[자동화 B] 분기 콘텐츠 전면 업데이트 계획 (Perplexity 최신성 70% 가중 대응)", category: "BRAND_BLOG", offsetDays: 80, offsetFrom: "START" }
 ];
 
 async function seedProducts() {
@@ -59,15 +72,23 @@ async function seedProducts() {
   return created;
 }
 
-/** defaultTasks가 비어 있는 통합 패키지에 표준 온보딩 10종 주입(NULL일 때만 — 운영자 수정 보존). */
+/** defaultTasks가 비어 있는 패키지 상품에 업무 템플릿 주입(NULL일 때만 — 운영자 수정 보존). */
 async function backfillDefaultTasks() {
-  const pkg = await prisma.product.findFirst({
-    where: { name: "SEO·GEO 통합 패키지" },
-    select: { id: true, defaultTasks: true }
-  });
-  if (!pkg || pkg.defaultTasks !== null) return 0;
-  await prisma.product.update({ where: { id: pkg.id }, data: { defaultTasks: STANDARD_ONBOARDING_TASKS } });
-  return 1;
+  const targets = [
+    { name: "SEO·GEO 통합 패키지", tasks: STANDARD_ONBOARDING_TASKS },
+    { name: "AI 채널 구축 패키지", tasks: AI_CHANNEL_TASKS }
+  ];
+  let updated = 0;
+  for (const t of targets) {
+    const pkg = await prisma.product.findFirst({
+      where: { name: t.name },
+      select: { id: true, defaultTasks: true }
+    });
+    if (!pkg || pkg.defaultTasks !== null) continue;
+    await prisma.product.update({ where: { id: pkg.id }, data: { defaultTasks: t.tasks } });
+    updated++;
+  }
+  return updated;
 }
 
 const DEMO_LEADS = [

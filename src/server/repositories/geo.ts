@@ -70,6 +70,82 @@ export type GeoSummary = {
   citedCount: number;
 };
 
+export type GeoMonthlySummary = {
+  monitoredQuestions: number; // 해당 월에 1회 이상 관측된 질문 수
+  checks: number; // 관측 기록 수
+  appearedQuestions: number; // 출현(병원 언급)이 확인된 질문 수
+  citedQuestions: number; // 공식 URL 인용이 확인된 질문 수
+  byEngine: Partial<Record<GeoEngine, { checks: number; appeared: number }>>;
+  evidenceCount: number; // 캡처/증빙 링크가 남은 기록 수
+};
+
+/** 월간 리포트용 GEO 집계(§13) — 해당 월 관측 기록 기준. 보장 지표가 아닌 모니터링 지표. */
+export async function geoMonthlySummary(clientId: string, start: Date, end: Date): Promise<GeoMonthlySummary> {
+  const records = await db.geoAnswerRecord.findMany({
+    where: { question: { clientId }, checkedOn: { gte: start, lt: end } },
+    select: { questionId: true, engine: true, appeared: true, cited: true, evidenceUrl: true }
+  });
+
+  const questions = new Set<string>();
+  const appearedQ = new Set<string>();
+  const citedQ = new Set<string>();
+  const byEngine: GeoMonthlySummary["byEngine"] = {};
+  let evidenceCount = 0;
+
+  for (const r of records) {
+    questions.add(r.questionId);
+    if (r.appeared) appearedQ.add(r.questionId);
+    if (r.cited) citedQ.add(r.questionId);
+    if (r.evidenceUrl) evidenceCount++;
+    const engine = r.engine as GeoEngine;
+    const slot = (byEngine[engine] ??= { checks: 0, appeared: 0 });
+    slot.checks++;
+    if (r.appeared) slot.appeared++;
+  }
+
+  return {
+    monitoredQuestions: questions.size,
+    checks: records.length,
+    appearedQuestions: appearedQ.size,
+    citedQuestions: citedQ.size,
+    byEngine,
+    evidenceCount
+  };
+}
+
+export type GeoTrendPoint = { month: string; monitored: number; appeared: number; rate: number };
+
+/** 최근 N개월 월별 출현 추이 — (관측 질문 대비 출현 질문 비율). 관측 없던 달은 생략. */
+export async function geoMonthlyTrend(clientId: string, months = 6): Promise<GeoTrendPoint[]> {
+  const from = new Date();
+  from.setUTCDate(1);
+  from.setUTCHours(0, 0, 0, 0);
+  from.setUTCMonth(from.getUTCMonth() - (months - 1));
+
+  const records = await db.geoAnswerRecord.findMany({
+    where: { question: { clientId }, checkedOn: { gte: from } },
+    select: { questionId: true, appeared: true, checkedOn: true }
+  });
+
+  const byMonth = new Map<string, { monitored: Set<string>; appeared: Set<string> }>();
+  for (const r of records) {
+    const month = r.checkedOn.toISOString().slice(0, 7);
+    const slot = byMonth.get(month) ?? { monitored: new Set<string>(), appeared: new Set<string>() };
+    slot.monitored.add(r.questionId);
+    if (r.appeared) slot.appeared.add(r.questionId);
+    byMonth.set(month, slot);
+  }
+
+  return [...byMonth.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, s]) => ({
+      month,
+      monitored: s.monitored.size,
+      appeared: s.appeared.size,
+      rate: s.monitored.size > 0 ? Math.round((s.appeared.size / s.monitored.size) * 100) : 0
+    }));
+}
+
 export function summarizeGeoMatrix(rows: GeoQuestionRow[]): GeoSummary {
   const monitored = rows.filter((r) => Object.keys(r.cells).length > 0);
   return {

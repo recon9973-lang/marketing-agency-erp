@@ -7,8 +7,9 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { GeoMatrix } from "@/components/geo/GeoMatrix";
 import { GeoCandidateGenerator, GeoAnswerRecorder } from "@/components/geo/GeoTools";
+import { GeoChannelGuide } from "@/components/geo/GeoChannelGuide";
 import { GEO_DISCLAIMER } from "@/domain/sales/geo";
-import { listGeoMatrix, summarizeGeoMatrix } from "@/server/repositories/geo";
+import { geoMonthlyTrend, listGeoMatrix, summarizeGeoMatrix } from "@/server/repositories/geo";
 import { listInsightClients } from "@/server/repositories/insights";
 import { getCurrentUser } from "@/server/session";
 
@@ -19,7 +20,9 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
   const { client: clientParam } = await searchParams;
   const clients = await listInsightClients(user);
   const selectedId = clientParam && clients.some((c) => c.id === clientParam) ? clientParam : clients[0]?.id ?? null;
-  const rows = selectedId ? await listGeoMatrix(selectedId) : [];
+  const [rows, trend] = selectedId
+    ? await Promise.all([listGeoMatrix(selectedId), geoMonthlyTrend(selectedId)])
+    : [[], []];
   const summary = summarizeGeoMatrix(rows);
 
   return (
@@ -69,11 +72,25 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
             ))}
           </div>
 
+          {/* 월별 출현 추이 — 관측 질문 대비 출현 질문 비율(모니터링 지표) */}
+          {trend.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-panel px-3 py-2.5">
+              <span className="text-xs font-bold text-ink">월별 출현 추이</span>
+              {trend.map((t) => (
+                <span key={t.month} className="rounded-full border border-line bg-white px-2.5 py-0.5 text-[11px] text-slate-600">
+                  {Number(t.month.slice(5, 7))}월 <b className="text-ink">{t.rate}%</b>
+                  <span className="text-slate-400"> ({t.appeared}/{t.monitored})</span>
+                </span>
+              ))}
+            </div>
+          )}
+
           {selectedId && (
             <>
               <GeoCandidateGenerator clientId={selectedId} />
               <GeoMatrix clientId={selectedId} rows={rows} />
               <GeoAnswerRecorder questions={rows} />
+              <GeoChannelGuide />
             </>
           )}
         </>
