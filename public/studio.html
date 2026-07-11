@@ -718,6 +718,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeHelp();});
 function toggleDark(){S.dark=!document.body.classList.contains('dark');
   document.body.classList.toggle('dark',S.dark);$('darkBtn').textContent=S.dark?'☀️':'🌙';
   try{localStorage.setItem('vstudio_dark',S.dark?'1':'0')}catch(e){}}
+/* ERP 셸 테마를 특정 값으로 맞춤(현재와 다를 때만 토글) */
+function setDark(on){ if(!!on !== document.body.classList.contains('dark')) toggleDark(); }
 function demo(){
   $('i_cat').value='ortho';$('i_core').value='거북목 도수치료';$('i_kw2').value='목디스크, 일자목, 자세교정';
   $('i_region').value='대전 둔산동';$('i_gtype').value='Q&A형';$('i_cta').value='카카오 상담';
@@ -1437,7 +1439,13 @@ async function runBatch(){
 /* ───────────── 초기화 ───────────── */
 $('i_cat').innerHTML=Object.entries(CATS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
 $('i_cat').value='ortho';
-try{if(localStorage.getItem('vstudio_dark')==='1')toggleDark();}catch(e){}
+// ERP 셸 다크모드와 동기화 — ERP의 무-FOUC 로직과 동일(theme 키 → 없으면 OS 선호). 임베드 시 톤 일치.
+try{ var _erpTheme=localStorage.getItem('theme');
+  if(_erpTheme!=='dark'&&_erpTheme!=='light'){ _erpTheme=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'; }
+  setDark(_erpTheme==='dark');
+}catch(e){}
+// ERP에서 테마 토글 시 iframe도 즉시 반영
+window.addEventListener('storage',function(e){ if(e&&e.key==='theme') setDark(e.newValue==='dark'); });
 // 이전 작업 복원(있으면)
 const restored=restoreState();
 // 이모지 칩(복원된 hidden 값 반영)
