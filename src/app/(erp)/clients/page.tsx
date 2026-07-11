@@ -22,7 +22,7 @@ export default async function ClientsPage() {
     : [];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <section className="space-y-5">
         <DashboardHeader
           eyebrow="거래처 관리"

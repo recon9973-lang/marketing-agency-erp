@@ -17,7 +17,7 @@ export default async function KeywordsPage() {
   const configured = searchAd || datalab;
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-6">
       <PageHeader
         eyebrow="마케팅"
         title="검색량 조회"

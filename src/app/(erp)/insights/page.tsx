@@ -20,7 +20,7 @@ export default async function InsightsPage({
   const insight = selectedId ? await getClientInsight(user, selectedId) : null;
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-6">
       <PageHeader
         eyebrow="마케팅"
         title="거래처 인사이트"

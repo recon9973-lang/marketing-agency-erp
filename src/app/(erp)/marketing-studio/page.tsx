@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { Role } from "@/domain/types";
 import { db } from "@/server/db";
 import { getCurrentUser } from "@/server/session";
@@ -19,14 +20,11 @@ export default async function StudioPage() {
 
   return (
     <section className="space-y-6">
-      <div>
-        <p className="text-sm font-semibold text-brand">마케팅 스튜디오</p>
-        <h2 className="mt-2 text-2xl font-semibold text-ink">VENOM Marketing Engine</h2>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          거래처 마케팅 업무를 리서치 → 콘텐츠 생성 → 의료광고법 검수 → 성과수집 → 리포트로 실행합니다.
-          외부 API 키가 설정되지 않은 기능은 결과에 안내(CONFIG_MISSING)가 표시됩니다.
-        </p>
-      </div>
+      <DashboardHeader
+        eyebrow="마케팅 스튜디오"
+        title="VENOM Marketing Engine"
+        description="거래처 마케팅 업무를 리서치 → 콘텐츠 생성 → 의료광고법 검수 → 성과수집 → 리포트로 실행합니다. 외부 API 키가 설정되지 않은 기능은 결과에 안내(CONFIG_MISSING)가 표시됩니다."
+      />
       <StudioClient clients={clients} />
     </section>
   );
