@@ -326,7 +326,6 @@ export async function runGeoWatchNow(input: unknown): Promise<ActionResult<{ ask
   });
 }
 
-<<<<<<< HEAD
 /** 질문 1건 → 답변 페이지(FAQ+Schema) 초안 자동 생성 → 콘텐츠 파이프라인(검수·승인·게시)으로. */
 export async function generateAnswerPage(input: unknown): Promise<ActionResult<{ planId: string; high: number; medium: number }>> {
   return runAction(async () => {
@@ -358,8 +357,6 @@ export async function generateAnswerPage(input: unknown): Promise<ActionResult<{
   });
 }
 
-=======
->>>>>>> origin/erp-v1
 const recordSchema = z.object({
   questionId: z.string().min(1),
   engine: z.string().min(1),
