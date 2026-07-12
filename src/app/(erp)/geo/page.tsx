@@ -13,10 +13,12 @@ import { GeoChannelGuide } from "@/components/geo/GeoChannelGuide";
 import { GeoTabs } from "@/components/geo/GeoTabs";
 import { GeoTrendBars } from "@/components/geo/GeoTrendBars";
 import { GeoWorkflowSteps } from "@/components/geo/GeoWorkflowSteps";
+import { GeoLlmsTxt } from "@/components/geo/GeoLlmsTxt";
 import { configuredEngines } from "@/server/geo-engine/engines";
+import { buildLlmsTxt, llmsInputFromClient } from "@/server/geo-engine/llms-txt";
 import { GEO_DISCLAIMER } from "@/domain/sales/geo";
 import { db } from "@/server/db";
-import { geoMonthlyTrend, listGeoMatrix, summarizeGeoMatrix } from "@/server/repositories/geo";
+import { geoMonthlyTrend, listGeoMatrix, listPublishedPages, summarizeGeoMatrix } from "@/server/repositories/geo";
 import { listInsightClients } from "@/server/repositories/insights";
 import { getCurrentUser } from "@/server/session";
 
@@ -53,7 +55,8 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
   const { client: clientParam } = await searchParams;
   const clients = await listInsightClients(user);
   const selectedId = clientParam && clients.some((c) => c.id === clientParam) ? clientParam : clients[0]?.id ?? null;
-  const [rows, trend, selectedClient] = selectedId
+  const selectedName = clients.find((c) => c.id === selectedId)?.name ?? "";
+  const [rows, trend, selectedClient, publishedPages] = selectedId
     ? await Promise.all([
         listGeoMatrix(selectedId),
         geoMonthlyTrend(selectedId),
@@ -67,9 +70,10 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
               hospitalProfile: { select: { departments: true } }
             }
           })
-          .catch(() => null)
+          .catch(() => null),
+        listPublishedPages(selectedId).catch(() => [])
       ])
-    : [[], [], null];
+    : [[], [], null, []];
   const summary = summarizeGeoMatrix(rows);
 
   // 진료과 기본값: 업종(진료과목) 마스터 → 병원프로필 진료과 첫 항목 순으로 채움
@@ -78,6 +82,17 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
     selectedClient?.hospitalProfile?.departments?.split(/[,\n]/)[0]?.trim() ??
     "";
   const defaultRegion = selectedClient?.region ?? "";
+
+  // llms.txt 본문(순수 생성) — 게시된 답변 페이지 기반
+  const llmsText = buildLlmsTxt(
+    llmsInputFromClient({
+      hospitalName: selectedName || "병원",
+      department: defaultDepartment || null,
+      region: defaultRegion || null,
+      publishedPages
+    })
+  );
+  const publishedUrls = publishedPages.map((p) => p.publishedUrl);
 
   const kpis = [
     { label: "전체 질문", value: summary.totalQuestions, icon: KPI_ICONS.question, tone: "emerald" },
@@ -150,6 +165,7 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
                 { key: "status", label: "관측 현황", badge: summary.totalQuestions },
                 { key: "design", label: "질문 설계", badge: summary.candidateCount },
                 { key: "record", label: "수동 기록" },
+                { key: "index", label: "색인·llms.txt", badge: publishedUrls.length },
                 { key: "guide", label: "채널 가이드" }
               ]}
             >
@@ -167,6 +183,7 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
                 <GeoQuestionAdder clientId={selectedId} />
               </>
               <GeoAnswerRecorder questions={rows} />
+              <GeoLlmsTxt clientName={selectedName} llmsText={llmsText} urls={publishedUrls} />
               <GeoChannelGuide defaultOpen />
             </GeoTabs>
           )}

@@ -152,6 +152,20 @@ export async function geoMonthlyTrend(clientId: string, months = 6): Promise<Geo
     }));
 }
 
+export type PublishedAnswerPage = { topic: string; publishedUrl: string; summary: string | null };
+
+/** llms.txt·색인용 — 게시된(publishedUrl 보유) 콘텐츠를 모은다. GEO 답변 여부 무관. */
+export async function listPublishedPages(clientId: string): Promise<PublishedAnswerPage[]> {
+  const plans = await db.contentPlan.findMany({
+    where: { clientId, status: "PUBLISHED", publishedUrl: { not: null } },
+    orderBy: { updatedAt: "desc" },
+    select: { topic: true, publishedUrl: true, angle: true }
+  });
+  return plans
+    .filter((p): p is { topic: string; publishedUrl: string; angle: string | null } => Boolean(p.publishedUrl))
+    .map((p) => ({ topic: p.topic, publishedUrl: p.publishedUrl, summary: p.angle }));
+}
+
 export type GeoDashboardSummary = {
   monitoredQuestions: number; // 승인·모니터링 중 질문 수(접근 가능 거래처 전체)
   appearedRecent: number; // 최근 30일 출현이 확인된 질문 수
