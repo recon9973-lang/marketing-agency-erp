@@ -1,6 +1,6 @@
 // 목표 경로: src/app/(erp)/magazine/page.tsx
 //
-// GROUND 매거진 콘텐츠 큐 — 용어·주제 대량 등록 → 큐 관리(초안·검토·발행은 후속).
+// GROUND 매거진 콘텐츠 큐 — 용어·주제 대량 등록 → 큐 관리 → AI 초안 → 검토 → 워드프레스·인스타 발행.
 // 병원 콘텐츠와 분리된 자사 미디어 트랙(의료법·거래처 승인 게이트 없음).
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -77,7 +77,7 @@ export default async function MagazinePage({ searchParams }: { searchParams: Pro
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
         <p className="text-sm font-bold text-ink">🤖 AI 초안 생성</p>
         <p className="mt-0.5 mb-3 text-[11px] text-slate-500">
-          큐의 용어·주제를 BLUF 구조(핵심 답변 선두) 초안으로 생성합니다. 생성 후 검토 → 발행(후속)으로 이어집니다.
+          큐의 용어·주제를 BLUF 구조(핵심 답변 선두) 초안으로 생성합니다. 생성 후 검토 → 워드프레스·인스타 발행으로 이어집니다.
           {!isAiConfigured() && " — ANTHROPIC_API_KEY 연동 시 켜집니다."}
         </p>
         <MagazineBatchButton queued={summary.queued} />
@@ -86,7 +86,7 @@ export default async function MagazinePage({ searchParams }: { searchParams: Pro
       <MagazineQueue rows={rows} />
 
       <p className="rounded-xl border border-line bg-surface/60 px-3 py-2 text-[11px] text-slate-500">
-        다음 단계: 검토 완료 항목 → 워드프레스 예약 발행 + 커버 자동 생성. (후속 PR)
+        검토 완료 항목은 각 행에서 워드프레스 발행 + 커버 자동 업로드, 인스타그램 자동 발행까지 이어집니다.
       </p>
     </section>
   );
