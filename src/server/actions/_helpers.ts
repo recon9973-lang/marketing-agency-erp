@@ -128,6 +128,17 @@ export async function runAction<T>(fn: () => Promise<T>): Promise<ActionResult<T
   } catch (err) {
     const raw = err instanceof Error ? err.message : "UNKNOWN";
     const code = raw in ERROR_MESSAGES ? raw : "UNKNOWN";
+    if (code === "UNKNOWN") {
+      // 원인 진단용: 예상 밖 오류는 서버 로그에 전체를 남기고,
+      // 사용자에겐 Prisma 에러코드(P2xxx)만 덧붙인다(민감정보 미노출).
+      console.error("[runAction] unexpected error:", err);
+      const prismaCode = (err as { code?: string })?.code;
+      return {
+        ok: false,
+        code,
+        error: `처리 중 오류가 발생했습니다.${prismaCode ? ` (${prismaCode})` : ""}`
+      };
+    }
     return {
       ok: false,
       code,
