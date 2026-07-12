@@ -7,8 +7,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { isMagazineCategory, isMagazineKind, parseMagazineTerms } from "@/domain/content/magazine";
+import { buildMagazineMarkdown, isMagazineCategory, isMagazineKind, MAGAZINE_STATUSES, parseMagazineTerms } from "@/domain/content/magazine";
 import { db } from "@/server/db";
+import { generateMagazineDraft, isAiConfigured } from "@/server/ai/claude";
 import { getDefaultOrgId } from "@/server/org";
 import { recordAudit, requestMeta, requireUser, runAction, type ActionResult } from "@/server/actions/_helpers";
 
@@ -66,6 +67,91 @@ export async function importMagazineQueue(input: unknown): Promise<ActionResult<
 
     revalidatePath("/magazine");
     return { created, skipped: terms.length - fresh.length, parsed: terms.length };
+  });
+}
+
+/** 큐 1건 → AI 초안 생성 → DRAFTED. 자사 미디어라 의료법 게이트 없음(사람 검토는 이후 단계). */
+export async function draftMagazinePost(input: unknown): Promise<ActionResult<{ status: string }>> {
+  return runAction(async () => {
+    const p = z.object({ id: z.string().min(1) }).safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    if (!isAiConfigured()) throw new Error("AI_NOT_CONFIGURED");
+    const post = await db.magazinePost.findUnique({
+      where: { id: p.data.id },
+      select: { id: true, title: true, category: true, kind: true, seed: true, status: true }
+    });
+    if (!post) throw new Error("NOT_FOUND");
+    const user = await requireUser();
+
+    const draft = await generateMagazineDraft({ title: post.title, kind: post.kind, category: post.category, seed: post.seed });
+    if (!draft.summary && draft.sections.length === 0) throw new Error("AI_EMPTY");
+    const markdown = buildMagazineMarkdown(draft);
+
+    const meta = await requestMeta();
+    await db.$transaction(async (tx) => {
+      await tx.magazinePost.update({ where: { id: p.data.id }, data: { draft: markdown, status: "DRAFTED" } });
+      await recordAudit(tx, { actorId: user.id, action: "magazine.draft", targetType: "MagazinePost", targetId: p.data.id, ...meta });
+    });
+    revalidatePath("/magazine");
+    return { status: "DRAFTED" };
+  });
+}
+
+/** 큐에서 QUEUED 상위 N건을 순차로 초안 생성(안전 램프업). limit는 1~5로 제한. */
+export async function draftMagazineBatch(input: unknown): Promise<ActionResult<{ drafted: number; failed: number }>> {
+  return runAction(async () => {
+    const p = z.object({ limit: z.number().int().min(1).max(5).default(3) }).safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    if (!isAiConfigured()) throw new Error("AI_NOT_CONFIGURED");
+    const user = await requireUser();
+
+    const queued = await db.magazinePost.findMany({
+      where: { status: "QUEUED" },
+      orderBy: { createdAt: "asc" },
+      take: p.data.limit,
+      select: { id: true, title: true, category: true, kind: true, seed: true }
+    });
+
+    let drafted = 0;
+    let failed = 0;
+    const meta = await requestMeta();
+    for (const post of queued) {
+      try {
+        const draft = await generateMagazineDraft({ title: post.title, kind: post.kind, category: post.category, seed: post.seed });
+        if (!draft.summary && draft.sections.length === 0) throw new Error("AI_EMPTY");
+        const markdown = buildMagazineMarkdown(draft);
+        await db.$transaction(async (tx) => {
+          await tx.magazinePost.update({ where: { id: post.id }, data: { draft: markdown, status: "DRAFTED" } });
+          await recordAudit(tx, { actorId: user.id, action: "magazine.draft", targetType: "MagazinePost", targetId: post.id, ...meta });
+        });
+        drafted++;
+      } catch {
+        failed++; // 개별 실패는 격리 — 나머지 계속
+      }
+    }
+    revalidatePath("/magazine");
+    return { drafted, failed };
+  });
+}
+
+/** 상태 전이(검토 흐름) — DRAFTED↔REVIEWED, REVIEWED→QUEUED(재작성). PUBLISHED는 발행 액션 전용. */
+export async function setMagazineStatus(input: unknown): Promise<ActionResult> {
+  return runAction(async () => {
+    const p = z.object({ id: z.string().min(1), status: z.enum(MAGAZINE_STATUSES) }).safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    if (p.data.status === "PUBLISHED") throw new Error("VALIDATION"); // 발행은 별도 액션(후속)
+    const post = await db.magazinePost.findUnique({ where: { id: p.data.id }, select: { id: true, status: true, draft: true } });
+    if (!post) throw new Error("NOT_FOUND");
+    // 초안 없이 검토 완료로 올릴 수 없음
+    if (p.data.status === "REVIEWED" && !post.draft) throw new Error("NOTHING_TO_PUBLISH");
+    const user = await requireUser();
+
+    const meta = await requestMeta();
+    await db.$transaction(async (tx) => {
+      await tx.magazinePost.update({ where: { id: p.data.id }, data: { status: p.data.status } });
+      await recordAudit(tx, { actorId: user.id, action: "magazine.status", targetType: "MagazinePost", targetId: p.data.id, afterState: { status: p.data.status }, ...meta });
+    });
+    revalidatePath("/magazine");
   });
 }
 
