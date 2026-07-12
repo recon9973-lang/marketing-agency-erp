@@ -12,6 +12,7 @@
 //     -d '{"reportingMonth":"2026-07-01","configByClient":{"<clientId>":{"keywords":["강남 임플란트"],"target":"myclinic.co.kr","channel":"blog"}}}'
 
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/server/db";
 import { runMonthlyPerformanceCollection, runMonthlyPerformanceCollectionAuto } from "@/server/marketing/research";
 import { runDailyAlerts } from "@/server/jobs/daily-alerts";
 import { runChannelSync } from "@/server/jobs/channel-sync";
@@ -46,10 +47,30 @@ export async function GET(req: NextRequest) {
     // GEO 자동 관측은 주 1회(월요일)만 — 엔진 API 비용 상한(질문×엔진×주1회)
     const isMonday = new Date().getUTCDay() === 1;
     const geoWatch = isMonday ? await runGeoWatch() : null;
-    return NextResponse.json({ ok: true, alerts, sync, magazine, scheduledPublish, placeRank, monthlyPerf, geoWatch });
+    const summary = { alerts, sync, magazine, scheduledPublish, placeRank, monthlyPerf, geoWatch };
+    await recordCronRun("ok", summary);
+    return NextResponse.json({ ok: true, ...summary });
   } catch (e) {
     console.error("[marketing/cron] daily jobs failed", e);
+    await recordCronRun("error", { message: e instanceof Error ? e.message : String(e) });
     return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
+  }
+}
+
+/** 무인 크론 실행 결과를 감사 로그에 남긴다(실패해도 응답을 막지 않음 — 관측 목적). */
+async function recordCronRun(outcome: "ok" | "error", summary: unknown): Promise<void> {
+  try {
+    await db.auditLog.create({
+      data: {
+        actorId: null,
+        action: `marketing.cronRun.daily.${outcome}`,
+        targetType: "Cron",
+        targetId: new Date().toISOString().slice(0, 10),
+        afterState: summary as never,
+      },
+    });
+  } catch (e) {
+    console.error("[marketing/cron] audit log failed", e);
   }
 }
 
