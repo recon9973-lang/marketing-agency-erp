@@ -156,3 +156,68 @@ export async function runMonthlyPerformanceCollection(
   }
   return { reports: reports.length, totalRanks };
 }
+
+/** GSC 사이트 URL(sc-domain: 또는 https://…) → 순위 매칭용 호스트. */
+export function hostFromGscSiteUrl(gsc: string): string | null {
+  let s = gsc.trim().replace(/^sc-domain:/i, "");
+  try {
+    if (/^https?:\/\//i.test(s)) s = new URL(s).host;
+  } catch {
+    /* noop */
+  }
+  s = s.replace(/^https?:\/\//i, "").replace(/\/.*$/, "").trim();
+  return s || null;
+}
+
+/**
+ * 월간 성과수집 설정을 DB에서 자동 구성한다(수기 주입 없이 무인 실행용).
+ *  - 대상 거래처: 해당 월에 DRAFT/REVIEW_NEEDED 보고서가 있는 거래처
+ *  - keywords: Keyword(우선순위 asc) 상위 maxKeywords개
+ *  - target: GOOGLE ChannelConnection의 gscSiteUrl 호스트(없으면 제외 → 수집 스킵)
+ */
+export async function buildMonthlyPerfConfig(
+  reportingMonth: Date | string,
+  maxKeywords = 10,
+): Promise<Record<string, { keywords: string[]; target: string; channel?: "blog" | "web" | "local" }>> {
+  const reports = await db.report.findMany({
+    where: { reportingMonth: reportingMonth as never, status: { in: ["DRAFT", "REVIEW_NEEDED"] } },
+    select: { clientId: true },
+  });
+  const clientIds = [...new Set(reports.map((r) => r.clientId))];
+  const config: Record<string, { keywords: string[]; target: string; channel?: "blog" | "web" | "local" }> = {};
+
+  for (const clientId of clientIds) {
+    const [keywords, conn] = await Promise.all([
+      db.keyword.findMany({
+        where: { clientId },
+        orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+        take: maxKeywords,
+        select: { keyword: true },
+      }),
+      db.channelConnection.findFirst({
+        where: { clientId, provider: "GOOGLE", gscSiteUrl: { not: null } },
+        select: { gscSiteUrl: true },
+      }),
+    ]);
+    const kws = keywords.map((k) => k.keyword).filter(Boolean);
+    const target = conn?.gscSiteUrl ? hostFromGscSiteUrl(conn.gscSiteUrl) : null;
+    if (!kws.length || !target) continue; // 대상/키워드 없으면 무인 수집 대상 아님
+    config[clientId] = { keywords: kws, target, channel: "web" };
+  }
+  return config;
+}
+
+/** 월간 성과수집(무인) — DB에서 설정을 구성해 수집 실행. reportingMonth 미지정 시 이번 달 1일. */
+export async function runMonthlyPerformanceCollectionAuto(
+  reportingMonth?: Date | string,
+): Promise<{ reports: number; totalRanks: number; configuredClients: number }> {
+  const month =
+    reportingMonth ??
+    (() => {
+      const n = new Date();
+      return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), 1));
+    })();
+  const config = await buildMonthlyPerfConfig(month);
+  const res = await runMonthlyPerformanceCollection(month, config);
+  return { ...res, configuredClients: Object.keys(config).length };
+}
