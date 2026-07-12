@@ -31,11 +31,11 @@ const LEVEL_TONE: Record<string, string> = {
   D: "bg-rose-50 text-rose-700 border-rose-200"
 };
 
-export function GeoChannelGuide() {
-  const [open, setOpen] = useState(false);
+export function GeoChannelGuide({ defaultOpen = false }: { defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="rounded-xl border border-line bg-panel p-3">
+    <div className="rounded-2xl border border-line bg-card p-4">
       <button type="button" onClick={() => setOpen((v) => !v)} className="text-sm font-bold text-ink" aria-expanded={open}>
         {open ? "− AI 채널 전략 가이드 접기" : "+ AI 채널 전략 가이드 (채널×엔진 인용 가능성·자동화 레벨)"}
       </button>
@@ -48,7 +48,7 @@ export function GeoChannelGuide() {
           </p>
 
           {/* 데스크톱 테이블 */}
-          <div className="hidden overflow-x-auto rounded-lg border border-line bg-white md:block">
+          <div className="hidden overflow-x-auto rounded-xl border border-line bg-card md:block">
             <table className="w-full min-w-[820px] border-collapse text-left text-xs">
               <thead className="border-b border-line bg-surface font-semibold text-slate-500">
                 <tr>
@@ -88,7 +88,7 @@ export function GeoChannelGuide() {
           {/* 모바일 카드 */}
           <ul className="space-y-2 md:hidden">
             {GEO_CHANNEL_PLAYBOOK.map((c) => (
-              <li key={c.channel} className="rounded-lg border border-line bg-white p-3">
+              <li key={c.channel} className="rounded-xl border border-line bg-card p-3">
                 <div className="flex items-center justify-between gap-2">
                   <b className="text-sm text-ink">{c.channel}</b>
                   <span className="text-xs font-bold text-ink">{c.priority}</span>
