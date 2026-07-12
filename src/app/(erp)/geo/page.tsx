@@ -9,6 +9,7 @@ import { GeoMatrix } from "@/components/geo/GeoMatrix";
 import { GeoCandidateGenerator, GeoAnswerRecorder, GeoQuestionAdder } from "@/components/geo/GeoTools";
 import { GeoChannelGuide } from "@/components/geo/GeoChannelGuide";
 import { GEO_DISCLAIMER } from "@/domain/sales/geo";
+import { db } from "@/server/db";
 import { geoMonthlyTrend, listGeoMatrix, summarizeGeoMatrix } from "@/server/repositories/geo";
 import { listInsightClients } from "@/server/repositories/insights";
 import { getCurrentUser } from "@/server/session";
@@ -20,10 +21,31 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
   const { client: clientParam } = await searchParams;
   const clients = await listInsightClients(user);
   const selectedId = clientParam && clients.some((c) => c.id === clientParam) ? clientParam : clients[0]?.id ?? null;
-  const [rows, trend] = selectedId
-    ? await Promise.all([listGeoMatrix(selectedId), geoMonthlyTrend(selectedId)])
-    : [[], []];
+  const [rows, trend, selectedClient] = selectedId
+    ? await Promise.all([
+        listGeoMatrix(selectedId),
+        geoMonthlyTrend(selectedId),
+        // 거래처의 진료과·지역을 질문 생성 기본값으로 자동 사용(이중 입력 제거)
+        db.client
+          .findUnique({
+            where: { id: selectedId },
+            select: {
+              region: true,
+              industryCategory: { select: { name: true } },
+              hospitalProfile: { select: { departments: true } }
+            }
+          })
+          .catch(() => null)
+      ])
+    : [[], [], null];
   const summary = summarizeGeoMatrix(rows);
+
+  // 진료과 기본값: 업종(진료과목) 마스터 → 병원프로필 진료과 첫 항목 순으로 채움
+  const defaultDepartment =
+    selectedClient?.industryCategory?.name ??
+    selectedClient?.hospitalProfile?.departments?.split(/[,\n]/)[0]?.trim() ??
+    "";
+  const defaultRegion = selectedClient?.region ?? "";
 
   return (
     <section className="space-y-5">
@@ -87,7 +109,7 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
 
           {selectedId && (
             <>
-              <GeoCandidateGenerator clientId={selectedId} />
+              <GeoCandidateGenerator clientId={selectedId} defaultDepartment={defaultDepartment} defaultRegion={defaultRegion} />
               <GeoQuestionAdder clientId={selectedId} />
               <GeoMatrix clientId={selectedId} rows={rows} />
               <GeoAnswerRecorder questions={rows} />

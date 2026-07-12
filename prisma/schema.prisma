@@ -247,6 +247,7 @@ model Client {
   contractStartDate  DateTime?
   contractEndDate    DateTime?
   monthlyContractFee Decimal?          @db.Decimal(12, 2)
+  region             String? // 지역(예: 서울 강남구) — GEO 질문 생성·로컬 채널에 자동 사용
   serviceNotes       String?
   active             Boolean           @default(true)
   assignedMarketerId String?

@@ -50,6 +50,7 @@ export function ClientDetail({
     assignedMarketerId: string | null;
     industryCategoryId: string | null;
     industryCustom: string | null;
+    region: string | null;
   };
   channels: Channel[];
   works: WorkRow[];
@@ -154,7 +155,8 @@ export function ClientDetail({
                   businessType: client.businessType,
                   industryCategoryId: client.industryCategoryId,
                   industryCustom: client.industryCustom,
-                  assignedMarketerId: client.assignedMarketerId
+                  assignedMarketerId: client.assignedMarketerId,
+                  region: client.region
                 }}
               />
             </div>

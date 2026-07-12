@@ -301,9 +301,8 @@ export async function convertLeadToClient(input: unknown): Promise<ActionResult<
       const code = await nextClientCode();
       try {
         const clientId = await db.$transaction(async (tx) => {
-          // 리드에서 아는 정보(지역·URL·메모)를 서비스 노트로 이관해 껍데기 거래처 방지
+          // 리드에서 아는 정보(URL·메모)를 서비스 노트로, 지역은 전용 필드로 이관(이중 입력 제거)
           const notes = [
-            existing.region ? `지역: ${existing.region}` : null,
             existing.websiteUrl ? `홈페이지: ${existing.websiteUrl}` : null,
             existing.placeUrl ? `플레이스: ${existing.placeUrl}` : null,
             existing.note
@@ -315,6 +314,7 @@ export async function convertLeadToClient(input: unknown): Promise<ActionResult<
               name: existing.hospitalName,
               code,
               orgId,
+              region: existing.region,
               contactName: existing.contactName,
               contactEmail: existing.contactEmail,
               contactPhone: existing.contactPhone,

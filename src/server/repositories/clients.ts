@@ -164,6 +164,7 @@ export async function getClientDetail(user: CurrentUser, clientId: string) {
       assignedMarketerId: true,
       industryCategoryId: true,
       industryCustom: true,
+      region: true,
       industryCategory: { select: { name: true, parent: { select: { name: true } } } },
       assignedMarketer: { select: { name: true } },
       accounts: {
@@ -218,7 +219,8 @@ export async function getClientDetail(user: CurrentUser, clientId: string) {
       assignedMarketerName: client.assignedMarketer?.name ?? null,
       assignedMarketerId: client.assignedMarketerId,
       industryCategoryId: client.industryCategoryId,
-      industryCustom: client.industryCustom
+      industryCustom: client.industryCustom,
+      region: client.region
     },
     channels: client.accounts.map((a) => ({
       id: a.id,

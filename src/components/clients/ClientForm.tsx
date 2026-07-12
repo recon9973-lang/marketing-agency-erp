@@ -18,7 +18,7 @@ export function ClientForm({
 }: {
   industries: IndustryNode[];
   marketers: Marketer[];
-  initial?: { id: string; name: string; code: string; businessType?: "HOSPITAL" | "OTHER" | null; industryCategoryId?: string | null; industryCustom?: string | null; assignedMarketerId?: string | null };
+  initial?: { id: string; name: string; code: string; businessType?: "HOSPITAL" | "OTHER" | null; industryCategoryId?: string | null; industryCustom?: string | null; assignedMarketerId?: string | null; region?: string | null };
 }) {
   const router = useRouter();
   const parents = industries.filter((i) => i.parentId === null);
@@ -46,6 +46,7 @@ export function ClientForm({
       industryCategoryId: childId || parentId || null,
       industryCustom: isEtc ? String(formData.get("industryCustom") || "") : null,
       assignedMarketerId: String(formData.get("assignedMarketerId") || "") || null,
+      region: String(formData.get("region") || "") || null,
       contactName: String(formData.get("contactName") || "") || null,
       contactPhone: String(formData.get("contactPhone") || "") || null,
       monthlyContractFee: formData.get("monthlyContractFee") ? Number(formData.get("monthlyContractFee")) : null
@@ -146,7 +147,14 @@ export function ClientForm({
       </div>
 
       <div className="grid grid-cols-2 gap-4">
+        <label className="block">
+          <span className="text-sm text-slate-600">지역</span>
+          <input name="region" defaultValue={initial?.region ?? ""} placeholder="서울 강남구" className="mt-1 w-full rounded-md border border-line px-3 py-2" />
+          <span className="mt-0.5 block text-xs text-slate-400">GEO 질문 생성·로컬 채널에 자동 사용됩니다.</span>
+        </label>
         <label className="block"><span className="text-sm text-slate-600">담당자명</span><input name="contactName" className="mt-1 w-full rounded-md border border-line px-3 py-2" /></label>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
         <label className="block"><span className="text-sm text-slate-600">연락처</span><input name="contactPhone" className="mt-1 w-full rounded-md border border-line px-3 py-2" /></label>
       </div>
 

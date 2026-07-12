@@ -14,7 +14,15 @@ import type { GeoQuestionRow } from "@/server/repositories/geo";
 const inputCls =
   "w-full rounded-md border border-line bg-white px-2.5 py-1.5 text-sm text-ink placeholder:text-slate-400";
 
-export function GeoCandidateGenerator({ clientId }: { clientId: string }) {
+export function GeoCandidateGenerator({
+  clientId,
+  defaultDepartment = "",
+  defaultRegion = ""
+}: {
+  clientId: string;
+  defaultDepartment?: string;
+  defaultRegion?: string;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
@@ -36,14 +44,14 @@ export function GeoCandidateGenerator({ clientId }: { clientId: string }) {
   }
 
   return (
-    <form action={submit} className="flex flex-wrap items-end gap-2 rounded-xl border border-line bg-panel p-3">
+    <form action={submit} className="flex flex-wrap items-end gap-2 rounded-xl border border-line bg-panel p-3" key={clientId}>
       <label className="min-w-[140px] flex-1 text-xs font-medium text-slate-600">
         진료과
-        <input name="department" required maxLength={100} className={`mt-1 ${inputCls}`} placeholder="정형외과" />
+        <input name="department" required maxLength={100} defaultValue={defaultDepartment} className={`mt-1 ${inputCls}`} placeholder="정형외과" />
       </label>
       <label className="min-w-[140px] flex-1 text-xs font-medium text-slate-600">
         지역
-        <input name="region" required maxLength={100} className={`mt-1 ${inputCls}`} placeholder="서울 강남구" />
+        <input name="region" required maxLength={100} defaultValue={defaultRegion} className={`mt-1 ${inputCls}`} placeholder="서울 강남구" />
       </label>
       <button
         type="submit"
@@ -52,6 +60,11 @@ export function GeoCandidateGenerator({ clientId }: { clientId: string }) {
       >
         {pending ? "생성 중…" : "질문 후보 20개 생성"}
       </button>
+      <p className="w-full text-[11px] text-slate-400">
+        {defaultDepartment || defaultRegion
+          ? "거래처 정보에서 자동으로 채웠습니다 — 필요하면 수정 후 생성하세요."
+          : "거래처에 진료과·지역을 등록하면 자동으로 채워집니다."}
+      </p>
       {msg && <p className="w-full text-xs text-slate-500">{msg}</p>}
     </form>
   );

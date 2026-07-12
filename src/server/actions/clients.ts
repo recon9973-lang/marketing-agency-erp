@@ -39,6 +39,7 @@ const createClientSchema = z.object({
   contractStartDate: z.coerce.date().optional().nullable(),
   contractEndDate: z.coerce.date().optional().nullable(),
   monthlyContractFee: z.coerce.number().nonnegative().optional().nullable(),
+  region: z.string().trim().max(100).optional().nullable(),
   serviceNotes: z.string().trim().optional().nullable(),
   assignedMarketerId: z.string().trim().optional().nullable()
 });
@@ -94,6 +95,7 @@ export async function createClient(input: unknown): Promise<ActionResult<{ id: s
               contractStartDate: data.contractStartDate ?? null,
               contractEndDate: data.contractEndDate ?? null,
               monthlyContractFee: data.monthlyContractFee ?? null,
+              region: data.region || null,
               serviceNotes: data.serviceNotes || null,
               assignedMarketerId: data.assignedMarketerId || null
             }
@@ -155,6 +157,7 @@ export async function updateClient(input: unknown): Promise<ActionResult> {
           contractStartDate: fields.contractStartDate ?? undefined,
           contractEndDate: fields.contractEndDate ?? undefined,
           monthlyContractFee: fields.monthlyContractFee ?? undefined,
+          region: fields.region === undefined ? undefined : fields.region || null,
           serviceNotes: fields.serviceNotes === undefined ? undefined : fields.serviceNotes || null
         }
       });
