@@ -18,6 +18,13 @@ vi.mock("@/server/db", () => ({
   }
 }));
 
+// 이메일 경로는 unstable_cache로 감싸 DB 왕복을 캐시한다. 테스트 런타임엔
+// Next 요청 컨텍스트가 없어 캐시가 원함수를 호출하지 않으므로, 감싼 함수를
+// 그대로 통과시키는 패스스루로 목킹한다(캐싱 자체는 프로덕션에서만 유효).
+vi.mock("next/cache", () => ({
+  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn
+}));
+
 describe("getCurrentUser", () => {
   beforeEach(() => {
     vi.resetModules();
