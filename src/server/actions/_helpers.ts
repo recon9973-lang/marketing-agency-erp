@@ -119,7 +119,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   COMPLIANCE_BLOCKED: "위험 표현이 해소되지 않아 진행할 수 없습니다. 검수 후 다시 시도해주세요.",
   CLIENT_APPROVAL_REQUIRED: "병원(거래처) 승인 전에는 게시할 수 없습니다.",
   ALREADY_GENERATED: "이미 답변 페이지 초안이 생성된 질문입니다.",
-  WORDPRESS_NOT_CONFIGURED: "워드프레스가 연결되지 않았습니다. 환경변수 WORDPRESS_API_TOKEN·WORDPRESS_SITE를 설정하거나, 게시 후 URL을 직접 입력하세요.",
+  WORDPRESS_NOT_CONFIGURED: "워드프레스가 연결되지 않았습니다. 앱 비밀번호(WORDPRESS_SITE_URL·WORDPRESS_USER·WORDPRESS_APP_PASSWORD)를 설정하거나, 게시 후 URL을 직접 입력하세요.",
   PUBLISH_FAILED: "워드프레스 발행에 실패했습니다. 잠시 후 다시 시도하거나 URL을 직접 입력해 게시 처리하세요.",
   NOTHING_TO_PUBLISH: "발행할 본문이 없습니다. 먼저 AI 초안을 생성하세요."
 };
