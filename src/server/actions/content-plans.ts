@@ -199,6 +199,13 @@ export async function updateContentPlanStatus(input: unknown): Promise<ActionRes
           ...(p.data.status === "PUBLISHED" && p.data.publishedUrl ? { publishedUrl: p.data.publishedUrl } : {})
         }
       });
+      // GEO 답변 페이지였다면 질문의 대응 페이지 URL 자동 채움(질문↔페이지 루프 완결)
+      if (p.data.status === "PUBLISHED" && p.data.publishedUrl) {
+        await tx.geoQuestion.updateMany({
+          where: { answerPlanId: p.data.id },
+          data: { targetPageUrl: p.data.publishedUrl }
+        });
+      }
       await recordAudit(tx, { actorId: user.id, action: "contentPlan.status", targetType: "ContentPlan", targetId: p.data.id, afterState: { status: p.data.status, publishedUrl: p.data.publishedUrl ?? undefined }, ...meta });
     });
     revalidatePath(`/clients/${plan.clientId}`);

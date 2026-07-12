@@ -117,7 +117,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   CLIENT_CODE_CONFLICT: "거래처 코드 생성이 반복 충돌했습니다. 다시 시도해주세요.",
   EVIDENCE_REQUIRED: "완료 처리에는 결과 요약(산출물 링크·적용 URL 등 증빙)이 필요합니다.",
   COMPLIANCE_BLOCKED: "위험 표현이 해소되지 않아 진행할 수 없습니다. 검수 후 다시 시도해주세요.",
-  CLIENT_APPROVAL_REQUIRED: "병원(거래처) 승인 전에는 게시할 수 없습니다."
+  CLIENT_APPROVAL_REQUIRED: "병원(거래처) 승인 전에는 게시할 수 없습니다.",
+  ALREADY_GENERATED: "이미 답변 페이지 초안이 생성된 질문입니다."
 };
 
 /** 표준 액션 래퍼: 에러를 사용자 친화 메시지로 변환해 ActionResult로 반환. */
