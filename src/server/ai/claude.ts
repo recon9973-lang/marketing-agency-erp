@@ -347,3 +347,54 @@ export async function generateGeoAnswerPage(input: GeoAnswerInput): Promise<GeoA
     caution: String(res.caution ?? "증상과 치료 반응에는 개인차가 있으며, 정확한 진단과 치료 계획은 의료진과의 상담이 필요합니다.")
   };
 }
+
+export type MagazineDraftInput = { title: string; kind: string; category: string; seed?: string | null };
+export type MagazineDraft = {
+  title: string;
+  summary: string; // BLUF — 첫 문단 핵심
+  sections: { heading: string; body: string }[];
+  related: string[]; // 연관 용어(내부링크 후보)
+  faq: { q: string; a: string }[];
+};
+
+const MAGAZINE_KIND_GUIDE: Record<string, string> = {
+  glossary: "용어사전 항목입니다. 정의를 명확히 하고, sections는 2~3개(정의·쉬운 설명·실무 포인트).",
+  article: "인사이트 아티클입니다. sections 3~4개, 관점과 근거 중심으로.",
+  howto: "실전 사용법입니다. sections를 단계(1단계·2단계…)로 구성.",
+  news: "동향 해설입니다. 일반적으로 알려진 흐름만 설명하고, 특정 수치·날짜·출처를 지어내지 마세요."
+};
+
+/**
+ * GROUND 매거진 초안 — 유형(용어사전/아티클/사용법/동향)에 맞춘 근거형(BLUF) 콘텐츠.
+ * 자사 미디어(B2B)라 의료광고법 게이트는 없지만, 통계·수치를 지어내지 않는 원칙은 유지한다.
+ */
+export async function generateMagazineDraft(input: MagazineDraftInput): Promise<MagazineDraft> {
+  const guide = MAGAZINE_KIND_GUIDE[input.kind] ?? MAGAZINE_KIND_GUIDE.article;
+  const system =
+    "당신은 SEO·GEO·AEO·AI마케팅 전문 매거진 'GROUND'의 에디터입니다. " +
+    "독자는 마케터·업계인과 병원 담당자입니다. 쉽고 정확하게, 실무에 바로 쓰이게 씁니다. 규칙: " +
+    "(1) BLUF — summary에 핵심 답을 1~2문장으로 먼저. " +
+    "(2) " + guide + " " +
+    "(3) related는 연관 용어/주제 3~5개(내부링크 후보). " +
+    "(4) faq는 자주 묻는 질문 2~3개(질문·답변 각 1~2문장). " +
+    "(5) 통계·수치·인용을 지어내지 마세요. 확실하지 않으면 일반적 표현으로. 과장·허위 금지. " +
+    '반드시 이 JSON만 출력: {"title": string, "summary": string, "sections": [{"heading": string, "body": string}], "related": string[], "faq": [{"q": string, "a": string}]}';
+  const lines = [
+    `제목/용어: ${input.title}`,
+    `카테고리: ${input.category}`,
+    `유형: ${input.kind}`,
+    input.seed ? `참고(정의/메모): ${input.seed}` : ""
+  ].filter(Boolean);
+  const res = await completeJson<MagazineDraft>(system, lines.join("\n"), 3500);
+  return {
+    title: String(res.title ?? input.title),
+    summary: String(res.summary ?? ""),
+    sections: Array.isArray(res.sections)
+      ? res.sections.slice(0, 6).map((s) => ({ heading: String(s.heading ?? ""), body: String(s.body ?? "") })).filter((s) => s.heading && s.body)
+      : [],
+    related: Array.isArray(res.related) ? res.related.map(String).slice(0, 8).filter(Boolean) : [],
+    faq: Array.isArray(res.faq)
+      ? res.faq.slice(0, 6).map((x) => ({ q: String(x.q ?? ""), a: String(x.a ?? "") })).filter((x) => x.q && x.a)
+      : []
+  };
+}

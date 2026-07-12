@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { MagazineImport } from "@/components/magazine/MagazineImport";
 import { MagazineQueue } from "@/components/magazine/MagazineQueue";
+import { MagazineBatchButton } from "@/components/magazine/MagazineBatchButton";
+import { isAiConfigured } from "@/server/ai/claude";
 import { MAGAZINE_CATEGORIES } from "@/domain/content/magazine";
 import { listMagazineQueue, magazineSummary } from "@/server/repositories/magazine";
 import { getCurrentUser } from "@/server/session";
@@ -70,10 +72,21 @@ export default async function MagazinePage({ searchParams }: { searchParams: Pro
       </div>
 
       <MagazineImport />
+
+      {/* AI 초안 생성 — 안전 램프업(소량 배치) */}
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
+        <p className="text-sm font-bold text-ink">🤖 AI 초안 생성</p>
+        <p className="mt-0.5 mb-3 text-[11px] text-slate-500">
+          큐의 용어·주제를 BLUF 구조(핵심 답변 선두) 초안으로 생성합니다. 생성 후 검토 → 발행(후속)으로 이어집니다.
+          {!isAiConfigured() && " — ANTHROPIC_API_KEY 연동 시 켜집니다."}
+        </p>
+        <MagazineBatchButton queued={summary.queued} />
+      </div>
+
       <MagazineQueue rows={rows} />
 
       <p className="rounded-xl border border-line bg-surface/60 px-3 py-2 text-[11px] text-slate-500">
-        다음 단계: 큐 항목 → AI 초안 자동 생성(하루 N개) → 검토 → 워드프레스 예약 발행 + 커버 자동 생성. (후속 PR)
+        다음 단계: 검토 완료 항목 → 워드프레스 예약 발행 + 커버 자동 생성. (후속 PR)
       </p>
     </section>
   );

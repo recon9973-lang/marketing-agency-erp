@@ -1,6 +1,6 @@
 // src/domain/content/magazine.test.ts
 import { describe, it, expect } from "vitest";
-import { parseMagazineTerms, isMagazineCategory, isMagazineKind } from "./magazine";
+import { parseMagazineTerms, isMagazineCategory, isMagazineKind, buildMagazineMarkdown } from "./magazine";
 
 describe("매거진 용어 파서(순수)", () => {
   it("번호·굵게·대시 형식(용어사전 100 형식)을 파싱한다", () => {
@@ -32,5 +32,21 @@ describe("매거진 용어 파서(순수)", () => {
     expect(isMagazineCategory("없음")).toBe(false);
     expect(isMagazineKind("glossary")).toBe(true);
     expect(isMagazineKind("x")).toBe(false);
+  });
+
+  it("마크다운이 BLUF 구조(제목 직후 핵심 요약)를 지킨다", () => {
+    const md = buildMagazineMarkdown({
+      title: "AEO란?",
+      summary: "답변 엔진 최적화입니다.",
+      sections: [{ heading: "정의", body: "본문." }],
+      related: ["SEO", "GEO"],
+      faq: [{ q: "차이는?", a: "대상이 다릅니다." }]
+    });
+    const lines = md.split("\n").filter(Boolean);
+    expect(lines[0]).toBe("# AEO란?");
+    expect(lines[1]).toBe("답변 엔진 최적화입니다.");
+    expect(md).toContain("## 정의");
+    expect(md).toContain("## 자주 묻는 질문");
+    expect(md).toContain("**관련 용어:** SEO · GEO");
   });
 });

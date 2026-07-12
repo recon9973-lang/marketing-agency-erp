@@ -10,6 +10,7 @@ export type MagazineRow = {
   kind: string;
   seed: string | null;
   status: string;
+  draft: string | null;
   publishedUrl: string | null;
   createdAt: string;
 };
@@ -22,7 +23,7 @@ export async function listMagazineQueue(filter?: { status?: string; category?: s
     },
     orderBy: [{ createdAt: "desc" }],
     take: 300,
-    select: { id: true, title: true, category: true, kind: true, seed: true, status: true, publishedUrl: true, createdAt: true }
+    select: { id: true, title: true, category: true, kind: true, seed: true, status: true, draft: true, publishedUrl: true, createdAt: true }
   });
   return rows.map((r) => ({
     id: r.id,
@@ -31,6 +32,7 @@ export async function listMagazineQueue(filter?: { status?: string; category?: s
     kind: r.kind,
     seed: r.seed,
     status: r.status,
+    draft: r.draft,
     publishedUrl: r.publishedUrl,
     createdAt: r.createdAt.toISOString()
   }));

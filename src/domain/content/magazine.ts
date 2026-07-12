@@ -34,6 +34,41 @@ export function isMagazineKind(v: string): v is MagazineKind {
   return (MAGAZINE_KINDS as readonly string[]).includes(v);
 }
 
+export type MagazineDraftContent = {
+  title: string;
+  summary: string;
+  sections: { heading: string; body: string }[];
+  related: string[];
+  faq: { q: string; a: string }[];
+};
+
+/** 매거진 초안 → 발행용 마크다운(BLUF 구조: 제목 → 핵심 요약 → 섹션 → 관련 → FAQ). 순수 함수. */
+export function buildMagazineMarkdown(d: MagazineDraftContent): string {
+  const parts: string[] = [];
+  parts.push(`# ${d.title}`);
+  parts.push("");
+  parts.push(d.summary); // BLUF — 첫 문단에 핵심
+  for (const s of d.sections) {
+    parts.push("");
+    parts.push(`## ${s.heading}`);
+    parts.push(s.body);
+  }
+  if (d.faq.length) {
+    parts.push("");
+    parts.push("## 자주 묻는 질문");
+    for (const f of d.faq) {
+      parts.push(`**Q. ${f.q}**`);
+      parts.push(`A. ${f.a}`);
+      parts.push("");
+    }
+  }
+  if (d.related.length) {
+    parts.push("");
+    parts.push(`**관련 용어:** ${d.related.join(" · ")}`);
+  }
+  return parts.join("\n").trim() + "\n";
+}
+
 export type ParsedTerm = { title: string; seed: string | null };
 
 const SEPARATORS = ["::", "—", " - ", " – "]; // 우선순위: 명시적 → em/en 대시
