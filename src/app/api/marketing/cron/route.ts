@@ -1,9 +1,12 @@
 // src/app/api/marketing/cron/route.ts
 //
-// 성과수집 배치 트리거(서버·크론 경로). 세션 MCP를 못 쓰는 정기 배치용.
-// 보호: MARKETING_CRON_SECRET 환경변수와 x-cron-secret 헤더 일치 필요.
+// 성과수집·알림·동기화 배치 트리거(서버·크론 경로).
+// - POST: 외부 스케줄러용. MARKETING_CRON_SECRET 환경변수와 x-cron-secret 헤더 일치 필요.
+// - GET:  Vercel Cron 전용(vercel.json crons). CRON_SECRET 환경변수를 설정하면
+//         Vercel이 Authorization: Bearer <CRON_SECRET> 헤더를 자동으로 붙여 호출한다.
+//         GET은 일일 잡 2종(알림 스위프 + 채널 동기화)을 순차 실행한다(멱등).
 //
-// 사용 예:
+// 사용 예(POST):
 //   curl -X POST https://erp.example.com/api/marketing/cron \
 //     -H "x-cron-secret: $MARKETING_CRON_SECRET" -H "Content-Type: application/json" \
 //     -d '{"reportingMonth":"2026-07-01","configByClient":{"<clientId>":{"keywords":["강남 임플란트"],"target":"myclinic.co.kr","channel":"blog"}}}'
@@ -15,6 +18,24 @@ import { runChannelSync } from "@/server/jobs/channel-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** Vercel Cron 진입점 — 하루 1회(vercel.json) 알림·동기화를 함께 실행. */
+export async function GET(req: NextRequest) {
+  const secret = process.env.CRON_SECRET;
+  const auth = req.headers.get("authorization");
+  if (!secret || auth !== `Bearer ${secret}`) {
+    return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
+  }
+
+  try {
+    const alerts = await runDailyAlerts();
+    const sync = await runChannelSync();
+    return NextResponse.json({ ok: true, alerts, sync });
+  } catch (e) {
+    console.error("[marketing/cron] daily jobs failed", e);
+    return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
+  }
+}
 
 type CronBody = {
   job?: "alerts" | "sync" | "collection";
