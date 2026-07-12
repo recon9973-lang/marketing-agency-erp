@@ -964,6 +964,8 @@ model ContentPlan {
   clientConfirmedAt DateTime? // 거래처 포털 컨펌 시각
   clientComment   String? // 거래처 컨펌 의견
   publishedUrl    String? // 게시 URL(§5-9 게시 증빙 — PUBLISHED 전이 시 기록)
+  scheduledAt     DateTime? // 예약발행 시각(WP future). 리컨실 폴러가 실제 게시 확인 후 PUBLISHED 전이
+  wpPostId        Int? // 워드프레스 글 ID(예약발행 상태 폴링용)
   orgId          String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

@@ -99,6 +99,30 @@ export async function wordpressFindCategoryId(name: string): Promise<number | nu
   }
 }
 
+/**
+ * 워드프레스 글 상태 조회(예약발행 리컨실용). context=edit로 미래글도 조회 가능.
+ * 반환: status("publish"|"future"|…) + link. 미설정/실패 시 CONFIG_MISSING/UPSTREAM_ERROR.
+ */
+export async function wordpressGetPostStatus(
+  postId: number,
+): Promise<ProviderResult<{ status: string; link: string | null }>> {
+  const c = cfg();
+  if (!c) return provFail("CONFIG_MISSING", "WordPress 미설정");
+  try {
+    const res = await fetch(`${c.origin}/wp-json/wp/v2/posts/${postId}?context=edit`, {
+      headers: { Authorization: authHeaderOf(c) },
+      cache: "no-store",
+    });
+    if (res.status === 401 || res.status === 403) return provFail("UNAUTHORIZED", "WordPress 인증 실패");
+    if (res.status === 404) return provFail("INVALID_INPUT", "글을 찾을 수 없음");
+    if (!res.ok) return provFail("UPSTREAM_ERROR", `WordPress ${res.status}`);
+    const json = (await res.json()) as { status?: string; link?: string };
+    return provOk({ status: String(json.status ?? ""), link: json.link ?? null }, { source: "wordpress" });
+  } catch (e) {
+    return provFail("UPSTREAM_ERROR", "WordPress 상태 조회 실패", e);
+  }
+}
+
 export const wordpressPublish: PublishProvider = {
   async publish(input: PublishInput): Promise<ProviderResult<PublishOut>> {
     const c = cfg();

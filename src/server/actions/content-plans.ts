@@ -271,14 +271,16 @@ export async function publishContentPlanToWordPress(input: unknown): Promise<Act
 
     const publishedUrl = result.data.externalUrl ?? null;
     const scheduled = result.data.status === "SCHEDULED";
+    const wpPostId = result.data.externalId ? Number(result.data.externalId) : null;
 
     const meta = await requestMeta();
     await db.$transaction(async (tx) => {
       await tx.contentPlan.update({
         where: { id: p.data.id },
-        // 예약이면 승인 상태 유지(발행 대기), 즉시 게시면 PUBLISHED
+        // 예약이면 SCHEDULED로 표시(폴러가 실제 게시 확인 후 PUBLISHED 전이), 즉시 게시면 PUBLISHED
         data: {
-          ...(scheduled ? {} : { status: "PUBLISHED" }),
+          ...(scheduled ? { status: "SCHEDULED", scheduledAt: scheduledAt ? new Date(scheduledAt) : null } : { status: "PUBLISHED" }),
+          ...(wpPostId ? { wpPostId } : {}),
           ...(publishedUrl ? { publishedUrl } : {})
         }
       });
