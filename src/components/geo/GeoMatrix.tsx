@@ -8,7 +8,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { GEO_ENGINES, geoEngineLabels, geoQuestionStatusLabels, type GeoEngine } from "@/domain/sales/geo";
-import { approveGeoQuestions, retireGeoQuestion, reactivateGeoQuestion, updateGeoQuestion } from "@/server/actions/geo";
+import { approveGeoQuestions, retireGeoQuestion, reactivateGeoQuestion, updateGeoQuestion, deleteGeoQuestion } from "@/server/actions/geo";
 import type { GeoQuestionRow } from "@/server/repositories/geo";
 import { StatusBadge, toneForStatus } from "@/components/ui/StatusBadge";
 
@@ -74,6 +74,15 @@ export function GeoMatrix({ clientId, rows }: { clientId: string; rows: GeoQuest
   function reactivate(id: string) {
     start(async () => {
       const res = await reactivateGeoQuestion({ id });
+      if (!res.ok) setError(res.error);
+      else router.refresh();
+    });
+  }
+
+  function remove(id: string) {
+    if (!window.confirm("이 질문과 관측 기록을 완전히 삭제합니다(복구 불가). 진행할까요?")) return;
+    start(async () => {
+      const res = await deleteGeoQuestion({ id });
       if (!res.ok) setError(res.error);
       else router.refresh();
     });
@@ -189,13 +198,22 @@ export function GeoMatrix({ clientId, rows }: { clientId: string; rows: GeoQuest
                       종료
                     </button>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => reactivate(row.id)}
-                      className="text-[11px] text-slate-400 hover:text-emerald-600"
-                    >
-                      복원
-                    </button>
+                    <span className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => reactivate(row.id)}
+                        className="text-[11px] text-slate-400 hover:text-emerald-600"
+                      >
+                        복원
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => remove(row.id)}
+                        className="text-[11px] text-slate-400 hover:text-rose-600"
+                      >
+                        삭제
+                      </button>
+                    </span>
                   )}
                 </td>
               </tr>
@@ -237,9 +255,14 @@ export function GeoMatrix({ clientId, rows }: { clientId: string; rows: GeoQuest
                       종료
                     </button>
                   ) : (
-                    <button type="button" onClick={() => reactivate(row.id)} className="text-[10px] text-slate-400 hover:text-emerald-600">
-                      복원
-                    </button>
+                    <>
+                      <button type="button" onClick={() => reactivate(row.id)} className="text-[10px] text-slate-400 hover:text-emerald-600">
+                        복원
+                      </button>
+                      <button type="button" onClick={() => remove(row.id)} className="text-[10px] text-slate-400 hover:text-rose-600">
+                        삭제
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

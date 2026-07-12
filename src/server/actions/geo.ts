@@ -231,6 +231,35 @@ export async function reactivateGeoQuestion(input: unknown): Promise<ActionResul
   });
 }
 
+/** 질문 완전 삭제 — 종료(RETIRED) 상태에서만 허용(관측 이력 오삭제 방지). 데모 데이터 정리용. */
+export async function deleteGeoQuestion(input: unknown): Promise<ActionResult> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const p = retireSchema.safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    const existing = await db.geoQuestion.findUnique({ where: { id: p.data.id } });
+    if (!existing) throw new Error("NOT_FOUND");
+    if (existing.status !== "RETIRED") throw new Error("ILLEGAL_TRANSITION");
+    await assertClient(user, existing.clientId);
+
+    const meta = await requestMeta();
+    await db.$transaction(async (tx) => {
+      // DB에 FK가 없어 Prisma cascade가 동작하지 않으므로 관측 기록을 명시적으로 먼저 삭제
+      await tx.geoAnswerRecord.deleteMany({ where: { questionId: p.data.id } });
+      await tx.geoQuestion.delete({ where: { id: p.data.id } });
+      await recordAudit(tx, {
+        actorId: user.id,
+        action: "geo.question.delete",
+        targetType: "GeoQuestion",
+        targetId: p.data.id,
+        beforeState: { question: existing.question, status: existing.status },
+        ...meta
+      });
+    });
+    revalidatePath("/geo");
+  });
+}
+
 const updateQuestionSchema = z.object({
   id: z.string().min(1),
   targetPageUrl: z.string().trim().max(500).optional().nullable(),
