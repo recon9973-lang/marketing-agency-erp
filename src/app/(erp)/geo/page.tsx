@@ -7,7 +7,9 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { GeoMatrix } from "@/components/geo/GeoMatrix";
 import { GeoCandidateGenerator, GeoAnswerRecorder, GeoQuestionAdder } from "@/components/geo/GeoTools";
+import { GeoAutoWatch } from "@/components/geo/GeoAutoWatch";
 import { GeoChannelGuide } from "@/components/geo/GeoChannelGuide";
+import { configuredEngines } from "@/server/geo-engine/engines";
 import { GEO_DISCLAIMER } from "@/domain/sales/geo";
 import { db } from "@/server/db";
 import { geoMonthlyTrend, listGeoMatrix, summarizeGeoMatrix } from "@/server/repositories/geo";
@@ -109,6 +111,11 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
 
           {selectedId && (
             <>
+              <GeoAutoWatch
+                clientId={selectedId}
+                configuredEngines={configuredEngines().map((e) => e.engine)}
+                monitorableCount={rows.filter((r) => r.status === "APPROVED" || r.status === "MONITORING").length}
+              />
               <GeoCandidateGenerator clientId={selectedId} defaultDepartment={defaultDepartment} defaultRegion={defaultRegion} />
               <GeoQuestionAdder clientId={selectedId} />
               <GeoMatrix clientId={selectedId} rows={rows} />
