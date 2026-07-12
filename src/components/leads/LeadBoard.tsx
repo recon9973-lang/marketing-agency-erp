@@ -11,7 +11,7 @@ const dateFmt = new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numer
 
 function Card({ item }: { item: LeadListItem }) {
   return (
-    <div className="rounded-lg border border-line bg-white p-3 shadow-sm">
+    <div className="rounded-xl border border-line bg-card p-3 shadow-sm transition-shadow hover:shadow-md">
       <Link href={`/leads/${item.id}`} className="text-sm font-semibold text-ink hover:underline">
         {item.hospitalName}
       </Link>
@@ -46,10 +46,16 @@ export function LeadBoard({ items }: { items: LeadListItem[] }) {
       {ACTIVE_LEAD_STAGES.map((col) => {
         const cards = byStatus.get(col) ?? [];
         return (
-          <div key={col} className="rounded-xl border border-line bg-surface/50 p-2">
-            <div className="flex items-center justify-between px-1 pb-2">
+          <div key={col} className="rounded-2xl border border-line bg-surface/50 p-2">
+            <div className="flex items-center justify-between px-1.5 pb-2 pt-1">
               <span className="text-xs font-bold text-slate-600">{leadStatusLabels[col]}</span>
-              <span className="rounded-full bg-white px-1.5 text-[11px] font-semibold text-slate-500">{cards.length}</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                  cards.length > 0 ? "bg-emerald-50 text-emerald-700" : "bg-card text-slate-400"
+                }`}
+              >
+                {cards.length}
+              </span>
             </div>
             <div className="space-y-2">
               {cards.length === 0 ? (

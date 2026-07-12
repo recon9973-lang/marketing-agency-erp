@@ -58,10 +58,10 @@ export function AddLeadForm({ marketers = [] }: { marketers?: LeadMarketer[] }) 
   }
 
   const inputCls =
-    "w-full rounded-md border border-line bg-white px-2.5 py-1.5 text-sm text-ink placeholder:text-slate-400";
+    "w-full rounded-lg border border-line bg-card px-2.5 py-1.5 text-sm text-ink placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none";
 
   return (
-    <div className="rounded-xl border border-line bg-panel p-4">
+    <div className="rounded-2xl border border-line bg-card p-4">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -158,7 +158,7 @@ export function AddLeadForm({ marketers = [] }: { marketers?: LeadMarketer[] }) 
           <button
             type="submit"
             disabled={pending}
-            className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {pending ? "등록 중…" : "리드 등록"}
           </button>
