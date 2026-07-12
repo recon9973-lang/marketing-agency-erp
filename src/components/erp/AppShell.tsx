@@ -24,6 +24,7 @@ import {
   Search,
   Megaphone,
   LineChart,
+  Newspaper,
   Target
 } from "lucide-react";
 import Link from "next/link";
@@ -40,6 +41,7 @@ type ErpRoute =
   | "/clients"
   | "/insights"
   | "/geo"
+  | "/magazine"
   | "/contracts"
   | "/work"
   | "/manuscript"
@@ -167,6 +169,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "GEO 모니터링",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Radar,
+      group: "운영"
+    },
+    {
+      href: "/magazine",
+      label: "매거진",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Newspaper,
       group: "운영"
     },
     {
