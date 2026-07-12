@@ -21,6 +21,7 @@ export type GeoQuestionRow = {
   priority: number;
   status: string;
   targetPageUrl: string | null;
+  answerPlanId: string | null;
   approvedAt: string | null;
   cells: Partial<Record<GeoEngine, GeoCell>>;
 };
@@ -58,6 +59,7 @@ export async function listGeoMatrix(clientId: string): Promise<GeoQuestionRow[]>
       priority: q.priority,
       status: q.status,
       targetPageUrl: q.targetPageUrl,
+      answerPlanId: q.answerPlanId,
       approvedAt: q.approvedAt?.toISOString() ?? null,
       cells
     };

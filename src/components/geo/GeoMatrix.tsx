@@ -8,7 +8,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { GEO_ENGINES, geoEngineLabels, geoQuestionStatusLabels, type GeoEngine } from "@/domain/sales/geo";
-import { approveGeoQuestions, retireGeoQuestion, reactivateGeoQuestion, updateGeoQuestion, deleteGeoQuestion } from "@/server/actions/geo";
+import { approveGeoQuestions, retireGeoQuestion, reactivateGeoQuestion, updateGeoQuestion, deleteGeoQuestion, generateAnswerPage } from "@/server/actions/geo";
 import type { GeoQuestionRow } from "@/server/repositories/geo";
 import { StatusBadge, toneForStatus } from "@/components/ui/StatusBadge";
 
@@ -83,6 +83,19 @@ export function GeoMatrix({ clientId, rows }: { clientId: string; rows: GeoQuest
     if (!window.confirm("이 질문과 관측 기록을 완전히 삭제합니다(복구 불가). 진행할까요?")) return;
     start(async () => {
       const res = await deleteGeoQuestion({ id });
+      if (!res.ok) setError(res.error);
+      else router.refresh();
+    });
+  }
+
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
+  function makeAnswerPage(row: GeoQuestionRow) {
+    if (!window.confirm(`이 질문의 답변 페이지 초안을 AI로 생성합니다.\n"${row.question.slice(0, 60)}…"\n생성 후 콘텐츠 기획(의료법 검수→병원 승인→게시)으로 이어집니다.`)) return;
+    setError(null);
+    setGeneratingId(row.id);
+    start(async () => {
+      const res = await generateAnswerPage({ questionId: row.id });
+      setGeneratingId(null);
       if (!res.ok) setError(res.error);
       else router.refresh();
     });
@@ -167,7 +180,7 @@ export function GeoMatrix({ clientId, rows }: { clientId: string; rows: GeoQuest
                     {row.qtype ? <span className="mr-1 rounded bg-surface px-1 py-0.5 text-[10px] text-slate-500">{row.qtype}</span> : null}
                     {row.question}
                   </span>
-                  <span className="flex items-center gap-1.5 text-[10px]">
+                  <span className="flex flex-wrap items-center gap-1.5 text-[10px]">
                     {row.targetPageUrl ? (
                       <a href={row.targetPageUrl} target="_blank" rel="noreferrer" className="text-blue-600">
                         대응 페이지 ↗
@@ -176,6 +189,21 @@ export function GeoMatrix({ clientId, rows }: { clientId: string; rows: GeoQuest
                     <button type="button" onClick={() => editTargetPage(row)} className="text-slate-400 hover:text-blue-600" aria-label="대응 페이지 URL 편집">
                       {row.targetPageUrl ? "✎" : "＋ 대응 페이지"}
                     </button>
+                    {(row.status === "APPROVED" || row.status === "MONITORING") &&
+                      (row.answerPlanId ? (
+                        <a href={`/clients/${clientId}`} className="rounded bg-emerald-50 px-1.5 py-0.5 font-semibold text-emerald-600">
+                          답변 초안 ✓
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => makeAnswerPage(row)}
+                          disabled={pending}
+                          className="rounded bg-blue-50 px-1.5 py-0.5 font-semibold text-blue-600 hover:bg-blue-100 disabled:opacity-50"
+                        >
+                          {generatingId === row.id ? "AI 생성 중…" : "⚡ 답변 페이지 생성"}
+                        </button>
+                      ))}
                   </span>
                 </td>
                 <td className="px-2 py-2 align-middle">

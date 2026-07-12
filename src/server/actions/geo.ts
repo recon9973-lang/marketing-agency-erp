@@ -11,6 +11,7 @@ import { z } from "zod";
 
 import { buildGeoQuestionCandidates, isGeoEngine } from "@/domain/sales/geo";
 import { runGeoWatch } from "@/server/geo-engine/runner";
+import { createAnswerPagePlan } from "@/server/geo-engine/answer-page";
 import { assertCanAccessClient } from "@/domain/access-control";
 import { db } from "@/server/db";
 import { getDefaultOrgId } from "@/server/org";
@@ -322,6 +323,37 @@ export async function runGeoWatchNow(input: unknown): Promise<ActionResult<{ ask
     });
     revalidatePath("/geo");
     return { asked: r.asked, appeared: r.appeared, cited: r.cited, failed: r.failed, engines: r.engines };
+  });
+}
+
+/** 질문 1건 → 답변 페이지(FAQ+Schema) 초안 자동 생성 → 콘텐츠 파이프라인(검수·승인·게시)으로. */
+export async function generateAnswerPage(input: unknown): Promise<ActionResult<{ planId: string; high: number; medium: number }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const p = z.object({ questionId: z.string().min(1) }).safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    const question = await db.geoQuestion.findUnique({ where: { id: p.data.questionId }, select: { clientId: true, answerPlanId: true, status: true } });
+    if (!question) throw new Error("NOT_FOUND");
+    if (question.answerPlanId) throw new Error("ALREADY_GENERATED");
+    if (question.status !== "APPROVED" && question.status !== "MONITORING") throw new Error("ILLEGAL_TRANSITION");
+    await assertClient(user, question.clientId);
+
+    const r = await createAnswerPagePlan(p.data.questionId);
+    const meta = await requestMeta();
+    await db.auditLog.create({
+      data: {
+        actorId: user.id,
+        action: "geo.answerPage.generate",
+        targetType: "GeoQuestion",
+        targetId: p.data.questionId,
+        afterState: { planId: r.planId, high: r.high, medium: r.medium },
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent
+      }
+    });
+    revalidatePath("/geo");
+    revalidatePath(`/clients/${question.clientId}`);
+    return r;
   });
 }
 

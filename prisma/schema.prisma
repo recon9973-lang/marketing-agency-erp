@@ -1408,6 +1408,7 @@ model GeoQuestion {
   approvedAt    DateTime?
   approvedById  String?
   targetPageUrl String? // 이 질문에 대응하는 병원 페이지(있으면)
+  answerPlanId  String? // 자동 생성된 답변 페이지(ContentPlan) 링크 — 게시되면 targetPageUrl 자동 채움
   orgId         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

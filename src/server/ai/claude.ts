@@ -291,3 +291,59 @@ export async function generateContentPlan(input: ContentPlanInput): Promise<Cont
     qa: Array.isArray(res.qa) ? res.qa.slice(0, 10).map((x) => ({ q: String(x.q ?? ""), a: String(x.a ?? "") })).filter((x) => x.q) : []
   };
 }
+
+export type GeoAnswerInput = {
+  question: string;
+  hospitalName: string;
+  department?: string | null;
+  region?: string | null;
+  strengths?: string | null;
+  preferredTone?: string | null;
+  prohibited?: string | null;
+};
+export type GeoAnswerDraft = {
+  title: string;
+  summary: string; // BLUF — 첫 문단 핵심 답변
+  sections: { heading: string; body: string }[];
+  faq: { q: string; a: string }[];
+  caution: string; // 주의·상담 권고(의료법 안전장치)
+};
+
+/**
+ * GEO 답변 페이지 초안 — 환자 질문에 대한 근거형(BLUF) 페이지를 생성한다.
+ * AI 인용 최적화 원칙(채널 전략 보고서): 핵심 답변을 첫 문단에, 구조화된 소제목,
+ * FAQ 병행, 효과 언급 시 주의·부작용 병기. 의료광고법 준수.
+ */
+export async function generateGeoAnswerPage(input: GeoAnswerInput): Promise<GeoAnswerDraft> {
+  const system =
+    "당신은 한국 병원의 의료 정보 콘텐츠 전문 작가입니다. 환자가 생성형 AI에 묻는 질문에 대해, " +
+    "AI가 인용하기 좋은 근거형 답변 페이지 초안을 만듭니다. 규칙: " +
+    "(1) BLUF — summary에 핵심 답변을 2~3문장으로 먼저 제시. " +
+    "(2) sections는 소제목+본문 3~4개, 일반적 의학 정보 중심(특정 치료 권유 아님). " +
+    "(3) faq는 연관 질문 3개(질문·답변 각 1~3문장). " +
+    "(4) caution에는 '개인차가 있으며 정확한 진단은 의료진 상담이 필요하다'는 취지의 주의 문구. " +
+    "(5) 의료광고법: 치료효과 보장·완치·최상급(최고/유일/1위)·부작용 없음·후기/체험담·할인/이벤트 표현 절대 금지. " +
+    "(6) 병원 자랑이 아니라 환자에게 유용한 정보를 우선하고, 병원명은 자연스럽게 1~2회만. " +
+    '반드시 이 JSON만 출력: {"title": string, "summary": string, "sections": [{"heading": string, "body": string}], "faq": [{"q": string, "a": string}], "caution": string}' +
+    (input.prohibited ? ` 특히 다음 표현 금지: ${input.prohibited}` : "");
+  const lines = [
+    `환자 질문: ${input.question}`,
+    `병원명: ${input.hospitalName}`,
+    input.department ? `진료과: ${input.department}` : "",
+    input.region ? `지역: ${input.region}` : "",
+    input.strengths ? `병원 참고 정보(과장 없이 활용): ${input.strengths}` : "",
+    input.preferredTone ? `톤앤매너: ${input.preferredTone}` : ""
+  ].filter(Boolean);
+  const res = await completeJson<GeoAnswerDraft>(system, lines.join("\n"), 4000);
+  return {
+    title: String(res.title ?? input.question),
+    summary: String(res.summary ?? ""),
+    sections: Array.isArray(res.sections)
+      ? res.sections.slice(0, 6).map((s) => ({ heading: String(s.heading ?? ""), body: String(s.body ?? "") })).filter((s) => s.heading && s.body)
+      : [],
+    faq: Array.isArray(res.faq)
+      ? res.faq.slice(0, 6).map((x) => ({ q: String(x.q ?? ""), a: String(x.a ?? "") })).filter((x) => x.q && x.a)
+      : [],
+    caution: String(res.caution ?? "증상과 치료 반응에는 개인차가 있으며, 정확한 진단과 치료 계획은 의료진과의 상담이 필요합니다.")
+  };
+}
