@@ -22,6 +22,11 @@ function cfg(): { token: string; site: string } | null {
   return { token, site };
 }
 
+/** UI가 "워드프레스 자동 게시" 버튼 노출 여부를 판단하는 데 사용(자격증명은 노출하지 않음). */
+export function wordpressConfigured(): boolean {
+  return cfg() !== null;
+}
+
 export const wordpressPublish: PublishProvider = {
   async publish(input: PublishInput): Promise<ProviderResult<PublishOut>> {
     const c = cfg();

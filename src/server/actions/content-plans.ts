@@ -11,6 +11,8 @@ import { db } from "@/server/db";
 import { generateContentPlan, isAiConfigured } from "@/server/ai/claude";
 import { checkMedicalLaw } from "@/server/compliance/medical-law";
 import { getDefaultOrgId } from "@/server/org";
+import { renderContentPlanForPublish } from "@/server/marketing/render-plan";
+import { wordpressPublish } from "@/server/marketing/providers/wordpress";
 import {
   getAdminScopes,
   recordAudit,
@@ -209,6 +211,93 @@ export async function updateContentPlanStatus(input: unknown): Promise<ActionRes
       await recordAudit(tx, { actorId: user.id, action: "contentPlan.status", targetType: "ContentPlan", targetId: p.data.id, afterState: { status: p.data.status, publishedUrl: p.data.publishedUrl ?? undefined }, ...meta });
     });
     revalidatePath(`/clients/${plan.clientId}`);
+  });
+}
+
+/**
+ * 실행 자동화 #3 — 승인·병원 확인된 콘텐츠를 워드프레스로 원클릭 게시.
+ * 게이트는 수동 게시(updateContentPlanStatus PUBLISHED)와 동일: high 위험 0 + 병원 확인(clientConfirmedAt).
+ * 성공 시 status=PUBLISHED + publishedUrl(발행 URL) 기록 + GEO 질문 대응 페이지 자동 연결.
+ * 워드프레스 미설정/실패는 사용자 친화 코드로 반환해 "URL 직접 입력" 경로로 우회할 수 있게 한다.
+ */
+export async function publishContentPlanToWordPress(input: unknown): Promise<ActionResult<{ url: string; scheduled: boolean }>> {
+  return runAction(async () => {
+    const p = z
+      .object({ id: z.string().min(1), scheduledAt: z.string().datetime().optional().nullable() })
+      .safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+
+    const plan = await db.contentPlan.findUnique({
+      where: { id: p.data.id },
+      select: {
+        clientId: true,
+        topic: true,
+        angle: true,
+        faq: true,
+        qa: true,
+        draft: true,
+        complianceRisk: true,
+        clientConfirmedAt: true
+      }
+    });
+    if (!plan) throw new Error("NOT_FOUND");
+    const user = await assertClientAccess(plan.clientId);
+
+    // 게시 잠금(수동 게시와 동일 게이트)
+    const risk = plan.complianceRisk as { high?: number } | null;
+    if ((risk?.high ?? 0) > 0) throw new Error("COMPLIANCE_BLOCKED");
+    if (!plan.clientConfirmedAt) throw new Error("CLIENT_APPROVAL_REQUIRED");
+
+    const { title, html } = renderContentPlanForPublish({
+      topic: plan.topic,
+      angle: plan.angle as string | null,
+      faq: (Array.isArray(plan.faq) ? plan.faq : []) as string[],
+      qa: (Array.isArray(plan.qa) ? plan.qa : []) as { q: string; a: string }[],
+      draft: plan.draft as string | null
+    });
+    if (!html.trim()) throw new Error("NOTHING_TO_PUBLISH");
+
+    const scheduledAt = p.data.scheduledAt ?? undefined;
+    const result = await wordpressPublish.publish({
+      channel: "WORDPRESS",
+      title,
+      bodyHtmlOrMarkdown: html,
+      scheduledAt
+    });
+    if (!result.ok) {
+      if (result.error.code === "CONFIG_MISSING") throw new Error("WORDPRESS_NOT_CONFIGURED");
+      throw new Error("PUBLISH_FAILED");
+    }
+
+    const publishedUrl = result.data.externalUrl ?? null;
+    const scheduled = result.data.status === "SCHEDULED";
+
+    const meta = await requestMeta();
+    await db.$transaction(async (tx) => {
+      await tx.contentPlan.update({
+        where: { id: p.data.id },
+        // 예약이면 승인 상태 유지(발행 대기), 즉시 게시면 PUBLISHED
+        data: {
+          ...(scheduled ? {} : { status: "PUBLISHED" }),
+          ...(publishedUrl ? { publishedUrl } : {})
+        }
+      });
+      // GEO 답변 페이지였다면 질문의 대응 페이지 URL 자동 채움(수동 게시 훅과 동일)
+      if (!scheduled && publishedUrl) {
+        await tx.geoQuestion.updateMany({ where: { answerPlanId: p.data.id }, data: { targetPageUrl: publishedUrl } });
+      }
+      await recordAudit(tx, {
+        actorId: user.id,
+        action: "contentPlan.publishWordpress",
+        targetType: "ContentPlan",
+        targetId: p.data.id,
+        afterState: { status: scheduled ? "SCHEDULED" : "PUBLISHED", publishedUrl: publishedUrl ?? undefined },
+        ...meta
+      });
+    });
+
+    revalidatePath(`/clients/${plan.clientId}`);
+    return { url: publishedUrl ?? "", scheduled };
   });
 }
 

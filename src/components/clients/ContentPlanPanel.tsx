@@ -5,9 +5,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
-import { createContentPlan, updateContentPlanStatus, deleteContentPlan, reviseContentPlan } from "@/server/actions/content-plans";
+import { AlertTriangle, Globe, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
+import { createContentPlan, updateContentPlanStatus, deleteContentPlan, reviseContentPlan, publishContentPlanToWordPress } from "@/server/actions/content-plans";
 import { requestApproval } from "@/server/actions/approvals";
+import { Modal, ConfirmModal } from "@/components/ui/Modal";
 
 type Flag = { label: string; matched: string; code: number; severity: string };
 type Plan = {
@@ -57,26 +58,63 @@ export function ContentPlanPanel({ clientId, plans, aiConfigured, canManage }: {
     });
   }
 
+  // 게시(모달) — 워드프레스 자동 게시 or URL 직접 입력
+  const [publishPlan, setPublishPlan] = useState<Plan | null>(null);
+  const [manualUrl, setManualUrl] = useState("");
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [deletePlan, setDeletePlan] = useState<Plan | null>(null);
+
   function setStatus(id: string, status: string) {
-    // 게시 전이 시 게시 URL 증빙 입력(§5-9)
-    let publishedUrl: string | null = null;
+    // 게시 전이는 모달로(워드프레스 자동 게시 or 증빙 URL 입력, §5-9)
     if (status === "PUBLISHED") {
-      publishedUrl = window.prompt("게시된 URL을 입력해주세요 (게시 증빙으로 기록됩니다)");
-      if (publishedUrl === null) return;
+      const pl = plans.find((x) => x.id === id) ?? null;
+      setManualUrl("");
+      setPublishError(null);
+      setPublishPlan(pl);
+      return;
     }
     start(async () => {
-      const res = await updateContentPlanStatus({ id, status, publishedUrl: publishedUrl || null });
+      const res = await updateContentPlanStatus({ id, status, publishedUrl: null });
       if (!res.ok) setError(res.error || "상태 변경 실패");
       else router.refresh();
     });
   }
 
-  function remove(id: string) {
-    if (!confirm("이 기획안을 삭제할까요?")) return;
+  function publishToWordpress() {
+    if (!publishPlan) return;
+    setPublishError(null);
     start(async () => {
-      const res = await deleteContentPlan({ id });
-      if (!res.ok) setError("삭제 실패");
-      else router.refresh();
+      const res = await publishContentPlanToWordPress({ id: publishPlan.id });
+      if (!res.ok) setPublishError(res.error);
+      else {
+        setPublishPlan(null);
+        router.refresh();
+      }
+    });
+  }
+
+  function publishByUrl() {
+    if (!publishPlan) return;
+    setPublishError(null);
+    start(async () => {
+      const res = await updateContentPlanStatus({ id: publishPlan.id, status: "PUBLISHED", publishedUrl: manualUrl.trim() || null });
+      if (!res.ok) setPublishError(res.error);
+      else {
+        setPublishPlan(null);
+        router.refresh();
+      }
+    });
+  }
+
+  function confirmRemove() {
+    if (!deletePlan) return;
+    start(async () => {
+      const res = await deleteContentPlan({ id: deletePlan.id });
+      if (!res.ok) setError(res.error || "삭제 실패");
+      else {
+        setDeletePlan(null);
+        router.refresh();
+      }
     });
   }
 
@@ -172,7 +210,7 @@ export function ContentPlanPanel({ clientId, plans, aiConfigured, canManage }: {
                   {(pl.angle || pl.faq.length > 0) ? (
                     <button type="button" onClick={() => setOpenId(openId === pl.id ? null : pl.id)} className="rounded-md border border-line px-2 py-1 text-xs text-slate-600 hover:bg-surface">{openId === pl.id ? "접기" : "보기"}</button>
                   ) : null}
-                  {canManage ? <button type="button" onClick={() => remove(pl.id)} disabled={pending} className="text-slate-400 hover:text-danger disabled:opacity-50" aria-label="삭제"><Trash2 className="h-4 w-4" /></button> : null}
+                  {canManage ? <button type="button" onClick={() => setDeletePlan(pl)} disabled={pending} className="text-slate-400 hover:text-danger disabled:opacity-50" aria-label="삭제"><Trash2 className="h-4 w-4" /></button> : null}
                 </div>
 
                 {canManage ? (
@@ -234,6 +272,59 @@ export function ContentPlanPanel({ clientId, plans, aiConfigured, canManage }: {
           })}
         </ul>
       )}
+
+      {/* 게시 모달 — 워드프레스 자동 게시 or URL 직접 입력 */}
+      <Modal
+        open={publishPlan !== null}
+        onClose={() => setPublishPlan(null)}
+        title="콘텐츠 게시"
+      >
+        <p className="line-clamp-2 rounded-lg bg-surface px-2.5 py-1.5 text-xs text-slate-600">“{publishPlan?.topic}”</p>
+        <p className="mt-2 text-xs text-slate-500">
+          병원 확인·의료법 검수를 통과한 원고를 게시합니다. 워드프레스가 연결돼 있으면 원클릭으로 발행하고, 발행 URL이 자동 기록됩니다.
+          (GEO 답변 페이지면 해당 질문의 대응 페이지로도 자동 연결)
+        </p>
+
+        <button
+          type="button"
+          onClick={publishToWordpress}
+          disabled={pending}
+          className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-strong disabled:opacity-50"
+        >
+          <Globe className="h-4 w-4" /> {pending ? "게시 중…" : "워드프레스로 게시"}
+        </button>
+
+        <div className="mt-4 border-t border-line pt-3">
+          <p className="text-xs font-semibold text-slate-500">또는 다른 채널에 직접 게시한 URL 입력</p>
+          <input
+            value={manualUrl}
+            onChange={(e) => setManualUrl(e.target.value)}
+            maxLength={500}
+            placeholder="https:// (네이버 블로그 등)"
+            className={`mt-1.5 ${inputCls}`}
+          />
+          <button
+            type="button"
+            onClick={publishByUrl}
+            disabled={pending}
+            className="mt-2 rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-surface disabled:opacity-50"
+          >
+            URL로 게시 처리
+          </button>
+        </div>
+        {publishError && <p className="mt-3 text-xs text-rose-600">{publishError}</p>}
+      </Modal>
+
+      <ConfirmModal
+        open={deletePlan !== null}
+        onClose={() => setDeletePlan(null)}
+        onConfirm={confirmRemove}
+        title="콘텐츠 기획 삭제"
+        body={<p className="line-clamp-2 rounded-lg bg-surface px-2.5 py-1.5 text-xs text-slate-600">“{deletePlan?.topic}”</p>}
+        confirmLabel="삭제"
+        tone="danger"
+        pending={pending}
+      />
     </div>
   );
 }
