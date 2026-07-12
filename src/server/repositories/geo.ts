@@ -152,6 +152,39 @@ export async function geoMonthlyTrend(clientId: string, months = 6): Promise<Geo
     }));
 }
 
+export type GeoDashboardSummary = {
+  monitoredQuestions: number; // 승인·모니터링 중 질문 수(접근 가능 거래처 전체)
+  appearedRecent: number; // 최근 30일 출현이 확인된 질문 수
+  citedRecent: number; // 최근 30일 공식 URL 인용이 확인된 질문 수
+  answerDrafts: number; // 답변 페이지 초안이 생성된 질문 수
+};
+
+/** 대시보드용 GEO 전체 요약 — 접근 가능한 거래처들의 실행 현황을 한 줄로. */
+export async function geoDashboardSummary(clientIds: string[]): Promise<GeoDashboardSummary> {
+  if (clientIds.length === 0) {
+    return { monitoredQuestions: 0, appearedRecent: 0, citedRecent: 0, answerDrafts: 0 };
+  }
+  const since = new Date();
+  since.setUTCDate(since.getUTCDate() - 30);
+
+  const [monitoredQuestions, answerDrafts, recent] = await Promise.all([
+    db.geoQuestion.count({ where: { clientId: { in: clientIds }, status: { in: ["APPROVED", "MONITORING"] } } }),
+    db.geoQuestion.count({ where: { clientId: { in: clientIds }, answerPlanId: { not: null } } }),
+    db.geoAnswerRecord.findMany({
+      where: { question: { clientId: { in: clientIds } }, checkedOn: { gte: since } },
+      select: { questionId: true, appeared: true, cited: true }
+    })
+  ]);
+
+  const appearedQ = new Set<string>();
+  const citedQ = new Set<string>();
+  for (const r of recent) {
+    if (r.appeared) appearedQ.add(r.questionId);
+    if (r.cited) citedQ.add(r.questionId);
+  }
+  return { monitoredQuestions, appearedRecent: appearedQ.size, citedRecent: citedQ.size, answerDrafts };
+}
+
 export function summarizeGeoMatrix(allRows: GeoQuestionRow[]): GeoSummary {
   const rows = allRows.filter((r) => r.status !== "RETIRED"); // 종료 질문은 지표에서 제외
   const monitored = rows.filter((r) => Object.keys(r.cells).length > 0);

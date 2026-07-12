@@ -1,8 +1,9 @@
 import Link from "next/link";
 import type { Route } from "next";
 import {
-  AlertTriangle, ArrowRight, BriefcaseBusiness, CalendarClock, CircleCheck, ClipboardList,
-  CreditCard, FileSignature, FileText, ImageIcon, Plane, ShieldCheck, Sparkles, Wallet
+  AlertTriangle, ArrowRight, Bot, BriefcaseBusiness, CalendarClock, CircleCheck, ClipboardList,
+  CreditCard, Eye, FileSignature, FileText, ImageIcon, Link2, MessageCircleQuestion, Plane,
+  ShieldCheck, Sparkles, Wallet
 } from "lucide-react";
 import { Role } from "@/domain/types";
 import { ClientConfirmations } from "@/components/dashboard/ClientConfirmations";
@@ -11,6 +12,7 @@ import { RolePipeline } from "@/components/dashboard/RolePipeline";
 import { WorkOverview } from "@/components/dashboard/WorkOverview";
 import type { DashboardSummary } from "@/domain/dashboard";
 import type { ClientConfirmations as Confirmations, ClientMonitorRow, RiskItem } from "@/server/repositories/dashboard-extras";
+import type { GeoDashboardSummary } from "@/server/repositories/geo";
 import type { LeadPipelineSummary } from "@/server/repositories/leads";
 import { ACTIVE_LEAD_STAGES, leadStatusLabels } from "@/domain/sales/lead-stages";
 
@@ -80,7 +82,8 @@ export function DashboardHome({
   riskItems,
   clientMonitor = [],
   confirmations = EMPTY_CONFIRMATIONS,
-  leadPipeline = { byStatus: {}, recontactDueThisWeek: 0 }
+  leadPipeline = { byStatus: {}, recontactDueThisWeek: 0 },
+  geoSummary = null
 }: {
   userName: string;
   role: Role;
@@ -89,6 +92,7 @@ export function DashboardHome({
   clientMonitor?: ClientMonitorRow[];
   confirmations?: Confirmations;
   leadPipeline?: LeadPipelineSummary;
+  geoSummary?: GeoDashboardSummary | null;
 }) {
   const kpis = kpisFor(role, summary);
   const riskCount = riskItems.reduce((n, r) => n + (r.high > 0 ? 1 : 0), 0);
@@ -165,6 +169,26 @@ export function DashboardHome({
           ) : null}
         </div>
       </section>
+
+      {/* SEO·GEO 실행 현황 — 실행 프로그램 요약(모니터링 질문·최근 30일 출현·인용·답변 초안) */}
+      {geoSummary && (
+        <section className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Link href={"/geo" as Route} className="flex items-center gap-1.5 text-sm font-bold text-ink hover:underline">
+              <Bot className="h-4 w-4 text-emerald-600" /> SEO·GEO 실행 현황 →
+            </Link>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <GeoStat icon={MessageCircleQuestion} label="모니터링 질문" value={geoSummary.monitoredQuestions} />
+              <GeoStat icon={Eye} label="최근 30일 출현" value={geoSummary.appearedRecent} />
+              <GeoStat icon={Link2} label="공식 URL 인용" value={geoSummary.citedRecent} />
+              <GeoStat icon={FileText} label="답변 초안" value={geoSummary.answerDrafts} />
+            </div>
+            {geoSummary.monitoredQuestions === 0 && (
+              <span className="text-[11px] text-slate-500">아직 모니터링 중인 질문이 없습니다 — GEO 화면에서 후보를 생성해보세요.</span>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* 역할별 워크플로우 파이프라인 */}
       <RolePipeline role={role} summary={summary} riskCount={riskCount} />
@@ -248,6 +272,15 @@ export function DashboardHome({
         </div>
       </section>
     </div>
+  );
+}
+
+function GeoStat({ icon: Icon, label, value }: { icon: typeof ClipboardList; label: string; value: number }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-card px-2.5 py-1 text-[11px] font-medium text-slate-600">
+      <Icon className="h-3.5 w-3.5 text-emerald-600" />
+      {label} <b className="text-ink">{value}</b>
+    </span>
   );
 }
 
