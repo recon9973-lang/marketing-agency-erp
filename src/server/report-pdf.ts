@@ -24,9 +24,35 @@ export async function buildReportHtml(reportId: string): Promise<{ html: string;
 
   const rankRows = ranks.map((r) => `<tr><td>${esc(r.keyword)}</td><td style="text-align:right">${r.rank ?? "-"}</td></tr>`).join("");
   const otherRows = Object.entries(metrics)
-    .filter(([k]) => k !== "keywordRanks" && k !== "keywordRanksCollectedAt")
+    .filter(([k]) => !["keywordRanks", "keywordRanksCollectedAt", "geo", "summary"].includes(k))
     .map(([k, v]) => `<tr><td>${esc(k)}</td><td style="text-align:right">${esc(typeof v === "object" ? JSON.stringify(v) : v)}</td></tr>`)
     .join("");
+
+  // GEO 모니터링(§13) — 전용 섹션. 보장 지표 오인 방지 고지 필수(기획서 §7·§9).
+  type GeoMetric = {
+    monitoredQuestions?: number;
+    checks?: number;
+    appearedQuestions?: number;
+    citedQuestions?: number;
+    evidenceCount?: number;
+    byEngine?: Record<string, { checks: number; appeared: number }>;
+    disclaimer?: string;
+  };
+  const geo = (metrics as { geo?: GeoMetric }).geo;
+  const geoSection = geo
+    ? `<h2>AI 답변 모니터링 (GEO)</h2>
+  <table><tbody>
+    <tr><td>관측 질문</td><td style="text-align:right">${geo.monitoredQuestions ?? 0}개</td></tr>
+    <tr><td>관측 횟수</td><td style="text-align:right">${geo.checks ?? 0}회</td></tr>
+    <tr><td>병원 언급(출현) 질문</td><td style="text-align:right">${geo.appearedQuestions ?? 0}개</td></tr>
+    <tr><td>공식 URL 인용 질문</td><td style="text-align:right">${geo.citedQuestions ?? 0}개</td></tr>
+    <tr><td>캡처 증빙</td><td style="text-align:right">${geo.evidenceCount ?? 0}건</td></tr>
+    ${Object.entries(geo.byEngine ?? {})
+      .map(([engine, s]) => `<tr><td>· ${esc(engine)}</td><td style="text-align:right">${s.appeared}/${s.checks} 출현</td></tr>`)
+      .join("")}
+  </tbody></table>
+  <div class="meta">${esc(geo.disclaimer ?? "AI 답변 출현은 보장 지표가 아닌 모니터링 지표입니다.")}</div>`
+    : "";
 
   const title = `${report.client?.name ?? ""} ${esc(report.reportingMonth)} 월간 보고서`;
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
@@ -41,6 +67,7 @@ export async function buildReportHtml(reportId: string): Promise<{ html: string;
   <div class="meta">거래처: ${esc(report.client?.name)} · 작성자: ${esc(report.author?.name)} · 상태: ${esc(report.status)}</div>
   <h2>키워드 순위</h2>
   <table><tbody>${rankRows || '<tr><td colspan="2">데이터 없음</td></tr>'}</tbody></table>
+  ${geoSection}
   <h2>기타 성과 지표</h2>
   <table><tbody>${otherRows || '<tr><td colspan="2">데이터 없음</td></tr>'}</tbody></table>
   <h2>요약 코멘트</h2>

@@ -39,6 +39,21 @@ const STATUS_TONE: Record<string, BadgeTone> = {
   UNPAID: "warning",
   PAID: "success",
   OVERDUE: "danger",
+  // lead (영업 리드)
+  NEW: "neutral",
+  CONTACTING: "info",
+  AUDIT: "warning",
+  MEETING: "info",
+  PROPOSAL: "warning",
+  WON: "success",
+  LOST: "danger",
+  RECONTACT: "neutral",
+  // geo question
+  CANDIDATE: "neutral",
+  MONITORING: "info",
+  RETIRED: "neutral",
+  // work (병원승인대기)
+  CLIENT_APPROVAL: "warning",
 };
 
 export function toneForStatus(status: string): BadgeTone {

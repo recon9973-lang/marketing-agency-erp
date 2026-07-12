@@ -37,7 +37,9 @@ export function ClientConfirmations({ data }: { data: Confirmations }) {
                   <b className="block truncate text-[13px] text-ink">{p.topic}</b>
                   <small className="text-[11.5px] text-slate-500">{p.clientName} · {p.month}</small>
                 </div>
-                <span className="ml-auto shrink-0 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-600">대기</span>
+                <span className={`ml-auto shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${p.overdue ? "bg-rose-50 text-rose-600" : "bg-amber-50 text-amber-600"}`}>
+                  {p.overdue ? "3영업일 초과" : "대기"}
+                </span>
               </li>
             ))}
           </ul>

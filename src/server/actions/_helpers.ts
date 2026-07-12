@@ -111,7 +111,13 @@ const ERROR_MESSAGES: Record<string, string> = {
   VALIDATION: "입력값을 확인해주세요.",
   INACTIVE_MARKETER: "비활성 담당자에게는 배정할 수 없습니다.",
   AI_NOT_CONFIGURED: "AI가 아직 연결되지 않았습니다. 연동 화면에서 ANTHROPIC_API_KEY를 등록하면 켜집니다.",
-  AI_EMPTY: "AI가 결과를 만들지 못했습니다. 주제를 조금 더 구체적으로 입력해 다시 시도해주세요."
+  AI_EMPTY: "AI가 결과를 만들지 못했습니다. 주제를 조금 더 구체적으로 입력해 다시 시도해주세요.",
+  CONSENT_REQUIRED: "연락처를 수집하려면 개인정보 수집 동의가 필요합니다.",
+  ALREADY_CONVERTED: "이미 거래처로 전환된 리드입니다.",
+  CLIENT_CODE_CONFLICT: "거래처 코드 생성이 반복 충돌했습니다. 다시 시도해주세요.",
+  EVIDENCE_REQUIRED: "완료 처리에는 결과 요약(산출물 링크·적용 URL 등 증빙)이 필요합니다.",
+  COMPLIANCE_BLOCKED: "위험 표현이 해소되지 않아 진행할 수 없습니다. 검수 후 다시 시도해주세요.",
+  CLIENT_APPROVAL_REQUIRED: "병원(거래처) 승인 전에는 게시할 수 없습니다."
 };
 
 /** 표준 액션 래퍼: 에러를 사용자 친화 메시지로 변환해 ActionResult로 반환. */

@@ -82,13 +82,29 @@ export async function listClientMonitor(user: CurrentUser, today: string): Promi
   return rows.slice(0, 8);
 }
 
-export type PendingConfirm = { id: string; clientName: string; topic: string; month: string };
+export type PendingConfirm = { id: string; clientName: string; topic: string; month: string; overdue: boolean };
 export type ClientResponse = { id: string; clientName: string; message: string; kind: string; createdAt: string };
 export type ClientConfirmations = { pending: PendingConfirm[]; recent: ClientResponse[] };
+
+/** 두 시각 사이의 영업일 수(주말 제외, 공휴일 미반영) — §15 병원승인대기 3영업일 알림용. */
+export function businessDaysBetween(from: Date, to: Date): number {
+  let count = 0;
+  const cur = new Date(from);
+  cur.setHours(0, 0, 0, 0);
+  const end = new Date(to);
+  end.setHours(0, 0, 0, 0);
+  while (cur < end) {
+    cur.setDate(cur.getDate() + 1);
+    const day = cur.getDay();
+    if (day !== 0 && day !== 6) count++;
+  }
+  return count;
+}
 
 /**
  * 거래처 컨펌 관리 — 포털에 나간 콘텐츠(REVIEWED) 중 컨펌 대기 + 최근 거래처 응답.
  * 담당자는 본인 거래처만, 관리자/최고관리자는 전체.
+ * 병원 승인 대기 3영업일 초과 건은 overdue로 표시(기획서 §15).
  */
 export async function listClientConfirmations(user: CurrentUser): Promise<ClientConfirmations> {
   const clientScope = user.role === Role.MARKETER ? { assignedMarketerId: user.id } : undefined;
@@ -98,9 +114,9 @@ export async function listClientConfirmations(user: CurrentUser): Promise<Client
   const [pendingRows, recentRows] = await Promise.all([
     db.contentPlan.findMany({
       where: planWhere,
-      orderBy: { updatedAt: "desc" },
+      orderBy: { updatedAt: "asc" }, // 오래 대기한 건이 먼저 보이도록
       take: 6,
-      select: { id: true, topic: true, month: true, client: { select: { name: true } } }
+      select: { id: true, topic: true, month: true, updatedAt: true, client: { select: { name: true } } }
     }),
     db.clientFeedback.findMany({
       where: feedbackWhere,
@@ -110,8 +126,15 @@ export async function listClientConfirmations(user: CurrentUser): Promise<Client
     })
   ]);
 
+  const now = new Date();
   return {
-    pending: pendingRows.map((p) => ({ id: p.id, clientName: p.client.name, topic: p.topic, month: p.month })),
+    pending: pendingRows.map((p) => ({
+      id: p.id,
+      clientName: p.client.name,
+      topic: p.topic,
+      month: p.month,
+      overdue: businessDaysBetween(p.updatedAt, now) >= 3
+    })),
     recent: recentRows.map((r) => ({ id: r.id, clientName: r.client.name, message: r.message, kind: r.kind, createdAt: r.createdAt.toISOString() }))
   };
 }

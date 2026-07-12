@@ -21,6 +21,9 @@ import {
 const prisma = new PrismaClient();
 
 async function main() {
+  await prisma.geoAnswerRecord.deleteMany();
+  await prisma.geoQuestion.deleteMany();
+  await prisma.lead.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.calendarEvent.deleteMany();
   await prisma.paymentRecord.deleteMany();

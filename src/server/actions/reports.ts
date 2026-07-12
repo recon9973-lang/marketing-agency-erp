@@ -11,6 +11,7 @@ import { z } from "zod";
 import { Role } from "@/domain/types";
 import { assertCanAccessClient } from "@/domain/access-control";
 import { db } from "@/server/db";
+import { geoMonthlySummary } from "@/server/repositories/geo";
 import {
   getAdminScopes,
   recordAudit,
@@ -91,11 +92,12 @@ export async function generateMonthlyReport(input: unknown): Promise<ActionResul
     end.setUTCMonth(end.getUTCMonth() + 1);
 
     // 집계
-    const [contractProducts, completedWork, publishedContent, rankRows] = await Promise.all([
+    const [contractProducts, completedWork, publishedContent, rankRows, geo] = await Promise.all([
       db.contractProduct.findMany({ where: { contract: { clientId } }, select: { product: { select: { name: true } } } }),
       db.workItem.count({ where: { clientId, status: "COMPLETED", updatedAt: { gte: start, lt: end } } }),
       db.contentPlan.count({ where: { clientId, status: "PUBLISHED", month: reportingMonth } }),
-      db.placeRankRecord.findMany({ where: { clientId, recordedOn: { gte: start, lt: end } }, orderBy: { recordedOn: "desc" }, select: { keyword: true, rank: true } })
+      db.placeRankRecord.findMany({ where: { clientId, recordedOn: { gte: start, lt: end } }, orderBy: { recordedOn: "desc" }, select: { keyword: true, rank: true } }),
+      geoMonthlySummary(clientId, start, end)
     ]);
 
     const products = [...new Set(contractProducts.map((cp) => cp.product.name))];
@@ -108,14 +110,24 @@ export async function generateMonthlyReport(input: unknown): Promise<ActionResul
     const summary =
       `${client.name} ${monthLabel} 운영 요약: 계약 상품 ${products.length}종 운영, ` +
       `완료 업무 ${completedWork}건, 게시 콘텐츠 ${publishedContent}건` +
-      (keywordRanks.length ? `, 순위 추적 ${keywordRanks.length}개 키워드.` : ".");
+      (keywordRanks.length ? `, 순위 추적 ${keywordRanks.length}개 키워드` : "") +
+      (geo.checks > 0 ? `, AI답변 관측 ${geo.checks}회(질문 ${geo.monitoredQuestions}개 중 출현 ${geo.appearedQuestions}개).` : ".");
 
     const metrics = {
       summary,
       "계약 상품": products.join(", ") || "-",
       "완료 업무": `${completedWork}건`,
       "게시 콘텐츠": `${publishedContent}건`,
-      keywordRanks
+      keywordRanks,
+      // GEO 모니터링(§13) — 노출 보장 지표가 아닌 관측 지표. 리포트에 고지 문구 필수.
+      ...(geo.checks > 0
+        ? {
+            geo: {
+              ...geo,
+              disclaimer: "AI 답변 출현은 보장 지표가 아닌 모니터링 지표이며, 엔진 정책에 따라 수시로 변동될 수 있습니다."
+            }
+          }
+        : {})
     };
 
     const meta = await requestMeta();

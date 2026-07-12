@@ -22,3 +22,18 @@ export async function listQuotes(clientId: string): Promise<QuoteView[]> {
     }))
     .sort((a, b) => (TIER_ORDER[a.tier] ?? 9) - (TIER_ORDER[b.tier] ?? 9));
 }
+
+/** 리드 단계 견적 목록(제안발송용, 티어순) — 거래처 전환 시 clientId가 링크된다. */
+export async function listLeadQuotes(leadId: string): Promise<QuoteView[]> {
+  const rows = await db.quote.findMany({ where: { leadId }, orderBy: { createdAt: "desc" } });
+  return rows
+    .map((q) => ({
+      id: q.id,
+      tier: q.tier,
+      items: Array.isArray(q.items) ? (q.items as unknown as QuoteItem[]) : [],
+      monthlyTotal: Number(q.monthlyTotal),
+      status: q.status,
+      createdAt: q.createdAt.toISOString()
+    }))
+    .sort((a, b) => (TIER_ORDER[a.tier] ?? 9) - (TIER_ORDER[b.tier] ?? 9));
+}

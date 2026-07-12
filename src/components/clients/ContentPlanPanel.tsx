@@ -6,7 +6,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
-import { createContentPlan, updateContentPlanStatus, deleteContentPlan } from "@/server/actions/content-plans";
+import { createContentPlan, updateContentPlanStatus, deleteContentPlan, reviseContentPlan } from "@/server/actions/content-plans";
 import { requestApproval } from "@/server/actions/approvals";
 
 type Flag = { label: string; matched: string; code: number; severity: string };
@@ -58,9 +58,15 @@ export function ContentPlanPanel({ clientId, plans, aiConfigured, canManage }: {
   }
 
   function setStatus(id: string, status: string) {
+    // 게시 전이 시 게시 URL 증빙 입력(§5-9)
+    let publishedUrl: string | null = null;
+    if (status === "PUBLISHED") {
+      publishedUrl = window.prompt("게시된 URL을 입력해주세요 (게시 증빙으로 기록됩니다)");
+      if (publishedUrl === null) return;
+    }
     start(async () => {
-      const res = await updateContentPlanStatus({ id, status });
-      if (!res.ok) setError("상태 변경 실패");
+      const res = await updateContentPlanStatus({ id, status, publishedUrl: publishedUrl || null });
+      if (!res.ok) setError(res.error || "상태 변경 실패");
       else router.refresh();
     });
   }
@@ -71,6 +77,40 @@ export function ContentPlanPanel({ clientId, plans, aiConfigured, canManage }: {
       const res = await deleteContentPlan({ id });
       if (!res.ok) setError("삭제 실패");
       else router.refresh();
+    });
+  }
+
+  // 위험표현 수정·재검수(§15 수정중→재검수) — angle/FAQ/QA를 편집해 재검수한다.
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editAngle, setEditAngle] = useState("");
+  const [editFaq, setEditFaq] = useState("");
+  const [editQa, setEditQa] = useState("");
+
+  function openEdit(pl: Plan) {
+    setEditId(pl.id);
+    setEditAngle(pl.angle ?? "");
+    setEditFaq(pl.faq.join("\n"));
+    setEditQa(pl.qa.map((x) => `${x.q} :: ${x.a}`).join("\n"));
+    setOpenId(pl.id);
+  }
+
+  function saveRevision(id: string) {
+    setError(null);
+    const faq = editFaq.split("\n").map((s) => s.trim()).filter(Boolean);
+    const qa = editQa
+      .split("\n")
+      .map((line) => {
+        const [q, ...rest] = line.split("::");
+        return { q: (q ?? "").trim(), a: rest.join("::").trim() };
+      })
+      .filter((x) => x.q && x.a);
+    start(async () => {
+      const res = await reviseContentPlan({ id, angle: editAngle.trim() || null, faq, qa });
+      if (!res.ok) setError(res.error);
+      else {
+        setEditId(null);
+        router.refresh();
+      }
     });
   }
 
@@ -154,9 +194,37 @@ export function ContentPlanPanel({ clientId, plans, aiConfigured, canManage }: {
                     {pl.qa.length > 0 ? <div><p className="text-xs font-bold text-slate-500">Q&amp;A</p><dl className="mt-1 space-y-1.5">{pl.qa.map((x, i) => <div key={i}><dt className="font-medium text-ink">Q. {x.q}</dt><dd className="text-slate-600">A. {x.a}</dd></div>)}</dl></div> : null}
                     {hasRisk && risk ? (
                       <div className="rounded-md bg-rose-50/60 p-2">
-                        <p className="text-xs font-bold text-rose-600">의료법 위험 표현</p>
+                        <p className="text-xs font-bold text-rose-600">의료법 위험 표현{risk.high > 0 ? " — 해소 전 승인·게시 잠금" : ""}</p>
                         <div className="mt-1 flex flex-wrap gap-1">{risk.flags.map((f, i) => <span key={i} className="rounded bg-white px-1.5 py-0.5 text-xs text-rose-700">{f.matched}<span className="text-slate-400"> · {f.label}</span></span>)}</div>
                         <p className="mt-1 text-xs text-slate-400">※ 최종 게시 전 담당자·관리자 승인 필요</p>
+                        {canManage && editId !== pl.id ? (
+                          <button type="button" onClick={() => openEdit(pl)} className="mt-1.5 rounded border border-rose-200 bg-white px-2 py-0.5 text-xs font-semibold text-rose-600 hover:bg-rose-50">
+                            위험 표현 수정·재검수
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {canManage && editId === pl.id ? (
+                      <div className="space-y-2 rounded-md border border-line bg-surface/50 p-2">
+                        <p className="text-xs font-bold text-slate-600">수정 후 저장하면 의료법 재검수가 자동 실행됩니다. (병원 재확인 필요)</p>
+                        <label className="block text-xs font-medium text-slate-500">
+                          콘텐츠 방향
+                          <textarea value={editAngle} onChange={(e) => setEditAngle(e.target.value)} rows={3} className={`mt-1 ${inputCls}`} />
+                        </label>
+                        <label className="block text-xs font-medium text-slate-500">
+                          FAQ (줄당 1개)
+                          <textarea value={editFaq} onChange={(e) => setEditFaq(e.target.value)} rows={3} className={`mt-1 ${inputCls}`} />
+                        </label>
+                        <label className="block text-xs font-medium text-slate-500">
+                          Q&amp;A (줄당 “질문 :: 답변”)
+                          <textarea value={editQa} onChange={(e) => setEditQa(e.target.value)} rows={3} className={`mt-1 ${inputCls}`} />
+                        </label>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => saveRevision(pl.id)} disabled={pending} className="rounded-md bg-brand px-3 py-1 text-xs font-semibold text-white disabled:opacity-50">
+                            {pending ? "저장 중…" : "저장 + 재검수"}
+                          </button>
+                          <button type="button" onClick={() => setEditId(null)} className="rounded-md border border-line px-3 py-1 text-xs text-slate-500">취소</button>
+                        </div>
                       </div>
                     ) : null}
                   </div>

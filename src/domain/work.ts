@@ -1,6 +1,12 @@
 import { WorkCategory, WorkStatus } from "@/domain/types";
 
-export type WorkStatusAction = "start" | "submit_for_review" | "approve" | "block" | "resume";
+export type WorkStatusAction =
+  | "start"
+  | "submit_for_review"
+  | "request_client_approval"
+  | "approve"
+  | "block"
+  | "resume";
 
 export type WorkDueInput = {
   status: WorkStatus;
@@ -17,14 +23,20 @@ const transitionMap: Record<WorkStatusAction, Partial<Record<WorkStatus, WorkSta
   submit_for_review: {
     [WorkStatus.IN_PROGRESS]: WorkStatus.REVIEW_NEEDED
   },
+  // 병원(거래처) 승인이 필요한 업무 — 내부 검수 후 병원승인대기로 (기획서 §12 Task 상태)
+  request_client_approval: {
+    [WorkStatus.REVIEW_NEEDED]: WorkStatus.CLIENT_APPROVAL
+  },
   approve: {
-    [WorkStatus.REVIEW_NEEDED]: WorkStatus.COMPLETED
+    [WorkStatus.REVIEW_NEEDED]: WorkStatus.COMPLETED,
+    [WorkStatus.CLIENT_APPROVAL]: WorkStatus.COMPLETED
   },
   block: {
     [WorkStatus.NOT_STARTED]: WorkStatus.BLOCKED,
     [WorkStatus.IN_PROGRESS]: WorkStatus.BLOCKED,
     [WorkStatus.WAITING]: WorkStatus.BLOCKED,
-    [WorkStatus.REVIEW_NEEDED]: WorkStatus.BLOCKED
+    [WorkStatus.REVIEW_NEEDED]: WorkStatus.BLOCKED,
+    [WorkStatus.CLIENT_APPROVAL]: WorkStatus.BLOCKED
   },
   resume: {
     [WorkStatus.BLOCKED]: WorkStatus.IN_PROGRESS
@@ -48,6 +60,7 @@ export const workStatusLabels: Record<WorkStatus, string> = {
   [WorkStatus.IN_PROGRESS]: "진행중",
   [WorkStatus.WAITING]: "보류",
   [WorkStatus.REVIEW_NEEDED]: "검수필요",
+  [WorkStatus.CLIENT_APPROVAL]: "병원승인대기",
   [WorkStatus.COMPLETED]: "완료",
   [WorkStatus.BLOCKED]: "차단"
 };

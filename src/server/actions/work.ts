@@ -102,7 +102,9 @@ export async function createWorkItem(input: unknown): Promise<ActionResult<{ id:
 
 const changeStatusSchema = z.object({
   id: z.string().min(1),
-  action: z.enum(["start", "submit_for_review", "approve", "block", "resume"])
+  action: z.enum(["start", "submit_for_review", "request_client_approval", "approve", "block", "resume"]),
+  // 완료 전이 시 증빙(산출물 링크·적용 URL·요약) — 기획서 §15 "완료 처리에는 반드시 증빙"
+  evidence: z.string().trim().max(2000).optional().nullable()
 });
 
 export async function changeWorkStatus(input: unknown): Promise<ActionResult<{ status: string }>> {
@@ -110,7 +112,7 @@ export async function changeWorkStatus(input: unknown): Promise<ActionResult<{ s
     const user = await requireUser();
     const parsed = changeStatusSchema.safeParse(input);
     if (!parsed.success) throw new Error("VALIDATION");
-    const { id, action } = parsed.data;
+    const { id, action, evidence } = parsed.data;
 
     const work = await db.workItem.findUnique({
       where: { id },
@@ -123,6 +125,11 @@ export async function changeWorkStatus(input: unknown): Promise<ActionResult<{ s
     const target = nextWorkStatus(work.status, action as WorkStatusAction);
     if (target === work.status) throw new Error("ILLEGAL_TRANSITION");
 
+    // 완료에는 증빙 필수 — 입력 증빙이 없고 기존 결과 요약도 없으면 차단(§15)
+    if (target === "COMPLETED" && !evidence?.trim() && !work.resultSummary?.trim()) {
+      throw new Error("EVIDENCE_REQUIRED");
+    }
+
     const meta = await requestMeta();
     const updated = await db.$transaction(async (tx) => {
       const after = await tx.workItem.update({
@@ -131,7 +138,8 @@ export async function changeWorkStatus(input: unknown): Promise<ActionResult<{ s
           status: target,
           startedAt: action === "start" && !work.startedAt ? new Date() : undefined,
           completedAt:
-            target === "COMPLETED" ? new Date() : action === "resume" ? null : undefined
+            target === "COMPLETED" ? new Date() : action === "resume" ? null : undefined,
+          ...(target === "COMPLETED" && evidence?.trim() ? { resultSummary: evidence.trim() } : {})
         }
       });
       await recordAudit(tx, {
