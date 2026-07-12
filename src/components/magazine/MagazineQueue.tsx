@@ -7,7 +7,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { magazineKindLabels, magazineStatusLabels, type MagazineKind, type MagazineStatus } from "@/domain/content/magazine";
 import type { MagazineRow } from "@/server/repositories/magazine";
-import { deleteMagazinePost, draftMagazinePost, setMagazineStatus } from "@/server/actions/magazine";
+import { deleteMagazinePost, draftMagazinePost, setMagazineStatus, publishMagazinePost } from "@/server/actions/magazine";
 import { StatusBadge, toneForStatus } from "@/components/ui/StatusBadge";
 import { ConfirmModal, Modal } from "@/components/ui/Modal";
 
@@ -18,7 +18,7 @@ function label(row: MagazineRow) {
   };
 }
 
-type Dialog = { kind: "delete" | "preview"; row: MagazineRow } | null;
+type Dialog = { kind: "delete" | "preview" | "publish"; row: MagazineRow } | null;
 
 export function MagazineQueue({ rows }: { rows: MagazineRow[] }) {
   const router = useRouter();
@@ -26,6 +26,7 @@ export function MagazineQueue({ rows }: { rows: MagazineRow[] }) {
   const [dialog, setDialog] = useState<Dialog>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [coverUrl, setCoverUrl] = useState("");
 
   function run(id: string | null, fn: () => Promise<{ ok: boolean; error?: string }>, closeDialog = false) {
     setErr(null);
@@ -69,7 +70,20 @@ export function MagazineQueue({ rows }: { rows: MagazineRow[] }) {
             검토 완료
           </button>
         )}
-        {row.status === "REVIEWED" && <span className="text-[10px] text-slate-400">발행 대기</span>}
+        {row.status === "REVIEWED" && (
+          <button
+            type="button"
+            onClick={() => {
+              setErr(null);
+              setCoverUrl("");
+              setDialog({ kind: "publish", row });
+            }}
+            disabled={pending}
+            className="rounded bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            발행
+          </button>
+        )}
         <button type="button" onClick={() => setDialog({ kind: "delete", row })} className="text-[11px] text-slate-400 hover:text-rose-600">
           삭제
         </button>
@@ -145,6 +159,43 @@ export function MagazineQueue({ rows }: { rows: MagazineRow[] }) {
           );
         })}
       </ul>
+
+      {/* 워드프레스 발행 */}
+      <Modal
+        open={dialog?.kind === "publish"}
+        onClose={() => setDialog(null)}
+        title="워드프레스로 발행"
+        footer={
+          <>
+            <button type="button" onClick={() => setDialog(null)} className="rounded-lg border border-line bg-card px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-surface">
+              취소
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => dialog && run(dialog.row.id, () => publishMagazinePost({ id: dialog.row.id, coverImageUrl: coverUrl.trim() || null }), true)}
+              className="rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {pending ? "발행 중…" : "발행"}
+            </button>
+          </>
+        }
+      >
+        <p className="line-clamp-2 rounded-lg bg-surface px-2.5 py-1.5 text-xs text-slate-600">“{dialog?.row.title}”</p>
+        <p className="mt-2 text-xs text-slate-500">seokorea.org에 발행됩니다. 카테고리는 자동 매핑됩니다.</p>
+        <label className="mt-3 block text-xs font-medium text-slate-600">
+          대표 이미지 URL (선택)
+          <input
+            value={coverUrl}
+            onChange={(e) => setCoverUrl(e.target.value)}
+            maxLength={1000}
+            placeholder="https:// (힉스필드 등 이미지 주소 — 서버가 받아 자동 업로드)"
+            className="mt-1 w-full rounded-lg border border-line bg-card px-2.5 py-1.5 text-sm text-ink placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none"
+          />
+        </label>
+        <p className="mt-1 text-[11px] text-slate-400">URL을 넣으면 서버가 이미지를 가져와 대표이미지로 올립니다(샌드박스와 달리 서버는 egress 제한 없음).</p>
+        {err && <p className="mt-2 text-xs text-rose-600">{err}</p>}
+      </Modal>
 
       {/* 초안 미리보기 */}
       <Modal open={dialog?.kind === "preview"} onClose={() => setDialog(null)} title={dialog?.row.title ?? "초안"}>

@@ -10,8 +10,15 @@ import { z } from "zod";
 import { buildMagazineMarkdown, isMagazineCategory, isMagazineKind, MAGAZINE_STATUSES, parseMagazineTerms } from "@/domain/content/magazine";
 import { db } from "@/server/db";
 import { generateMagazineDraft, isAiConfigured } from "@/server/ai/claude";
+import { markdownToHtml } from "@/server/marketing/render-plan";
+import { wordpressPublish, wordpressUploadMediaFromUrl, wordpressFindCategoryId } from "@/server/marketing/providers/wordpress";
 import { getDefaultOrgId } from "@/server/org";
 import { recordAudit, requestMeta, requireUser, runAction, type ActionResult } from "@/server/actions/_helpers";
+
+/** 마크다운 초안에서 선두 "# 제목" 줄 제거(워드프레스 제목과 중복 방지). */
+function stripLeadingTitle(md: string): string {
+  return md.replace(/^\s*#\s+.*(\r?\n)+/, "");
+}
 
 const importSchema = z.object({
   category: z.string().min(1),
@@ -152,6 +159,76 @@ export async function setMagazineStatus(input: unknown): Promise<ActionResult> {
       await recordAudit(tx, { actorId: user.id, action: "magazine.status", targetType: "MagazinePost", targetId: p.data.id, afterState: { status: p.data.status }, ...meta });
     });
     revalidatePath("/magazine");
+  });
+}
+
+/**
+ * 파이프라인 ③ — 검토 완료(REVIEWED) 글을 워드프레스로 서버 측 발행.
+ * 서버(Vercel)는 egress 제한이 없어 커버 이미지 URL을 가져와 대표이미지로 자동 업로드한다.
+ * 카테고리는 이름으로 워드프레스 카테고리 ID를 조회해 자동 매핑(있으면).
+ */
+export async function publishMagazinePost(input: unknown): Promise<ActionResult<{ url: string }>> {
+  return runAction(async () => {
+    const p = z
+      .object({ id: z.string().min(1), coverImageUrl: z.string().url().max(1000).optional().nullable() })
+      .safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+
+    const post = await db.magazinePost.findUnique({
+      where: { id: p.data.id },
+      select: { id: true, title: true, category: true, status: true, draft: true }
+    });
+    if (!post) throw new Error("NOT_FOUND");
+    if (post.status !== "REVIEWED") throw new Error("CLIENT_APPROVAL_REQUIRED"); // 검토 완료 후에만 발행
+    if (!post.draft) throw new Error("NOTHING_TO_PUBLISH");
+    const user = await requireUser();
+
+    const html = markdownToHtml(stripLeadingTitle(post.draft));
+    if (!html.trim()) throw new Error("NOTHING_TO_PUBLISH");
+
+    // 커버 이미지(선택) — 서버가 URL을 가져와 미디어함에 업로드 → 대표이미지
+    let featuredMediaId: number | undefined;
+    if (p.data.coverImageUrl) {
+      const media = await wordpressUploadMediaFromUrl(p.data.coverImageUrl, `${post.id}.png`);
+      if (!media.ok) throw new Error(media.error.code === "CONFIG_MISSING" ? "WORDPRESS_NOT_CONFIGURED" : "PUBLISH_FAILED");
+      featuredMediaId = media.data.id;
+    }
+
+    // 카테고리 이름 → 워드프레스 카테고리 ID(있으면)
+    const catId = await wordpressFindCategoryId(post.category);
+
+    const result = await wordpressPublish.publish({
+      channel: "WORDPRESS",
+      title: post.title,
+      bodyHtmlOrMarkdown: html,
+      featuredMediaId,
+      categories: catId ? [catId] : undefined
+    });
+    if (!result.ok) {
+      if (result.error.code === "CONFIG_MISSING") throw new Error("WORDPRESS_NOT_CONFIGURED");
+      throw new Error("PUBLISH_FAILED");
+    }
+
+    const publishedUrl = result.data.externalUrl ?? null;
+    const wpPostId = result.data.externalId ? Number(result.data.externalId) : null;
+
+    const meta = await requestMeta();
+    await db.$transaction(async (tx) => {
+      await tx.magazinePost.update({
+        where: { id: p.data.id },
+        data: { status: "PUBLISHED", ...(publishedUrl ? { publishedUrl } : {}), ...(wpPostId ? { wpPostId } : {}) }
+      });
+      await recordAudit(tx, {
+        actorId: user.id,
+        action: "magazine.publish",
+        targetType: "MagazinePost",
+        targetId: p.data.id,
+        afterState: { publishedUrl, wpPostId, featured: Boolean(featuredMediaId) },
+        ...meta
+      });
+    });
+    revalidatePath("/magazine");
+    return { url: publishedUrl ?? "" };
   });
 }
 

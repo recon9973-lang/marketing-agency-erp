@@ -166,6 +166,10 @@ export type PublishInput = {
   /** 발행에 사용할 채널 계정 식별자(자격증명 복호화는 호출부에서 처리). */
   channelAccountRef?: string;
   mediaUrls?: string[];
+  /** 워드프레스 대표이미지 미디어 ID(사전 업로드). */
+  featuredMediaId?: number;
+  /** 워드프레스 카테고리 ID 목록. */
+  categories?: number[];
 };
 
 export type PublishOut = {
