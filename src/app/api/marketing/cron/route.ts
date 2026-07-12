@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runMonthlyPerformanceCollection } from "@/server/marketing/research";
 import { runDailyAlerts } from "@/server/jobs/daily-alerts";
 import { runChannelSync } from "@/server/jobs/channel-sync";
+import { runGeoWatch } from "@/server/geo-engine/runner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +31,10 @@ export async function GET(req: NextRequest) {
   try {
     const alerts = await runDailyAlerts();
     const sync = await runChannelSync();
-    return NextResponse.json({ ok: true, alerts, sync });
+    // GEO 자동 관측은 주 1회(월요일)만 — 엔진 API 비용 상한(질문×엔진×주1회)
+    const isMonday = new Date().getUTCDay() === 1;
+    const geoWatch = isMonday ? await runGeoWatch() : null;
+    return NextResponse.json({ ok: true, alerts, sync, geoWatch });
   } catch (e) {
     console.error("[marketing/cron] daily jobs failed", e);
     return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
@@ -38,7 +42,7 @@ export async function GET(req: NextRequest) {
 }
 
 type CronBody = {
-  job?: "alerts" | "sync" | "collection";
+  job?: "alerts" | "sync" | "geo-watch" | "collection";
   reportingMonth?: string;
   configByClient?: Record<string, { keywords: string[]; target: string; channel?: "blog" | "web" | "local" }>;
 };
@@ -64,6 +68,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, ...result });
     } catch (e) {
       console.error("[marketing/cron] daily alerts failed", e);
+      return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
+    }
+  }
+
+  // GEO 자동 관측 — {"job":"geo-watch"}로 수동/외부 스케줄 트리거(멱등 — 같은 날 중복 호출 안 함).
+  if (body.job === "geo-watch") {
+    try {
+      const result = await runGeoWatch();
+      return NextResponse.json({ ok: true, ...result });
+    } catch (e) {
+      console.error("[marketing/cron] geo watch failed", e);
       return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
     }
   }

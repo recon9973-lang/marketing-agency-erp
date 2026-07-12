@@ -96,6 +96,18 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       fallback: "발송 없이 미리보기"
     },
     {
+      key: "geoEngines",
+      label: "AI 답변 엔진 (GEO 자동 관측)",
+      category: "데이터·광고",
+      configured: Boolean(
+        process.env.OPENAI_API_KEY || process.env.PERPLEXITY_API_KEY || process.env.GOOGLE_AI_API_KEY || process.env.ANTHROPIC_API_KEY
+      ),
+      envVars: ["OPENAI_API_KEY", "PERPLEXITY_API_KEY", "GOOGLE_AI_API_KEY", "ANTHROPIC_API_KEY"],
+      description: "승인 질문을 공식 API로 자동 실행해 병원 언급·인용을 기록 (키가 있는 엔진만 사용, 주 1회+수동)",
+      usedIn: "GEO 모니터링·월간 리포트",
+      fallback: "수동 관측 기록"
+    },
+    {
       key: "googleData",
       label: "구글 GSC·GA4 (검색·방문 지표)",
       category: "데이터·광고",

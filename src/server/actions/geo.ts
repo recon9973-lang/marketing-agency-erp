@@ -10,6 +10,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { buildGeoQuestionCandidates, isGeoEngine } from "@/domain/sales/geo";
+import { runGeoWatch } from "@/server/geo-engine/runner";
 import { assertCanAccessClient } from "@/domain/access-control";
 import { db } from "@/server/db";
 import { getDefaultOrgId } from "@/server/org";
@@ -295,6 +296,32 @@ export async function updateGeoQuestion(input: unknown): Promise<ActionResult> {
       });
     });
     revalidatePath("/geo");
+  });
+}
+
+/** GEO 자동 관측 즉시 실행 — 승인/모니터링 질문을 설정된 엔진들에 자동으로 물어 기록. */
+export async function runGeoWatchNow(input: unknown): Promise<ActionResult<{ asked: number; appeared: number; cited: number; failed: number; engines: string[] }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const p = z.object({ clientId: z.string().min(1) }).safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    await assertClient(user, p.data.clientId);
+
+    const r = await runGeoWatch(p.data.clientId);
+    const meta = await requestMeta();
+    await db.auditLog.create({
+      data: {
+        actorId: user.id,
+        action: "geo.watch.run",
+        targetType: "GeoQuestion",
+        targetId: p.data.clientId,
+        afterState: { asked: r.asked, appeared: r.appeared, cited: r.cited, failed: r.failed, engines: r.engines },
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent
+      }
+    });
+    revalidatePath("/geo");
+    return { asked: r.asked, appeared: r.appeared, cited: r.cited, failed: r.failed, engines: r.engines };
   });
 }
 
