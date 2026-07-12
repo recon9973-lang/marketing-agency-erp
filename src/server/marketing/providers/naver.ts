@@ -36,6 +36,11 @@ function authHeaders(c: { id: string; secret: string }): HeadersInit {
   return { "X-Naver-Client-Id": c.id, "X-Naver-Client-Secret": c.secret };
 }
 
+/** 네이버 검색 API 키 설정 여부(배치가 헛돌지 않게 사전 확인용). */
+export function naverConfigured(): boolean {
+  return creds() !== null;
+}
+
 /** 기본 조회 구간: 최근 3개월. */
 function defaultRange(): { startDate: string; endDate: string } {
   const end = new Date();
