@@ -987,6 +987,9 @@ model MagazinePost {
   draft        String? // 생성된 초안(마크다운/HTML)
   publishedUrl String? // 발행 URL(게시 증빙)
   wpPostId     Int? // 워드프레스 글 ID
+  coverUrl     String? // 대표이미지 공개 URL(인스타 재사용)
+  igMediaId    String? // 인스타그램 미디어 ID
+  igPermalink  String? // 인스타그램 게시물 링크
   orgId        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

@@ -7,7 +7,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { magazineKindLabels, magazineStatusLabels, type MagazineKind, type MagazineStatus } from "@/domain/content/magazine";
 import type { MagazineRow } from "@/server/repositories/magazine";
-import { deleteMagazinePost, draftMagazinePost, setMagazineStatus, publishMagazinePost } from "@/server/actions/magazine";
+import { deleteMagazinePost, draftMagazinePost, setMagazineStatus, publishMagazinePost, publishMagazineToInstagram } from "@/server/actions/magazine";
 import { StatusBadge, toneForStatus } from "@/components/ui/StatusBadge";
 import { ConfirmModal, Modal } from "@/components/ui/Modal";
 
@@ -18,7 +18,7 @@ function label(row: MagazineRow) {
   };
 }
 
-type Dialog = { kind: "delete" | "preview" | "publish"; row: MagazineRow } | null;
+type Dialog = { kind: "delete" | "preview" | "publish" | "instagram"; row: MagazineRow } | null;
 
 export function MagazineQueue({ rows }: { rows: MagazineRow[] }) {
   const router = useRouter();
@@ -27,6 +27,7 @@ export function MagazineQueue({ rows }: { rows: MagazineRow[] }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState("");
+  const [igImageUrl, setIgImageUrl] = useState("");
 
   function run(id: string | null, fn: () => Promise<{ ok: boolean; error?: string }>, closeDialog = false) {
     setErr(null);
@@ -83,6 +84,25 @@ export function MagazineQueue({ rows }: { rows: MagazineRow[] }) {
           >
             발행
           </button>
+        )}
+        {row.status === "PUBLISHED" && !row.igPermalink && (
+          <button
+            type="button"
+            onClick={() => {
+              setErr(null);
+              setIgImageUrl(row.coverUrl ?? "");
+              setDialog({ kind: "instagram", row });
+            }}
+            disabled={pending}
+            className="rounded bg-pink-50 px-1.5 py-0.5 text-[11px] font-semibold text-pink-700 hover:bg-pink-100 disabled:opacity-50"
+          >
+            📷 인스타
+          </button>
+        )}
+        {row.igPermalink && (
+          <a href={row.igPermalink} target="_blank" rel="noreferrer" className="text-[11px] font-semibold text-pink-600 hover:underline">
+            인스타 ↗
+          </a>
         )}
         <button type="button" onClick={() => setDialog({ kind: "delete", row })} className="text-[11px] text-slate-400 hover:text-rose-600">
           삭제
@@ -194,6 +214,43 @@ export function MagazineQueue({ rows }: { rows: MagazineRow[] }) {
           />
         </label>
         <p className="mt-1 text-[11px] text-slate-400">URL을 넣으면 서버가 이미지를 가져와 대표이미지로 올립니다(샌드박스와 달리 서버는 egress 제한 없음).</p>
+        {err && <p className="mt-2 text-xs text-rose-600">{err}</p>}
+      </Modal>
+
+      {/* 인스타그램 발행 */}
+      <Modal
+        open={dialog?.kind === "instagram"}
+        onClose={() => setDialog(null)}
+        title="인스타그램으로 발행"
+        footer={
+          <>
+            <button type="button" onClick={() => setDialog(null)} className="rounded-lg border border-line bg-card px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-surface">
+              취소
+            </button>
+            <button
+              type="button"
+              disabled={pending || !igImageUrl.trim()}
+              onClick={() => dialog && run(dialog.row.id, () => publishMagazineToInstagram({ id: dialog.row.id, imageUrl: igImageUrl.trim() || null }), true)}
+              className="rounded-lg bg-pink-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-pink-700 disabled:opacity-50"
+            >
+              {pending ? "발행 중…" : "인스타 발행"}
+            </button>
+          </>
+        }
+      >
+        <p className="line-clamp-2 rounded-lg bg-surface px-2.5 py-1.5 text-xs text-slate-600">“{dialog?.row.title}”</p>
+        <p className="mt-2 text-xs text-slate-500">캡션(제목·요약·해시태그)은 자동 생성됩니다. 이미지 1장이 필요합니다.</p>
+        <label className="mt-3 block text-xs font-medium text-slate-600">
+          인스타 이미지 URL (공개 주소)
+          <input
+            value={igImageUrl}
+            onChange={(e) => setIgImageUrl(e.target.value)}
+            maxLength={1000}
+            placeholder="https:// (발행 시 올린 대표이미지가 자동 입력됨)"
+            className="mt-1 w-full rounded-lg border border-line bg-card px-2.5 py-1.5 text-sm text-ink placeholder:text-slate-400 focus:border-pink-400 focus:outline-none"
+          />
+        </label>
+        <p className="mt-1 text-[11px] text-slate-400">인스타는 공개 이미지 URL만 받습니다(비율 1:1~1.91:1 권장). 캡션 내 링크는 클릭되지 않아 “프로필 링크” 유도 문구가 들어갑니다.</p>
         {err && <p className="mt-2 text-xs text-rose-600">{err}</p>}
       </Modal>
 

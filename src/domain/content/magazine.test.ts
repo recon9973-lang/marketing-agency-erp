@@ -1,6 +1,6 @@
 // src/domain/content/magazine.test.ts
 import { describe, it, expect } from "vitest";
-import { parseMagazineTerms, isMagazineCategory, isMagazineKind, buildMagazineMarkdown } from "./magazine";
+import { parseMagazineTerms, isMagazineCategory, isMagazineKind, buildMagazineMarkdown, buildInstagramCaption, extractMagazineSummary } from "./magazine";
 
 describe("매거진 용어 파서(순수)", () => {
   it("번호·굵게·대시 형식(용어사전 100 형식)을 파싱한다", () => {
@@ -48,5 +48,44 @@ describe("매거진 용어 파서(순수)", () => {
     expect(md).toContain("## 정의");
     expect(md).toContain("## 자주 묻는 질문");
     expect(md).toContain("**관련 용어:** SEO · GEO");
+  });
+});
+
+describe("인스타그램 캡션(순수)", () => {
+  it("마크다운에서 BLUF 요약을 뽑고 강조/헤딩을 건너뛴다", () => {
+    const md = "# 제목\n\n**AEO**는 답변 엔진 최적화입니다.\n\n## 섹션\n본문";
+    expect(extractMagazineSummary(md)).toBe("AEO는 답변 엔진 최적화입니다.");
+  });
+
+  it("긴 요약은 단어 경계에서 말줄임한다", () => {
+    const long = "# t\n\n" + "가나다라마 ".repeat(60);
+    const s = extractMagazineSummary(long, 40);
+    expect(s.length).toBeLessThanOrEqual(41);
+    expect(s.endsWith("…")).toBe(true);
+  });
+
+  it("캡션은 제목·요약·프로필유도·해시태그를 포함하고 해시태그를 중복 없이 30개 이하로 유지한다", () => {
+    const cap = buildInstagramCaption({
+      title: "AEO란 무엇인가",
+      category: "AEO/GEO",
+      kind: "glossary",
+      draft: "# AEO란 무엇인가\n\n답변 엔진 최적화입니다.\n\n## 정의\n본문"
+    });
+    expect(cap.startsWith("AEO란 무엇인가")).toBe(true);
+    expect(cap).toContain("답변 엔진 최적화입니다.");
+    expect(cap).toContain("프로필 링크");
+    expect(cap).toContain("#GROUND");
+    expect(cap).toContain("#GEO");
+    expect(cap).toContain("#용어사전");
+    const tags = cap.split(/\s+/).filter((t) => t.startsWith("#"));
+    expect(tags.length).toBeLessThanOrEqual(30);
+    expect(new Set(tags).size).toBe(tags.length); // 중복 없음
+  });
+
+  it("초안이 없으면 요약 없이도 캡션을 만든다", () => {
+    const cap = buildInstagramCaption({ title: "제목만", category: "SEO", kind: "howto", draft: null });
+    expect(cap.startsWith("제목만")).toBe(true);
+    expect(cap).toContain("#SEO");
+    expect(cap).toContain("#사용법");
   });
 });

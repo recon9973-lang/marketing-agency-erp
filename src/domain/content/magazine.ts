@@ -69,6 +69,79 @@ export function buildMagazineMarkdown(d: MagazineDraftContent): string {
   return parts.join("\n").trim() + "\n";
 }
 
+// ─────────────────────────────────────────────
+// 인스타그램 자동 발행 — 캡션·해시태그 (순수 함수)
+// ─────────────────────────────────────────────
+
+/** 카테고리별 해시태그(권위·검색 노출용). */
+const IG_CATEGORY_TAGS: Record<string, string[]> = {
+  "AEO/GEO": ["#GEO", "#AEO", "#생성형검색", "#AI검색최적화"],
+  SEO: ["#SEO", "#검색엔진최적화", "#콘텐츠마케팅"],
+  AI마케팅: ["#AI마케팅", "#마케팅자동화", "#AI툴"],
+  병원마케팅: ["#병원마케팅", "#의료마케팅", "#병원SEO"]
+};
+
+/** 유형별 해시태그. */
+const IG_KIND_TAGS: Record<string, string[]> = {
+  glossary: ["#용어사전"],
+  howto: ["#사용법", "#실전가이드"],
+  news: ["#동향", "#업데이트"],
+  article: ["#인사이트"]
+};
+
+const IG_BASE_TAGS = ["#GROUND", "#검색마케팅", "#디지털마케팅"];
+
+/** 발행용 마크다운에서 BLUF 요약(제목 다음 첫 문단)을 추출. 마크다운 강조/링크 제거 후 반환. */
+export function extractMagazineSummary(md: string | null | undefined, maxLen = 160): string {
+  if (!md) return "";
+  for (const rawLine of md.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    // 헤딩·인용·표·목록 마커는 건너뛴다. 단 "**굵게**"는 목록 마커가 아니므로 제외(마커는 뒤에 공백).
+    if (line.startsWith("#") || line.startsWith(">") || line.startsWith("|") || /^[-*+•]\s/.test(line)) continue;
+    // 마크다운 강조·링크·코드 제거
+    const clean = line
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/\*([^*]+)\*/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+      .replace(/`([^`]+)`/g, "$1")
+      .trim();
+    if (clean.length < 2) continue;
+    if (clean.length <= maxLen) return clean;
+    // 단어 경계에서 자르고 말줄임
+    const cut = clean.slice(0, maxLen);
+    const lastSpace = cut.lastIndexOf(" ");
+    return (lastSpace > maxLen * 0.6 ? cut.slice(0, lastSpace) : cut).trim() + "…";
+  }
+  return "";
+}
+
+/**
+ * 매거진 글 → 인스타그램 캡션(순수 함수).
+ * 구조: 제목 → (요약) → 프로필 링크 유도 → 해시태그(브랜드+카테고리+유형, ≤30개, 중복 제거).
+ * 인스타는 캡션 내 클릭 링크가 안 되므로 "프로필 링크" 유도 문구를 넣는다.
+ */
+export function buildInstagramCaption(input: { title: string; category: string; kind: string; draft?: string | null }): string {
+  const summary = extractMagazineSummary(input.draft);
+  const tags = [
+    ...IG_BASE_TAGS,
+    ...(IG_CATEGORY_TAGS[input.category] ?? []),
+    ...(IG_KIND_TAGS[input.kind] ?? [])
+  ];
+  const seen = new Set<string>();
+  const uniqueTags = tags.filter((t) => {
+    const k = t.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  }).slice(0, 30);
+
+  const parts = [input.title.trim()];
+  if (summary) parts.push("", summary);
+  parts.push("", "🔗 전문은 프로필 링크에서 확인하세요.", "", uniqueTags.join(" "));
+  return parts.join("\n").slice(0, 2200);
+}
+
 export type ParsedTerm = { title: string; seed: string | null };
 
 const SEPARATORS = ["::", "—", " - ", " – "]; // 우선순위: 명시적 → em/en 대시

@@ -7,11 +7,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { buildMagazineMarkdown, isMagazineCategory, isMagazineKind, MAGAZINE_STATUSES, parseMagazineTerms } from "@/domain/content/magazine";
+import { buildInstagramCaption, buildMagazineMarkdown, isMagazineCategory, isMagazineKind, MAGAZINE_STATUSES, parseMagazineTerms } from "@/domain/content/magazine";
 import { db } from "@/server/db";
 import { generateMagazineDraft, isAiConfigured } from "@/server/ai/claude";
 import { markdownToHtml } from "@/server/marketing/render-plan";
 import { wordpressPublish, wordpressUploadMediaFromUrl, wordpressFindCategoryId } from "@/server/marketing/providers/wordpress";
+import { instagramConfigured, instagramPublishImage } from "@/server/marketing/providers/instagram";
 import { getDefaultOrgId } from "@/server/org";
 import { recordAudit, requestMeta, requireUser, runAction, type ActionResult } from "@/server/actions/_helpers";
 
@@ -176,7 +177,7 @@ export async function publishMagazinePost(input: unknown): Promise<ActionResult<
 
     const post = await db.magazinePost.findUnique({
       where: { id: p.data.id },
-      select: { id: true, title: true, category: true, status: true, draft: true }
+      select: { id: true, title: true, category: true, kind: true, status: true, draft: true }
     });
     if (!post) throw new Error("NOT_FOUND");
     if (post.status !== "REVIEWED") throw new Error("CLIENT_APPROVAL_REQUIRED"); // 검토 완료 후에만 발행
@@ -186,12 +187,15 @@ export async function publishMagazinePost(input: unknown): Promise<ActionResult<
     const html = markdownToHtml(stripLeadingTitle(post.draft));
     if (!html.trim()) throw new Error("NOTHING_TO_PUBLISH");
 
-    // 커버 이미지(선택) — 서버가 URL을 가져와 미디어함에 업로드 → 대표이미지
+    // 커버 이미지(선택) — 서버가 URL을 가져와 미디어함에 업로드 → 대표이미지.
+    // 업로드된 공개 URL(source_url)은 인스타 발행에 재사용한다.
     let featuredMediaId: number | undefined;
+    let coverUrl: string | null = p.data.coverImageUrl ?? null;
     if (p.data.coverImageUrl) {
       const media = await wordpressUploadMediaFromUrl(p.data.coverImageUrl, `${post.id}.png`);
       if (!media.ok) throw new Error(media.error.code === "CONFIG_MISSING" ? "WORDPRESS_NOT_CONFIGURED" : "PUBLISH_FAILED");
       featuredMediaId = media.data.id;
+      coverUrl = media.data.sourceUrl ?? p.data.coverImageUrl;
     }
 
     // 카테고리 이름 → 워드프레스 카테고리 ID(있으면)
@@ -212,23 +216,100 @@ export async function publishMagazinePost(input: unknown): Promise<ActionResult<
     const publishedUrl = result.data.externalUrl ?? null;
     const wpPostId = result.data.externalId ? Number(result.data.externalId) : null;
 
+    // 인스타그램 자동 발행(완전자동) — 공개 커버 이미지가 있고 인스타가 설정된 경우에만.
+    // best-effort: 실패해도 워드프레스 발행은 성공으로 처리(감사 로그에만 남김).
+    let igMediaId: string | null = null;
+    let igPermalink: string | null = null;
+    if (coverUrl && instagramConfigured()) {
+      const caption = buildInstagramCaption({ title: post.title, category: post.category, kind: post.kind, draft: post.draft });
+      const ig = await instagramPublishImage({ imageUrl: coverUrl, caption });
+      if (ig.ok) {
+        igMediaId = ig.data.id;
+        igPermalink = ig.data.permalink ?? null;
+      } else {
+        console.error("[magazine publish] instagram 자동 발행 실패", ig.error.code, ig.error.message);
+      }
+    }
+
     const meta = await requestMeta();
     await db.$transaction(async (tx) => {
       await tx.magazinePost.update({
         where: { id: p.data.id },
-        data: { status: "PUBLISHED", ...(publishedUrl ? { publishedUrl } : {}), ...(wpPostId ? { wpPostId } : {}) }
+        data: {
+          status: "PUBLISHED",
+          ...(publishedUrl ? { publishedUrl } : {}),
+          ...(wpPostId ? { wpPostId } : {}),
+          ...(coverUrl ? { coverUrl } : {}),
+          ...(igMediaId ? { igMediaId } : {}),
+          ...(igPermalink ? { igPermalink } : {})
+        }
       });
       await recordAudit(tx, {
         actorId: user.id,
         action: "magazine.publish",
         targetType: "MagazinePost",
         targetId: p.data.id,
-        afterState: { publishedUrl, wpPostId, featured: Boolean(featuredMediaId) },
+        afterState: { publishedUrl, wpPostId, featured: Boolean(featuredMediaId), instagram: Boolean(igMediaId) },
         ...meta
       });
     });
     revalidatePath("/magazine");
     return { url: publishedUrl ?? "" };
+  });
+}
+
+/**
+ * 인스타그램 단독 발행 — 이미 발행된 글을 인스타에 (재)발행. 자동 발행이 실패했거나
+ * 커버 없이 발행한 글을 나중에 이미지와 함께 올릴 때 사용. PUBLISHED 상태만 허용.
+ */
+export async function publishMagazineToInstagram(input: unknown): Promise<ActionResult<{ permalink: string }>> {
+  return runAction(async () => {
+    const p = z
+      .object({
+        id: z.string().min(1),
+        imageUrl: z.string().url().max(1000).optional().nullable(),
+        caption: z.string().max(2200).optional().nullable()
+      })
+      .safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    if (!instagramConfigured()) throw new Error("INSTAGRAM_NOT_CONFIGURED");
+
+    const post = await db.magazinePost.findUnique({
+      where: { id: p.data.id },
+      select: { id: true, title: true, category: true, kind: true, status: true, draft: true, coverUrl: true }
+    });
+    if (!post) throw new Error("NOT_FOUND");
+    if (post.status !== "PUBLISHED") throw new Error("CLIENT_APPROVAL_REQUIRED"); // 발행된 글만 인스타 게시
+    const imageUrl = p.data.imageUrl?.trim() || post.coverUrl;
+    if (!imageUrl) throw new Error("NOTHING_TO_PUBLISH"); // 인스타는 이미지 필수
+    const user = await requireUser();
+
+    const caption = p.data.caption?.trim() || buildInstagramCaption({ title: post.title, category: post.category, kind: post.kind, draft: post.draft });
+    const ig = await instagramPublishImage({ imageUrl, caption });
+    if (!ig.ok) {
+      if (ig.error.code === "CONFIG_MISSING") throw new Error("INSTAGRAM_NOT_CONFIGURED");
+      if (ig.error.code === "UNAUTHORIZED") throw new Error("INSTAGRAM_UNAUTHORIZED");
+      if (ig.error.code === "INVALID_INPUT") throw new Error("INSTAGRAM_INVALID_IMAGE");
+      throw new Error("PUBLISH_FAILED");
+    }
+
+    const meta = await requestMeta();
+    await db.$transaction(async (tx) => {
+      await tx.magazinePost.update({
+        where: { id: p.data.id },
+        data: { igMediaId: ig.data.id, ...(ig.data.permalink ? { igPermalink: ig.data.permalink } : {}), ...(imageUrl ? { coverUrl: imageUrl } : {}) }
+      });
+      await recordAudit(tx, {
+        actorId: user.id,
+        action: "magazine.instagram",
+        targetType: "MagazinePost",
+        targetId: p.data.id,
+        afterState: { igMediaId: ig.data.id, igPermalink: ig.data.permalink ?? null },
+        ...meta
+      });
+    });
+    revalidatePath("/magazine");
+    return { permalink: ig.data.permalink ?? "" };
   });
 }
 
