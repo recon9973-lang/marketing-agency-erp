@@ -1,7 +1,8 @@
 // src/server/marketing/content-pipeline.ts
 //
 // S3 · SEO 콘텐츠 파이프라인 오케스트레이터.
-// 흐름: 입력검증(zod) → seo-generator 초안 → (의료 주제면) 의료광고법 검수 게이트 → 스테이지/판정.
+// 흐름: 입력검증(zod) → 초안 생성(seo-generator 또는 Claude 폴백) → (의료 주제면) 의료광고법 검수 게이트 → 스테이지/판정.
+// 초안 제공자는 resolveContentProvider()가 SEO_GENERATOR_URL 유무로 선택한다(외부 앱 없어도 동작).
 //
 // 컴플라이언스 게이트 규칙:
 //   - verdict BLOCK  → 발행 불가. 스테이지 COMPLIANCE_REVIEW에서 정지(사람 수정 필요).
@@ -11,7 +12,7 @@
 // 저장: ContentAsset 모델은 아직 미마이그레이션이므로 결과를 구조화해 반환한다.
 // 호출부(server action/UI)가 ContentAsset 또는 WorkItem에 저장한다(모델 병합 후 이 파일에서 직접 persist 예정).
 
-import { seoGeneratorContent } from "./providers/seo-content";
+import { resolveContentProvider } from "./providers/content-provider";
 import { reviewMedicalCompliance, type ComplianceReport } from "./compliance";
 import type { BlogDraft } from "./providers/types";
 import { blogDraftInput, type PipelineStage } from "@/domain/marketing/schemas";
@@ -35,7 +36,7 @@ export async function runBlogDraftPipeline(raw: unknown): Promise<DraftPipelineR
   }
   const input = parsed.data;
 
-  const draftRes = await seoGeneratorContent.draftBlogPost(input);
+  const draftRes = await resolveContentProvider().draftBlogPost(input);
   if (!draftRes.ok) {
     return { ok: false, stage: "FAILED", error: draftRes.error.code };
   }

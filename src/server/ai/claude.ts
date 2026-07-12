@@ -172,6 +172,68 @@ export async function generateBlogPost(input: BlogPostInput): Promise<BlogPost> 
   };
 }
 
+export type SeoBlogDraftInput = {
+  keyword: string;
+  audience?: string | null;
+  notes?: string | null;
+  referenceUrls?: string[];
+  medical?: boolean;
+};
+
+export type SeoBlogDraft = {
+  titleCandidates: string[];
+  recommendedTitle: string;
+  metaDescription: string;
+  outline: string[];
+  bodyMarkdown: string;
+  faq: { q: string; a: string }[];
+  hashtags: string[];
+};
+
+/**
+ * SEO/GEO 블로그 구조화 초안 — 외부 seo-generator 없이 Claude로 직접 생성.
+ * 제목후보·아웃라인·본문(MD)·FAQ·해시태그를 한 번에 만들어 BlogDraft로 매핑 가능하게 한다.
+ * FAQ/아웃라인은 AEO/GEO(추천 스니펫·AI 답변 인용) 신호라 반드시 채운다.
+ */
+export async function generateSeoBlogDraft(input: SeoBlogDraftInput): Promise<SeoBlogDraft> {
+  const system =
+    "당신은 한국 마케팅 대행사의 SEO/GEO 전문 블로그 에디터입니다. " +
+    "검색엔진과 생성형 AI(ChatGPT·Perplexity 등) 답변에 모두 인용되기 좋은 정보성 글을 씁니다. " +
+    "핵심 답을 첫 문단에 두고(BLUF), 질문형 소제목과 FAQ로 구조화합니다. " +
+    (input.medical
+      ? "의료·건강 주제이므로 의료광고법을 엄격히 준수하세요: 치료효과 단정·보장, 최상급/유일성, 전후비교·비급여 유인, 타 병원 비교를 쓰지 말고, 효과 언급 시 부작용·개인차·전문의 상담 필요를 함께 적으세요. "
+      : "") +
+    "반드시 아래 JSON 스키마 하나만 출력하세요(설명·코드펜스 금지):\n" +
+    '{"titleCandidates": string[5], "recommendedTitle": string, "metaDescription": string, "outline": string[5..6], "bodyMarkdown": string, "faq": [{"q": string, "a": string}] (3개 이상), "hashtags": string[5]}\n' +
+    "metaDescription은 200~300자. bodyMarkdown은 ##/###·목록을 쓴 마크다운 본문(제목 h1은 넣지 말 것). hashtags는 # 포함.";
+
+  const lines = [
+    `핵심 키워드: ${input.keyword}`,
+    input.audience ? `도메인/타깃: ${input.audience}` : "",
+    input.notes ? `추가 지시/소스: ${input.notes}` : "",
+    input.referenceUrls && input.referenceUrls.length ? `참고 URL: ${input.referenceUrls.join(", ")}` : ""
+  ].filter(Boolean);
+
+  const d = await completeJson<SeoBlogDraft>(
+    system,
+    `다음 조건으로 SEO/GEO 블로그 초안을 작성하세요.\n${lines.join("\n")}`
+  );
+
+  const titleCandidates = Array.isArray(d.titleCandidates) ? d.titleCandidates.map(String).filter(Boolean) : [];
+  const recommendedTitle = String(d.recommendedTitle ?? titleCandidates[0] ?? input.keyword);
+  return {
+    titleCandidates: titleCandidates.length ? titleCandidates : [recommendedTitle],
+    recommendedTitle,
+    metaDescription: String(d.metaDescription ?? ""),
+    outline: Array.isArray(d.outline) ? d.outline.map(String).filter(Boolean) : [],
+    bodyMarkdown: String(d.bodyMarkdown ?? ""),
+    faq: Array.isArray(d.faq)
+      ? d.faq.map((f) => ({ q: String(f?.q ?? ""), a: String(f?.a ?? "") })).filter((f) => f.q && f.a)
+      : [],
+    hashtags: Array.isArray(d.hashtags) ? d.hashtags.map(String).filter(Boolean) : []
+  };
+}
+
 /** 회의 전사/메모를 구조화된 회의록(마크다운)으로 정리. */
 export async function generateMeetingMinutes(
   transcript: string,
