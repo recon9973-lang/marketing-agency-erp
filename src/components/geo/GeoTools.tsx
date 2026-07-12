@@ -12,7 +12,9 @@ import { addGeoQuestion, generateGeoCandidates, recordGeoAnswer } from "@/server
 import type { GeoQuestionRow } from "@/server/repositories/geo";
 
 const inputCls =
-  "w-full rounded-md border border-line bg-white px-2.5 py-1.5 text-sm text-ink placeholder:text-slate-400";
+  "w-full rounded-lg border border-line bg-card px-2.5 py-1.5 text-sm text-ink placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none";
+const primaryBtnCls =
+  "rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50";
 
 export function GeoCandidateGenerator({
   clientId,
@@ -44,28 +46,28 @@ export function GeoCandidateGenerator({
   }
 
   return (
-    <form action={submit} className="flex flex-wrap items-end gap-2 rounded-xl border border-line bg-panel p-3" key={clientId}>
-      <label className="min-w-[140px] flex-1 text-xs font-medium text-slate-600">
-        진료과
-        <input name="department" required maxLength={100} defaultValue={defaultDepartment} className={`mt-1 ${inputCls}`} placeholder="정형외과" />
-      </label>
-      <label className="min-w-[140px] flex-1 text-xs font-medium text-slate-600">
-        지역
-        <input name="region" required maxLength={100} defaultValue={defaultRegion} className={`mt-1 ${inputCls}`} placeholder="서울 강남구" />
-      </label>
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
-      >
-        {pending ? "생성 중…" : "질문 후보 20개 생성"}
-      </button>
-      <p className="w-full text-[11px] text-slate-400">
+    <form action={submit} className="rounded-2xl border border-line bg-card p-4" key={clientId}>
+      <p className="text-sm font-bold text-ink">질문 후보 자동 생성</p>
+      <p className="mt-0.5 text-[11px] text-slate-400">SOP 5유형(정의·판단·비교·위험·지역) × 진료과·지역 조합으로 후보 20개를 만듭니다.</p>
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <label className="min-w-[140px] flex-1 text-xs font-medium text-slate-600">
+          진료과
+          <input name="department" required maxLength={100} defaultValue={defaultDepartment} className={`mt-1 ${inputCls}`} placeholder="정형외과" />
+        </label>
+        <label className="min-w-[140px] flex-1 text-xs font-medium text-slate-600">
+          지역
+          <input name="region" required maxLength={100} defaultValue={defaultRegion} className={`mt-1 ${inputCls}`} placeholder="서울 강남구" />
+        </label>
+        <button type="submit" disabled={pending} className={primaryBtnCls}>
+          {pending ? "생성 중…" : "질문 후보 20개 생성"}
+        </button>
+      </div>
+      <p className="mt-2 text-[11px] text-slate-400">
         {defaultDepartment || defaultRegion
           ? "거래처 정보에서 자동으로 채웠습니다 — 필요하면 수정 후 생성하세요."
           : "거래처에 진료과·지역을 등록하면 자동으로 채워집니다."}
       </p>
-      {msg && <p className="w-full text-xs text-slate-500">{msg}</p>}
+      {msg && <p className="mt-1 text-xs text-emerald-700">{msg}</p>}
     </form>
   );
 }
@@ -96,7 +98,7 @@ export function GeoQuestionAdder({ clientId }: { clientId: string }) {
   }
 
   return (
-    <div className="rounded-xl border border-line bg-panel p-3">
+    <div className="rounded-2xl border border-line bg-card p-4">
       <button type="button" onClick={() => setOpen((v) => !v)} className="text-sm font-bold text-ink" aria-expanded={open}>
         {open ? "− 질문 직접 추가 닫기" : "+ 질문 직접 추가 (병원 특화)"}
       </button>
@@ -134,7 +136,7 @@ export function GeoQuestionAdder({ clientId }: { clientId: string }) {
             </label>
           </div>
           <div className="flex items-center gap-3">
-            <button type="submit" disabled={pending} className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
+            <button type="submit" disabled={pending} className={primaryBtnCls}>
               {pending ? "추가 중…" : "후보로 추가"}
             </button>
             {msg && <span className="text-xs text-slate-500">{msg}</span>}
@@ -155,7 +157,7 @@ export function GeoAnswerRecorder({ questions }: { questions: GeoQuestionRow[] }
   const monitorable = questions.filter((q) => q.status === "APPROVED" || q.status === "MONITORING");
   if (monitorable.length === 0) {
     return (
-      <p className="rounded-xl border border-line bg-panel p-3 text-xs text-slate-500">
+      <p className="rounded-2xl border border-line bg-card p-6 text-center text-xs text-slate-500">
         승인된 질문이 생기면 여기서 실행 결과를 기록할 수 있습니다.
       </p>
     );
@@ -190,8 +192,9 @@ export function GeoAnswerRecorder({ questions }: { questions: GeoQuestionRow[] }
   }
 
   return (
-    <form action={submit} className="space-y-2 rounded-xl border border-line bg-panel p-3">
-      <p className="text-xs font-bold text-ink">답변 관측 기록 (수동 실행 결과)</p>
+    <form action={submit} className="space-y-2 rounded-2xl border border-line bg-card p-4">
+      <p className="text-sm font-bold text-ink">답변 관측 기록 (수동 실행 결과)</p>
+      <p className="text-[11px] text-slate-400">직접 AI에 질문해 본 결과를 남깁니다 — 자동 관측이 켜져 있으면 보조 용도입니다.</p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <label className="text-xs font-medium text-slate-600">
           질문
@@ -221,7 +224,7 @@ export function GeoAnswerRecorder({ questions }: { questions: GeoQuestionRow[] }
         <label className="text-xs font-medium text-slate-600">
           캡처/증빙 링크
           <input name="evidenceUrl" maxLength={500} className={`mt-1 ${inputCls}`} placeholder="https:// (보관함 파일 링크 등)" />
-          <Link href="/vault" className="mt-0.5 inline-block text-[10px] text-blue-600 hover:underline">
+          <Link href="/vault" className="mt-0.5 inline-block text-[10px] text-emerald-700 hover:underline">
             보관함에 캡처 올리기 ↗
           </Link>
         </label>
@@ -245,14 +248,10 @@ export function GeoAnswerRecorder({ questions }: { questions: GeoQuestionRow[] }
         <input name="competitors" maxLength={500} className={`mt-1 ${inputCls}`} placeholder="OO병원, XX의원" />
       </label>
       <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
-        >
+        <button type="submit" disabled={pending} className={primaryBtnCls}>
           {pending ? "저장 중…" : "기록 저장"}
         </button>
-        {msg && <span className="text-xs text-slate-500">{msg}</span>}
+        {msg && <span className="text-xs text-emerald-700">{msg}</span>}
       </div>
     </form>
   );
