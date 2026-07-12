@@ -52,6 +52,11 @@ const STATUS_TONE: Record<string, BadgeTone> = {
   CANDIDATE: "neutral",
   MONITORING: "info",
   RETIRED: "neutral",
+  // magazine (GROUND)
+  QUEUED: "neutral",
+  DRAFTED: "info",
+  REVIEWED: "warning",
+  PUBLISHED: "success",
   // work (병원승인대기)
   CLIENT_APPROVAL: "warning",
 };

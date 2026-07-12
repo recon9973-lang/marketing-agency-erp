@@ -974,6 +974,28 @@ model ContentPlan {
   @@index([orgId])
 }
 
+/// GROUND 매거진 콘텐츠 트랙 — 병원 고객 콘텐츠(ContentPlan)와 분리.
+/// 자사 미디어라 의료법·거래처 승인 게이트가 없고, 사람 검토 게이트만 유지.
+/// 용어사전·아티클·사용법·동향을 큐로 관리 → AI 초안 → 검토 → 워드프레스 발행.
+model MagazinePost {
+  id           String   @id @default(cuid())
+  title        String
+  category     String // "AEO/GEO" | "SEO" | "AI마케팅" | "병원마케팅"
+  kind         String   @default("glossary") // glossary | article | howto | news
+  seed         String? // 한 줄 정의/메모(초안 생성 힌트)
+  status       String   @default("QUEUED") // QUEUED → DRAFTED → REVIEWED → PUBLISHED
+  draft        String? // 생성된 초안(마크다운/HTML)
+  publishedUrl String? // 발행 URL(게시 증빙)
+  wpPostId     Int? // 워드프레스 글 ID
+  orgId        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status])
+  @@index([category])
+  @@index([orgId])
+}
+
 /// 설문폼 — 계약 상품 기반 맞춤 설문. publicToken으로 외부(거래처)가 로그인 없이 응답.
 model Survey {
   id          String           @id @default(cuid())
