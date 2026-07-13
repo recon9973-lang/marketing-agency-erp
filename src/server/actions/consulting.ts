@@ -10,6 +10,7 @@ import { assertCanAccessClient } from "@/domain/access-control";
 import { db } from "@/server/db";
 import { generateConsulting, isAiConfigured } from "@/server/ai/claude";
 import { checkGuaranteeClaims, checkMedicalLaw } from "@/server/compliance/medical-law";
+import { persistKeywords } from "@/server/marketing/persist-keywords";
 import { fetchKeywordVolumes } from "@/server/integrations/naver-search";
 import { getDefaultOrgId } from "@/server/org";
 import {
@@ -93,17 +94,19 @@ export async function runConsulting(input: unknown): Promise<ActionResult<{ id: 
           orgId
         }
       });
-      // 산출 키워드를 Keyword 테이블에도 저장(중복 방지: 기존 동일 키워드 스킵).
-      const existing = new Set(
-        (await tx.keyword.findMany({ where: { clientId: d.clientId }, select: { keyword: true } })).map((k) => k.keyword)
+      // 산출 키워드를 Keyword 테이블에도 저장(공용 헬퍼 — 기존 동일 키워드 dedup + createMany).
+      await persistKeywords(
+        tx,
+        d.clientId,
+        orgId,
+        enrichedKeywords.map((k) => ({
+          keyword: k.keyword,
+          intent: k.intent || null,
+          priority: k.priority,
+          channel: k.channel,
+          searchVolume: k.searchVolume
+        }))
       );
-      for (const k of enrichedKeywords) {
-        if (existing.has(k.keyword)) continue;
-        existing.add(k.keyword);
-        await tx.keyword.create({
-          data: { clientId: d.clientId, keyword: k.keyword, intent: k.intent || null, priority: k.priority, channel: k.channel, searchVolume: k.searchVolume, orgId }
-        });
-      }
       await recordAudit(tx, {
         actorId: user.id,
         action: "consulting.run",

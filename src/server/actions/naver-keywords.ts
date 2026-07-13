@@ -13,6 +13,7 @@ import { db } from "@/server/db";
 import { getDefaultOrgId } from "@/server/org";
 import { fetchKeywordVolumes, fetchRelatedKeywords, naverSearchConfigured } from "@/server/integrations/naver-search";
 import { gradeByVolume, type KeywordGrade } from "@/domain/marketing/keyword-grade";
+import { persistKeywords, type KeywordRow } from "@/server/marketing/persist-keywords";
 import {
   getAdminScopes,
   recordAudit,
@@ -55,47 +56,39 @@ export async function expandNaverKeywords(input: unknown): Promise<ActionResult<
       ...related.map((v) => ({ keyword: v.keyword, total: v.total, competition: v.competition, stage: "related" as const }))
     ];
 
-    // 기존 키워드 dedup(메모리) — N+1 회피.
-    const existing = new Set(
-      (await db.keyword.findMany({ where: { clientId }, select: { keyword: true } })).map((k) => k.keyword.replace(/\s+/g, ""))
-    );
+    // 등급 산정 + 분포(확장 후보 기준). 저장·dedup은 공용 persistKeywords 헬퍼가 담당.
     const distribution: Record<KeywordGrade, number> = { A: 0, B: 0, C: 0 };
-    const orgId = await getDefaultOrgId();
-    const toCreate: Array<Record<string, unknown>> = [];
-    for (const r of rows) {
-      const norm = r.keyword.replace(/\s+/g, "");
-      if (!norm || existing.has(norm)) continue;
-      existing.add(norm);
+    const keywordRows: KeywordRow[] = rows.map((r) => {
       const grade = gradeByVolume(r.total);
       distribution[grade]++;
-      toCreate.push({
-        clientId,
+      return {
         keyword: r.keyword,
         searchVolume: r.total ?? null,
         grade,
         stage: r.stage,
         competition: r.competition ?? null,
         channel,
-        priority: GRADE_PRIORITY[grade],
-        orgId
-      });
-    }
+        priority: GRADE_PRIORITY[grade]
+      };
+    });
 
-    if (toCreate.length) {
-      await db.$transaction(async (tx) => {
-        await tx.keyword.createMany({ data: toCreate as never, skipDuplicates: true });
+    const orgId = await getDefaultOrgId();
+    let saved = 0;
+    await db.$transaction(async (tx) => {
+      saved = await persistKeywords(tx, clientId, orgId, keywordRows);
+      if (saved > 0) {
         await recordAudit(tx, {
           actorId: user.id,
           action: "naver.expandKeywords",
           targetType: "Client",
           targetId: clientId,
-          afterState: { seeds: seeds.length, saved: toCreate.length, estimated, distribution },
+          afterState: { seeds: seeds.length, saved, estimated, distribution },
           ...(await requestMeta())
         });
-      });
-    }
+      }
+    });
 
     revalidatePath(`/clients/${clientId}`);
-    return { seeds: seeds.length, related: related.length, saved: toCreate.length, estimated, distribution };
+    return { seeds: seeds.length, related: related.length, saved, estimated, distribution };
   });
 }
