@@ -22,7 +22,7 @@ import {
   type ActionResult
 } from "@/server/actions/_helpers";
 
-const STATUSES = ["PLANNED", "DRAFTED", "REVIEWED", "APPROVED", "PUBLISHED"] as const;
+const STATUSES = ["PLANNED", "DRAFTED", "REVIEWED", "APPROVED", "PUBLISHED", "MEASURING"] as const;
 
 async function assertClientAccess(clientId: string) {
   const user = await requireUser();
@@ -176,10 +176,15 @@ export async function updateContentPlanStatus(input: unknown): Promise<ActionRes
     if (!p.success) throw new Error("VALIDATION");
     const plan = await db.contentPlan.findUnique({
       where: { id: p.data.id },
-      select: { clientId: true, complianceRisk: true, clientConfirmedAt: true }
+      select: { clientId: true, complianceRisk: true, clientConfirmedAt: true, status: true }
     });
     if (!plan) throw new Error("NOT_FOUND");
     const user = await assertClientAccess(plan.clientId);
+
+    // 성과측정(§12 Content 마지막 단계)은 게시완료 이후에만 진입 가능.
+    if (p.data.status === "MEASURING" && plan.status !== "PUBLISHED") {
+      throw new Error("ILLEGAL_TRANSITION");
+    }
 
     // 게시 잠금(기획서 §7 콘텐츠·§15): high 위험표현 미해소 시 승인/게시 불가,
     // 병원(거래처) 확인 전에는 게시 불가. 위험 해소는 원고 수정→재검수로만 가능하다.
