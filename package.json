@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "(node scripts/sync-seo-engine.mjs || echo '[build] seo-engine sync 건너뜀') && prisma generate && (prisma db push --skip-generate || echo '[build] db push 건너뜀 — DB 미연결') && node prisma/apply-manual-migrations.mjs && node prisma/sync-additive.mjs && node prisma/seed-if-empty.mjs && node prisma/backfill-insights.mjs && node prisma/backfill-demo.mjs && node prisma/backfill-seo-geo.mjs && next build",
+    "build": "(node scripts/sync-seo-engine.mjs || echo '[build] seo-engine sync 건너뜀') && prisma generate && (prisma db push --skip-generate || echo '[build] db push 건너뜀 — DB 미연결') && node prisma/apply-manual-migrations.mjs && node prisma/sync-additive.mjs && node prisma/seed-if-empty.mjs && node prisma/backfill-insights.mjs && node prisma/backfill-demo.mjs && node prisma/backfill-seo-geo.mjs && node prisma/backfill-doc-templates.mjs && next build",
     "seo:sync": "node scripts/sync-seo-engine.mjs",
     "postinstall": "prisma generate",
     "start": "next start",
