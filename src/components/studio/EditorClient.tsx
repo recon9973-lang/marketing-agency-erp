@@ -33,8 +33,8 @@ function clone<T>(v: T): T {
 }
 
 export function EditorClient({
-  projectId, initialTitle, initialDoc
-}: { projectId: string; initialTitle: string; initialDoc: StudioDoc }) {
+  projectId, initialTitle, initialDoc, brandColors = []
+}: { projectId: string; initialTitle: string; initialDoc: StudioDoc; brandColors?: string[] }) {
   const [doc, setDoc] = useState<StudioDoc>(initialDoc);
   const [pageIndex, setPageIndex] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -459,7 +459,7 @@ export function EditorClient({
         <aside className="w-64 shrink-0 overflow-y-auto border-l border-line bg-card p-3">
           {selected ? (
             <ElementProperties el={selected} onChange={(patch) => changeElement(selected.id, patch)}
-              onDelete={deleteSelected} onDuplicate={duplicateSelected} onReorder={reorder} />
+              onDelete={deleteSelected} onDuplicate={duplicateSelected} onReorder={reorder} brandColors={brandColors} />
           ) : (
             <PageProperties page={page} onChange={(bg) => updatePage((p) => { p.background = bg; })} />
           )}
@@ -487,13 +487,15 @@ export function EditorClient({
 }
 
 // ── 우측: 요소 속성 ──
-function ElementProperties({ el, onChange, onDelete, onDuplicate, onReorder }: {
+function ElementProperties({ el, onChange, onDelete, onDuplicate, onReorder, brandColors }: {
   el: StudioElement;
   onChange: (patch: Partial<StudioElement>) => void;
   onDelete: () => void;
   onDuplicate: () => void;
   onReorder: (dir: "front" | "back") => void;
+  brandColors: string[];
 }) {
+  const canFill = el.type === "text" || el.type === "rect" || el.type === "ellipse";
   return (
     <div className="space-y-4 text-sm">
       <div className="flex items-center gap-1">
@@ -505,6 +507,18 @@ function ElementProperties({ el, onChange, onDelete, onDuplicate, onReorder }: {
         </button>
         <button type="button" onClick={onDelete} className="rounded-lg border border-line p-1.5 text-red-500 hover:border-red-500" aria-label="삭제"><Trash2 className="h-3.5 w-3.5" /></button>
       </div>
+
+      {canFill && brandColors.length > 0 && (
+        <div>
+          <p className="mb-1 text-[11px] font-semibold text-slate-500">브랜드 색</p>
+          <div className="flex flex-wrap gap-1.5">
+            {brandColors.map((c) => (
+              <button key={c} type="button" onClick={() => onChange({ fill: c })} title={c}
+                className="h-6 w-6 rounded-md border border-line transition hover:scale-110" style={{ background: c }} aria-label={`색 ${c} 적용`} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {el.type === "text" && (
         <>

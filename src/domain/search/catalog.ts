@@ -34,6 +34,7 @@ const PAGES: CatalogItem[] = [
   { id: "p-image", kind: "page", title: "이미지 스튜디오", href: "/image-studio", roles: ALL, keywords: "이미지 사진 image 생성 편집 studio", description: "이미지 생성·편집" },
   { id: "p-studio", kind: "page", title: "디자인 스튜디오", href: "/studio", roles: ALL, keywords: "디자인 카드뉴스 배너 썸네일 캔버스 편집기 design studio cardnews 포스팅 webp 내보내기", description: "카드뉴스·SNS·배너 디자인 편집·내보내기" },
   { id: "p-convert", kind: "page", title: "이미지 변환 도구", href: "/studio/convert", roles: ALL, keywords: "이미지 변환 webp jpg png 압축 리사이즈 용량 convert 최적화 zip 일괄", description: "이미지 일괄 WEBP/JPG/PNG 변환·압축·리사이즈" },
+  { id: "p-brand", kind: "page", title: "브랜드킷", href: "/studio/brand", roles: ADMINS, keywords: "브랜드킷 brand kit 로고 컬러 색상 팔레트 폰트 거래처 브랜드 톤", description: "거래처별 로고·컬러·폰트 브랜드킷 관리" },
   { id: "p-compliance", kind: "page", title: "의료법 검수", href: "/compliance", roles: ALL, keywords: "의료법 검수 compliance 심의 위반 리스크", description: "의료광고법 위반 검수" },
   { id: "p-approvals", kind: "page", title: "승인함", href: "/approvals", roles: ALL, keywords: "승인 결재 approval 대기 컨펌", description: "승인·결재 대기 항목" },
   { id: "p-meetings", kind: "page", title: "회의록", href: "/meetings", roles: ALL, keywords: "회의 회의록 meeting 미팅 기록", description: "회의록 작성·조회" },

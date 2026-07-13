@@ -1517,6 +1517,22 @@ model StudioProject {
   @@index([clientId])
 }
 
+/// 브랜드킷 — 조직/거래처별 로고·컬러·폰트. 디자인 스튜디오에서 원클릭 적용(ERP 연동 차별화).
+model BrandKit {
+  id         String   @id @default(cuid())
+  orgId      String
+  clientId   String? // 거래처별 브랜드킷(선택)
+  name       String
+  colors     Json     @default("[]") // ["#d9662e", ...]
+  logos      Json     @default("[]") // [{ url, variant }]
+  fontFamily String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([orgId])
+  @@index([clientId])
+}
+
 /// 디자인 스튜디오 업로드 에셋 — 이미지 픽셀을 프로젝트 JSON 밖으로 분리한다.
 /// 백엔드는 S3(설정 시) 또는 기존 StoredFile(DB BYTEA) 폴백. 에디터는 백엔드와
 /// 무관하게 안정적인 서빙 URL(/api/studio/assets/{id})만 참조한다.
