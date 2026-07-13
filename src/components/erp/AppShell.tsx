@@ -25,6 +25,7 @@ import {
   Megaphone,
   LineChart,
   Newspaper,
+  Palette,
   Target
 } from "lucide-react";
 import Link from "next/link";
@@ -48,6 +49,7 @@ type ErpRoute =
   | "/manuscript"
   | "/ai-studio"
   | "/image-studio"
+  | "/studio"
   | "/compliance"
   | "/approvals"
   | "/keywords"
@@ -135,6 +137,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "이미지 스튜디오",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: ImageIcon,
+      group: "운영"
+    },
+    {
+      href: "/studio",
+      label: "디자인 스튜디오",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Palette,
       group: "운영"
     },
     {

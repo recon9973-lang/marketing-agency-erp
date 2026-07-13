@@ -32,6 +32,7 @@ const PAGES: CatalogItem[] = [
   { id: "p-manuscript", kind: "page", title: "원고 스튜디오", href: "/manuscript", roles: ALL, keywords: "원고 글 콘텐츠 manuscript 작성 검수", description: "원고 작성·검수" },
   { id: "p-ai", kind: "page", title: "AI 마케팅", href: "/ai-studio", roles: ALL, keywords: "ai 인공지능 마케팅 생성 studio", description: "AI 마케팅 콘텐츠 생성" },
   { id: "p-image", kind: "page", title: "이미지 스튜디오", href: "/image-studio", roles: ALL, keywords: "이미지 사진 image 생성 편집 studio", description: "이미지 생성·편집" },
+  { id: "p-studio", kind: "page", title: "디자인 스튜디오", href: "/studio", roles: ALL, keywords: "디자인 카드뉴스 배너 썸네일 캔버스 편집기 design studio cardnews 포스팅 webp 내보내기", description: "카드뉴스·SNS·배너 디자인 편집·내보내기" },
   { id: "p-compliance", kind: "page", title: "의료법 검수", href: "/compliance", roles: ALL, keywords: "의료법 검수 compliance 심의 위반 리스크", description: "의료광고법 위반 검수" },
   { id: "p-approvals", kind: "page", title: "승인함", href: "/approvals", roles: ALL, keywords: "승인 결재 approval 대기 컨펌", description: "승인·결재 대기 항목" },
   { id: "p-meetings", kind: "page", title: "회의록", href: "/meetings", roles: ALL, keywords: "회의 회의록 meeting 미팅 기록", description: "회의록 작성·조회" },

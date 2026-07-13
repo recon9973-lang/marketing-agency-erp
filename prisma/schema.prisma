@@ -1493,3 +1493,46 @@ model GeoAnswerRecord {
   @@index([questionId, checkedOn])
   @@index([createdById])
 }
+
+/// 디자인 스튜디오 프로젝트 — 카드뉴스/SNS/썸네일 등 캔버스 디자인.
+/// 캔버스 문서(페이지·요소)는 해상도 독립 JSON(`data`)으로 저장한다.
+/// MVP는 Neon Postgres만으로 동작(에셋 data URL 인라인). 대용량 에셋의 S3 이전은 후속.
+model StudioProject {
+  id        String   @id @default(cuid())
+  orgId     String
+  ownerId   String
+  clientId  String? // (차별화) ERP 거래처 연동 여지
+  title     String   @default("제목 없는 디자인")
+  kind      String   @default("blank") // cardnews|sns|thumbnail|popup|banner|detail|blank
+  canvasW   Int
+  canvasH   Int
+  data      Json // { version, pages:[{ id,width,height,background,elements:[...] }] }
+  thumbnail String? // 대표 썸네일(data URL, 선택)
+  status    String   @default("DRAFT") // DRAFT|ARCHIVED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId, updatedAt])
+  @@index([ownerId])
+  @@index([clientId])
+}
+
+/// 디자인 스튜디오 업로드 에셋 — 이미지 픽셀을 프로젝트 JSON 밖으로 분리한다.
+/// 백엔드는 S3(설정 시) 또는 기존 StoredFile(DB BYTEA) 폴백. 에디터는 백엔드와
+/// 무관하게 안정적인 서빙 URL(/api/studio/assets/{id})만 참조한다.
+model UploadedAsset {
+  id         String   @id @default(cuid())
+  orgId      String
+  ownerId    String
+  backend    String // "s3" | "db"
+  storageKey String // S3 object key 또는 StoredFile id
+  mimeType   String
+  width      Int?
+  height     Int?
+  size       Int
+  kind       String   @default("image") // image | logo | icon
+  createdAt  DateTime @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([ownerId])
+}
