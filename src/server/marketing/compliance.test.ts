@@ -22,6 +22,12 @@ describe("의료광고법 컴플라이언스 검수", () => {
     expect(reviewMedicalCompliance("이 치료는 통증 개선에 효과가 있습니다.").verdict).toBe("WARN");
   });
 
+  it("치료 후기·전후 비교 사진은 BLOCK", () => {
+    expect(reviewMedicalCompliance("실제 치료 후기입니다.").verdict).toBe("BLOCK");
+    expect(reviewMedicalCompliance("시술 전후 사진 비교").verdict).toBe("BLOCK");
+    expect(reviewMedicalCompliance("before/after 결과 보기").verdict).toBe("BLOCK");
+  });
+
   it("효과+부작용·주의·상담을 함께 안전하게 서술하면 PASS", () => {
     const safe =
       "통증 개선 효과가 있을 수 있으나 개인에 따라 다를 수 있으며, 부작용과 주의사항은 의료진 상담이 필요합니다.";

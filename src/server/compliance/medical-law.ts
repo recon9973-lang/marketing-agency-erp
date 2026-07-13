@@ -36,7 +36,7 @@ export const MEDICAL_LAW_TYPES: MedicalLawType[] = [
     key: "testimonial",
     label: "치료경험담·후기성 표현",
     severity: "high",
-    patterns: [T("후기"), T("체험담"), T("경험담"), T("효과\\s*(를)?\\s*봤"), T("치료\\s*받고\\s*좋아"), T("추천합니다"), T("만족했")]
+    patterns: [T("후기"), T("체험담"), T("경험담"), T("효과\\s*(를)?\\s*봤"), T("치료\\s*받고\\s*좋아"), T("추천합니다"), T("만족했"), T("전\\s*후\\s*(사진|비교)"), T("비포\\s*[-·]?\\s*애프터"), T("before\\s*[-/&]?\\s*after")]
   },
   {
     code: 13,

@@ -39,4 +39,16 @@ describe("의료법 위험표현 검사 (기존 동작 회귀)", () => {
     const r = checkMedicalLaw("최고의 의료진이 완치를 약속합니다");
     expect(r.highCount).toBeGreaterThanOrEqual(2);
   });
+
+  it("치료 전후 비교 사진·비포애프터·before/after를 후기성(치료효과 오인)으로 감지한다", () => {
+    for (const text of ["시술 전후 사진 보기", "치료 전후 비교", "비포애프터 확인", "before/after 결과"]) {
+      const r = checkMedicalLaw(text);
+      expect(r.flags.some((f) => f.type === "testimonial")).toBe(true);
+    }
+  });
+
+  it("정상적인 '수술 전후 주의사항' 안내 문구는 오탐하지 않는다", () => {
+    const r = checkMedicalLaw("수술 전후 주의사항을 안내드립니다");
+    expect(r.flags.some((f) => f.type === "testimonial")).toBe(false);
+  });
 });
