@@ -1423,9 +1423,12 @@ model Lead {
   nextActionAt       DateTime? // 다음 액션/재접촉 예정일
   consentAt          DateTime? // 개인정보 수집 동의 시각
   consentTextVersion String? // 동의 고지문 버전
-  auditChecklist     Json? // 무료진단 체크리스트 {key: boolean} (§11 8항목)
-  auditScore         Int? // 진단 점수(체크리스트 자동 합산)
+  auditChecklist     Json? // 무료진단 체크리스트 {key: boolean} (§11 8항목, 수동 보조)
+  auditScore         Int? // 진단 점수 0–100 (VENOM 엔진 종합점수, 없으면 수동 체크리스트 합산)
   auditNote          String? // 진단 메모/브리핑 포인트
+  auditResult        Json? // VENOM 엔진 실측 진단 결과(카테고리·항목·등급 전체)
+  auditEngineVersion String? // 진단에 사용된 엔진 버전(예: 1.7.0)
+  auditRunAt         DateTime? // 엔진 진단 실행 시각
   lostReason         String?
   clientId           String? // WON → 거래처 전환 시 링크
   orgId              String?

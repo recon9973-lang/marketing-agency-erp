@@ -19,6 +19,7 @@ import {
   type AuditChecklist
 } from "@/domain/sales/lead-stages";
 import { db } from "@/server/db";
+import { runSeoAudit, scorePct, SEO_ENGINE_VERSION } from "@/server/seo-engine";
 import { getDefaultOrgId } from "@/server/org";
 import {
   recordAudit,
@@ -259,6 +260,59 @@ export async function saveLeadAudit(input: unknown): Promise<ActionResult<{ scor
     });
     revalidatePath(`/leads/${d.id}`);
     return { score };
+  });
+}
+
+const engineAuditSchema = z.object({
+  id: z.string().min(1),
+  keyword: z.string().trim().max(60).optional().nullable().transform((v) => v || null)
+});
+
+/**
+ * VENOM 엔진 자동 진단 — 리드 홈페이지를 총괄 디렉터 엔진(단일 정본)으로 진단하고 결과를 저장.
+ * 자체 채점 없이 항상 이 파이프라인(@/server/seo-engine)을 통한다.
+ */
+export async function runLeadSeoAudit(
+  input: unknown
+): Promise<ActionResult<{ score: number; grade: string; version: string }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const p = engineAuditSchema.safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    const d = p.data;
+    const existing = await db.lead.findUnique({ where: { id: d.id } });
+    if (!existing) throw new Error("NOT_FOUND");
+    assertLeadAccess(user, existing.assigneeId);
+    if (!existing.websiteUrl) throw new Error("NO_WEBSITE");
+
+    const outcome = await runSeoAudit(existing.websiteUrl, d.keyword);
+    if (!outcome.ok) throw new Error(`AUDIT_${outcome.reason}`);
+    const { result } = outcome;
+    const score = scorePct(result);
+    const runAt = new Date();
+
+    const meta = await requestMeta();
+    await db.$transaction(async (tx) => {
+      await tx.lead.update({
+        where: { id: d.id },
+        data: {
+          auditResult: result as unknown as object,
+          auditScore: score,
+          auditEngineVersion: SEO_ENGINE_VERSION,
+          auditRunAt: runAt
+        }
+      });
+      await recordAudit(tx, {
+        actorId: user.id,
+        action: "lead.audit.engine",
+        targetType: "Lead",
+        targetId: d.id,
+        afterState: { score, version: SEO_ENGINE_VERSION, url: existing.websiteUrl },
+        ...meta
+      });
+    });
+    revalidatePath(`/leads/${d.id}`);
+    return { score, grade: result.grade.label, version: SEO_ENGINE_VERSION };
   });
 }
 

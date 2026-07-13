@@ -5,6 +5,7 @@ import { Role } from "@/domain/types";
 import type { LeadStatus } from "@/domain/sales/lead-stages";
 import { db } from "@/server/db";
 import type { CurrentUser } from "@/server/session";
+import type { SeoEngineResult } from "@/server/seo-engine/vendor/seo-engine";
 
 export type LeadListItem = {
   id: string;
@@ -88,6 +89,9 @@ export type LeadDetail = LeadListItem & {
   consentTextVersion: string | null;
   auditChecklist: Record<string, boolean>;
   auditNote: string | null;
+  auditResult: SeoEngineResult | null;
+  auditEngineVersion: string | null;
+  auditRunAt: string | null;
 };
 
 export async function getLead(user: CurrentUser, id: string): Promise<LeadDetail | null> {
@@ -122,7 +126,13 @@ export async function getLead(user: CurrentUser, id: string): Promise<LeadDetail
       r.auditChecklist && typeof r.auditChecklist === "object" && !Array.isArray(r.auditChecklist)
         ? (r.auditChecklist as Record<string, boolean>)
         : {},
-    auditNote: r.auditNote
+    auditNote: r.auditNote,
+    auditResult:
+      r.auditResult && typeof r.auditResult === "object" && !Array.isArray(r.auditResult)
+        ? (r.auditResult as unknown as SeoEngineResult)
+        : null,
+    auditEngineVersion: r.auditEngineVersion,
+    auditRunAt: r.auditRunAt?.toISOString() ?? null
   };
 }
 

@@ -146,9 +146,13 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           {/* 무료진단 */}
           <LeadAuditPanel
             leadId={lead.id}
+            websiteUrl={lead.websiteUrl}
             initialChecklist={lead.auditChecklist}
             initialScore={lead.auditScore}
             initialNote={lead.auditNote}
+            initialAuditResult={lead.auditResult}
+            initialEngineVersion={lead.auditEngineVersion}
+            initialRunAt={lead.auditRunAt}
           />
 
           {/* 제안 견적 3안 — 진단 이후 단계부터 노출 */}

@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && (prisma db push --skip-generate || echo '[build] db push 건너뜀 — DB 미연결') && node prisma/apply-manual-migrations.mjs && node prisma/sync-additive.mjs && node prisma/seed-if-empty.mjs && node prisma/backfill-insights.mjs && node prisma/backfill-demo.mjs && node prisma/backfill-seo-geo.mjs && next build",
+    "build": "(node scripts/sync-seo-engine.mjs || echo '[build] seo-engine sync 건너뜀') && prisma generate && (prisma db push --skip-generate || echo '[build] db push 건너뜀 — DB 미연결') && node prisma/apply-manual-migrations.mjs && node prisma/sync-additive.mjs && node prisma/seed-if-empty.mjs && node prisma/backfill-insights.mjs && node prisma/backfill-demo.mjs && node prisma/backfill-seo-geo.mjs && next build",
+    "seo:sync": "node scripts/sync-seo-engine.mjs",
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "next lint",
@@ -22,6 +23,7 @@
     "@anthropic-ai/sdk": "0.110.0",
     "@auth/prisma-adapter": "^2.7.4",
     "@prisma/client": "^6.1.0",
+    "linkedom": "^0.18.11",
     "lucide-react": "^0.468.0",
     "next": "^15.1.0",
     "next-auth": "^5.0.0-beta.25",
