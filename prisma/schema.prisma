@@ -855,11 +855,36 @@ model Keyword {
   trendRatio   Float? // 데이터랩 상대 트렌드(있을 때)
   priority     Int      @default(3) // 1(높음)~5(낮음)
   channel      String   @default("blog") // blog|place|powerlink|seo|geo|aeo
+  // ── 월보장(순위 보장) — MarketerOps Phase 1 (모두 additive) ──
+  isGuaranteed Boolean  @default(false) // 계약상 순위 보장 키워드
+  targetRank   Int? // 보장 목표 순위(예: 상단통합 1위 → 1)
+  guardChannel String   @default("blog") // 순위 측정 채널: blog|web|local (naverResearch.rankCheck)
+  guardTarget  String? // 순위 판정 대상(블로그 URL·도메인·상호). 없으면 거래처 primary 계정에서 해석.
   orgId        String?
   createdAt    DateTime @default(now())
   client       Client   @relation(fields: [clientId], references: [id])
+  snapshots    ExposureSnapshot[]
 
   @@index([clientId, priority])
+  @@index([clientId, isGuaranteed])
+  @@index([orgId])
+}
+
+/// 노출 스냅샷 — 월보장 키워드의 채널별 순위 이력(전영역 검색 결과 적재).
+/// rank=null → 미노출/조회실패(단정하지 않음). 하루 1회 upsert(멱등).
+model ExposureSnapshot {
+  id        String   @id @default(cuid())
+  keywordId String
+  channel   String // blog|web|local
+  rank      Int? // API 결과 내 순번(실화면 순위 아님). null=미노출/조회실패
+  checkedOn DateTime @db.Date
+  source    String   @default("naver")
+  orgId     String?
+  createdAt DateTime @default(now())
+  keyword   Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  @@unique([keywordId, channel, checkedOn])
+  @@index([keywordId, checkedOn])
   @@index([orgId])
 }
 
