@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Check } from "lucide-react";
+import { Bell, BriefcaseBusiness, Check, CircleCheck, MessageCircle, Plane, TrendingDown } from "lucide-react";
 import {
   getMyNotifications,
   getUnreadNotificationCount,
@@ -10,16 +10,48 @@ import {
   markNotificationRead,
   type MyNotifications
 } from "@/server/actions/notifications";
+import {
+  classifyNotification, NOTIF_CATEGORY_LABEL, NOTIF_CATEGORY_ORDER,
+  type NotifCategory, type NotifIcon, type NotifTone
+} from "@/domain/notifications";
 
 const dateFmt = new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 const POLL_MS = 60_000;
+
+const TONE_STYLE: Record<NotifTone, string> = {
+  rose: "bg-rose-100 text-rose-600",
+  amber: "bg-amber-100 text-amber-600",
+  blue: "bg-blue-100 text-blue-600",
+  violet: "bg-violet-100 text-violet-600",
+  emerald: "bg-emerald-100 text-emerald-600",
+  slate: "bg-slate-100 text-slate-500"
+};
+
+const ICON: Record<NotifIcon, typeof Bell> = {
+  rank: TrendingDown,
+  confirm: CircleCheck,
+  client: BriefcaseBusiness,
+  collab: MessageCircle,
+  hr: Plane,
+  system: Bell
+};
 
 export function NotificationBell() {
   const router = useRouter();
   const [data, setData] = useState<MyNotifications>({ items: [], unread: 0 });
   const [loaded, setLoaded] = useState(false);
   const [open, setOpen] = useState(false);
+  const [cat, setCat] = useState<NotifCategory | "ALL">("ALL");
   const boxRef = useRef<HTMLDivElement | null>(null);
+
+  // 로드된 알림에 카테고리 메타를 붙이고, 카테고리별 개수를 센다(필터 탭·아이콘용).
+  const decorated = useMemo(() => data.items.map((n) => ({ n, meta: classifyNotification(n.type) })), [data.items]);
+  const countByCat = useMemo(() => {
+    const m = new Map<NotifCategory, number>();
+    for (const { meta } of decorated) m.set(meta.category, (m.get(meta.category) ?? 0) + 1);
+    return m;
+  }, [decorated]);
+  const visible = useMemo(() => (cat === "ALL" ? decorated : decorated.filter((d) => d.meta.category === cat)), [decorated, cat]);
 
   // 배지용 — 읽지 않은 개수만 가볍게(단일 쿼리). 목록은 열 때만 로드.
   const refreshCount = useCallback(async () => {
@@ -104,34 +136,68 @@ export function NotificationBell() {
               </button>
             ) : null}
           </div>
+
+          {/* 카테고리 필터 — 로드된 알림에 존재하는 종류만 노출. */}
+          {decorated.length > 0 ? (
+            <div className="flex flex-wrap gap-1 border-b border-line px-2.5 py-2">
+              <FilterChip active={cat === "ALL"} onClick={() => setCat("ALL")} label="전체" count={decorated.length} />
+              {NOTIF_CATEGORY_ORDER.filter((c) => (countByCat.get(c) ?? 0) > 0).map((c) => (
+                <FilterChip key={c} active={cat === c} onClick={() => setCat(c)} label={NOTIF_CATEGORY_LABEL[c]} count={countByCat.get(c) ?? 0} />
+              ))}
+            </div>
+          ) : null}
+
           <div className="max-h-96 overflow-y-auto">
-            {data.items.length === 0 ? (
-              <p className="px-3 py-8 text-center text-sm text-slate-500">새 알림이 없습니다.</p>
+            {visible.length === 0 ? (
+              <p className="px-3 py-8 text-center text-sm text-slate-500">{decorated.length === 0 ? "새 알림이 없습니다." : "이 종류의 알림이 없습니다."}</p>
             ) : (
-              data.items.map((n) => (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => onItem(n.id, n.link, n.isRead)}
-                  className={
-                    "block w-full border-b border-line px-3 py-2.5 text-left last:border-0 hover:bg-surface " +
-                    (n.isRead ? "" : "bg-brand-soft/40")
-                  }
-                >
-                  <div className="flex items-start gap-2">
-                    {!n.isRead ? <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" /> : <span className="mt-1.5 h-1.5 w-1.5 shrink-0" />}
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-ink">{n.title}</p>
-                      {n.body ? <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{n.body}</p> : null}
-                      <p className="mt-0.5 text-[11px] text-slate-400">{dateFmt.format(new Date(n.createdAt))}</p>
+              visible.map(({ n, meta }) => {
+                const Icon = ICON[meta.icon];
+                return (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => onItem(n.id, n.link, n.isRead)}
+                    className={
+                      "block w-full border-b border-line px-3 py-2.5 text-left last:border-0 hover:bg-surface " +
+                      (n.isRead ? "" : "bg-brand-soft/40")
+                    }
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${TONE_STYLE[meta.tone]}`}>
+                        <Icon className="h-4 w-4" strokeWidth={1.9} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate text-sm font-semibold text-ink">{n.title}</p>
+                          {!n.isRead ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" /> : null}
+                        </div>
+                        {n.body ? <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{n.body}</p> : null}
+                        <p className="mt-0.5 text-[11px] text-slate-400">{NOTIF_CATEGORY_LABEL[meta.category]} · {dateFmt.format(new Date(n.createdAt))}</p>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))
+                  </button>
+                );
+              })
             )}
           </div>
         </div>
       ) : null}
     </div>
+  );
+}
+
+function FilterChip({ active, onClick, label, count }: { active: boolean; onClick: () => void; label: string; count: number }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition " +
+        (active ? "bg-brand text-white" : "bg-surface text-slate-500 hover:bg-white hover:text-ink")
+      }
+    >
+      {label} {count}
+    </button>
   );
 }
