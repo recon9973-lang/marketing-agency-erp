@@ -14,6 +14,7 @@ import {
   blankPage, makeId, type StudioDoc, type StudioElement, type StudioPage, type TextElement, type ShapeElement
 } from "@/domain/studio/schema";
 import { saveStudioProject, renameStudioProject } from "@/server/actions/studio";
+import { dataUrlToU8, zipBlobs, downloadBlob, safeName } from "@/lib/image-tools";
 
 const CanvasStage = dynamic(() => import("@/components/studio/CanvasStage"), {
   ssr: false,
@@ -42,6 +43,7 @@ export function EditorClient({
   const [scale, setScale] = useState(0.4);
   const [showExport, setShowExport] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [exporting, setExporting] = useState<string | null>(null);
 
   const past = useRef<StudioDoc[]>([]);
   const future = useRef<StudioDoc[]>([]);
@@ -49,6 +51,7 @@ export function EditorClient({
   const wrapRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const firstRun = useRef(true);
+  const scaleRef = useRef(0.4); // 현재 화면 스케일(멀티페이지 내보내기에서 프레임 대기 후 최신값 참조)
 
   const page = doc.pages[Math.min(pageIndex, doc.pages.length - 1)];
   const selected = page.elements.find((e) => e.id === selectedId) ?? null;
@@ -67,6 +70,8 @@ export function EditorClient({
     if (wrapRef.current) ro.observe(wrapRef.current);
     return () => ro.disconnect();
   }, [page.width, page.height]);
+
+  useEffect(() => { scaleRef.current = scale; }, [scale]);
 
   // ── 문서 갱신(히스토리 포함) ──
   const commit = useCallback((next: StudioDoc) => {
@@ -292,6 +297,64 @@ export function EditorClient({
     }, 40);
   }
 
+  // 프레임 2번 대기 — 페이지 전환 후 React 커밋 + fit-scale 효과 + Konva draw 완료를 기다린다.
+  function nextFrames(): Promise<void> {
+    return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+  }
+
+  // 모든 페이지를 순서대로 래스터화(화면에 잠시 전환). exportScale=디자인 배율.
+  async function rasterizeAllPages(mime: string, quality: number, exportScale: number) {
+    const shots: { url: string; w: number; h: number }[] = [];
+    const orig = pageIndex;
+    setSelectedId(null);
+    for (let i = 0; i < doc.pages.length; i++) {
+      setPageIndex(i);
+      await nextFrames();
+      await nextFrames();
+      const pg = doc.pages[i];
+      const url = rasterize(mime, quality, exportScale / (scaleRef.current || 1));
+      if (url) shots.push({ url, w: pg.width, h: pg.height });
+    }
+    setPageIndex(orig);
+    return shots;
+  }
+
+  // 전체 페이지 → 순번 파일명 ZIP.
+  async function exportZip(mime: string, ext: string, exportScale: number) {
+    if (exporting) return;
+    setShowExport(false);
+    setExporting(`${ext.toUpperCase()} ZIP`);
+    try {
+      const shots = await rasterizeAllPages(mime, 0.92, exportScale);
+      const safe = safeName(title.trim() || "design");
+      const entries = shots.map((s, i) => ({ name: `${safe}-${String(i + 1).padStart(2, "0")}.${ext}`, data: dataUrlToU8(s.url) }));
+      if (entries.length) downloadBlob(zipBlobs(entries), `${safe}.zip`);
+    } finally {
+      setExporting(null);
+    }
+  }
+
+  // 전체 페이지 → PDF(페이지별 이미지 합성, 디자인 크기 기준).
+  async function exportPdf() {
+    if (exporting) return;
+    setShowExport(false);
+    setExporting("PDF");
+    try {
+      const shots = await rasterizeAllPages("image/png", 1, 2);
+      if (!shots.length) return;
+      const { jsPDF } = await import("jspdf");
+      const first = shots[0];
+      const pdf = new jsPDF({ unit: "px", format: [first.w, first.h] });
+      shots.forEach((s, i) => {
+        if (i > 0) pdf.addPage([s.w, s.h]);
+        pdf.addImage(s.url, "PNG", 0, 0, s.w, s.h);
+      });
+      pdf.save(`${safeName(title.trim() || "design")}.pdf`);
+    } finally {
+      setExporting(null);
+    }
+  }
+
   const saveLabel = useMemo(() => ({
     saved: "저장됨", saving: "저장 중…", dirty: "변경됨", error: "저장 실패"
   })[saveState], [saveState]);
@@ -324,12 +387,12 @@ export function EditorClient({
           <button type="button" onClick={undo} className="rounded-lg p-1.5 text-slate-500 hover:bg-surface" aria-label="실행취소"><Undo2 className="h-4 w-4" /></button>
           <button type="button" onClick={redo} className="rounded-lg p-1.5 text-slate-500 hover:bg-surface" aria-label="다시실행"><Redo2 className="h-4 w-4" /></button>
           <div className="relative">
-            <button type="button" onClick={() => setShowExport((v) => !v)} className="ml-1 flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90">
-              <Download className="h-4 w-4" /> 다운로드
+            <button type="button" disabled={!!exporting} onClick={() => setShowExport((v) => !v)} className="ml-1 flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60">
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} {exporting ? `${exporting} 생성 중…` : "다운로드"}
             </button>
-            {showExport && (
-              <div className="absolute right-0 top-[calc(100%+6px)] z-40 w-52 rounded-xl border border-line bg-card p-2 shadow-xl">
-                <p className="px-2 py-1 text-[10px] font-bold uppercase text-slate-400">현재 페이지 내보내기</p>
+            {showExport && !exporting && (
+              <div className="absolute right-0 top-[calc(100%+6px)] z-40 w-56 rounded-xl border border-line bg-card p-2 shadow-xl">
+                <p className="px-2 py-1 text-[10px] font-bold uppercase text-slate-400">현재 페이지</p>
                 {EXPORT_FORMATS.map((f) => (
                   <div key={f.key} className="flex items-center justify-between px-2 py-1">
                     <span className="text-sm text-ink">{f.label}</span>
@@ -339,6 +402,22 @@ export function EditorClient({
                     </span>
                   </div>
                 ))}
+                {doc.pages.length > 1 && (
+                  <>
+                    <div className="my-1 border-t border-line" />
+                    <p className="px-2 py-1 text-[10px] font-bold uppercase text-slate-400">전체 페이지 · {doc.pages.length}장</p>
+                    {EXPORT_FORMATS.map((f) => (
+                      <div key={`zip-${f.key}`} className="flex items-center justify-between px-2 py-1">
+                        <span className="text-sm text-ink">{f.label} ZIP</span>
+                        <span className="flex gap-1">
+                          <button type="button" onClick={() => exportZip(f.mime, f.key, 1)} className="rounded border border-line px-1.5 py-0.5 text-[11px] hover:border-brand">1x</button>
+                          <button type="button" onClick={() => exportZip(f.mime, f.key, 2)} className="rounded border border-line px-1.5 py-0.5 text-[11px] hover:border-brand">2x</button>
+                        </span>
+                      </div>
+                    ))}
+                    <button type="button" onClick={exportPdf} className="mt-1 w-full rounded-md border border-line px-2 py-1.5 text-left text-sm text-ink hover:border-brand">PDF 전체 페이지</button>
+                  </>
+                )}
               </div>
             )}
           </div>
