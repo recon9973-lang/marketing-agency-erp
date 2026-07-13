@@ -27,6 +27,27 @@ export type SearchHit = {
 
 const PER_TYPE = 5;
 
+/** 빠른 접근 — 내가 즐겨찾기한 거래처(빈 검색 상태에 노출). 즐겨찾기는 본인 소유라 자체 스코프. */
+export async function quickAccessFavorites(user: CurrentUser): Promise<SearchHit[]> {
+  const favs = await db.clientFavorite
+    .findMany({
+      where: { userId: user.id },
+      select: { client: { select: { id: true, name: true, region: true } } },
+      take: 8,
+      orderBy: { createdAt: "desc" }
+    })
+    .catch(() => []);
+  return favs
+    .filter((f) => f.client)
+    .map((f) => ({
+      type: "client" as const,
+      id: f.client.id,
+      title: f.client.name,
+      sublabel: f.client.region ?? null,
+      href: `/clients/${f.client.id}`
+    }));
+}
+
 export async function searchErp(user: CurrentUser, rawQuery: string): Promise<SearchHit[]> {
   const q = rawQuery.trim();
   if (q.length < 1) return [];

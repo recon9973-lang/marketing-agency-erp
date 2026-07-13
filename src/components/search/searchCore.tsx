@@ -15,13 +15,16 @@ import {
   PenLine,
   Video,
   Newspaper,
-  Archive
+  Archive,
+  Star,
+  Clock
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Role } from "@/domain/types";
 import { searchCatalog, type CatalogItem } from "@/domain/search/catalog";
-import { erpSearchAction } from "@/server/actions/search";
+import { erpSearchAction, erpQuickAccessAction } from "@/server/actions/search";
 import type { SearchHit, SearchHitType } from "@/server/repositories/search";
+import { getRecent, pushRecent, type RecentItem } from "@/components/search/recentStore";
 
 export type FlatItem = { href: string; title: string; sub: string | null };
 export type Group = { key: string; label: string; icon: LucideIcon; items: FlatItem[] };
@@ -52,16 +55,49 @@ function buildGroups(catalog: CatalogItem[], hits: SearchHit[]): Group[] {
   return groups;
 }
 
-export function useErpSearch(role: Role, onNavigate?: () => void) {
+// 빈 검색 상태 — 즐겨찾기(서버) + 최근 방문(localStorage).
+function buildEmptyGroups(favorites: SearchHit[], recents: RecentItem[]): Group[] {
+  const groups: Group[] = [];
+  if (favorites.length) {
+    groups.push({ key: "fav", label: "즐겨찾기", icon: Star, items: favorites.map((f) => ({ href: f.href, title: f.title, sub: f.sublabel })) });
+  }
+  if (recents.length) {
+    groups.push({ key: "recent", label: "최근 방문", icon: Clock, items: recents.map((r) => ({ href: r.href, title: r.title, sub: r.sub })) });
+  }
+  return groups;
+}
+
+export function useErpSearch(role: Role, onNavigate?: () => void, opts?: { quickAccess?: boolean }) {
   const router = useRouter();
+  const quickAccess = opts?.quickAccess ?? false;
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(0);
+  const [favorites, setFavorites] = useState<SearchHit[]>([]);
+  const [recents, setRecents] = useState<RecentItem[]>([]);
   const reqId = useRef(0);
 
+  // 빠른 접근 데이터 — 즐겨찾기(서버) 1회 로드 + 최근 방문(localStorage).
+  useEffect(() => {
+    if (!quickAccess) return;
+    setRecents(getRecent());
+    let alive = true;
+    erpQuickAccessAction().then((res) => {
+      if (alive && res.ok) setFavorites(res.data?.favorites ?? []);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [quickAccess]);
+
   const catalog = useMemo(() => searchCatalog(query, role, 8), [query, role]);
-  const groups = useMemo(() => buildGroups(catalog, hits), [catalog, hits]);
+  const groups = useMemo(() => {
+    if (query.trim().length === 0) {
+      return quickAccess ? buildEmptyGroups(favorites, recents) : [];
+    }
+    return buildGroups(catalog, hits);
+  }, [query, catalog, hits, favorites, recents, quickAccess]);
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 
   useEffect(() => {
@@ -85,6 +121,8 @@ export function useErpSearch(role: Role, onNavigate?: () => void) {
   useEffect(() => setActive(0), [query]);
 
   function go(href: string) {
+    const item = flat.find((f) => f.href === href);
+    if (item) setRecents(pushRecent({ href: item.href, title: item.title, sub: item.sub }));
     setQuery("");
     onNavigate?.();
     router.push(href as Route);
