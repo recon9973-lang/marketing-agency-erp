@@ -1516,3 +1516,23 @@ model StudioProject {
   @@index([ownerId])
   @@index([clientId])
 }
+
+/// 디자인 스튜디오 업로드 에셋 — 이미지 픽셀을 프로젝트 JSON 밖으로 분리한다.
+/// 백엔드는 S3(설정 시) 또는 기존 StoredFile(DB BYTEA) 폴백. 에디터는 백엔드와
+/// 무관하게 안정적인 서빙 URL(/api/studio/assets/{id})만 참조한다.
+model UploadedAsset {
+  id         String   @id @default(cuid())
+  orgId      String
+  ownerId    String
+  backend    String // "s3" | "db"
+  storageKey String // S3 object key 또는 StoredFile id
+  mimeType   String
+  width      Int?
+  height     Int?
+  size       Int
+  kind       String   @default("image") // image | logo | icon
+  createdAt  DateTime @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([ownerId])
+}

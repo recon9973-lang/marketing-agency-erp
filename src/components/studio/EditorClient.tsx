@@ -41,6 +41,7 @@ export function EditorClient({
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [scale, setScale] = useState(0.4);
   const [showExport, setShowExport] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const past = useRef<StudioDoc[]>([]);
   const future = useRef<StudioDoc[]>([]);
@@ -112,28 +113,52 @@ export function EditorClient({
     };
     addElement(s);
   }
+  function fileToDataUrl(file: File): Promise<string> {
+    return new Promise((resolve) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.readAsDataURL(file);
+    });
+  }
+
   function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const src = String(reader.result);
-      const img = new window.Image();
-      img.onload = () => {
-        const maxW = page.width * 0.8;
-        const ratio = img.height / img.width;
-        const width = Math.min(img.width, maxW);
-        const height = width * ratio;
-        addElement({
-          id: makeId("im"), type: "image", src,
-          x: (page.width - width) / 2, y: (page.height - height) / 2,
-          width, height, rotation: 0, opacity: 1, locked: false, cornerRadius: 0
-        });
-      };
-      img.src = src;
+    const objUrl = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = async () => {
+      const naturalW = img.width;
+      const naturalH = img.height;
+      URL.revokeObjectURL(objUrl);
+      const maxW = page.width * 0.8;
+      const width = Math.min(naturalW, maxW);
+      const height = width * (naturalH / naturalW || 1);
+
+      // 1순위: 에셋 저장소 업로드(픽셀을 프로젝트 JSON 밖으로). 실패 시 데이터 URL 폴백.
+      setUploading(true);
+      let src: string | null = null;
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("width", String(naturalW));
+        fd.append("height", String(naturalH));
+        const res = await fetch("/api/studio/uploads", { method: "POST", body: fd });
+        const json = await res.json().catch(() => null);
+        if (res.ok && json?.ok && json.asset?.url) src = String(json.asset.url);
+      } catch {
+        /* 네트워크/엔드포인트 실패 → 폴백 */
+      }
+      if (!src) src = await fileToDataUrl(file);
+      setUploading(false);
+
+      addElement({
+        id: makeId("im"), type: "image", src,
+        x: (page.width - width) / 2, y: (page.height - height) / 2,
+        width, height, rotation: 0, opacity: 1, locked: false, cornerRadius: 0
+      });
     };
-    reader.readAsDataURL(file);
+    img.src = objUrl;
   }
 
   function deleteSelected() {
@@ -286,8 +311,14 @@ export function EditorClient({
           aria-label="디자인 이름"
         />
         <span className="flex items-center gap-1 text-xs text-slate-400">
-          {saveState === "saving" ? <Loader2 className="h-3 w-3 animate-spin" /> : saveState === "saved" ? <Check className="h-3 w-3" /> : null}
-          {saveLabel}
+          {uploading ? (
+            <><Loader2 className="h-3 w-3 animate-spin" /> 이미지 업로드 중…</>
+          ) : (
+            <>
+              {saveState === "saving" ? <Loader2 className="h-3 w-3 animate-spin" /> : saveState === "saved" ? <Check className="h-3 w-3" /> : null}
+              {saveLabel}
+            </>
+          )}
         </span>
         <div className="ml-auto flex items-center gap-1">
           <button type="button" onClick={undo} className="rounded-lg p-1.5 text-slate-500 hover:bg-surface" aria-label="실행취소"><Undo2 className="h-4 w-4" /></button>
