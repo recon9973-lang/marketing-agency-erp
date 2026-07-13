@@ -5,15 +5,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import type Konva from "konva";
 import {
   ArrowLeft, Type, Square, Circle, ImagePlus, Plus, Undo2, Redo2, Download,
-  Trash2, Copy, ChevronUp, ChevronDown, Lock, Unlock, Loader2, Check, Sparkles
+  Trash2, Copy, ChevronUp, ChevronDown, Lock, Unlock, Loader2, Check, Sparkles, Maximize2
 } from "lucide-react";
 import {
-  blankPage, makeId, type StudioDoc, type StudioElement, type StudioPage, type TextElement, type ShapeElement
+  blankPage, makeId, SIZE_PRESETS, type StudioDoc, type StudioElement, type StudioPage, type TextElement, type ShapeElement
 } from "@/domain/studio/schema";
-import { saveStudioProject, renameStudioProject } from "@/server/actions/studio";
+import { saveStudioProject, renameStudioProject, createStudioResize } from "@/server/actions/studio";
 import { dataUrlToU8, zipBlobs, downloadBlob, safeName } from "@/lib/image-tools";
 
 const CanvasStage = dynamic(() => import("@/components/studio/CanvasStage"), {
@@ -43,6 +45,7 @@ function clone<T>(v: T): T {
 export function EditorClient({
   projectId, initialTitle, initialDoc, brandColors = []
 }: { projectId: string; initialTitle: string; initialDoc: StudioDoc; brandColors?: string[] }) {
+  const router = useRouter();
   const [doc, setDoc] = useState<StudioDoc>(initialDoc);
   const [pageIndex, setPageIndex] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -52,6 +55,8 @@ export function EditorClient({
   const [showExport, setShowExport] = useState(false);
   const [showCopy, setShowCopy] = useState(false);
   const [showCoach, setShowCoach] = useState(false);
+  const [showResize, setShowResize] = useState(false);
+  const [resizing, setResizing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);
 
@@ -385,6 +390,15 @@ export function EditorClient({
     }
   }
 
+  // 멀티사이즈 변환(C4) — 다른 사이즈로 복제 후 이동.
+  async function resizeTo(presetKey: string) {
+    setShowResize(false);
+    setResizing(true);
+    const res = await createStudioResize({ id: projectId, presetKey });
+    setResizing(false);
+    if (res.ok && res.data) router.push(`/studio/${res.data.id}` as Route);
+  }
+
   const saveLabel = useMemo(() => ({
     saved: "저장됨", saving: "저장 중…", dirty: "변경됨", error: "저장 실패"
   })[saveState], [saveState]);
@@ -416,6 +430,19 @@ export function EditorClient({
         <div className="ml-auto flex items-center gap-1">
           <button type="button" onClick={undo} className="rounded-lg p-1.5 text-slate-500 hover:bg-surface" aria-label="실행취소"><Undo2 className="h-4 w-4" /></button>
           <button type="button" onClick={redo} className="rounded-lg p-1.5 text-slate-500 hover:bg-surface" aria-label="다시실행"><Redo2 className="h-4 w-4" /></button>
+          <div className="relative">
+            <button type="button" disabled={resizing} onClick={() => setShowResize((v) => !v)} className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-sm text-slate-600 hover:border-brand disabled:opacity-50">
+              {resizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Maximize2 className="h-4 w-4" />} 사이즈 변환
+            </button>
+            {showResize && (
+              <div className="absolute right-0 top-[calc(100%+6px)] z-40 w-56 rounded-xl border border-line bg-card p-2 shadow-xl">
+                <p className="px-2 py-1 text-[10px] font-bold uppercase text-slate-400">다른 사이즈로 복제</p>
+                {SIZE_PRESETS.map((p) => (
+                  <button key={p.key} type="button" onClick={() => resizeTo(p.key)} className="block w-full rounded-md px-2 py-1.5 text-left text-sm text-ink hover:bg-surface">{p.label}</button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="relative">
             <button type="button" disabled={!!exporting} onClick={() => setShowExport((v) => !v)} className="ml-1 flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60">
               {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} {exporting ? `${exporting} 생성 중…` : "다운로드"}

@@ -93,6 +93,51 @@ export async function createStudioCardnews(input: unknown): Promise<ActionResult
   });
 }
 
+const resizeSchema = z.object({ id: z.string().min(1), presetKey: z.string().min(1) });
+
+/** 멀티사이즈 변환(C4) — 소스 디자인을 다른 사이즈 프리셋으로 contain-스케일·중앙정렬한 새 프로젝트로 복제. */
+export async function createStudioResize(input: unknown): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const orgId = await getDefaultOrgId();
+    const { id, presetKey } = resizeSchema.parse(input);
+    const preset = SIZE_PRESETS.find((p) => p.key === presetKey);
+    if (!preset) throw new Error("BAD_PRESET");
+    const src = await db.studioProject.findFirst({ where: { id, orgId } });
+    if (!src) throw new Error("NOT_FOUND");
+    const doc = studioDoc.parse(src.data);
+
+    const pages = doc.pages.map((pg) => {
+      const s = Math.min(preset.w / pg.width, preset.h / pg.height);
+      const offX = (preset.w - pg.width * s) / 2;
+      const offY = (preset.h - pg.height * s) / 2;
+      const elements = pg.elements.map((el) => {
+        const common = { x: el.x * s + offX, y: el.y * s + offY, width: el.width * s, height: el.height * s };
+        if (el.type === "text") return { ...el, ...common, fontSize: Math.max(6, Math.round(el.fontSize * s)) };
+        if (el.type === "rect" || el.type === "ellipse") return { ...el, ...common, cornerRadius: Math.round(el.cornerRadius * s), strokeWidth: Math.round(el.strokeWidth * s) };
+        return { ...el, ...common, cornerRadius: Math.round(el.cornerRadius * s) };
+      });
+      return { ...pg, width: preset.w, height: preset.h, elements };
+    });
+    const newDoc = { ...doc, pages };
+
+    const created = await db.studioProject.create({
+      data: {
+        orgId,
+        ownerId: user.id,
+        title: `${src.title} (${preset.label.split(" ")[0]})`,
+        kind: preset.kind,
+        canvasW: preset.w,
+        canvasH: preset.h,
+        data: newDoc as unknown as Prisma.InputJsonValue
+      },
+      select: { id: true }
+    });
+    revalidatePath("/studio");
+    return { id: created.id };
+  });
+}
+
 const saveSchema = z.object({
   id: z.string(),
   doc: studioDoc,
