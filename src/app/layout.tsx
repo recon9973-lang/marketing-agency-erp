@@ -7,6 +7,14 @@ export const metadata: Metadata = {
   title: "VENOM 마케팅 ERP",
   description: "마케팅 대행사 업무 운영 ERP — 거래처·계약서·주간보고·업무·정산·보고서·카드뉴스",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" }
+    ],
+    // iOS 홈화면 아이콘 — manifest 아이콘을 쓰지 않으므로 별도 지정.
+    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }]
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
