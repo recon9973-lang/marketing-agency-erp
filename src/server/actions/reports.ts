@@ -11,6 +11,7 @@ import { z } from "zod";
 import { Role } from "@/domain/types";
 import { assertCanAccessClient } from "@/domain/access-control";
 import { db } from "@/server/db";
+import { checkGuaranteeClaims } from "@/server/compliance/medical-law";
 import { geoMonthlySummary } from "@/server/repositories/geo";
 import {
   getAdminScopes,
@@ -185,6 +186,19 @@ export async function transitionReport(input: unknown): Promise<ActionResult<{ s
     if (rep.status !== rule.from) throw new Error("ILLEGAL_TRANSITION");
     if (rule.reviewer) assertReviewer(user.role);
     else await assertClient(user, rep.clientId, rep.client.assignedMarketerId);
+
+    // 리포트 전 게이트(§2 리포트 전·§15) — 상위/AI노출·문의 증가 등 성과 "보장" 문구가
+    // 리포트 요약에 있으면 검토 제출/승인을 차단한다(미보장 원칙). 텍스트 지표만 스캔.
+    if (p.data.action === "submit" || p.data.action === "approve") {
+      const m = (rep.metrics as Record<string, unknown> | null) ?? {};
+      const texts = [m.summary, m.pmComment, m.nextActions]
+        .filter((v): v is string => typeof v === "string")
+        .join("\n");
+      if (texts) {
+        const g = checkGuaranteeClaims(texts);
+        if (g.highCount > 0) throw new Error("GUARANTEE_CLAIM_IN_REPORT");
+      }
+    }
 
     const meta = await requestMeta();
     await db.$transaction(async (tx) => {

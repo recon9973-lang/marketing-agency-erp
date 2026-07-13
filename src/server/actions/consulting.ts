@@ -9,6 +9,7 @@ import { z } from "zod";
 import { assertCanAccessClient } from "@/domain/access-control";
 import { db } from "@/server/db";
 import { generateConsulting, isAiConfigured } from "@/server/ai/claude";
+import { checkGuaranteeClaims, checkMedicalLaw } from "@/server/compliance/medical-law";
 import { fetchKeywordVolumes } from "@/server/integrations/naver-search";
 import { getDefaultOrgId } from "@/server/org";
 import {
@@ -63,6 +64,17 @@ export async function runConsulting(input: unknown): Promise<ActionResult<{ id: 
       estimated: volMap.get(k.keyword)?.estimated ?? true
     }));
 
+    // 제안 전 게이트(§2 제안 전) — 제안서로 나갈 분석문에 성과 "보장"·의료광고 위험표현이
+    // 섞였는지 스캔해 감사로그에 남긴다(위험문구 0건 원칙의 사전 탐지). 초안이라 차단 대신 기록.
+    const proposalText = [result.summary, result.marketAnalysis].filter(Boolean).join("\n");
+    const guarantee = checkGuaranteeClaims(proposalText);
+    const medical = checkMedicalLaw(proposalText);
+    const complianceFlags = {
+      guaranteeHigh: guarantee.highCount,
+      medicalHigh: medical.highCount,
+      flags: [...guarantee.flags, ...medical.flags].map((f) => f.matched).slice(0, 20)
+    };
+
     const meta = await requestMeta();
     const orgId = await getDefaultOrgId();
     const saved = await db.$transaction(async (tx) => {
@@ -97,7 +109,7 @@ export async function runConsulting(input: unknown): Promise<ActionResult<{ id: 
         action: "consulting.run",
         targetType: "ConsultingReport",
         targetId: report.id,
-        afterState: { hospitalName: d.hospitalName, keywords: result.coreKeywords.length },
+        afterState: { hospitalName: d.hospitalName, keywords: result.coreKeywords.length, compliance: complianceFlags },
         ...meta
       });
       return report;
