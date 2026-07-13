@@ -4,11 +4,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { inviteEmployee, changeRole, setExpensePolicy, setSettingsAccess } from "@/server/actions/employees";
+import { inviteEmployee, changeRole, setExpensePolicy, setSettingsAccess, setSuperAdminElevation } from "@/server/actions/employees";
 
-type Employee = { id: string; name: string; email: string; role: string; status: string; canAccessSettings: boolean };
+type Employee = { id: string; name: string; email: string; role: string; status: string; canAccessSettings: boolean; elevatedToSuperAdmin: boolean };
 
-export function EmployeeSettings({ employees, isSuperAdmin, adminCanManageExpense }: { employees: Employee[]; isSuperAdmin: boolean; adminCanManageExpense: boolean }) {
+export function EmployeeSettings({ employees, isSuperAdmin, isTrueSuperAdmin, adminCanManageExpense }: { employees: Employee[]; isSuperAdmin: boolean; isTrueSuperAdmin: boolean; adminCanManageExpense: boolean }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -29,6 +29,10 @@ export function EmployeeSettings({ employees, isSuperAdmin, adminCanManageExpens
     setError(null);
     start(async () => { const res = await setSettingsAccess({ userId, canAccess }); if (!res.ok) setError(res.error); });
   }
+  function toggleElevation(userId: string, elevated: boolean) {
+    setError(null);
+    start(async () => { const res = await setSuperAdminElevation({ userId, elevated }); if (!res.ok) setError(res.error); });
+  }
 
   return (
     <div className="space-y-6">
@@ -43,7 +47,7 @@ export function EmployeeSettings({ employees, isSuperAdmin, adminCanManageExpens
       {error && <p className="text-sm text-rose-600">{error}</p>}
 
       <table className="w-full text-sm">
-        <thead><tr className="text-left text-slate-500"><th className="py-2">이름</th><th>이메일</th><th>상태</th><th>역할</th><th>설정 접근</th></tr></thead>
+        <thead><tr className="text-left text-slate-500"><th className="py-2">이름</th><th>이메일</th><th>상태</th><th>역할</th><th>설정 접근</th><th>최고관리자 승격</th></tr></thead>
         <tbody>
           {employees.map((e) => (
             <tr key={e.id} className="border-t">
@@ -74,6 +78,25 @@ export function EmployeeSettings({ employees, isSuperAdmin, adminCanManageExpens
                   </label>
                 ) : (
                   <span className="text-xs text-slate-400">{e.canAccessSettings ? "허용됨" : "차단"}</span>
+                )}
+              </td>
+              <td>
+                {e.role === "SUPER_ADMIN" ? (
+                  <span className="text-xs text-slate-400">최고관리자</span>
+                ) : e.role !== "ADMIN" ? (
+                  <span className="text-xs text-slate-300">관리자만 대상</span>
+                ) : isTrueSuperAdmin ? (
+                  <label className="inline-flex items-center gap-1.5 text-xs text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={e.elevatedToSuperAdmin}
+                      onChange={(ev) => toggleElevation(e.id, ev.target.checked)}
+                      disabled={pending}
+                    />
+                    {e.elevatedToSuperAdmin ? "동등 권한 승인됨" : "미승인"}
+                  </label>
+                ) : (
+                  <span className="text-xs text-slate-400">{e.elevatedToSuperAdmin ? "동등 권한 승인됨" : "미승인"}</span>
                 )}
               </td>
             </tr>

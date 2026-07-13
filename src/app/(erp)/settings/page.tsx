@@ -114,6 +114,8 @@ export default async function SettingsPage() {
 
   const isAdmin = user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN;
   const isSuperAdmin = user.role === Role.SUPER_ADMIN;
+  // 승격 부여는 진짜 최고관리자만 — 승격된 관리자(effective SUPER_ADMIN)는 재승격 불가.
+  const isTrueSuperAdmin = user.baseRole === Role.SUPER_ADMIN;
 
   const [overview, workCategories, companySetting, docTemplates, usableTemplates] = await Promise.all([
     fetchSettingsOverview(user),
@@ -157,9 +159,11 @@ export default async function SettingsPage() {
               email: member.email,
               role: member.role,
               status: member.status,
-              canAccessSettings: member.canAccessSettings
+              canAccessSettings: member.canAccessSettings,
+              elevatedToSuperAdmin: member.elevatedToSuperAdmin
             }))}
             isSuperAdmin={isSuperAdmin}
+            isTrueSuperAdmin={isTrueSuperAdmin}
             adminCanManageExpense={companySetting?.adminCanManageExpense ?? false}
           />
         </div>

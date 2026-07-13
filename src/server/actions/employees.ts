@@ -112,6 +112,40 @@ export async function setSettingsAccess(input: unknown): Promise<ActionResult> {
   });
 }
 
+/**
+ * 관리자 → 최고관리자 동등 권한(승격) 승인 토글.
+ * - 부여자: 진짜 최고관리자(baseRole)만. 승격된 관리자는 다시 승격을 부여할 수 없다(권한 상승 체인 차단).
+ * - 대상: 관리자(ADMIN)만. 승인되면 effective role이 SUPER_ADMIN이 되어 앱 전역에서 최고관리자와 동등해진다.
+ */
+export async function setSuperAdminElevation(input: unknown): Promise<ActionResult> {
+  return runAction(async () => {
+    const user = await requireUser();
+    if (user.baseRole !== Role.SUPER_ADMIN) throw new Error("FORBIDDEN");
+    const p = z.object({ userId: z.string().min(1), elevated: z.boolean() }).safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+
+    const target = await db.user.findUnique({ where: { id: p.data.userId } });
+    if (!target) throw new Error("NOT_FOUND");
+    if (target.role !== Role.ADMIN) throw new Error("FORBIDDEN"); // 승격은 관리자만 대상
+
+    const meta = await requestMeta();
+    await db.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: p.data.userId }, data: { elevatedToSuperAdmin: p.data.elevated } });
+      await recordAudit(tx, {
+        actorId: user.id,
+        action: "employee.superAdminElevation",
+        targetType: "User",
+        targetId: p.data.userId,
+        beforeState: { elevatedToSuperAdmin: target.elevatedToSuperAdmin },
+        afterState: { elevatedToSuperAdmin: p.data.elevated },
+        ...meta
+      });
+    });
+    revalidatePath("/settings");
+    revalidatePath("/dashboard");
+  });
+}
+
 /** 회사 지출 관리 권한 토글 — 최고관리자 전용. */
 export async function setExpensePolicy(input: unknown): Promise<ActionResult> {
   return runAction(async () => {

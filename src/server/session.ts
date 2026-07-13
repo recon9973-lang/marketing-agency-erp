@@ -8,9 +8,19 @@ export type CurrentUser = {
   id: string;
   name: string;
   email: string;
+  /** 실효 역할 — 최고관리자에게 승인받은 관리자는 SUPER_ADMIN처럼 동작한다. 앱 전역 권한 판정은 이 값을 쓴다. */
   role: Role;
+  /** DB에 저장된 원래 역할 — 승격과 무관. 승격 부여 같은 "진짜 최고관리자만" 판정에 쓴다. */
+  baseRole: Role;
+  /** 관리자가 최고관리자 동등 권한을 승인받았는지 여부. */
+  elevatedToSuperAdmin: boolean;
   canAccessSettings: boolean;
 };
+
+/** 승인된 관리자(ADMIN)는 최고관리자와 동등하게 동작. 그 외에는 원래 역할 그대로. */
+function toEffectiveRole(baseRole: Role, elevated: boolean): Role {
+  return baseRole === Role.ADMIN && elevated ? Role.SUPER_ADMIN : baseRole;
+}
 
 type SessionUserLike = {
   id?: string | null;
@@ -65,7 +75,8 @@ const STAFF_SELECT = {
   role: true,
   status: true,
   isActive: true,
-  canAccessSettings: true
+  canAccessSettings: true,
+  elevatedToSuperAdmin: true
 } as const;
 
 // 이메일 로그인(주 경로)의 직원 조회를 요청 간 캐시 — 매 네비게이션마다 도는
@@ -91,17 +102,21 @@ async function resolveStaffUser(user?: SessionUserLike | null): Promise<CurrentU
     staffUser = where ? await db.user.findFirst({ where, select: STAFF_SELECT }) : null;
   }
 
-  const role = parseRole(staffUser?.role);
+  const baseRole = parseRole(staffUser?.role);
 
-  if (!staffUser || !role) {
+  if (!staffUser || !baseRole) {
     return null;
   }
+
+  const elevatedToSuperAdmin = Boolean(staffUser.elevatedToSuperAdmin);
 
   return {
     id: staffUser.id,
     name: staffUser.name,
     email: staffUser.email,
-    role,
+    role: toEffectiveRole(baseRole, elevatedToSuperAdmin),
+    baseRole,
+    elevatedToSuperAdmin,
     canAccessSettings: staffUser.canAccessSettings
   };
 }
@@ -118,6 +133,8 @@ function getDevUser(requestedRole?: unknown): CurrentUser | null {
     name: "Local Preview",
     email: "dev@marketing-erp.local",
     role,
+    baseRole: role,
+    elevatedToSuperAdmin: false,
     canAccessSettings: true
   };
 }

@@ -43,7 +43,7 @@ describe("fetchDashboardInput", () => {
     const { fetchDashboardInput } = await import("@/server/repositories/dashboard");
 
     const input = await fetchDashboardInput(
-      { id: "root", name: "Root", email: "root@agency.test", role: Role.SUPER_ADMIN, canAccessSettings: true },
+      { id: "root", name: "Root", email: "root@agency.test", role: Role.SUPER_ADMIN, baseRole: Role.SUPER_ADMIN, elevatedToSuperAdmin: false, canAccessSettings: true },
       { today: "2026-06-28", timeZone: "Asia/Seoul" }
     );
 
@@ -63,7 +63,7 @@ describe("fetchDashboardInput", () => {
     const { fetchDashboardInput } = await import("@/server/repositories/dashboard");
 
     await fetchDashboardInput(
-      { id: "admin-1", name: "Admin", email: "admin@agency.test", role: Role.ADMIN, canAccessSettings: false },
+      { id: "admin-1", name: "Admin", email: "admin@agency.test", role: Role.ADMIN, baseRole: Role.ADMIN, elevatedToSuperAdmin: false, canAccessSettings: false },
       { today: "2026-06-28", timeZone: "Asia/Seoul" }
     );
 
@@ -80,7 +80,7 @@ describe("fetchDashboardInput", () => {
     const { fetchDashboardInput } = await import("@/server/repositories/dashboard");
 
     await fetchDashboardInput(
-      { id: "admin-1", name: "Admin", email: "admin@agency.test", role: Role.ADMIN, canAccessSettings: false },
+      { id: "admin-1", name: "Admin", email: "admin@agency.test", role: Role.ADMIN, baseRole: Role.ADMIN, elevatedToSuperAdmin: false, canAccessSettings: false },
       { today: "2026-06-28", timeZone: "Asia/Seoul" }
     );
 
@@ -91,7 +91,7 @@ describe("fetchDashboardInput", () => {
     const { fetchDashboardInput } = await import("@/server/repositories/dashboard");
 
     await fetchDashboardInput(
-      { id: "marketer-1", name: "Marketer", email: "marketer@agency.test", role: Role.MARKETER, canAccessSettings: false },
+      { id: "marketer-1", name: "Marketer", email: "marketer@agency.test", role: Role.MARKETER, baseRole: Role.MARKETER, elevatedToSuperAdmin: false, canAccessSettings: false },
       { today: "2026-06-28", timeZone: "Asia/Seoul" }
     );
 
@@ -102,7 +102,7 @@ describe("fetchDashboardInput", () => {
     const { fetchDashboardInput } = await import("@/server/repositories/dashboard");
 
     await fetchDashboardInput(
-      { id: "marketer-1", name: "Marketer", email: "marketer@agency.test", role: Role.MARKETER, canAccessSettings: false },
+      { id: "marketer-1", name: "Marketer", email: "marketer@agency.test", role: Role.MARKETER, baseRole: Role.MARKETER, elevatedToSuperAdmin: false, canAccessSettings: false },
       { today: "2026-06-28", timeZone: "Asia/Seoul" }
     );
 
@@ -118,7 +118,7 @@ describe("fetchDashboardInput", () => {
     const { fetchDashboardInput } = await import("@/server/repositories/dashboard");
 
     const input = await fetchDashboardInput(
-      { id: "dev-user", name: "Local Preview", email: "dev@marketing-erp.local", role: Role.MARKETER, canAccessSettings: false },
+      { id: "dev-user", name: "Local Preview", email: "dev@marketing-erp.local", role: Role.MARKETER, baseRole: Role.MARKETER, elevatedToSuperAdmin: false, canAccessSettings: false },
       { today: "2026-06-30", timeZone: "Asia/Seoul" }
     );
 

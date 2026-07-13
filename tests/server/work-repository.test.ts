@@ -31,6 +31,8 @@ describe("fetchWorkItemsForUser", () => {
       name: "Admin",
       email: "admin@agency.test",
       role: Role.ADMIN,
+      baseRole: Role.ADMIN,
+      elevatedToSuperAdmin: false,
       canAccessSettings: false
     });
 
@@ -50,6 +52,8 @@ describe("fetchWorkItemsForUser", () => {
         name: "Marketer",
         email: "marketer@agency.test",
         role: Role.MARKETER,
+        baseRole: Role.MARKETER,
+        elevatedToSuperAdmin: false,
         canAccessSettings: false
       },
       { status: WorkStatus.IN_PROGRESS, category: WorkCategory.SNS_MANAGEMENT }
