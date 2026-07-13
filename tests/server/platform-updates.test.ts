@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseFeed } from "@/server/marketing/platform-updates/parse";
+import { parseNoticeJson } from "@/server/marketing/platform-updates/parse-json";
 import { inferCategory, isNewUpdate } from "@/domain/platform-updates";
 
 const RSS = `<?xml version="1.0" encoding="UTF-8"?>
@@ -57,6 +58,36 @@ describe("parseFeed", () => {
   it("returns an empty array for junk input", () => {
     expect(parseFeed("")).toEqual([]);
     expect(parseFeed("<html>not a feed</html>")).toEqual([]);
+  });
+});
+
+describe("parseNoticeJson", () => {
+  // 네이버 통합 공지센터류의 흔한 형태(중첩 + 배열) — 스키마 비의존 추출 검증.
+  const JSON_BODY = JSON.stringify({
+    result: {
+      total: 2,
+      list: [
+        { noticeId: 101, title: "카페 검색 노출 정책 변경 안내", regDate: "2026-07-10T09:00:00+09:00", linkUrl: "https://notice.naver.com/notices/cafe/101", contents: "<p>변경 내용</p>" },
+        { noticeId: 102, subject: "카페 스팸 필터 업데이트", regDt: 1751500800000 }
+      ]
+    }
+  });
+
+  it("extracts notice items regardless of exact schema", () => {
+    const items = parseNoticeJson(JSON_BODY);
+    expect(items).toHaveLength(2);
+    expect(items[0].title).toBe("카페 검색 노출 정책 변경 안내");
+    expect(items[0].link).toBe("https://notice.naver.com/notices/cafe/101");
+    expect(items[0].guid).toBe("101");
+    expect(items[0].summary).toBe("변경 내용");
+    expect(items[0].publishedAt?.toISOString()).toBe("2026-07-10T00:00:00.000Z");
+    expect(items[1].title).toBe("카페 스팸 필터 업데이트"); // subject 키도 인식
+    expect(items[1].publishedAt).toBeInstanceOf(Date); // epoch(ms) 파싱
+  });
+
+  it("returns an empty array for non-JSON or itemless payloads", () => {
+    expect(parseNoticeJson("<html>notice</html>")).toEqual([]);
+    expect(parseNoticeJson(JSON.stringify({ ok: true, data: [] }))).toEqual([]);
   });
 });
 

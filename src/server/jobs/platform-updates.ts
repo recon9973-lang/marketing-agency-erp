@@ -7,6 +7,7 @@
 import { db } from "@/server/db";
 import { inferCategory, type UpdateCategory } from "@/domain/platform-updates";
 import { parseFeed } from "@/server/marketing/platform-updates/parse";
+import { parseNoticeJson } from "@/server/marketing/platform-updates/parse-json";
 import { listFeedSources } from "@/server/marketing/platform-updates/sources";
 
 export type PlatformUpdatesSyncResult = { sources: number; fetched: number; inserted: number; failed: number };
@@ -37,8 +38,8 @@ export async function runPlatformUpdatesSync(): Promise<PlatformUpdatesSyncResul
 
   for (const source of sources) {
     try {
-      const xml = await fetchText(source.url);
-      const items = parseFeed(xml).slice(0, PER_FEED_LIMIT);
+      const raw = await fetchText(source.url);
+      const items = (source.type === "json" ? parseNoticeJson(raw) : parseFeed(raw)).slice(0, PER_FEED_LIMIT);
       result.fetched += items.length;
 
       for (const item of items) {
@@ -46,6 +47,7 @@ export async function runPlatformUpdatesSync(): Promise<PlatformUpdatesSyncResul
         const externalKey = `${source.sourceId}:${dedup}`;
         const category: UpdateCategory = inferCategory(item.title, source.defaultCategory);
         const publishedAt = item.publishedAt ?? new Date();
+        const link = item.link ?? source.linkFallback ?? null;
 
         try {
           // 이미 있으면 제목/요약만 갱신(수정된 공지 반영), 없으면 생성 → inserted 카운트.
@@ -53,7 +55,7 @@ export async function runPlatformUpdatesSync(): Promise<PlatformUpdatesSyncResul
           if (existing) {
             await db.platformUpdate.update({
               where: { externalKey },
-              data: { title: item.title, summary: item.summary, url: item.link, category }
+              data: { title: item.title, summary: item.summary, url: link, category }
             });
           } else {
             await db.platformUpdate.create({
@@ -61,7 +63,7 @@ export async function runPlatformUpdatesSync(): Promise<PlatformUpdatesSyncResul
                 platform: source.platform,
                 category,
                 title: item.title,
-                url: item.link,
+                url: link,
                 summary: item.summary,
                 source: source.sourceId,
                 externalKey,

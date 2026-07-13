@@ -11,6 +11,8 @@ export type FeedSource = {
   platform: PlatformKind;
   url: string;
   defaultCategory: UpdateCategory; // 제목 추론 실패 시 사용
+  type?: "rss" | "json"; // 응답 형식(기본 rss). 네이버 플레이스/카페 공지는 json.
+  linkFallback?: string; // 항목에 개별 링크가 없을 때 배너에서 열 페이지 URL
 };
 
 const BUILT_IN: FeedSource[] = [
@@ -29,6 +31,24 @@ const BUILT_IN: FeedSource[] = [
     platform: "NAVER",
     url: "https://rss.blog.naver.com/naver_search.xml",
     defaultCategory: "GENERAL"
+  },
+  // 네이버 스마트플레이스 공지(JSON) — 플레이스 순위/기능/정책 공지.
+  {
+    sourceId: "naver-place-notice",
+    platform: "NAVER",
+    type: "json",
+    url: "https://smartplace.naver.com/notices",
+    defaultCategory: "PLACE",
+    linkFallback: "https://smartplace.naver.com/notices"
+  },
+  // 네이버 카페 공지(JSON) — notice.naver.com 통합 공지센터 카페 목록(최근 7일).
+  {
+    sourceId: "naver-cafe-notice",
+    platform: "NAVER",
+    type: "json",
+    url: "https://notice.naver.com/notices/cafe?pageSize=10&newNoticeHour=168&t=l",
+    defaultCategory: "CAFE",
+    linkFallback: "https://notice.naver.com/notices/cafe"
   }
 ];
 
