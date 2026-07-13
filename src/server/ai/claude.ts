@@ -3,6 +3,7 @@
 // 공식 SDK(@anthropic-ai/sdk) 사용. 모델 기본값 claude-opus-4-8 + adaptive thinking,
 // 긴 출력을 대비해 stream() 후 finalMessage()로 완성본을 받는다.
 import Anthropic from "@anthropic-ai/sdk";
+import { redactPII } from "@/server/compliance/pii";
 
 export const AI_MODEL = "claude-opus-4-8";
 
@@ -240,6 +241,8 @@ export async function generateMeetingMinutes(
   context?: { title?: string | null; clientName?: string | null; attendees?: string[] }
 ): Promise<string> {
   if (!isAiConfigured()) throw new Error("AI_NOT_CONFIGURED");
+  // 개인정보 익명화(§9 AI사용) — 전사에 섞인 환자 식별정보(주민번호·전화·이메일·카드)는 AI로 보내기 전 마스킹.
+  const safeTranscript = redactPII(transcript).text;
   const client = new Anthropic();
   const system =
     "당신은 한국 마케팅 대행사의 회의록 서기입니다. 회의 녹취/메모를 받아 깔끔한 한국어 회의록으로 정리합니다. " +
@@ -252,7 +255,7 @@ export async function generateMeetingMinutes(
   ]
     .filter(Boolean)
     .join("\n");
-  const user = `${meta ? meta + "\n\n" : ""}아래는 회의 녹취/메모 원문입니다. 이를 회의록으로 정리하세요.\n\n---\n${transcript}`;
+  const user = `${meta ? meta + "\n\n" : ""}아래는 회의 녹취/메모 원문입니다. 이를 회의록으로 정리하세요.\n\n---\n${safeTranscript}`;
 
   const stream = client.messages.stream({
     model: AI_MODEL,
