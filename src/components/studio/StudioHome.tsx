@@ -3,7 +3,8 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Loader2, Wand2 } from "lucide-react";
+import Link from "next/link";
+import { Trash2, Loader2, Wand2, ImageDown } from "lucide-react";
 import { SIZE_PRESETS } from "@/domain/studio/schema";
 import { BUILTIN_TEMPLATES, TEMPLATE_CATEGORIES, type TemplateCategoryKey } from "@/domain/studio/templates";
 import { TemplatePreview } from "@/components/studio/TemplatePreview";
@@ -74,6 +75,16 @@ export function StudioHome({ projects }: { projects: ProjectCard[] }) {
   return (
     <div className="space-y-8">
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40">{error}</p>}
+
+      <Link href="/studio/convert"
+        className="flex items-center gap-3 rounded-xl border border-line bg-card px-4 py-3 hover:border-brand">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand"><ImageDown className="h-5 w-5" /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-ink">이미지 변환 도구</span>
+          <span className="block text-xs text-slate-400">PNG·JPG·WEBP 변환·압축·리사이즈 일괄 처리 · ZIP 다운로드</span>
+        </span>
+        <span className="text-xs font-medium text-brand">열기 →</span>
+      </Link>
 
       {/* 템플릿 갤러리 */}
       <section>
