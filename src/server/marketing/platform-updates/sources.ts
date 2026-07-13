@@ -14,11 +14,21 @@ export type FeedSource = {
 };
 
 const BUILT_IN: FeedSource[] = [
+  // 구글 검색 공식 블로그(Atom) — 알고리즘·코어 업데이트·SEO·AI Overviews(GEO) 공지.
   {
     sourceId: "google-search-central",
     platform: "GOOGLE",
     url: "https://developers.google.com/search/blog/feed.xml",
     defaultCategory: "SEO"
+  },
+  // 네이버 서치앤테크(NAVER Search & Tech) 공식 기술 블로그 — 검색 알고리즘·블로그(C-Rank/DIA)·
+  // 생성형 AI 문서 정책 등 검색 관련 공지의 1차 채널. RSS는 네이버 표준 패턴(rss.blog.naver.com/<id>.xml).
+  // ※ 아이디 변경/오류 시 소스별로 격리되어 배너·다른 소스에 영향 없음. 교체·제거는 PLATFORM_UPDATE_FEEDS로.
+  {
+    sourceId: "naver-search-tech",
+    platform: "NAVER",
+    url: "https://rss.blog.naver.com/naver_search.xml",
+    defaultCategory: "GENERAL"
   }
 ];
 
