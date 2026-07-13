@@ -9,6 +9,7 @@ import { getHospitalProfile } from "@/server/repositories/hospital-profile";
 import { getLatestConsulting } from "@/server/repositories/consulting";
 import { listQuotes } from "@/server/repositories/quotes";
 import { listContentPlans } from "@/server/repositories/content-plans";
+import { getExposureTracker } from "@/server/repositories/exposure";
 import { isAiConfigured } from "@/server/ai/claude";
 import { getIndustryTree } from "@/server/repositories/masters";
 import { listActiveMembers, listComments } from "@/server/repositories/collab";
@@ -37,7 +38,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
     detail.client.businessType === "HOSPITAL" ? getHospitalProfile(id) : Promise.resolve(null),
     getLatestConsulting(id)
   ]);
-  const [quotes, contentPlans, googleConnection] = await Promise.all([
+  const [quotes, contentPlans, googleConnection, exposure] = await Promise.all([
     listQuotes(id),
     listContentPlans(id),
     db.channelConnection
@@ -45,7 +46,8 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         where: { clientId_provider: { clientId: id, provider: "GOOGLE" } },
         select: { status: true, gscSiteUrl: true, ga4PropertyId: true, lastSyncAt: true, lastError: true }
       })
-      .catch(() => null)
+      .catch(() => null),
+    getExposureTracker(id)
   ]);
 
   const consulting = {
@@ -85,6 +87,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         canManage={canManage}
         industries={industries}
         marketers={marketers}
+        exposure={exposure}
       />
       <GoogleIntegrationPanel
         clientId={id}
