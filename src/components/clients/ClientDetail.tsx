@@ -12,6 +12,7 @@ import { ConsultingPanel } from "@/components/clients/ConsultingPanel";
 import { ContentPlanPanel } from "@/components/clients/ContentPlanPanel";
 import { ClientPortalLink } from "@/components/clients/ClientPortalLink";
 import { AddChannelForm } from "@/components/clients/AddChannelForm";
+import { ExposureTracker, type GuardKeyword } from "@/components/clients/ExposureTracker";
 import { WorkStatusButtons } from "@/components/work/WorkStatusButtons";
 import { AddWorkForm } from "@/components/work/AddWorkForm";
 import { ReportEditor } from "@/components/reports/ReportEditor";
@@ -36,7 +37,8 @@ export function ClientDetail({
   canViewFinance,
   canManage,
   industries,
-  marketers
+  marketers,
+  exposure
 }: {
   client: {
     id: string;
@@ -98,6 +100,7 @@ export function ClientDetail({
   canManage: boolean;
   industries: IndustryNode[];
   marketers: Marketer[];
+  exposure: GuardKeyword[];
 }) {
   const isHospital = client.businessType === "HOSPITAL";
   const tabs = [
@@ -106,6 +109,7 @@ export function ClientDetail({
     "컨설팅",
     "콘텐츠",
     "채널계정",
+    "월보장",
     "업무",
     ...(canViewFinance ? ["입금"] : []),
     "보고서"
@@ -224,6 +228,10 @@ export function ClientDetail({
             </tbody>
           </table>
         </div>
+      )}
+
+      {tab === "월보장" && (
+        <ExposureTracker clientId={client.id} keywords={exposure} canManage={canManage} />
       )}
 
       {tab === "업무" && (

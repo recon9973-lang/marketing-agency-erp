@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runMonthlyPerformanceCollection } from "@/server/marketing/research";
 import { runDailyAlerts } from "@/server/jobs/daily-alerts";
+import { runGuardRankWatch } from "@/server/jobs/guard-rank";
 import { runChannelSync } from "@/server/jobs/channel-sync";
 import { runMagazineAutoDraft } from "@/server/jobs/magazine";
 import { runGeoWatch } from "@/server/geo-engine/runner";
@@ -31,13 +32,15 @@ export async function GET(req: NextRequest) {
 
   try {
     const alerts = await runDailyAlerts();
+    // 월보장 순위 감시 — 보장 키워드 이탈/미달/급락 시 담당자에게 알림(멱등).
+    const guardRank = await runGuardRankWatch();
     const sync = await runChannelSync();
     // 매거진 자동 초안 — 큐에서 하루 N건만 초안 생성(발행은 사람 검토 후, 안전 램프업)
     const magazine = await runMagazineAutoDraft();
     // GEO 자동 관측은 주 1회(월요일)만 — 엔진 API 비용 상한(질문×엔진×주1회)
     const isMonday = new Date().getUTCDay() === 1;
     const geoWatch = isMonday ? await runGeoWatch() : null;
-    return NextResponse.json({ ok: true, alerts, sync, magazine, geoWatch });
+    return NextResponse.json({ ok: true, alerts, guardRank, sync, magazine, geoWatch });
   } catch (e) {
     console.error("[marketing/cron] daily jobs failed", e);
     return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
@@ -45,7 +48,7 @@ export async function GET(req: NextRequest) {
 }
 
 type CronBody = {
-  job?: "alerts" | "sync" | "geo-watch" | "magazine-draft" | "collection";
+  job?: "alerts" | "guard-rank" | "sync" | "geo-watch" | "magazine-draft" | "collection";
   reportingMonth?: string;
   configByClient?: Record<string, { keywords: string[]; target: string; channel?: "blog" | "web" | "local" }>;
 };
@@ -71,6 +74,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, ...result });
     } catch (e) {
       console.error("[marketing/cron] daily alerts failed", e);
+      return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
+    }
+  }
+
+  // 월보장 순위 감시 — {"job":"guard-rank"}로 트리거. 보장 키워드 이탈/미달/급락 알림(멱등).
+  if (body.job === "guard-rank") {
+    try {
+      const result = await runGuardRankWatch();
+      return NextResponse.json({ ok: true, ...result });
+    } catch (e) {
+      console.error("[marketing/cron] guard rank watch failed", e);
       return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
     }
   }
