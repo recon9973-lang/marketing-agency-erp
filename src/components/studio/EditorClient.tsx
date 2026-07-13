@@ -8,7 +8,7 @@ import dynamic from "next/dynamic";
 import type Konva from "konva";
 import {
   ArrowLeft, Type, Square, Circle, ImagePlus, Plus, Undo2, Redo2, Download,
-  Trash2, Copy, ChevronUp, ChevronDown, Lock, Unlock, Loader2, Check
+  Trash2, Copy, ChevronUp, ChevronDown, Lock, Unlock, Loader2, Check, Sparkles
 } from "lucide-react";
 import {
   blankPage, makeId, type StudioDoc, type StudioElement, type StudioPage, type TextElement, type ShapeElement
@@ -28,6 +28,14 @@ const EXPORT_FORMATS = [
   { key: "webp", label: "WEBP", mime: "image/webp" }
 ] as const;
 
+// 마케팅 문구 프리셋 — 원클릭으로 텍스트 요소 삽입(C3). 강조 항목은 크게.
+const COPY_PRESETS: { group: string; big?: boolean; items: string[] }[] = [
+  { group: "CTA", items: ["지금 예약하기", "무료 상담 신청", "자세히 보기", "문의하기"] },
+  { group: "할인·혜택", items: ["최대 50% 할인", "오늘만 특가", "선착순 마감", "1+1 이벤트"] },
+  { group: "강조", big: true, items: ["NEW", "BEST", "이벤트", "한정 수량"] },
+  { group: "기간", items: ["이번 주말 한정", "오픈 특가", "재고 소진 시 마감"] }
+];
+
 function clone<T>(v: T): T {
   return typeof structuredClone === "function" ? structuredClone(v) : (JSON.parse(JSON.stringify(v)) as T);
 }
@@ -42,6 +50,8 @@ export function EditorClient({
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [scale, setScale] = useState(0.4);
   const [showExport, setShowExport] = useState(false);
+  const [showCopy, setShowCopy] = useState(false);
+  const [showCoach, setShowCoach] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);
 
@@ -72,6 +82,15 @@ export function EditorClient({
   }, [page.width, page.height]);
 
   useEffect(() => { scaleRef.current = scale; }, [scale]);
+
+  // 첫 방문 온보딩(코치마크) — 1회만.
+  useEffect(() => {
+    try { if (!localStorage.getItem("erp:studio:coach")) setShowCoach(true); } catch { /* noop */ }
+  }, []);
+  function dismissCoach() {
+    try { localStorage.setItem("erp:studio:coach", "1"); } catch { /* noop */ }
+    setShowCoach(false);
+  }
 
   // ── 문서 갱신(히스토리 포함) ──
   const commit = useCallback((next: StudioDoc) => {
@@ -109,6 +128,17 @@ export function EditorClient({
       fontStyle: "bold", lineHeight: 1.2, letterSpacing: 0
     };
     addElement(t);
+  }
+  function addPresetText(text: string, big?: boolean) {
+    const t: TextElement = {
+      id: makeId("tx"), type: "text", x: page.width * 0.1, y: page.height * 0.42,
+      width: page.width * 0.8, height: 80, rotation: 0, opacity: 1, locked: false,
+      text, fontSize: Math.round(page.width * (big ? 0.12 : 0.06)),
+      fontFamily: "Pretendard, sans-serif", fill: big ? "#d9662e" : "#111111", align: "center",
+      fontStyle: "bold", lineHeight: 1.2, letterSpacing: 0
+    };
+    addElement(t);
+    setShowCopy(false);
   }
   function addShape(type: "rect" | "ellipse") {
     const s: ShapeElement = {
@@ -437,11 +467,53 @@ export function EditorClient({
               <b.icon className="h-5 w-5" /> {b.label}
             </button>
           ))}
+          {/* 문구 프리셋(C3) */}
+          <div className="relative w-full">
+            <button type="button" onClick={() => setShowCopy((v) => !v)}
+              className={`flex w-full flex-col items-center gap-1 rounded-lg py-2 text-[10px] hover:bg-surface hover:text-brand ${showCopy ? "text-brand" : "text-slate-500"}`}>
+              <Sparkles className="h-5 w-5" /> 문구
+            </button>
+            {showCopy && (
+              <div className="absolute left-[calc(100%+6px)] top-0 z-40 w-52 rounded-xl border border-line bg-card p-2 text-left shadow-xl">
+                {COPY_PRESETS.map((g) => (
+                  <div key={g.group} className="mb-2 last:mb-0">
+                    <p className="px-1 pb-1 text-[10px] font-bold uppercase text-slate-400">{g.group}</p>
+                    <div className="flex flex-wrap gap-1">
+                      {g.items.map((it) => (
+                        <button key={it} type="button" onClick={() => addPresetText(it, g.big)}
+                          className="rounded-md border border-line px-2 py-1 text-xs text-ink hover:border-brand">{it}</button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <input ref={fileRef} type="file" accept="image/*" onChange={onPickImage} className="hidden" />
         </aside>
 
         {/* 캔버스 */}
         <div ref={wrapRef} className="relative flex min-w-0 flex-1 items-center justify-center overflow-hidden bg-[#eef0f3] dark:bg-[#1a1c20]">
+          {showCoach && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
+              <div className="w-full max-w-sm rounded-2xl border border-line bg-card p-5 shadow-2xl">
+                <p className="text-sm font-bold text-ink">디자인 스튜디오, 3단계면 끝!</p>
+                <ol className="mt-3 space-y-2.5 text-sm text-slate-600">
+                  {[
+                    "왼쪽에서 텍스트·도형·이미지·문구를 추가하세요.",
+                    "캔버스에서 드래그·리사이즈하고, 오른쪽에서 색·크기를 바꾸세요.",
+                    "오른쪽 위 다운로드로 PNG·WEBP·ZIP·PDF 내보내기."
+                  ].map((tip, i) => (
+                    <li key={i} className="flex gap-2.5">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white">{i + 1}</span>
+                      <span>{tip}</span>
+                    </li>
+                  ))}
+                </ol>
+                <button type="button" onClick={dismissCoach} className="mt-4 w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90">시작하기</button>
+              </div>
+            </div>
+          )}
           <div className="shadow-xl">
             <CanvasStage
               page={page}
