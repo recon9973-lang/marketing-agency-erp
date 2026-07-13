@@ -7,7 +7,15 @@ import type { CurrentUser } from "@/domain/access-control";
 import { db } from "@/server/db";
 import { buildClientWhere } from "@/server/repositories/clients";
 
-export type SearchHitType = "client" | "work" | "contract" | "report" | "file";
+export type SearchHitType =
+  | "client"
+  | "work"
+  | "contract"
+  | "report"
+  | "content"
+  | "meeting"
+  | "magazine"
+  | "file";
 
 export type SearchHit = {
   type: SearchHitType;
@@ -33,7 +41,13 @@ export async function searchErp(user: CurrentUser, rawQuery: string): Promise<Se
   // 병렬 조회 — 각 타입별 상위 N개. 실패한 타입은 빈 배열로 흡수(검색이 통째로 죽지 않게).
   const safe = <T>(p: Promise<T[]>): Promise<T[]> => p.catch(() => [] as T[]);
 
-  const [clients, works, contracts, reports, files] = await Promise.all([
+  // 회의록: 거래처 연결이 선택이라, 관리자는 사내(무-거래처) 회의도 검색 가능.
+  const meetingWhere =
+    user.role === Role.MARKETER
+      ? { title: contains, client: clientWhere }
+      : { title: contains, OR: [{ client: clientWhere }, { clientId: null }] };
+
+  const [clients, works, contracts, reports, contents, meetings, magazines, files] = await Promise.all([
     safe(
       db.client.findMany({
         where: { AND: [clientWhere, { OR: [{ name: contains }, { code: contains }, { region: contains }] }] },
@@ -67,6 +81,30 @@ export async function searchErp(user: CurrentUser, rawQuery: string): Promise<Se
       })
     ),
     safe(
+      db.contentPlan.findMany({
+        where: { topic: contains, client: clientWhere },
+        select: { id: true, topic: true, month: true, client: { select: { name: true } } },
+        take: PER_TYPE,
+        orderBy: { updatedAt: "desc" }
+      })
+    ),
+    safe(
+      db.meeting.findMany({
+        where: meetingWhere,
+        select: { id: true, title: true, client: { select: { name: true } } },
+        take: PER_TYPE,
+        orderBy: { updatedAt: "desc" }
+      })
+    ),
+    safe(
+      db.magazinePost.findMany({
+        where: { title: contains },
+        select: { id: true, title: true, status: true },
+        take: PER_TYPE,
+        orderBy: { updatedAt: "desc" }
+      })
+    ),
+    safe(
       db.storedFile.findMany({
         where: { fileName: contains },
         select: { id: true, fileName: true, folder: { select: { name: true } } },
@@ -88,6 +126,15 @@ export async function searchErp(user: CurrentUser, rawQuery: string): Promise<Se
   }
   for (const r of reports) {
     hits.push({ type: "report", id: r.id, title: r.title, sublabel: r.client?.name ?? null, href: "/reports" });
+  }
+  for (const cp of contents) {
+    hits.push({ type: "content", id: cp.id, title: cp.topic, sublabel: `${cp.client?.name ?? ""} ${cp.month}`.trim(), href: "/manuscript" });
+  }
+  for (const m of meetings) {
+    hits.push({ type: "meeting", id: m.id, title: m.title, sublabel: m.client?.name ?? "사내", href: `/meetings/${m.id}` });
+  }
+  for (const mg of magazines) {
+    hits.push({ type: "magazine", id: mg.id, title: mg.title, sublabel: mg.status, href: "/magazine" });
   }
   for (const f of files) {
     hits.push({ type: "file", id: f.id, title: f.fileName, sublabel: f.folder?.name ?? null, href: "/vault" });

@@ -29,11 +29,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Role } from "@/domain/types";
 import { BrandLogo } from "@/components/erp/BrandLogo";
 import { ThemeToggle } from "@/components/erp/ThemeToggle";
 import { NotificationBell } from "@/components/collab/NotificationBell";
+import { CommandPalette } from "@/components/search/CommandPalette";
 
 type ErpRoute =
   | "/dashboard"
@@ -294,6 +295,19 @@ export function AppShell({
   const operate = items.filter((i) => i.group === "운영");
   const manage = items.filter((i) => i.group === "관리");
   const current = items.find((i) => isActive(pathname, i.href));
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // 전역 단축키 — ⌘K / Ctrl+K 로 검색 팔레트 토글.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="min-h-screen bg-surface text-ink">
@@ -345,10 +359,24 @@ export function AppShell({
               <h1 className="text-base font-bold text-ink">{current?.label ?? "대시보드"}</h1>
               <p className="mt-0.5 text-xs text-slate-500">역할: {ROLE_LABEL[role]}</p>
             </div>
-            <div className="ml-auto hidden items-center rounded-lg border border-line bg-surface px-3 py-2 text-xs text-slate-400 sm:flex">
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              className="ml-auto hidden items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-xs text-slate-400 transition hover:text-ink sm:flex"
+            >
+              <Search className="h-3.5 w-3.5" />
               거래처·업무 검색…
-            </div>
+              <kbd className="rounded border border-line px-1 text-[10px] leading-4">⌘K</kbd>
+            </button>
             <div className="ml-auto flex items-center gap-2 sm:ml-0">
+              <button
+                type="button"
+                onClick={() => setPaletteOpen(true)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-line text-slate-500 sm:hidden"
+                aria-label="검색"
+              >
+                <Search className="h-4 w-4" />
+              </button>
               <ThemeToggle />
               <NotificationBell />
             </div>
@@ -383,6 +411,8 @@ export function AppShell({
 
         <div className="p-4 sm:p-6">{children}</div>
       </main>
+
+      <CommandPalette role={role} open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 }
