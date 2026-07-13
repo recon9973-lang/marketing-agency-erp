@@ -1395,6 +1395,7 @@ model ChannelConnection {
   refreshTokenEnc String? // OAuth refresh token(암호화)
   gscSiteUrl      String? // 예: sc-domain:myclinic.co.kr 또는 https://myclinic.co.kr/
   ga4PropertyId   String? // 예: 123456789
+  gbpLocationId   String? // GBP 로컬 성과 위치 ID(예: locations/123... 또는 123...)
   status          String    @default("DISCONNECTED") // DISCONNECTED | CONNECTED | ERROR
   lastSyncAt      DateTime?
   lastError       String?

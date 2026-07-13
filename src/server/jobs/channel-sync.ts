@@ -8,7 +8,7 @@
 
 import { db } from "@/server/db";
 import { decryptSecret } from "@/server/crypto";
-import { fetchGa4Daily, fetchGscDaily, refreshGoogleAccessToken, isGoogleConfigured } from "@/server/integrations/google";
+import { fetchGa4Daily, fetchGa4KeyEvents, fetchGscDaily, fetchGbpDaily, refreshGoogleAccessToken, isGoogleConfigured } from "@/server/integrations/google";
 
 function ymd(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -22,7 +22,7 @@ export async function runChannelSync(now = new Date()): Promise<ChannelSyncResul
 
   const connections = await db.channelConnection.findMany({
     where: { provider: "GOOGLE", status: { in: ["CONNECTED", "ERROR"] }, refreshTokenEnc: { not: null } },
-    select: { id: true, clientId: true, refreshTokenEnc: true, gscSiteUrl: true, ga4PropertyId: true, orgId: true }
+    select: { id: true, clientId: true, refreshTokenEnc: true, gscSiteUrl: true, ga4PropertyId: true, gbpLocationId: true, orgId: true }
   });
   result.connections = connections.length;
 
@@ -38,14 +38,27 @@ export async function runChannelSync(now = new Date()): Promise<ChannelSyncResul
       if (!refreshToken) throw new Error("TOKEN_DECRYPT_FAILED");
       const accessToken = await refreshGoogleAccessToken(refreshToken);
 
-      const upserts: Array<{ metric: string; date: string; value: number }> = [];
+      const upserts: Array<{ channel: string; metric: string; date: string; value: number }> = [];
       if (conn.gscSiteUrl) {
         const gsc = await fetchGscDaily(accessToken, conn.gscSiteUrl, startDate, endDate);
-        for (const p of gsc.impressions) upserts.push({ metric: "impressions", date: p.date, value: p.value });
+        for (const p of gsc.impressions) upserts.push({ channel: "homepage", metric: "impressions", date: p.date, value: p.value });
       }
       if (conn.ga4PropertyId) {
         const ga4 = await fetchGa4Daily(accessToken, conn.ga4PropertyId, startDate, endDate);
-        for (const p of ga4) upserts.push({ metric: "visitors", date: p.date, value: p.value });
+        for (const p of ga4) upserts.push({ channel: "homepage", metric: "visitors", date: p.date, value: p.value });
+        // 핵심 이벤트(전화/예약/상담 전환) — best-effort(지표명 불일치해도 세션 수집 유지)
+        try {
+          const ke = await fetchGa4KeyEvents(accessToken, conn.ga4PropertyId, startDate, endDate);
+          for (const p of ke) upserts.push({ channel: "homepage", metric: "conversions", date: p.date, value: p.value });
+        } catch {
+          /* keyEvents 미지원/미설정 — 무시 */
+        }
+      }
+      // GBP 로컬 성과(§13 지도/로컬) → channel "place"
+      if (conn.gbpLocationId) {
+        const gbp = await fetchGbpDaily(accessToken, conn.gbpLocationId, startDate, endDate);
+        for (const p of gbp.impressions) upserts.push({ channel: "place", metric: "impressions", date: p.date, value: p.value });
+        for (const p of gbp.interactions) upserts.push({ channel: "place", metric: "interactions", date: p.date, value: p.value });
       }
 
       for (const u of upserts) {
@@ -54,12 +67,12 @@ export async function runChannelSync(now = new Date()): Promise<ChannelSyncResul
           where: {
             clientId_channel_metric_recordedOn: {
               clientId: conn.clientId,
-              channel: "homepage",
+              channel: u.channel,
               metric: u.metric,
               recordedOn
             }
           },
-          create: { clientId: conn.clientId, channel: "homepage", metric: u.metric, recordedOn, value: u.value, orgId: conn.orgId },
+          create: { clientId: conn.clientId, channel: u.channel, metric: u.metric, recordedOn, value: u.value, orgId: conn.orgId },
           update: { value: u.value }
         });
       }

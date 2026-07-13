@@ -11,10 +11,12 @@
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 
-// GSC 읽기 + GA4 읽기 — 리포트 수집에 필요한 최소 범위(§8 자동화 원칙: 읽기 전용)
+// GSC 읽기 + GA4 읽기 + GBP(플레이스 성과) — 리포트 수집 범위(§8: 읽기 전용).
+// business.manage는 Business Profile Performance API 요구 스코프(읽기 성과 조회에도 필요).
 const SCOPES = [
   "https://www.googleapis.com/auth/webmasters.readonly",
-  "https://www.googleapis.com/auth/analytics.readonly"
+  "https://www.googleapis.com/auth/analytics.readonly",
+  "https://www.googleapis.com/auth/business.manage"
 ].join(" ");
 
 export function isGoogleConfigured(): boolean {
@@ -130,4 +132,105 @@ export async function fetchGa4Daily(
     const date = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
     return { date, value: Math.round(Number(row.metricValues[0]?.value ?? 0)) };
   });
+}
+
+/**
+ * GA4 Key Events — 일자별 핵심 이벤트(전화/예약/상담 전환, §13). 2026 기준 'conversions'→'keyEvents' 개칭.
+ * 별도 함수로 두어 지표명 불일치 시에도 세션 수집(fetchGa4Daily)에 영향 주지 않게 한다.
+ */
+export async function fetchGa4KeyEvents(
+  accessToken: string,
+  propertyId: string,
+  startDate: string,
+  endDate: string
+): Promise<DailyPoint[]> {
+  const res = await fetch(
+    `https://analyticsdata.googleapis.com/v1beta/properties/${encodeURIComponent(propertyId)}:runReport`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [{ name: "date" }],
+        metrics: [{ name: "keyEvents" }],
+        limit: 1000
+      })
+    }
+  );
+  if (!res.ok) throw new Error(`GA4_KEYEVENTS_FAILED:${res.status}`);
+  const data = (await res.json()) as {
+    rows?: Array<{ dimensionValues: Array<{ value: string }>; metricValues: Array<{ value: string }> }>;
+  };
+  return (data.rows ?? []).map((row) => {
+    const raw = row.dimensionValues[0]?.value ?? "";
+    const date = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+    return { date, value: Math.round(Number(row.metricValues[0]?.value ?? 0)) };
+  });
+}
+
+// GBP Performance — 2026 기준 fetchMultiDailyMetricsTimeSeries(구 reportInsights 폐기 대체).
+// 수집 지표: 통화·웹클릭·길찾기·예약 + 검색/지도 노출(모바일+데스크톱 합산).
+const GBP_METRICS = [
+  "CALL_CLICKS",
+  "WEBSITE_CLICKS",
+  "BUSINESS_DIRECTION_REQUESTS",
+  "BUSINESS_BOOKINGS",
+  "BUSINESS_IMPRESSIONS_MOBILE_SEARCH",
+  "BUSINESS_IMPRESSIONS_DESKTOP_SEARCH",
+  "BUSINESS_IMPRESSIONS_MOBILE_MAPS",
+  "BUSINESS_IMPRESSIONS_DESKTOP_MAPS"
+] as const;
+
+function ymdParts(prefix: string, d: string): Record<string, string> {
+  const [y, m, day] = d.split("-");
+  return { [`${prefix}.year`]: y, [`${prefix}.month`]: String(Number(m)), [`${prefix}.day`]: String(Number(day)) };
+}
+
+/**
+ * GBP 로컬 성과(§13 지도/로컬) — locationId(예: "locations/123..." 또는 "123...")의 일자별 지표.
+ * 반환: { interactions, impressions } 일자별 포인트(상호작용=통화+웹+길찾기+예약, 노출=검색+지도 합산).
+ */
+export async function fetchGbpDaily(
+  accessToken: string,
+  locationId: string,
+  startDate: string,
+  endDate: string
+): Promise<{ interactions: DailyPoint[]; impressions: DailyPoint[] }> {
+  const name = locationId.startsWith("locations/") ? locationId : `locations/${locationId}`;
+  const params = new URLSearchParams();
+  for (const m of GBP_METRICS) params.append("dailyMetrics", m);
+  for (const [k, v] of Object.entries(ymdParts("dailyRange.startDate", startDate))) params.append(k, v);
+  for (const [k, v] of Object.entries(ymdParts("dailyRange.endDate", endDate))) params.append(k, v);
+
+  const res = await fetch(
+    `https://businessprofileperformance.googleapis.com/v1/${name}:fetchMultiDailyMetricsTimeSeries?${params.toString()}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!res.ok) throw new Error(`GBP_QUERY_FAILED:${res.status}`);
+  const data = (await res.json()) as {
+    multiDailyMetricTimeSeries?: Array<{
+      dailyMetricTimeSeries?: Array<{
+        dailyMetric?: string;
+        timeSeries?: { datedValues?: Array<{ date?: { year: number; month: number; day: number }; value?: string }> };
+      }>;
+    }>;
+  };
+
+  const interactionsMap = new Map<string, number>();
+  const impressionsMap = new Map<string, number>();
+  const isImpression = (m: string) => m.startsWith("BUSINESS_IMPRESSIONS_");
+  for (const outer of data.multiDailyMetricTimeSeries ?? []) {
+    for (const series of outer.dailyMetricTimeSeries ?? []) {
+      const metric = series.dailyMetric ?? "";
+      const target = isImpression(metric) ? impressionsMap : interactionsMap;
+      for (const dv of series.timeSeries?.datedValues ?? []) {
+        if (!dv.date) continue;
+        const date = `${dv.date.year}-${String(dv.date.month).padStart(2, "0")}-${String(dv.date.day).padStart(2, "0")}`;
+        target.set(date, (target.get(date) ?? 0) + Number(dv.value ?? 0));
+      }
+    }
+  }
+  const toPoints = (map: Map<string, number>): DailyPoint[] =>
+    [...map.entries()].map(([date, value]) => ({ date, value: Math.round(value) })).sort((a, b) => a.date.localeCompare(b.date));
+  return { interactions: toPoints(interactionsMap), impressions: toPoints(impressionsMap) };
 }
