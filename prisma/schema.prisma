@@ -635,6 +635,26 @@ model RiskLog {
   @@index([orgId])
 }
 
+// 컴플라이언스 검수 로그(§4 Compliance Log) — 위험표현·판정·승인자·시각을 한 행으로 적재.
+// 법적 방어용 단일 추출을 위해 complianceRisk(JSON)·AuditLog·Approval에 분산된 것을 정규화.
+model ComplianceLog {
+  id          String   @id @default(cuid())
+  clientId    String?
+  targetType  String // ContentPlan | ConsultingReport | Report | MagazinePost
+  targetId    String
+  verdict     String // PASS | WARN | BLOCK
+  highCount   Int      @default(0)
+  mediumCount Int      @default(0)
+  flags       Json? // 감지된 표현 목록
+  reviewerId  String?
+  orgId       String?
+  createdAt   DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([clientId])
+  @@index([orgId])
+}
+
 model AuditLog {
   id          String   @id @default(cuid())
   actorId     String?

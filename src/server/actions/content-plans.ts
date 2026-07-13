@@ -10,6 +10,7 @@ import { assertCanAccessClient } from "@/domain/access-control";
 import { db } from "@/server/db";
 import { generateContentPlan, isAiConfigured } from "@/server/ai/claude";
 import { checkMedicalLaw } from "@/server/compliance/medical-law";
+import { recordComplianceLog } from "@/server/compliance/log";
 import { getDefaultOrgId } from "@/server/org";
 import { renderContentPlanForPublish } from "@/server/marketing/render-plan";
 import { wordpressPublish } from "@/server/marketing/providers/wordpress";
@@ -52,6 +53,7 @@ export async function createContentPlan(input: unknown): Promise<ActionResult<{ 
     let faq: string[] = [];
     let qa: { q: string; a: string }[] = [];
     let complianceRisk: unknown = null;
+    let complianceForLog: { high: number; medium: number; flags: unknown } | null = null;
     let status = "PLANNED";
 
     if (d.generate) {
@@ -70,6 +72,7 @@ export async function createContentPlan(input: unknown): Promise<ActionResult<{ 
       const combined = [draft.angle, ...draft.faq, ...draft.qa.flatMap((x) => [x.q, x.a])].join("\n");
       const check = checkMedicalLaw(combined, profile?.prohibitedClaims);
       complianceRisk = { high: check.highCount, medium: check.mediumCount, flags: check.flags };
+      complianceForLog = { high: check.highCount, medium: check.mediumCount, flags: check.flags };
     }
 
     const meta = await requestMeta();
@@ -89,6 +92,18 @@ export async function createContentPlan(input: unknown): Promise<ActionResult<{ 
           orgId
         }
       });
+      // 검수 로그 정규화 적재(§4 Compliance Log) — 생성 시 검수했으면 한 행 기록.
+      if (complianceForLog) {
+        await recordComplianceLog(tx, {
+          clientId: d.clientId,
+          targetType: "ContentPlan",
+          targetId: plan.id,
+          highCount: complianceForLog.high,
+          mediumCount: complianceForLog.medium,
+          flags: complianceForLog.flags,
+          orgId
+        });
+      }
       await recordAudit(tx, { actorId: user.id, action: "contentPlan.create", targetType: "ContentPlan", targetId: plan.id, afterState: { topic: d.topic, generated: Boolean(d.generate) }, ...meta });
       return plan;
     });
