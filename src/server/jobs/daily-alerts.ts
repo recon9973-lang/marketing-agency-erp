@@ -26,13 +26,20 @@ async function alreadySentToday(userId: string, type: string, targetId: string, 
   return Boolean(existing);
 }
 
-export type DailyAlertResult = { dueSoon: number; overdue: number; approvalWait: number; recontact: number };
+export type DailyAlertResult = {
+  dueSoon: number;
+  overdue: number;
+  approvalWait: number;
+  recontact: number;
+  credentialAlert: number;
+  contractRenewal: number;
+};
 
 export async function runDailyAlerts(now = new Date()): Promise<DailyAlertResult> {
   const todayStart = dayStart(now);
   const tomorrowStart = new Date(todayStart.getTime() + DAY_MS);
   const dayAfterStart = new Date(todayStart.getTime() + 2 * DAY_MS);
-  const result: DailyAlertResult = { dueSoon: 0, overdue: 0, approvalWait: 0, recontact: 0 };
+  const result: DailyAlertResult = { dueSoon: 0, overdue: 0, approvalWait: 0, recontact: 0, credentialAlert: 0, contractRenewal: 0 };
 
   // ① 마감 D-1(내일 마감) + 지연(마감 지남) — 미완료 업무의 담당자에게
   const openWork = await db.workItem.findMany({
@@ -112,6 +119,68 @@ export async function runDailyAlerts(now = new Date()): Promise<DailyAlertResult
       }
     });
     result.recontact++;
+  }
+
+  // ④ 권한(ChannelConnection) 이상 — 연동 오류(ERROR) 또는 만료 임박(7일 내)·만료, 미회수(§9 계정권한·§14 필수④)
+  const weekAhead = new Date(todayStart.getTime() + 7 * DAY_MS);
+  const badConns = await db.channelConnection.findMany({
+    where: {
+      revokedAt: null,
+      OR: [{ status: "ERROR" }, { expiresAt: { not: null, lt: weekAhead } }]
+    },
+    select: {
+      id: true,
+      provider: true,
+      status: true,
+      expiresAt: true,
+      client: { select: { id: true, name: true, assignedMarketerId: true } }
+    },
+    take: 200
+  });
+  for (const c of badConns) {
+    const userId = c.client.assignedMarketerId;
+    if (!userId) continue;
+    if (await alreadySentToday(userId, "CREDENTIAL_ALERT", c.id, todayStart)) continue;
+    const expired = c.expiresAt ? c.expiresAt < now : false;
+    const reason = c.status === "ERROR" ? "연동 오류/미연동" : expired ? "권한 만료" : "권한 만료 임박";
+    await db.notification.create({
+      data: {
+        userId,
+        type: "CREDENTIAL_ALERT",
+        title: `권한 점검 필요: ${c.provider} (${reason})`,
+        body: `${c.client.name} — ${c.provider} 연결을 확인/갱신해주세요.`,
+        link: `/clients/${c.client.id}`,
+        targetType: "ChannelConnection",
+        targetId: c.id
+      }
+    });
+    result.credentialAlert++;
+  }
+
+  // ⑤ 계약 만료 D-30 — 재계약 제안·성과요약 준비 알림(§15 "계약 종료 30일 전 자동")
+  const in30 = new Date(todayStart.getTime() + 30 * DAY_MS);
+  const ending = await db.contract.findMany({
+    where: { status: "SIGNED", endDate: { not: null, gte: todayStart, lt: in30 } },
+    select: { id: true, endDate: true, client: { select: { id: true, name: true, assignedMarketerId: true } } },
+    take: 200
+  });
+  for (const ct of ending) {
+    const userId = ct.client.assignedMarketerId;
+    if (!userId || !ct.endDate) continue;
+    if (await alreadySentToday(userId, "CONTRACT_RENEWAL_DUE", ct.id, todayStart)) continue;
+    const dday = Math.max(0, Math.round((ct.endDate.getTime() - todayStart.getTime()) / DAY_MS));
+    await db.notification.create({
+      data: {
+        userId,
+        type: "CONTRACT_RENEWAL_DUE",
+        title: `계약 만료 D-${dday}: ${ct.client.name}`,
+        body: `재계약 제안과 성과 요약을 준비해주세요. (만료 ${ct.endDate.toISOString().slice(0, 10)})`,
+        link: `/clients/${ct.client.id}`,
+        targetType: "Contract",
+        targetId: ct.id
+      }
+    });
+    result.contractRenewal++;
   }
 
   return result;
