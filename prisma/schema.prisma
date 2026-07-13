@@ -250,6 +250,7 @@ model Client {
   region             String? // 지역(예: 서울 강남구) — GEO 질문 생성·로컬 채널에 자동 사용
   serviceNotes       String?
   active             Boolean           @default(true)
+  lifecycleStatus    String            @default("ONBOARDING") // §12 운영 생명주기: ONBOARDING→DIAGNOSING→BUILDING→OPERATING→REPORT_PENDING→RENEWAL_PENDING→ENDED
   assignedMarketerId String?
   industryCategoryId String?
   industryCustom     String? // 업종 "기타" 수기 입력

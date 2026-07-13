@@ -20,6 +20,12 @@ import {
   runAction,
   type ActionResult
 } from "@/server/actions/_helpers";
+import {
+  CLIENT_LIFECYCLE_STATUSES,
+  canTransitionClientLifecycle,
+  isClientLifecycleStatus,
+  type ClientLifecycleStatus
+} from "@/domain/sales/client-lifecycle";
 
 function assertManagerRole(role: Role) {
   if (role !== Role.SUPER_ADMIN && role !== Role.ADMIN) {
@@ -351,5 +357,45 @@ export async function addClientAccount(input: unknown): Promise<ActionResult<{ i
 
     revalidatePath(`/clients/${data.clientId}`);
     return { id: created.id };
+  });
+}
+
+/**
+ * 거래처 운영 생명주기 상태 전이(§12). 전이표(client-lifecycle) 규칙을 강제하고 감사로그를 남긴다.
+ * 권한: 거래처 접근 가능한 사용자(담당 마케터/관리자).
+ */
+export async function updateClientLifecycle(input: unknown): Promise<ActionResult<{ status: ClientLifecycleStatus }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const p = z
+      .object({ clientId: z.string().min(1), status: z.enum(CLIENT_LIFECYCLE_STATUSES) })
+      .safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+
+    const before = await db.client.findUnique({ where: { id: p.data.clientId }, select: { lifecycleStatus: true, assignedMarketerId: true } });
+    if (!before) throw new Error("NOT_FOUND");
+    const scopes = await getAdminScopes(user);
+    assertCanAccessClient(user, p.data.clientId, scopes, before.assignedMarketerId);
+
+    const from = isClientLifecycleStatus(before.lifecycleStatus) ? before.lifecycleStatus : "ONBOARDING";
+    if (from !== p.data.status && !canTransitionClientLifecycle(from, p.data.status)) {
+      throw new Error("ILLEGAL_TRANSITION");
+    }
+
+    const meta = await requestMeta();
+    await db.$transaction(async (tx) => {
+      await tx.client.update({ where: { id: p.data.clientId }, data: { lifecycleStatus: p.data.status } });
+      await recordAudit(tx, {
+        actorId: user.id,
+        action: "client.lifecycle",
+        targetType: "Client",
+        targetId: p.data.clientId,
+        beforeState: { lifecycleStatus: from },
+        afterState: { lifecycleStatus: p.data.status },
+        ...meta
+      });
+    });
+    revalidatePath(`/clients/${p.data.clientId}`);
+    return { status: p.data.status };
   });
 }
