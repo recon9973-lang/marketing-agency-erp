@@ -10,37 +10,81 @@ import { getDefaultOrgId } from "@/server/org";
 import { requireUser, runAction, type ActionResult } from "@/server/actions/_helpers";
 import { assertProjectAccess } from "@/server/repositories/studio";
 import { blankDoc, studioDoc, SIZE_PRESETS, type StudioKind } from "@/domain/studio/schema";
+import { getBuiltinTemplate, instantiateTemplateDoc } from "@/domain/studio/templates";
+import { autopaginate } from "@/domain/studio/autopaginate";
 import type { Prisma } from "@prisma/client";
 
 const createSchema = z.object({
   presetKey: z.string().optional(),
+  templateId: z.string().optional(),
   width: z.number().int().min(16).max(8000).optional(),
   height: z.number().int().min(16).max(8000).optional(),
   kind: z.string().optional(),
   title: z.string().max(120).optional()
 });
 
-/** 새 프로젝트 생성 후 id 반환. 프리셋 키 또는 명시 크기 중 하나로 캔버스 지정. */
+/** 새 프로젝트 생성 후 id 반환. 템플릿 / 프리셋 / 명시 크기 순으로 캔버스·문서 결정. */
 export async function createStudioProject(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const user = await requireUser();
     const orgId = await getDefaultOrgId();
     const parsed = createSchema.parse(input ?? {});
 
+    const template = parsed.templateId ? getBuiltinTemplate(parsed.templateId) : undefined;
     const preset = parsed.presetKey ? SIZE_PRESETS.find((p) => p.key === parsed.presetKey) : undefined;
-    const width = parsed.width ?? preset?.w ?? 1080;
-    const height = parsed.height ?? preset?.h ?? 1080;
-    const kind: StudioKind = (preset?.kind ?? (parsed.kind as StudioKind)) ?? "blank";
+
+    const width = template?.width ?? parsed.width ?? preset?.w ?? 1080;
+    const height = template?.height ?? parsed.height ?? preset?.h ?? 1080;
+    const kind: StudioKind = (template?.kind as StudioKind) ?? preset?.kind ?? (parsed.kind as StudioKind) ?? "blank";
+    const doc = template ? instantiateTemplateDoc(template) : blankDoc(width, height);
+    const title = parsed.title?.trim() || (template ? template.title : "제목 없는 디자인");
 
     const created = await db.studioProject.create({
       data: {
         orgId,
         ownerId: user.id,
-        title: parsed.title?.trim() || "제목 없는 디자인",
+        title,
         kind,
         canvasW: width,
         canvasH: height,
-        data: blankDoc(width, height) as unknown as Prisma.InputJsonValue
+        data: doc as unknown as Prisma.InputJsonValue
+      },
+      select: { id: true }
+    });
+    revalidatePath("/studio");
+    return { id: created.id };
+  });
+}
+
+const cardnewsSchema = z.object({
+  text: z.string().min(1).max(20_000),
+  cover: z.boolean().optional(),
+  title: z.string().max(120).optional()
+});
+
+/** 긴 글 → 카드뉴스 자동 분할. 표지+본문 N장 프로젝트를 만들고 id 반환. */
+export async function createStudioCardnews(input: unknown): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const orgId = await getDefaultOrgId();
+    const parsed = cardnewsSchema.parse(input);
+
+    const width = 1080;
+    const height = 1350;
+    const doc = autopaginate(parsed.text, { width, height, cover: parsed.cover ?? true, title: parsed.title });
+    // 제목: 지정값 우선, 없으면 본문 첫 줄에서 추출.
+    const firstLine = parsed.text.split("\n").map((l) => l.trim()).find(Boolean) ?? "카드뉴스";
+    const title = (parsed.title?.trim() || firstLine).slice(0, 60);
+
+    const created = await db.studioProject.create({
+      data: {
+        orgId,
+        ownerId: user.id,
+        title,
+        kind: "cardnews",
+        canvasW: width,
+        canvasH: height,
+        data: doc as unknown as Prisma.InputJsonValue
       },
       select: { id: true }
     });
