@@ -33,6 +33,7 @@ const PAGES: CatalogItem[] = [
   { id: "p-ai", kind: "page", title: "AI 마케팅", href: "/ai-studio", roles: ALL, keywords: "ai 인공지능 마케팅 생성 studio", description: "AI 마케팅 콘텐츠 생성" },
   { id: "p-image", kind: "page", title: "이미지 스튜디오", href: "/image-studio", roles: ALL, keywords: "이미지 사진 image 생성 편집 studio", description: "이미지 생성·편집" },
   { id: "p-studio", kind: "page", title: "디자인 스튜디오", href: "/studio", roles: ALL, keywords: "디자인 카드뉴스 배너 썸네일 캔버스 편집기 design studio cardnews 포스팅 webp 내보내기", description: "카드뉴스·SNS·배너 디자인 편집·내보내기" },
+  { id: "p-convert", kind: "page", title: "이미지 변환 도구", href: "/studio/convert", roles: ALL, keywords: "이미지 변환 webp jpg png 압축 리사이즈 용량 convert 최적화 zip 일괄", description: "이미지 일괄 WEBP/JPG/PNG 변환·압축·리사이즈" },
   { id: "p-compliance", kind: "page", title: "의료법 검수", href: "/compliance", roles: ALL, keywords: "의료법 검수 compliance 심의 위반 리스크", description: "의료광고법 위반 검수" },
   { id: "p-approvals", kind: "page", title: "승인함", href: "/approvals", roles: ALL, keywords: "승인 결재 approval 대기 컨펌", description: "승인·결재 대기 항목" },
   { id: "p-meetings", kind: "page", title: "회의록", href: "/meetings", roles: ALL, keywords: "회의 회의록 meeting 미팅 기록", description: "회의록 작성·조회" },
@@ -67,7 +68,8 @@ const HELP: CatalogItem[] = [
   { id: "h-keyword", kind: "help", title: "검색량 조회하기", href: "/keywords", roles: ALL, keywords: "검색량 키워드 조회 볼륨 네이버", description: "검색량 조회에서 키워드를 넣어 월간 검색량을 확인합니다." },
   { id: "h-finance", kind: "help", title: "정산·지출 입력", href: "/finance", roles: ADMINS, keywords: "정산 지출 청구 입금 비용 입력 매출", description: "정산/지출에서 청구·입금·지출 내역을 입력·검토합니다." },
   { id: "h-settings", kind: "help", title: "직원 추가·권한 설정", href: "/settings", roles: OWNER, keywords: "직원 추가 권한 역할 설정 계정 초대 admin", description: "직원/권한에서 계정을 추가하고 역할·접근 범위를 지정합니다." },
-  { id: "h-theme", kind: "help", title: "다크모드 전환", href: "/dashboard", roles: ALL, keywords: "다크모드 라이트 테마 화면 색상 dark light theme 야간", description: "화면 우측 상단 헤더의 테마 버튼으로 라이트/다크를 전환합니다." }
+  { id: "h-theme", kind: "help", title: "다크모드 전환", href: "/dashboard", roles: ALL, keywords: "다크모드 라이트 테마 화면 색상 dark light theme 야간", description: "화면 우측 상단 헤더의 테마 버튼으로 라이트/다크를 전환합니다." },
+  { id: "h-convert", kind: "help", title: "이미지 WEBP로 변환·압축", href: "/studio/convert", roles: ALL, keywords: "webp 변환 압축 용량 줄이기 이미지 최적화 리사이즈 jpg png zip", description: "이미지 변환 도구에서 여러 장을 WEBP로 일괄 변환·압축해 ZIP으로 받습니다." }
 ];
 
 const CATALOG: CatalogItem[] = [...PAGES, ...HELP];
