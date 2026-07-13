@@ -7,6 +7,10 @@ import { redactPII } from "@/server/compliance/pii";
 
 export const AI_MODEL = "claude-opus-4-8";
 
+// 의료광고법(의료법 §56) 프롬프트 지침 — 여러 생성기에서 공통으로 쓰는 금지표현 규칙(단일 소스).
+export const MEDICAL_AD_RULES =
+  "치료효과 단정·보장, 최상급(최고/유일/1위), 완치, 부작용 없음, 전후비교 사진, 후기/체험담, 비급여 할인·이벤트 유인, 타 병원 비교 표현을 절대 쓰지 말고, 효과를 언급할 때는 부작용·개인차·전문의 상담 필요를 함께 적으세요.";
+
 export type AiContentKind = "BLOG" | "CARD_NEWS" | "SNS" | "AD_COPY" | "KEYWORD";
 
 export const AI_KIND_LABELS: Record<AiContentKind, string> = {
@@ -147,7 +151,7 @@ export async function generateBlogPost(input: BlogPostInput): Promise<BlogPost> 
   const system =
     "당신은 한국의 마케팅 대행사 소속 전문 블로그 카피라이터이자 SEO 에디터입니다. " +
     "네이버/구글 검색에 잘 잡히는 정보성 블로그 글을 작성합니다. " +
-    "의료·건강 주제라면 의료광고법을 준수해 과장·단정·최상급 표현을 피합니다. " +
+    "의료·건강 주제라면 의료광고법을 준수하세요: " + MEDICAL_AD_RULES + " " +
     "반드시 아래 JSON 스키마 하나만 출력하세요(설명·코드펜스 금지):\n" +
     '{"title": string, "html": string, "metaDesc": string, "keywords": string[], "publishable": boolean}\n' +
     "html은 <h2>/<p>/<ul>/<li> 등 시맨틱 태그로 구성된 본문 HTML(‹html›/‹body› 태그 없이 본문만). " +
@@ -202,7 +206,7 @@ export async function generateSeoBlogDraft(input: SeoBlogDraftInput): Promise<Se
     "검색엔진과 생성형 AI(ChatGPT·Perplexity 등) 답변에 모두 인용되기 좋은 정보성 글을 씁니다. " +
     "핵심 답을 첫 문단에 두고(BLUF), 질문형 소제목과 FAQ로 구조화합니다. " +
     (input.medical
-      ? "의료·건강 주제이므로 의료광고법을 엄격히 준수하세요: 치료효과 단정·보장, 최상급/유일성, 전후비교·비급여 유인, 타 병원 비교를 쓰지 말고, 효과 언급 시 부작용·개인차·전문의 상담 필요를 함께 적으세요. "
+      ? "의료·건강 주제이므로 의료광고법을 엄격히 준수하세요: " + MEDICAL_AD_RULES + " "
       : "") +
     "반드시 아래 JSON 스키마 하나만 출력하세요(설명·코드펜스 금지):\n" +
     '{"titleCandidates": string[5], "recommendedTitle": string, "metaDescription": string, "outline": string[5..6], "bodyMarkdown": string, "faq": [{"q": string, "a": string}] (3개 이상), "hashtags": string[5]}\n' +
@@ -342,7 +346,7 @@ export async function generateContentPlan(input: ContentPlanInput): Promise<Cont
     "반드시 이 JSON만 출력하세요: " +
     '{"angle": string, "faq": string[], "qa": [{"q": string, "a": string}]}. ' +
     "angle은 2~4문장, faq 5~8개, qa 4~6개. " +
-    "의료광고법상 치료효과 보장·최상급(최고/유일)·완치·부작용 없음·비급여 할인 유인·후기성 표현은 절대 쓰지 마세요." +
+    "의료광고법: " + MEDICAL_AD_RULES +
     (input.prohibited ? ` 특히 다음 표현은 금지: ${input.prohibited}` : "");
   const lines = [
     `주제: ${input.topic}`,
@@ -387,7 +391,7 @@ export async function generateGeoAnswerPage(input: GeoAnswerInput): Promise<GeoA
     "(2) sections는 소제목+본문 3~4개, 일반적 의학 정보 중심(특정 치료 권유 아님). " +
     "(3) faq는 연관 질문 3개(질문·답변 각 1~3문장). " +
     "(4) caution에는 '개인차가 있으며 정확한 진단은 의료진 상담이 필요하다'는 취지의 주의 문구. " +
-    "(5) 의료광고법: 치료효과 보장·완치·최상급(최고/유일/1위)·부작용 없음·후기/체험담·할인/이벤트 표현 절대 금지. " +
+    "(5) 의료광고법: " + MEDICAL_AD_RULES + " " +
     "(6) 병원 자랑이 아니라 환자에게 유용한 정보를 우선하고, 병원명은 자연스럽게 1~2회만. " +
     '반드시 이 JSON만 출력: {"title": string, "summary": string, "sections": [{"heading": string, "body": string}], "faq": [{"q": string, "a": string}], "caution": string}' +
     (input.prohibited ? ` 특히 다음 표현 금지: ${input.prohibited}` : "");
