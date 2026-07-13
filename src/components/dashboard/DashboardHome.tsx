@@ -9,12 +9,14 @@ import { Role } from "@/domain/types";
 import { ClientConfirmations } from "@/components/dashboard/ClientConfirmations";
 import { ClientMonitor } from "@/components/dashboard/ClientMonitor";
 import { PlatformUpdateBanner } from "@/components/dashboard/PlatformUpdateBanner";
+import { GuaranteeHeatmap } from "@/components/dashboard/GuaranteeHeatmap";
 import { RolePipeline } from "@/components/dashboard/RolePipeline";
 import { WorkOverview } from "@/components/dashboard/WorkOverview";
 import type { DashboardSummary } from "@/domain/dashboard";
 import type { ClientConfirmations as Confirmations, ClientMonitorRow, RiskItem } from "@/server/repositories/dashboard-extras";
 import type { GeoDashboardSummary } from "@/server/repositories/geo";
 import type { LeadPipelineSummary } from "@/server/repositories/leads";
+import type { GuaranteeHeatmap as RankGuaranteeData } from "@/server/repositories/rank-guarantee";
 import { ACTIVE_LEAD_STAGES, leadStatusLabels } from "@/domain/sales/lead-stages";
 
 const EMPTY_CONFIRMATIONS: Confirmations = { pending: [], recent: [] };
@@ -373,14 +375,16 @@ type ViewProps = {
   confirmations: Confirmations;
   leadPipeline: LeadPipelineSummary;
   geoSummary: GeoDashboardSummary | null;
+  rankGuarantee: RankGuaranteeData;
 };
 
-function MarketerDashboard({ first, summary, riskItems, riskCount, confirmations, leadPipeline }: ViewProps) {
+function MarketerDashboard({ first, summary, riskItems, riskCount, confirmations, leadPipeline, rankGuarantee }: ViewProps) {
   const { commands, actionCount } = buildDeck(Role.MARKETER, summary, riskCount, leadPipeline.recontactDueThisWeek);
   return (
     <div className="space-y-4">
       <GreetingBar first={first} actionCount={actionCount} subject="담당자" />
       <CommandCenter commands={commands} actionCount={actionCount} />
+      <GuaranteeHeatmap data={rankGuarantee} />
       <AiQuickActions />
       <RolePipeline role={Role.MARKETER} summary={summary} riskCount={riskCount} />
       <KpiGrid kpis={kpisFor(Role.MARKETER, summary)} />
@@ -392,12 +396,13 @@ function MarketerDashboard({ first, summary, riskItems, riskCount, confirmations
   );
 }
 
-function AdminDashboard({ first, summary, riskItems, riskCount, confirmations, leadPipeline, geoSummary }: ViewProps) {
+function AdminDashboard({ first, summary, riskItems, riskCount, confirmations, leadPipeline, geoSummary, rankGuarantee }: ViewProps) {
   const { commands, actionCount } = buildDeck(Role.ADMIN, summary, riskCount, leadPipeline.recontactDueThisWeek);
   return (
     <div className="space-y-4">
       <GreetingBar first={first} actionCount={actionCount} subject="관리자 · 배정 범위" />
       <CommandCenter commands={commands} actionCount={actionCount} />
+      <GuaranteeHeatmap data={rankGuarantee} />
       <LeadPipelineBar leadPipeline={leadPipeline} />
       {geoSummary && <GeoBar geoSummary={geoSummary} />}
       <RolePipeline role={Role.ADMIN} summary={summary} riskCount={riskCount} />
@@ -411,12 +416,13 @@ function AdminDashboard({ first, summary, riskItems, riskCount, confirmations, l
   );
 }
 
-function SuperAdminDashboard({ first, summary, riskItems, riskCount, clientMonitor, confirmations, leadPipeline, geoSummary }: ViewProps) {
+function SuperAdminDashboard({ first, summary, riskItems, riskCount, clientMonitor, confirmations, leadPipeline, geoSummary, rankGuarantee }: ViewProps) {
   const { commands, actionCount } = buildDeck(Role.SUPER_ADMIN, summary, riskCount, leadPipeline.recontactDueThisWeek);
   return (
     <div className="space-y-4">
       <GreetingBar first={first} actionCount={actionCount} subject="최고관리자 · 전사" />
       <CommandCenter commands={commands} actionCount={actionCount} />
+      <GuaranteeHeatmap data={rankGuarantee} />
       <AiQuickActions />
       <LeadPipelineBar leadPipeline={leadPipeline} />
       {geoSummary && <GeoBar geoSummary={geoSummary} />}
@@ -440,7 +446,8 @@ export function DashboardHome({
   clientMonitor = [],
   confirmations = EMPTY_CONFIRMATIONS,
   leadPipeline = { byStatus: {}, recontactDueThisWeek: 0 },
-  geoSummary = null
+  geoSummary = null,
+  rankGuarantee = { rows: [], totalKeywords: 0, droppedTotal: 0, belowTotal: 0 }
 }: {
   userName: string;
   role: Role;
@@ -450,10 +457,11 @@ export function DashboardHome({
   confirmations?: Confirmations;
   leadPipeline?: LeadPipelineSummary;
   geoSummary?: GeoDashboardSummary | null;
+  rankGuarantee?: RankGuaranteeData;
 }) {
   const riskCount = riskItems.reduce((n, r) => n + (r.high > 0 ? 1 : 0), 0);
   const first = userName.replace(/(관리자|님)$/g, "") || userName;
-  const view: ViewProps = { first, summary, riskItems, riskCount, clientMonitor, confirmations, leadPipeline, geoSummary };
+  const view: ViewProps = { first, summary, riskItems, riskCount, clientMonitor, confirmations, leadPipeline, geoSummary, rankGuarantee };
 
   // effective role 기준 분기 — 승인된 관리자는 role이 SUPER_ADMIN이라 최고관리자 뷰로 자동 진입.
   const body =
