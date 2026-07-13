@@ -21,7 +21,7 @@ export function filterClientsForUser(
   return clients.filter((client) => canAccessClient(user, client.id, scopes, client.assignedMarketerId));
 }
 
-function buildClientWhere(user: CurrentUser, scopes: AccessScopeRecord[]) {
+export function buildClientWhere(user: CurrentUser, scopes: AccessScopeRecord[]) {
   if (user.role === Role.SUPER_ADMIN) {
     return {};
   }

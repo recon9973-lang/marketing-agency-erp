@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { DashboardHome } from "@/components/dashboard/DashboardHome";
+import { ErpSearch } from "@/components/search/ErpSearch";
 import { summarizeDashboard, type DashboardSummary } from "@/domain/dashboard";
 import { fetchDashboardInput } from "@/server/repositories/dashboard";
 import { listClientConfirmations, listClientMonitor, listComplianceRiskItems } from "@/server/repositories/dashboard-extras";
@@ -70,15 +71,18 @@ export default async function DashboardPage() {
   }
 
   return (
-    <DashboardHome
-      userName={user.name}
-      role={user.role}
-      summary={summary}
-      riskItems={riskItems}
-      clientMonitor={clientMonitor}
-      confirmations={confirmations}
-      leadPipeline={leadPipeline}
-      geoSummary={geoSummary}
-    />
+    <div className="space-y-6">
+      <ErpSearch role={user.role} />
+      <DashboardHome
+        userName={user.name}
+        role={user.role}
+        summary={summary}
+        riskItems={riskItems}
+        clientMonitor={clientMonitor}
+        confirmations={confirmations}
+        leadPipeline={leadPipeline}
+        geoSummary={geoSummary}
+      />
+    </div>
   );
 }
