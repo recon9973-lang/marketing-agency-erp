@@ -19,6 +19,7 @@ import { runChannelSync } from "@/server/jobs/channel-sync";
 import { runMagazineAutoDraft } from "@/server/jobs/magazine";
 import { runScheduledPublishReconcile } from "@/server/jobs/scheduled-publish";
 import { runPlaceRankTracking } from "@/server/jobs/place-rank";
+import { runIndexNowSubmit } from "@/server/jobs/indexnow-submit";
 import { runGeoWatch } from "@/server/geo-engine/runner";
 
 export const runtime = "nodejs";
@@ -41,13 +42,15 @@ export async function GET(req: NextRequest) {
     const scheduledPublish = await runScheduledPublishReconcile();
     // 플레이스 순위 추적 — place 키워드에 대해 거래처 로컬 노출 순위를 일자별 기록(멱등)
     const placeRank = await runPlaceRankTracking();
+    // 색인 자동 제출 — 최근 게시 URL을 IndexNow 제출 + 사이트맵 핑(env 미설정 시 skip)
+    const indexNow = await runIndexNowSubmit();
     // 월간 성과수집(무인)은 매월 1일에만 — 설정을 DB에서 자동 구성해 이번 달 보고서에 병합
     const isFirstOfMonth = new Date().getUTCDate() === 1;
     const monthlyPerf = isFirstOfMonth ? await runMonthlyPerformanceCollectionAuto() : null;
     // GEO 자동 관측은 주 1회(월요일)만 — 엔진 API 비용 상한(질문×엔진×주1회)
     const isMonday = new Date().getUTCDay() === 1;
     const geoWatch = isMonday ? await runGeoWatch() : null;
-    const summary = { alerts, sync, magazine, scheduledPublish, placeRank, monthlyPerf, geoWatch };
+    const summary = { alerts, sync, magazine, scheduledPublish, placeRank, indexNow, monthlyPerf, geoWatch };
     await recordCronRun("ok", summary);
     return NextResponse.json({ ok: true, ...summary });
   } catch (e) {
@@ -75,7 +78,7 @@ async function recordCronRun(outcome: "ok" | "error", summary: unknown): Promise
 }
 
 type CronBody = {
-  job?: "alerts" | "sync" | "geo-watch" | "magazine-draft" | "scheduled-publish" | "place-rank" | "collection-auto" | "collection";
+  job?: "alerts" | "sync" | "geo-watch" | "magazine-draft" | "scheduled-publish" | "place-rank" | "indexnow" | "collection-auto" | "collection";
   reportingMonth?: string;
   configByClient?: Record<string, { keywords: string[]; target: string; channel?: "blog" | "web" | "local" }>;
 };
@@ -145,6 +148,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, ...result });
     } catch (e) {
       console.error("[marketing/cron] place rank tracking failed", e);
+      return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
+    }
+  }
+
+  // 색인 자동 제출 — {"job":"indexnow"}로 트리거. 최근 게시 URL IndexNow 제출 + 사이트맵 핑(env 미설정 시 skip).
+  if (body.job === "indexnow") {
+    try {
+      const result = await runIndexNowSubmit();
+      return NextResponse.json({ ok: true, ...result });
+    } catch (e) {
+      console.error("[marketing/cron] indexnow submit failed", e);
       return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
     }
   }

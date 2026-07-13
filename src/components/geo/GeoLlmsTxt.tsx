@@ -10,15 +10,17 @@ import { useState } from "react";
 export function GeoLlmsTxt({
   clientName,
   llmsText,
-  urls
+  urls,
+  publicPath
 }: {
   clientName: string;
   llmsText: string;
   urls: string[];
+  publicPath?: string | null;
 }) {
-  const [copied, setCopied] = useState<null | "llms" | "urls">(null);
+  const [copied, setCopied] = useState<null | "llms" | "urls" | "public">(null);
 
-  async function copy(text: string, which: "llms" | "urls") {
+  async function copy(text: string, which: "llms" | "urls" | "public") {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(which);
@@ -68,6 +70,20 @@ export function GeoLlmsTxt({
             </button>
           </div>
         </div>
+
+        {publicPath && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2">
+            <span className="text-[11px] font-semibold text-emerald-700">공개 서빙 URL</span>
+            <code className="flex-1 truncate rounded bg-white/70 px-2 py-1 text-[11px] text-slate-600">{publicPath}</code>
+            <button
+              type="button"
+              onClick={() => copy(typeof window !== "undefined" ? window.location.origin + publicPath : publicPath, "public")}
+              className="rounded-lg border border-emerald-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50"
+            >
+              {copied === "public" ? "복사됨 ✓" : "링크 복사"}
+            </button>
+          </div>
+        )}
 
         {hasPages ? (
           <pre className="mt-3 max-h-72 overflow-auto rounded-xl border border-line bg-surface p-3 text-[11px] leading-relaxed text-slate-700">

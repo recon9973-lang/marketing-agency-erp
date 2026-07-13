@@ -66,6 +66,7 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
             where: { id: selectedId },
             select: {
               region: true,
+              portalToken: true,
               industryCategory: { select: { name: true } },
               hospitalProfile: { select: { departments: true } }
             }
@@ -93,6 +94,8 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
     })
   );
   const publishedUrls = publishedPages.map((p) => p.publishedUrl);
+  // 공개 서빙 경로(#20) — portalToken이 있으면 로그인 없이 fetch 가능한 llms.txt URL.
+  const llmsPublicPath = selectedClient?.portalToken ? `/portal/${selectedClient.portalToken}/llms.txt` : null;
 
   const kpis = [
     { label: "전체 질문", value: summary.totalQuestions, icon: KPI_ICONS.question, tone: "emerald" },
@@ -183,7 +186,7 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
                 <GeoQuestionAdder clientId={selectedId} />
               </>
               <GeoAnswerRecorder questions={rows} />
-              <GeoLlmsTxt clientName={selectedName} llmsText={llmsText} urls={publishedUrls} />
+              <GeoLlmsTxt clientName={selectedName} llmsText={llmsText} urls={publishedUrls} publicPath={llmsPublicPath} />
               <GeoChannelGuide defaultOpen />
             </GeoTabs>
           )}
