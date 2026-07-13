@@ -64,7 +64,11 @@ type ErpRoute =
   | "/integrations"
   | "/settings";
 
-type NavGroup = "운영" | "관리";
+// 업무 흐름 기반 그룹 — 컨설팅·계약 → 기획·분석 → 제작·검수 → 보고 → 관리.
+type NavGroup = "홈" | "영업·계약" | "기획·분석" | "제작·검수" | "보고·기록" | "관리";
+
+// 사이드바 섹션 렌더 순서(홈은 상단 고정이라 제외).
+const NAV_SECTIONS: NavGroup[] = ["영업·계약", "기획·분석", "제작·검수", "보고·기록", "관리"];
 
 export type NavItem = {
   href: ErpRoute;
@@ -76,132 +80,159 @@ export type NavItem = {
 
 export function getNavigationItems(role: Role, canAccessSettings = false): NavItem[] {
   const items: NavItem[] = [
+    // 홈(상단 고정)
     {
       href: "/dashboard",
       label: "대시보드",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: ChartNoAxesCombined,
-      group: "운영"
+      group: "홈"
     },
+    // ── 영업·계약: 컨설팅(리드/무료진단) → 계약 → 담당자 배정(거래처) ──
     {
       href: "/leads",
       label: "영업 리드",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Target,
-      group: "운영"
-    },
-    {
-      href: "/clients",
-      label: "거래처",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: BriefcaseBusiness,
-      group: "운영"
-    },
-    {
-      href: "/insights",
-      label: "거래처 인사이트",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: LineChart,
-      group: "운영"
+      group: "영업·계약"
     },
     {
       href: "/contracts",
       label: "계약서",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: FileSignature,
-      group: "운영"
+      group: "영업·계약"
     },
     {
-      href: "/work",
-      label: "업무관리",
+      href: "/clients",
+      label: "거래처",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: ClipboardList,
-      group: "운영"
+      icon: BriefcaseBusiness,
+      group: "영업·계약"
     },
+    // ── 기획·분석: 상세분석(인사이트·검색량·GEO) → 업무계획(업무관리·캘린더) ──
     {
-      href: "/manuscript",
-      label: "원고 스튜디오",
+      href: "/insights",
+      label: "거래처 인사이트",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: PenLine,
-      group: "운영"
-    },
-    {
-      href: "/ai-studio",
-      label: "AI 마케팅",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Sparkles,
-      group: "운영"
-    },
-    {
-      href: "/image-studio",
-      label: "이미지 스튜디오",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: ImageIcon,
-      group: "운영"
-    },
-    {
-      href: "/studio",
-      label: "디자인 스튜디오",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Palette,
-      group: "운영"
-    },
-    {
-      href: "/compliance",
-      label: "의료법 검수",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: ShieldCheck,
-      group: "운영"
-    },
-    {
-      href: "/approvals",
-      label: "승인함",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: CircleCheck,
-      group: "운영"
-    },
-    {
-      href: "/meetings",
-      label: "회의록",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Video,
-      group: "운영"
+      icon: LineChart,
+      group: "기획·분석"
     },
     {
       href: "/keywords",
       label: "검색량 조회",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Search,
-      group: "운영"
+      group: "기획·분석"
     },
     {
       href: "/geo",
       label: "GEO 모니터링",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Radar,
-      group: "운영"
+      group: "기획·분석"
     },
     {
-      href: "/magazine",
-      label: "매거진",
+      href: "/work",
+      label: "업무관리",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Newspaper,
-      group: "운영"
-    },
-    {
-      href: "/marketing-studio",
-      label: "마케팅 스튜디오",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Megaphone,
-      group: "운영"
+      icon: ClipboardList,
+      group: "기획·분석"
     },
     {
       href: "/calendar",
       label: "캘린더",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: CalendarDays,
-      group: "운영"
+      group: "기획·분석"
     },
+    // ── 제작·검수: 원고·이미지·디자인·AI·마케팅·매거진 → 의료법 검수 → 승인(발행) ──
+    {
+      href: "/manuscript",
+      label: "원고 스튜디오",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: PenLine,
+      group: "제작·검수"
+    },
+    {
+      href: "/image-studio",
+      label: "이미지 스튜디오",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: ImageIcon,
+      group: "제작·검수"
+    },
+    {
+      href: "/studio",
+      label: "디자인 스튜디오",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Palette,
+      group: "제작·검수"
+    },
+    {
+      href: "/ai-studio",
+      label: "AI 마케팅",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Sparkles,
+      group: "제작·검수"
+    },
+    {
+      href: "/marketing-studio",
+      label: "마케팅 스튜디오",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Megaphone,
+      group: "제작·검수"
+    },
+    {
+      href: "/magazine",
+      label: "매거진",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Newspaper,
+      group: "제작·검수"
+    },
+    {
+      href: "/compliance",
+      label: "의료법 검수",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: ShieldCheck,
+      group: "제작·검수"
+    },
+    {
+      href: "/approvals",
+      label: "승인함",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: CircleCheck,
+      group: "제작·검수"
+    },
+    // ── 보고·기록: 월간 보고서 → 주간보고 → 회의록 → 보관함 ──
+    {
+      href: "/reports",
+      label: "보고서",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: FileText,
+      group: "보고·기록"
+    },
+    {
+      href: "/weekly",
+      label: "주간보고",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: CalendarCheck,
+      group: "보고·기록"
+    },
+    {
+      href: "/meetings",
+      label: "회의록",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Video,
+      group: "보고·기록"
+    },
+    {
+      href: "/vault",
+      label: "보관함",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Archive,
+      group: "보고·기록"
+    },
+    // ── 관리(관리자): 입출금(정산/지출) → 연차 → 연동 → 직원/권한 ──
     {
       href: "/finance",
       label: "정산/지출",
@@ -214,27 +245,6 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "연차/휴가",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Plane,
-      group: "관리"
-    },
-    {
-      href: "/weekly",
-      label: "주간보고",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: CalendarCheck,
-      group: "관리"
-    },
-    {
-      href: "/reports",
-      label: "보고서",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: FileText,
-      group: "관리"
-    },
-    {
-      href: "/vault",
-      label: "보관함",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Archive,
       group: "관리"
     },
     {
@@ -301,8 +311,7 @@ export function AppShell({
 }) {
   const pathname = usePathname() ?? "";
   const items = getNavigationItems(role, canAccessSettings);
-  const operate = items.filter((i) => i.group === "운영");
-  const manage = items.filter((i) => i.group === "관리");
+  const home = items.find((i) => i.group === "홈");
   const current = items.find((i) => isActive(pathname, i.href));
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -328,26 +337,25 @@ export function AppShell({
         </div>
 
         <nav className="flex-1 overflow-y-auto">
-          {operate.length > 0 ? (
-            <>
-              <p className="px-2.5 pb-1.5 pt-2 text-[10px] uppercase tracking-[0.12em] text-slate-400">운영</p>
-              <div className="grid grid-cols-1 gap-0.5">
-                {operate.map((item) => (
-                  <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} />
-                ))}
-              </div>
-            </>
+          {home ? (
+            <div className="grid grid-cols-1 gap-0.5 pb-1">
+              <NavLink item={home} active={isActive(pathname, home.href)} />
+            </div>
           ) : null}
-          {manage.length > 0 ? (
-            <>
-              <p className="px-2.5 pb-1.5 pt-4 text-[10px] uppercase tracking-[0.12em] text-slate-400">관리</p>
-              <div className="grid grid-cols-1 gap-0.5">
-                {manage.map((item) => (
-                  <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} />
-                ))}
+          {NAV_SECTIONS.map((section) => {
+            const sectionItems = items.filter((i) => i.group === section);
+            if (sectionItems.length === 0) return null;
+            return (
+              <div key={section}>
+                <p className="px-2.5 pb-1.5 pt-4 text-[10px] uppercase tracking-[0.12em] text-slate-400">{section}</p>
+                <div className="grid grid-cols-1 gap-0.5">
+                  {sectionItems.map((item) => (
+                    <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} />
+                  ))}
+                </div>
               </div>
-            </>
-          ) : null}
+            );
+          })}
         </nav>
 
         <div className="mt-3 flex items-center gap-2.5 border-t border-line px-2 pt-3">
