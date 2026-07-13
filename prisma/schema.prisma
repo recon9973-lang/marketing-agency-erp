@@ -903,7 +903,10 @@ model Keyword {
   searchVolume Int? // 월 검색량(있을 때)
   trendRatio   Float? // 데이터랩 상대 트렌드(있을 때)
   priority     Int      @default(3) // 1(높음)~5(낮음)
-  channel      String   @default("blog") // blog|place|powerlink|seo|geo|aeo
+  grade        String? // 검색량 A/B/C 등급(네이버 6단계 ④, 파생 캐시)
+  stage        String? // seed|related|longtail (네이버 6단계 ②③ 확장 단계)
+  competition  String? // 낮음|중간|높음 (검색광고 compIdx)
+  channel      String   @default("blog") // blog|cafe|place|kin|image|video|powerlink|tistory|web|influencer|seo|geo|aeo
   orgId        String?
   createdAt    DateTime @default(now())
   client       Client   @relation(fields: [clientId], references: [id])

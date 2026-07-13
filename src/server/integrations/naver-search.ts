@@ -58,6 +58,12 @@ export function demoVolume(keyword: string): KeywordVolume {
   return { keyword, pc, mobile, total, competition, estimated: true };
 }
 
+/** 미연동 데모: 씨드별 롱테일/질문형 파생 키워드 생성(결정적). 실제 연관어 아님(estimated). */
+export function demoRelatedKeywords(seed: string): KeywordVolume[] {
+  const suffixes = ["가격", "비용", "후기", "추천", "방법", "효과", "잘하는곳", "예약"];
+  return suffixes.map((s) => demoVolume(`${seed} ${s}`));
+}
+
 function sign(timestamp: string, method: string, path: string, secret: string): string {
   return crypto.createHmac("sha256", secret).update(`${timestamp}.${method}.${path}`).digest("base64");
 }
@@ -120,4 +126,59 @@ export async function fetchKeywordVolumes(keywords: string[]): Promise<KeywordVo
       estimated: false
     };
   });
+}
+
+/**
+ * 씨드 키워드 → 연관 키워드 확장(네이버 6단계 ③). keywordstool 응답의 relKeyword 전량을
+ * 살려 반환한다(기존 fetchKeywordVolumes가 버리던 확장분). 미연동 시 데모 파생.
+ * 반환은 씨드 자신을 제외한 연관어(중복 제거).
+ */
+export async function fetchRelatedKeywords(seeds: string[]): Promise<KeywordVolume[]> {
+  const cleaned = seeds.map((k) => k.trim()).filter(Boolean).slice(0, 5);
+  if (cleaned.length === 0) return [];
+
+  if (!naverSearchConfigured()) {
+    const seen = new Set(cleaned.map((s) => s.replace(/\s+/g, "")));
+    const out: KeywordVolume[] = [];
+    for (const s of cleaned) {
+      for (const kv of demoRelatedKeywords(s)) {
+        const norm = kv.keyword.replace(/\s+/g, "");
+        if (seen.has(norm)) continue;
+        seen.add(norm);
+        out.push(kv);
+      }
+    }
+    return out;
+  }
+
+  const apiKey = process.env.NAVER_AD_API_KEY as string;
+  const secret = process.env.NAVER_AD_SECRET as string;
+  const customerId = process.env.NAVER_AD_CUSTOMER_ID as string;
+  const timestamp = String(Date.now());
+  const signature = sign(timestamp, "GET", KEYWORDS_PATH, secret);
+  const url = `${API_BASE}${KEYWORDS_PATH}?hintKeywords=${encodeURIComponent(cleaned.join(","))}&showDetail=1`;
+
+  const response = await fetch(url, {
+    headers: { "X-Timestamp": timestamp, "X-API-KEY": apiKey, "X-Customer": customerId, "X-Signature": signature }
+  });
+  if (!response.ok) throw new Error(`네이버 검색광고 API 오류 (${response.status})`);
+
+  const json = (await response.json()) as { keywordList?: Array<Record<string, unknown>> };
+  const list = Array.isArray(json.keywordList) ? json.keywordList : [];
+  const seedNorm = new Set(cleaned.map((s) => s.replace(/\s+/g, "").toLowerCase()));
+  const seen = new Set<string>();
+  const out: KeywordVolume[] = [];
+  for (const row of list) {
+    const keyword = String(row.relKeyword ?? "").trim();
+    if (!keyword) continue;
+    const norm = keyword.replace(/\s+/g, "").toLowerCase();
+    if (seedNorm.has(norm) || seen.has(norm)) continue;
+    seen.add(norm);
+    const pc = toCount(row.monthlyPcQcCnt);
+    const mobile = toCount(row.monthlyMobileQcCnt);
+    const total = pc == null && mobile == null ? null : (pc ?? 0) + (mobile ?? 0);
+    const compRaw = typeof row.compIdx === "string" ? row.compIdx : null;
+    out.push({ keyword, pc, mobile, total, competition: compRaw ? COMP_LABEL[compRaw] ?? compRaw : null, estimated: false });
+  }
+  return out;
 }
