@@ -285,6 +285,7 @@ model Client {
   leads             Lead[]
   geoQuestions      GeoQuestion[]
   channelConnections ChannelConnection[]
+  riskLogs          RiskLog[]
 
   @@index([assignedMarketerId])
   @@index([industryCategoryId])
@@ -604,6 +605,33 @@ model Report {
   @@index([reviewerId])
   @@index([status])
   @@index([workItemId])
+  @@index([orgId])
+}
+
+// 리스크 로그(§4 Compliance/Risk, §12 Risk 상태흐름, §5-11) — 감지된 리스크를 1급 객체로
+// 관리해 대표 대시보드 노출 + "해소 전 완료 불가" 게이트에 사용.
+model RiskLog {
+  id         String    @id @default(cuid())
+  clientId   String?
+  category   String // compliance | sla | credential | approval | performance | other
+  severity   String    @default("medium") // low | medium | high
+  status     String    @default("DETECTED") // DETECTED→CONFIRMED→FIXING→REVIEW→RESOLVED→ARCHIVED
+  title      String
+  detail     String?
+  sourceType String? // ContentPlan | WorkItem | ChannelConnection | Contract ...
+  sourceId   String?
+  score      Int       @default(0) // 계정 리스크 점수 가중(severity 기반)
+  ownerId    String?
+  detectedAt DateTime  @default(now())
+  resolvedAt DateTime?
+  orgId      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  client     Client?   @relation(fields: [clientId], references: [id])
+
+  @@unique([clientId, sourceType, sourceId, category])
+  @@index([status])
+  @@index([clientId, status])
   @@index([orgId])
 }
 

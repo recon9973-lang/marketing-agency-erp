@@ -11,6 +11,7 @@ import { Role, WorkCategory } from "@/domain/types";
 import { assertCanAccessClient } from "@/domain/access-control";
 import { nextWorkStatus, type WorkStatusAction } from "@/domain/work";
 import { db } from "@/server/db";
+import { hasOpenRiskFor } from "@/server/repositories/risk";
 import {
   getAdminScopes,
   recordAudit,
@@ -128,6 +129,10 @@ export async function changeWorkStatus(input: unknown): Promise<ActionResult<{ s
     // 완료에는 증빙 필수 — 입력 증빙이 없고 기존 결과 요약도 없으면 차단(§15)
     if (target === "COMPLETED" && !evidence?.trim() && !work.resultSummary?.trim()) {
       throw new Error("EVIDENCE_REQUIRED");
+    }
+    // 해소 전 완료 불가(§5-11) — 이 업무에 걸린 미해소 리스크가 있으면 완료 차단.
+    if (target === "COMPLETED" && (await hasOpenRiskFor("WorkItem", id))) {
+      throw new Error("RISK_UNRESOLVED");
     }
 
     const meta = await requestMeta();
