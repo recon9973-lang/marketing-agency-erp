@@ -8,6 +8,7 @@ import {
 import { Role } from "@/domain/types";
 import { ClientConfirmations } from "@/components/dashboard/ClientConfirmations";
 import { ClientMonitor } from "@/components/dashboard/ClientMonitor";
+import { PlatformUpdateBanner } from "@/components/dashboard/PlatformUpdateBanner";
 import { RolePipeline } from "@/components/dashboard/RolePipeline";
 import { WorkOverview } from "@/components/dashboard/WorkOverview";
 import type { DashboardSummary } from "@/domain/dashboard";
@@ -455,9 +456,18 @@ export function DashboardHome({
   const view: ViewProps = { first, summary, riskItems, riskCount, clientMonitor, confirmations, leadPipeline, geoSummary };
 
   // effective role 기준 분기 — 승인된 관리자는 role이 SUPER_ADMIN이라 최고관리자 뷰로 자동 진입.
-  if (role === Role.MARKETER) return <MarketerDashboard {...view} />;
-  if (role === Role.ADMIN) return <AdminDashboard {...view} />;
-  return <SuperAdminDashboard {...view} />;
+  const body =
+    role === Role.MARKETER ? <MarketerDashboard {...view} /> :
+    role === Role.ADMIN ? <AdminDashboard {...view} /> :
+    <SuperAdminDashboard {...view} />;
+
+  // 플랫폼 공지 배너는 모든 역할 공통 — 대시보드 최상단에 한 개.
+  return (
+    <div className="space-y-4">
+      <PlatformUpdateBanner />
+      {body}
+    </div>
+  );
 }
 
 function GeoStat({ icon: Icon, label, value }: { icon: typeof ClipboardList; label: string; value: number }) {
