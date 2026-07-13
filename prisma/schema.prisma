@@ -157,6 +157,7 @@ model User {
   role                    Role
   status                  UserStatus      @default(ACTIVE)
   canAccessSettings       Boolean         @default(false) // 최고관리자가 승인하면 관리자/담당자도 설정 화면 열람
+  elevatedToSuperAdmin    Boolean         @default(false) // 최고관리자가 승인하면 관리자가 최고관리자와 동등한 권한(effective role)을 가짐
   image                   String?
   kakaoId                 String?         @unique
   timezone                String          @default("Asia/Seoul")
@@ -1468,6 +1469,30 @@ model GeoQuestion {
 
   @@index([clientId, status])
   @@index([orgId])
+}
+
+/// 플랫폼 공지·업데이트(구글/네이버) — 대시보드 배너 소스.
+/// 자동 수집(RSS/Atom) + 관리자 수동 등록 병행. externalKey로 멱등 dedup.
+model PlatformUpdate {
+  id          String   @id @default(cuid())
+  platform    String // NAVER | GOOGLE | ETC
+  category    String // BLOG | PLACE | CAFE | ALGORITHM | SEO | GEO | GENERAL
+  title       String
+  url         String?
+  summary     String?
+  source      String // google-search-central | naver-blog:<id> | manual
+  externalKey String   @unique // 멱등 dedup 키(source + guid/link, 수동은 manual:<cuid>)
+  publishedAt DateTime
+  pinned      Boolean  @default(false) // 관리자 고정(항상 우선 노출)
+  isManual    Boolean  @default(false) // 관리자 수동 등록 여부
+  createdById String? // 수동 등록자(감사용, FK 미설정)
+  orgId       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([publishedAt])
+  @@index([platform, category])
+  @@index([pinned, publishedAt])
 }
 
 /// GEO 답변 기록 — 질문×엔진×일자 단위의 AI 답변 출현 관측(수동 실행 기록).

@@ -5,7 +5,9 @@ import { EmployeeSettings } from "@/components/settings/EmployeeSettings";
 import { MasterManager } from "@/components/settings/MasterManager";
 import { DocumentTemplateManager } from "@/components/settings/DocumentTemplateManager";
 import { TemplateFiller } from "@/components/settings/TemplateFiller";
+import { PlatformUpdatesManager } from "@/components/settings/PlatformUpdatesManager";
 import { listAllTemplates, listTemplatesForUse } from "@/server/repositories/document-templates";
+import { listPlatformUpdatesForAdmin } from "@/server/repositories/platform-updates";
 import { ConnectionStatus, Role, UserStatus } from "@/domain/types";
 import { db } from "@/server/db";
 import { getWorkCategories } from "@/server/repositories/masters";
@@ -114,13 +116,16 @@ export default async function SettingsPage() {
 
   const isAdmin = user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN;
   const isSuperAdmin = user.role === Role.SUPER_ADMIN;
+  // 승격 부여는 진짜 최고관리자만 — 승격된 관리자(effective SUPER_ADMIN)는 재승격 불가.
+  const isTrueSuperAdmin = user.baseRole === Role.SUPER_ADMIN;
 
-  const [overview, workCategories, companySetting, docTemplates, usableTemplates] = await Promise.all([
+  const [overview, workCategories, companySetting, docTemplates, usableTemplates, platformUpdates] = await Promise.all([
     fetchSettingsOverview(user),
     isAdmin ? getWorkCategories() : Promise.resolve([]),
     isSuperAdmin ? db.companySetting.findFirst() : Promise.resolve(null),
     isAdmin ? listAllTemplates() : Promise.resolve([]),
-    listTemplatesForUse(["HR", "GENERAL"], user.role)
+    listTemplatesForUse(["HR", "GENERAL"], user.role),
+    isAdmin ? listPlatformUpdatesForAdmin(60).catch(() => []) : Promise.resolve([])
   ]);
 
   return (
@@ -157,11 +162,21 @@ export default async function SettingsPage() {
               email: member.email,
               role: member.role,
               status: member.status,
-              canAccessSettings: member.canAccessSettings
+              canAccessSettings: member.canAccessSettings,
+              elevatedToSuperAdmin: member.elevatedToSuperAdmin
             }))}
             isSuperAdmin={isSuperAdmin}
+            isTrueSuperAdmin={isTrueSuperAdmin}
             adminCanManageExpense={companySetting?.adminCanManageExpense ?? false}
           />
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-ink">플랫폼 공지 배너 관리</h3>
+          <p className="text-xs text-slate-500">구글·네이버 업데이트를 자동 수집하고, 자동으로 못 잡는 공지는 직접 등록합니다. 대시보드 상단 배너에 실시간 반영됩니다.</p>
+          <PlatformUpdatesManager rows={platformUpdates} />
         </div>
       )}
 

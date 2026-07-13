@@ -9,6 +9,7 @@ export type StaffSettingsItem = {
   role: Role;
   status: UserStatus;
   canAccessSettings: boolean;
+  elevatedToSuperAdmin: boolean;
   kakaoLinked: boolean;
   googleCalendarConnected: boolean;
   naverCalendarConnected: boolean;
@@ -48,6 +49,7 @@ export async function fetchSettingsOverview(user: CurrentUser): Promise<Settings
         role: true,
         status: true,
         canAccessSettings: true,
+        elevatedToSuperAdmin: true,
         kakaoId: true,
         googleCalendarConnected: true,
         naverCalendarConnected: true
@@ -85,6 +87,7 @@ export async function fetchSettingsOverview(user: CurrentUser): Promise<Settings
       role: member.role,
       status: member.status,
       canAccessSettings: member.canAccessSettings,
+      elevatedToSuperAdmin: member.elevatedToSuperAdmin,
       kakaoLinked: Boolean(member.kakaoId),
       googleCalendarConnected: member.googleCalendarConnected,
       naverCalendarConnected: member.naverCalendarConnected

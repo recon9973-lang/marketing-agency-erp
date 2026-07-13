@@ -3,6 +3,10 @@
     {
       "path": "/api/marketing/cron",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/platform-updates/cron",
+      "schedule": "0 */3 * * *"
     }
   ]
 }

@@ -57,7 +57,9 @@ describe("getCurrentUser", () => {
       id: "user-1",
       name: "Agency Admin",
       email: "admin@agency.test",
-      role: "ADMIN"
+      role: "ADMIN",
+      baseRole: "ADMIN",
+      elevatedToSuperAdmin: false
     });
   });
 
@@ -97,7 +99,34 @@ describe("getCurrentUser", () => {
       id: "user-2",
       name: "Kakao Staff",
       email: "staff@agency.test",
-      role: "SUPER_ADMIN"
+      role: "SUPER_ADMIN",
+      baseRole: "SUPER_ADMIN",
+      elevatedToSuperAdmin: false
+    });
+  });
+
+  it("elevates an approved admin to an effective SUPER_ADMIN role", async () => {
+    // 프로바이더 식별 경로 — 이메일 경로는 unstable_cache라 Next 런타임 밖(테스트)에서 우회한다.
+    authMock.mockResolvedValue({ user: { email: null, authProvider: "kakao", authProviderAccountId: "kakao-boss" } });
+    findFirstMock.mockResolvedValue({
+      id: "user-9",
+      name: "Boss Admin",
+      email: "boss-admin@agency.test",
+      role: "ADMIN",
+      elevatedToSuperAdmin: true
+    });
+
+    const { getCurrentUser } = await import("@/server/session");
+    const user = await getCurrentUser();
+
+    // 실효 역할은 SUPER_ADMIN이지만, 원래 역할(baseRole)은 ADMIN으로 보존된다.
+    expect(user).toEqual({
+      id: "user-9",
+      name: "Boss Admin",
+      email: "boss-admin@agency.test",
+      role: "SUPER_ADMIN",
+      baseRole: "ADMIN",
+      elevatedToSuperAdmin: true
     });
   });
 
@@ -136,7 +165,9 @@ describe("getCurrentUser", () => {
       id: "user-3",
       name: "Linked Staff",
       email: "other@agency.test",
-      role: "ADMIN"
+      role: "ADMIN",
+      baseRole: "ADMIN",
+      elevatedToSuperAdmin: false
     });
   });
 
@@ -166,6 +197,8 @@ describe("getCurrentUser", () => {
       name: "Local Preview",
       email: "dev@marketing-erp.local",
       role: "MARKETER",
+      baseRole: "MARKETER",
+      elevatedToSuperAdmin: false,
       canAccessSettings: true
     });
   });
