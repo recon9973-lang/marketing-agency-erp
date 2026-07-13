@@ -10,37 +10,43 @@ import { getDefaultOrgId } from "@/server/org";
 import { requireUser, runAction, type ActionResult } from "@/server/actions/_helpers";
 import { assertProjectAccess } from "@/server/repositories/studio";
 import { blankDoc, studioDoc, SIZE_PRESETS, type StudioKind } from "@/domain/studio/schema";
+import { getBuiltinTemplate, instantiateTemplateDoc } from "@/domain/studio/templates";
 import type { Prisma } from "@prisma/client";
 
 const createSchema = z.object({
   presetKey: z.string().optional(),
+  templateId: z.string().optional(),
   width: z.number().int().min(16).max(8000).optional(),
   height: z.number().int().min(16).max(8000).optional(),
   kind: z.string().optional(),
   title: z.string().max(120).optional()
 });
 
-/** 새 프로젝트 생성 후 id 반환. 프리셋 키 또는 명시 크기 중 하나로 캔버스 지정. */
+/** 새 프로젝트 생성 후 id 반환. 템플릿 / 프리셋 / 명시 크기 순으로 캔버스·문서 결정. */
 export async function createStudioProject(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const user = await requireUser();
     const orgId = await getDefaultOrgId();
     const parsed = createSchema.parse(input ?? {});
 
+    const template = parsed.templateId ? getBuiltinTemplate(parsed.templateId) : undefined;
     const preset = parsed.presetKey ? SIZE_PRESETS.find((p) => p.key === parsed.presetKey) : undefined;
-    const width = parsed.width ?? preset?.w ?? 1080;
-    const height = parsed.height ?? preset?.h ?? 1080;
-    const kind: StudioKind = (preset?.kind ?? (parsed.kind as StudioKind)) ?? "blank";
+
+    const width = template?.width ?? parsed.width ?? preset?.w ?? 1080;
+    const height = template?.height ?? parsed.height ?? preset?.h ?? 1080;
+    const kind: StudioKind = (template?.kind as StudioKind) ?? preset?.kind ?? (parsed.kind as StudioKind) ?? "blank";
+    const doc = template ? instantiateTemplateDoc(template) : blankDoc(width, height);
+    const title = parsed.title?.trim() || (template ? template.title : "제목 없는 디자인");
 
     const created = await db.studioProject.create({
       data: {
         orgId,
         ownerId: user.id,
-        title: parsed.title?.trim() || "제목 없는 디자인",
+        title,
         kind,
         canvasW: width,
         canvasH: height,
-        data: blankDoc(width, height) as unknown as Prisma.InputJsonValue
+        data: doc as unknown as Prisma.InputJsonValue
       },
       select: { id: true }
     });
