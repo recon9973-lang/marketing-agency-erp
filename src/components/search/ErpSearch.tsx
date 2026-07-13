@@ -9,7 +9,7 @@ import { useErpSearch, SearchResultsList } from "@/components/search/searchCore"
 export function ErpSearch({ role }: { role: Role }) {
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
-  const { query, setQuery, loading, active, setActive, groups, onKey, go } = useErpSearch(role, () => setOpen(false));
+  const { query, setQuery, loading, active, setActive, groups, onKey, go, showingRecents, clearAll } = useErpSearch(role, () => setOpen(false));
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -19,7 +19,7 @@ export function ErpSearch({ role }: { role: Role }) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  const showPanel = open && query.trim().length > 0;
+  const showPanel = open && (query.trim().length > 0 || showingRecents);
 
   return (
     <div ref={boxRef} className="relative">
@@ -50,7 +50,7 @@ export function ErpSearch({ role }: { role: Role }) {
 
       {showPanel && (
         <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 max-h-[60vh] overflow-y-auto rounded-xl border border-line bg-card p-2 shadow-xl">
-          <SearchResultsList groups={groups} active={active} setActive={setActive} onSelect={go} loading={loading} />
+          <SearchResultsList groups={groups} active={active} setActive={setActive} onSelect={go} loading={loading} onClear={clearAll} />
         </div>
       )}
     </div>

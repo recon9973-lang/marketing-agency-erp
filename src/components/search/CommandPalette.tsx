@@ -8,7 +8,7 @@ import { useErpSearch, SearchResultsList } from "@/components/search/searchCore"
 
 export function CommandPalette({ role, open, onClose }: { role: Role; open: boolean; onClose: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { query, setQuery, loading, active, setActive, groups, onKey, go } = useErpSearch(role, onClose);
+  const { query, setQuery, loading, active, setActive, groups, onKey, go, showingRecents, clearAll } = useErpSearch(role, onClose);
 
   useEffect(() => {
     if (open) {
@@ -54,12 +54,12 @@ export function CommandPalette({ role, open, onClose }: { role: Role; open: bool
           )}
         </div>
         <div className="max-h-[55vh] overflow-y-auto p-2">
-          {query.trim().length === 0 ? (
+          {query.trim().length === 0 && !showingRecents ? (
             <p className="px-3 py-8 text-center text-sm text-slate-400">
               무엇이든 검색하세요 — 페이지 이동, 사용방법, 거래처·업무·계약·보고서·파일
             </p>
           ) : (
-            <SearchResultsList groups={groups} active={active} setActive={setActive} onSelect={go} loading={loading} />
+            <SearchResultsList groups={groups} active={active} setActive={setActive} onSelect={go} loading={loading} onClear={clearAll} />
           )}
         </div>
       </div>
