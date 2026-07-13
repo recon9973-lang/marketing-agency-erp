@@ -57,6 +57,66 @@ function kpisFor(role: Role, s: DashboardSummary): Kpi[] {
   ];
 }
 
+// Command Center — 역할별로 "지금 조치가 필요한 항목"만 액션 타일로. urgent=true는 값이 0보다 크면 처리 대상.
+type Cmd = { key: string; label: string; value: number; href: Route; icon: typeof ClipboardList; tone: Tone; urgent?: boolean; money?: boolean };
+
+function commandsFor(role: Role, s: DashboardSummary, riskCount: number, recontact: number): Cmd[] {
+  if (role === Role.MARKETER) {
+    return [
+      { key: "today", label: "오늘 마감", value: s.todayWorkCount, href: "/work" as Route, icon: ClipboardList, tone: "blue" },
+      { key: "review", label: "컨펌 대기", value: s.reviewNeededWorkCount, href: "/approvals" as Route, icon: CircleCheck, tone: "amber", urgent: true },
+      { key: "delayed", label: "지연 업무", value: s.delayedWorkCount, href: "/work" as Route, icon: AlertTriangle, tone: "rose", urgent: true },
+      { key: "risk", label: "위험 콘텐츠", value: riskCount, href: "/compliance" as Route, icon: ShieldCheck, tone: "rose", urgent: true },
+      { key: "recontact", label: "재접촉 리드", value: recontact, href: "/leads" as Route, icon: Link2, tone: "violet", urgent: true },
+      { key: "upcoming", label: "다가오는 마감", value: s.upcomingDeadlineCount, href: "/work" as Route, icon: CalendarClock, tone: "blue" }
+    ];
+  }
+  // ADMIN / SUPER_ADMIN — 대표·관리자 경영판
+  return [
+    { key: "delayed", label: "지연 업무", value: s.delayedWorkCount, href: "/work" as Route, icon: AlertTriangle, tone: "rose", urgent: true },
+    { key: "review", label: "승인·검토 대기", value: s.reviewNeededWorkCount, href: "/approvals" as Route, icon: CircleCheck, tone: "amber", urgent: true },
+    { key: "risk", label: "위험 콘텐츠", value: riskCount, href: "/compliance" as Route, icon: ShieldCheck, tone: "rose", urgent: true },
+    { key: "unpaid", label: "미수금", value: s.unpaidAmount, money: true, href: "/finance" as Route, icon: Wallet, tone: "amber", urgent: true },
+    { key: "leave", label: "휴가 승인", value: s.pendingLeaveCount, href: "/leave" as Route, icon: Plane, tone: "violet", urgent: true },
+    { key: "upcoming", label: "다가오는 마감", value: s.upcomingDeadlineCount, href: "/work" as Route, icon: CalendarClock, tone: "blue" }
+  ];
+}
+
+// 처리 대상(urgent·값>0) → 값>0 → 0건 순으로. 위험한 것이 항상 왼쪽 위로 온다.
+function cmdRank(c: Cmd) {
+  if (c.urgent && c.value > 0) return 0;
+  if (c.value > 0) return 1;
+  return 2;
+}
+
+function CmdTile({ c }: { c: Cmd }) {
+  const active = c.value > 0;
+  const hot = active && !!c.urgent;
+  const display = c.money ? (active ? `${won.format(c.value)}원` : "0원") : String(c.value);
+  return (
+    <Link
+      href={c.href}
+      className={`group relative flex flex-col justify-between rounded-2xl border p-3.5 transition hover:shadow-sm ${
+        hot ? TONE[c.tone].card : active ? "border-line bg-white" : "border-line bg-surface/40"
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${active ? TONE[c.tone].icon : "bg-slate-100 text-slate-400"}`}>
+          <c.icon className="h-4 w-4" />
+        </span>
+        {hot ? <span className="h-2 w-2 rounded-full bg-rose-500" aria-label="조치 필요" /> : null}
+      </div>
+      <div className={`mt-2.5 font-extrabold leading-none tracking-tight ${c.money ? "text-[17px]" : "text-[22px]"} ${active ? "text-ink" : "text-slate-300"}`}>
+        {display}
+      </div>
+      <div className="mt-1 flex items-center gap-1">
+        <span className="text-[11.5px] font-semibold text-slate-500">{c.label}</span>
+        <ArrowRight className="h-3 w-3 text-slate-300 opacity-0 transition group-hover:opacity-100" />
+      </div>
+    </Link>
+  );
+}
+
 function Spark({ color, points }: { color: string; points: string }) {
   return (
     <svg viewBox="0 0 120 30" preserveAspectRatio="none" className="mt-2 block h-7 w-full">
@@ -97,53 +157,71 @@ export function DashboardHome({
   const kpis = kpisFor(role, summary);
   const riskCount = riskItems.reduce((n, r) => n + (r.high > 0 ? 1 : 0), 0);
   const first = userName.replace(/(관리자|님)$/g, "") || userName;
+  const commands = commandsFor(role, summary, riskCount, leadPipeline.recontactDueThisWeek).sort((a, b) => cmdRank(a) - cmdRank(b));
+  const actionCount = commands.filter((c) => c.urgent && c.value > 0).length;
 
   return (
     <div className="space-y-4">
-      {/* 히어로 */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.55fr_1fr]">
-        {/* 다크에서는 그라디언트를 끄고(dark:bg-none) 솔리드 다크 카드(dark:bg-card)로 —
-            Tailwind 그라디언트 변수 충돌 없이 확실히 반전. 라이트는 기존 그라디언트 유지. */}
-        <div className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-blue-50 via-violet-50 to-white p-6 dark:bg-card dark:bg-none">
-          <Sparkles className="pointer-events-none absolute right-9 top-6 h-5 w-5 text-violet-300" />
-          <Sparkles className="pointer-events-none absolute right-28 top-14 h-3 w-3 text-brand/40" />
-          <h1 className="text-2xl font-extrabold tracking-tight text-ink">
-            좋은 하루예요, <span className="text-brand-strong">{first}</span>님 👋
-          </h1>
-          <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
-            오늘 처리할 업무 <b className="text-brand-strong">{summary.todayWorkCount}건</b>, 컨펌 대기{" "}
-            <b className="text-brand-strong">{summary.reviewNeededWorkCount}건</b>
-            {riskCount > 0 ? (
-              <> · 의료법 위험 콘텐츠 <b className="text-brand-strong">{riskCount}건</b>은 게시 전 검수가 필요합니다.</>
-            ) : (
-              <>이 있습니다.</>
-            )}
-          </p>
+      {/* 인사 바 — 컴팩트. 상단 큰 화면은 아래 Command Center에 양보한다. */}
+      <section className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-blue-50 via-violet-50 to-white p-5 dark:bg-card dark:bg-none">
+        <Sparkles className="pointer-events-none absolute right-6 top-5 h-4 w-4 text-violet-300" />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl font-extrabold tracking-tight text-ink">
+              좋은 하루예요, <span className="text-brand-strong">{first}</span>님 👋
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              {actionCount > 0 ? (
+                <>지금 조치가 필요한 항목이 <b className="text-brand-strong">{actionCount}건</b> 있어요.</>
+              ) : (
+                <>급히 처리할 항목이 없어요. 오늘도 순항 중입니다. 🙌</>
+              )}
+            </p>
+          </div>
           <Link
             href={"/work" as Route}
-            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-brand-strong"
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-brand-strong"
           >
             오늘 업무 보기 <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
-        <div className="grid grid-cols-1 gap-3">
-          <Link href={"/clients" as Route} className="flex items-start gap-3 rounded-2xl border border-line bg-white p-4 transition hover:shadow-sm">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600"><Sparkles className="h-[18px] w-[18px]" /></span>
-            <div>
-              <b className="text-sm text-ink">AI 컨설팅 리포트</b>
-              <p className="mt-0.5 text-xs leading-5 text-slate-500">병원명·주소로 키워드·경쟁·상권 분석을 만듭니다.</p>
-              <span className="mt-1.5 inline-block rounded-lg bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-600">컨설팅 실행 →</span>
-            </div>
-          </Link>
-          <Link href={"/clients" as Route} className="flex items-start gap-3 rounded-2xl border border-line bg-white p-4 transition hover:shadow-sm">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600"><FileText className="h-[18px] w-[18px]" /></span>
-            <div>
-              <b className="text-sm text-ink">콘텐츠 기획 생성</b>
-              <p className="mt-0.5 text-xs leading-5 text-slate-500">주제·키워드로 방향·FAQ·Q&amp;A 초안 + 의료법 검수 자동.</p>
-              <span className="mt-1.5 inline-block rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-600">콘텐츠 만들기 →</span>
-            </div>
-          </Link>
+      </section>
+
+      {/* Command Center — 상단 최대 화면. 역할별로 "지금 확인할 것"을 액션 타일로. */}
+      <section>
+        <div className="mb-2 flex items-center gap-2">
+          <span className="text-sm font-bold text-ink">지금 확인할 것</span>
+          {actionCount > 0 ? (
+            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-600">조치 필요 {actionCount}</span>
+          ) : (
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-600">모두 정상</span>
+          )}
         </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {commands.map((c) => (
+            <CmdTile key={c.key} c={c} />
+          ))}
+        </div>
+      </section>
+
+      {/* AI 빠른 실행 — 대행사 핵심 진입점 유지 */}
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Link href={"/clients" as Route} className="flex items-start gap-3 rounded-2xl border border-line bg-white p-4 transition hover:shadow-sm">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600"><Sparkles className="h-[18px] w-[18px]" /></span>
+          <div>
+            <b className="text-sm text-ink">AI 컨설팅 리포트</b>
+            <p className="mt-0.5 text-xs leading-5 text-slate-500">병원명·주소로 키워드·경쟁·상권 분석을 만듭니다.</p>
+            <span className="mt-1.5 inline-block rounded-lg bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-600">컨설팅 실행 →</span>
+          </div>
+        </Link>
+        <Link href={"/clients" as Route} className="flex items-start gap-3 rounded-2xl border border-line bg-white p-4 transition hover:shadow-sm">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600"><FileText className="h-[18px] w-[18px]" /></span>
+          <div>
+            <b className="text-sm text-ink">콘텐츠 기획 생성</b>
+            <p className="mt-0.5 text-xs leading-5 text-slate-500">주제·키워드로 방향·FAQ·Q&amp;A 초안 + 의료법 검수 자동.</p>
+            <span className="mt-1.5 inline-block rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-600">콘텐츠 만들기 →</span>
+          </div>
+        </Link>
       </section>
 
       {/* 영업 리드 파이프라인 요약 — 단계별 리드 수 + 이번 주 재접촉 (기획서 §1 대표/AE 경영판) */}
