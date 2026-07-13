@@ -3,11 +3,11 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Trash2, Loader2, Wand2 } from "lucide-react";
 import { SIZE_PRESETS } from "@/domain/studio/schema";
 import { BUILTIN_TEMPLATES, TEMPLATE_CATEGORIES, type TemplateCategoryKey } from "@/domain/studio/templates";
 import { TemplatePreview } from "@/components/studio/TemplatePreview";
-import { createStudioProject, deleteStudioProject } from "@/server/actions/studio";
+import { createStudioProject, createStudioCardnews, deleteStudioProject } from "@/server/actions/studio";
 
 type ProjectCard = {
   id: string; title: string; kind: string; canvasW: number; canvasH: number; thumbnail: string | null; updatedAt: string;
@@ -26,6 +26,14 @@ export function StudioHome({ projects }: { projects: ProjectCard[] }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cat, setCat] = useState<"all" | TemplateCategoryKey>("all");
+  const [cardText, setCardText] = useState("");
+  const [cardCover, setCardCover] = useState(true);
+
+  const cardPageEstimate = useMemo(() => {
+    const len = cardText.trim().length;
+    if (!len) return 0;
+    return (cardCover ? 1 : 0) + Math.max(1, Math.ceil(len / 200));
+  }, [cardText, cardCover]);
 
   const templates = useMemo(
     () => (cat === "all" ? BUILTIN_TEMPLATES : BUILTIN_TEMPLATES.filter((t) => t.category === cat)),
@@ -36,6 +44,17 @@ export function StudioHome({ projects }: { projects: ProjectCard[] }) {
     setError(null);
     startTransition(async () => {
       const res = await createStudioProject(input);
+      if (res.ok && res.data) router.push(`/studio/${res.data.id}`);
+      else setError(res.ok ? "생성에 실패했습니다." : res.error);
+    });
+  }
+
+  function generateCardnews() {
+    const text = cardText.trim();
+    if (!text) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await createStudioCardnews({ text, cover: cardCover });
       if (res.ok && res.data) router.push(`/studio/${res.data.id}`);
       else setError(res.ok ? "생성에 실패했습니다." : res.error);
     });
@@ -80,6 +99,37 @@ export function StudioHome({ projects }: { projects: ProjectCard[] }) {
               <span className="w-full truncate text-center text-xs font-medium text-ink">{t.title}</span>
             </button>
           ))}
+        </div>
+      </section>
+
+      {/* 긴 글 → 카드뉴스 자동 생성 */}
+      <section>
+        <h2 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-ink">
+          <Wand2 className="h-4 w-4 text-brand" /> 긴 글 → 카드뉴스 자동 생성
+        </h2>
+        <div className="rounded-xl border border-line bg-card p-4">
+          <textarea
+            value={cardText}
+            onChange={(e) => setCardText(e.target.value)}
+            rows={5}
+            placeholder="카드뉴스로 만들 내용을 붙여넣으세요. 문단·문장 경계를 기준으로 여러 장으로 자동 분할됩니다."
+            className="w-full resize-y rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+          />
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+              <input type="checkbox" checked={cardCover} onChange={(e) => setCardCover(e.target.checked)} className="accent-brand" />
+              표지 포함
+            </label>
+            {cardPageEstimate > 0 && <span className="text-xs text-slate-400">약 {cardPageEstimate}장 생성</span>}
+            <button
+              type="button"
+              disabled={pending || cardText.trim().length === 0}
+              onClick={generateCardnews}
+              className="ml-auto flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />} 카드뉴스 만들기
+            </button>
+          </div>
         </div>
       </section>
 

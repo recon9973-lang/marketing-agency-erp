@@ -11,6 +11,7 @@ import { requireUser, runAction, type ActionResult } from "@/server/actions/_hel
 import { assertProjectAccess } from "@/server/repositories/studio";
 import { blankDoc, studioDoc, SIZE_PRESETS, type StudioKind } from "@/domain/studio/schema";
 import { getBuiltinTemplate, instantiateTemplateDoc } from "@/domain/studio/templates";
+import { autopaginate } from "@/domain/studio/autopaginate";
 import type { Prisma } from "@prisma/client";
 
 const createSchema = z.object({
@@ -44,6 +45,43 @@ export async function createStudioProject(input: unknown): Promise<ActionResult<
         ownerId: user.id,
         title,
         kind,
+        canvasW: width,
+        canvasH: height,
+        data: doc as unknown as Prisma.InputJsonValue
+      },
+      select: { id: true }
+    });
+    revalidatePath("/studio");
+    return { id: created.id };
+  });
+}
+
+const cardnewsSchema = z.object({
+  text: z.string().min(1).max(20_000),
+  cover: z.boolean().optional(),
+  title: z.string().max(120).optional()
+});
+
+/** 긴 글 → 카드뉴스 자동 분할. 표지+본문 N장 프로젝트를 만들고 id 반환. */
+export async function createStudioCardnews(input: unknown): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const orgId = await getDefaultOrgId();
+    const parsed = cardnewsSchema.parse(input);
+
+    const width = 1080;
+    const height = 1350;
+    const doc = autopaginate(parsed.text, { width, height, cover: parsed.cover ?? true, title: parsed.title });
+    // 제목: 지정값 우선, 없으면 본문 첫 줄에서 추출.
+    const firstLine = parsed.text.split("\n").map((l) => l.trim()).find(Boolean) ?? "카드뉴스";
+    const title = (parsed.title?.trim() || firstLine).slice(0, 60);
+
+    const created = await db.studioProject.create({
+      data: {
+        orgId,
+        ownerId: user.id,
+        title,
+        kind: "cardnews",
         canvasW: width,
         canvasH: height,
         data: doc as unknown as Prisma.InputJsonValue
