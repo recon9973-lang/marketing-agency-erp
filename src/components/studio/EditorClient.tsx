@@ -10,8 +10,11 @@ import type { Route } from "next";
 import type Konva from "konva";
 import {
   ArrowLeft, Type, Square, Circle, ImagePlus, Plus, Undo2, Redo2, Download,
-  Trash2, Copy, ChevronUp, ChevronDown, Lock, Unlock, Loader2, Check, Sparkles, Maximize2
+  Trash2, Copy, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Lock, Unlock, Loader2, Check, Sparkles, Maximize2,
+  AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
+  AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   blankPage, makeId, SIZE_PRESETS, type StudioDoc, type StudioElement, type StudioPage, type TextElement, type ShapeElement
 } from "@/domain/studio/schema";
@@ -214,15 +217,30 @@ export function EditorClient({
     const copy = { ...clone(selected), id: makeId(selected.type.slice(0, 2)), x: selected.x + 24, y: selected.y + 24 };
     addElement(copy);
   }
-  function reorder(dir: "front" | "back") {
+  function reorder(dir: "front" | "back" | "up" | "down") {
     if (!selectedId) return;
     updatePage((p) => {
       const idx = p.elements.findIndex((e) => e.id === selectedId);
       if (idx < 0) return;
-      const [el] = p.elements.splice(idx, 1);
-      if (dir === "front") p.elements.push(el);
-      else p.elements.unshift(el);
+      if (dir === "front") { const [el] = p.elements.splice(idx, 1); p.elements.push(el); }
+      else if (dir === "back") { const [el] = p.elements.splice(idx, 1); p.elements.unshift(el); }
+      else if (dir === "up" && idx < p.elements.length - 1) { [p.elements[idx], p.elements[idx + 1]] = [p.elements[idx + 1], p.elements[idx]]; }
+      else if (dir === "down" && idx > 0) { [p.elements[idx], p.elements[idx - 1]] = [p.elements[idx - 1], p.elements[idx]]; }
     });
+  }
+
+  // 선택 요소를 캔버스 기준으로 정렬(가운데·상/하 맞춤 등).
+  function align(dir: "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom") {
+    const el = page.elements.find((e) => e.id === selectedId);
+    if (!el) return;
+    const patch: Partial<StudioElement> =
+      dir === "left" ? { x: 0 }
+      : dir === "hcenter" ? { x: Math.round((page.width - el.width) / 2) }
+      : dir === "right" ? { x: page.width - el.width }
+      : dir === "top" ? { y: 0 }
+      : dir === "vcenter" ? { y: Math.round((page.height - el.height) / 2) }
+      : { y: page.height - el.height };
+    changeElement(el.id, patch);
   }
 
   // ── 페이지 관리 ──
@@ -558,7 +576,7 @@ export function EditorClient({
         <aside className="w-64 shrink-0 overflow-y-auto border-l border-line bg-card p-3">
           {selected ? (
             <ElementProperties el={selected} onChange={(patch) => changeElement(selected.id, patch)}
-              onDelete={deleteSelected} onDuplicate={duplicateSelected} onReorder={reorder} brandColors={brandColors} />
+              onDelete={deleteSelected} onDuplicate={duplicateSelected} onReorder={reorder} onAlign={align} brandColors={brandColors} />
           ) : (
             <>
               <QuickEditPanel page={page} onChangeText={(id, text) => changeElement(id, { text })} onSelect={setSelectedId} />
@@ -589,25 +607,60 @@ export function EditorClient({
 }
 
 // ── 우측: 요소 속성 ──
-function ElementProperties({ el, onChange, onDelete, onDuplicate, onReorder, brandColors }: {
+type AlignDir = "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom";
+function ElementProperties({ el, onChange, onDelete, onDuplicate, onReorder, onAlign, brandColors }: {
   el: StudioElement;
   onChange: (patch: Partial<StudioElement>) => void;
   onDelete: () => void;
   onDuplicate: () => void;
-  onReorder: (dir: "front" | "back") => void;
+  onReorder: (dir: "front" | "back" | "up" | "down") => void;
+  onAlign: (dir: AlignDir) => void;
   brandColors: string[];
 }) {
   const canFill = el.type === "text" || el.type === "rect" || el.type === "ellipse";
+  const alignBtns: { dir: AlignDir; Icon: LucideIcon; label: string }[] = [
+    { dir: "left", Icon: AlignHorizontalJustifyStart, label: "왼쪽" },
+    { dir: "hcenter", Icon: AlignHorizontalJustifyCenter, label: "가로 가운데" },
+    { dir: "right", Icon: AlignHorizontalJustifyEnd, label: "오른쪽" },
+    { dir: "top", Icon: AlignVerticalJustifyStart, label: "위 맞춤" },
+    { dir: "vcenter", Icon: AlignVerticalJustifyCenter, label: "세로 가운데" },
+    { dir: "bottom", Icon: AlignVerticalJustifyEnd, label: "아래 맞춤" }
+  ];
   return (
     <div className="space-y-4 text-sm">
       <div className="flex items-center gap-1">
         <button type="button" onClick={onDuplicate} className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-line py-1.5 text-xs hover:border-brand"><Copy className="h-3.5 w-3.5" /> 복제</button>
-        <button type="button" onClick={() => onReorder("front")} className="rounded-lg border border-line p-1.5 hover:border-brand" aria-label="앞으로"><ChevronUp className="h-3.5 w-3.5" /></button>
-        <button type="button" onClick={() => onReorder("back")} className="rounded-lg border border-line p-1.5 hover:border-brand" aria-label="뒤로"><ChevronDown className="h-3.5 w-3.5" /></button>
         <button type="button" onClick={() => onChange({ locked: !el.locked })} className="rounded-lg border border-line p-1.5 hover:border-brand" aria-label="잠금">
           {el.locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
         </button>
         <button type="button" onClick={onDelete} className="rounded-lg border border-line p-1.5 text-red-500 hover:border-red-500" aria-label="삭제"><Trash2 className="h-3.5 w-3.5" /></button>
+      </div>
+
+      {/* 캔버스 정렬 */}
+      <div>
+        <p className="mb-1 text-[11px] font-semibold text-slate-500">캔버스 정렬</p>
+        <div className="flex gap-1">
+          {alignBtns.map((b, i) => (
+            <span key={b.dir} className="contents">
+              {i === 3 && <span className="mx-0.5 w-px self-stretch bg-line" />}
+              <button type="button" onClick={() => onAlign(b.dir)} title={b.label} aria-label={b.label}
+                className="flex flex-1 items-center justify-center rounded-lg border border-line p-1.5 text-slate-500 hover:border-brand hover:text-brand">
+                <b.Icon className="h-4 w-4" />
+              </button>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* 노출 순서 */}
+      <div>
+        <p className="mb-1 text-[11px] font-semibold text-slate-500">노출 순서</p>
+        <div className="flex gap-1">
+          <button type="button" onClick={() => onReorder("front")} title="맨 앞으로" className="flex flex-1 items-center justify-center rounded-lg border border-line p-1.5 text-slate-500 hover:border-brand hover:text-brand"><ChevronsUp className="h-4 w-4" /></button>
+          <button type="button" onClick={() => onReorder("up")} title="한 단계 위로" className="flex flex-1 items-center justify-center rounded-lg border border-line p-1.5 text-slate-500 hover:border-brand hover:text-brand"><ChevronUp className="h-4 w-4" /></button>
+          <button type="button" onClick={() => onReorder("down")} title="한 단계 아래로" className="flex flex-1 items-center justify-center rounded-lg border border-line p-1.5 text-slate-500 hover:border-brand hover:text-brand"><ChevronDown className="h-4 w-4" /></button>
+          <button type="button" onClick={() => onReorder("back")} title="맨 뒤로" className="flex flex-1 items-center justify-center rounded-lg border border-line p-1.5 text-slate-500 hover:border-brand hover:text-brand"><ChevronsDown className="h-4 w-4" /></button>
+        </div>
       </div>
 
       {canFill && brandColors.length > 0 && (
