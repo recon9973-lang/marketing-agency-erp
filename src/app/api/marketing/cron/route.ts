@@ -18,6 +18,7 @@ import { runGuardRankWatch } from "@/server/jobs/guard-rank";
 import { runChannelSync } from "@/server/jobs/channel-sync";
 import { runMagazineAutoDraft } from "@/server/jobs/magazine";
 import { runPlatformUpdatesSync } from "@/server/jobs/platform-updates";
+import { runMonthlyReportDrafts } from "@/server/jobs/monthly-report";
 import { runGeoWatch } from "@/server/geo-engine/runner";
 
 export const runtime = "nodejs";
@@ -43,7 +44,10 @@ export async function GET(req: NextRequest) {
     // GEO 자동 관측은 주 1회(월요일)만 — 엔진 API 비용 상한(질문×엔진×주1회)
     const isMonday = new Date().getUTCDay() === 1;
     const geoWatch = isMonday ? await runGeoWatch() : null;
-    return NextResponse.json({ ok: true, alerts, guardRank, sync, magazine, platformUpdates, geoWatch });
+    // 월간 보고서 자동 초안 — 월초(1일)에만 전 거래처 지난달 보고서 DRAFT 생성(멱등)
+    const isMonthStart = new Date().getUTCDate() === 1;
+    const monthlyReports = isMonthStart ? await runMonthlyReportDrafts() : null;
+    return NextResponse.json({ ok: true, alerts, guardRank, sync, magazine, platformUpdates, geoWatch, monthlyReports });
   } catch (e) {
     console.error("[marketing/cron] daily jobs failed", e);
     return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
@@ -51,7 +55,7 @@ export async function GET(req: NextRequest) {
 }
 
 type CronBody = {
-  job?: "alerts" | "guard-rank" | "sync" | "geo-watch" | "magazine-draft" | "platform-updates" | "collection";
+  job?: "alerts" | "guard-rank" | "sync" | "geo-watch" | "magazine-draft" | "platform-updates" | "monthly-reports" | "collection";
   reportingMonth?: string;
   configByClient?: Record<string, { keywords: string[]; target: string; channel?: "blog" | "web" | "local" }>;
 };
@@ -121,6 +125,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, ...result });
     } catch (e) {
       console.error("[marketing/cron] platform updates sync failed", e);
+      return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
+    }
+  }
+
+  // 월간 보고서 자동 초안 — {"job":"monthly-reports"}로 트리거. 전 거래처 지난달 보고서 DRAFT(멱등).
+  if (body.job === "monthly-reports") {
+    try {
+      const result = await runMonthlyReportDrafts();
+      return NextResponse.json({ ok: true, ...result });
+    } catch (e) {
+      console.error("[marketing/cron] monthly report drafts failed", e);
       return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
     }
   }
