@@ -560,7 +560,10 @@ export function EditorClient({
             <ElementProperties el={selected} onChange={(patch) => changeElement(selected.id, patch)}
               onDelete={deleteSelected} onDuplicate={duplicateSelected} onReorder={reorder} brandColors={brandColors} />
           ) : (
-            <PageProperties page={page} onChange={(bg) => updatePage((p) => { p.background = bg; })} />
+            <>
+              <QuickEditPanel page={page} onChangeText={(id, text) => changeElement(id, { text })} onSelect={setSelectedId} />
+              <PageProperties page={page} onChange={(bg) => updatePage((p) => { p.background = bg; })} />
+            </>
           )}
         </aside>
       </div>
@@ -668,6 +671,36 @@ function ElementProperties({ el, onChange, onDelete, onDuplicate, onReorder, bra
 }
 
 // ── 우측: 페이지(빈 선택) 속성 ──
+// ── 빠른 편집(B2) — 캔버스를 만지지 않고 페이지의 모든 텍스트 문구만 바꾼다 ──
+function QuickEditPanel({ page, onChangeText, onSelect }: {
+  page: StudioPage;
+  onChangeText: (id: string, text: string) => void;
+  onSelect: (id: string) => void;
+}) {
+  const texts = page.elements.filter((e): e is Extract<StudioElement, { type: "text" }> => e.type === "text");
+  if (texts.length === 0) return null;
+  return (
+    <div className="mb-4 space-y-2 rounded-xl border border-line bg-surface/50 p-3">
+      <div>
+        <p className="text-xs font-bold text-ink">빠른 편집 · 문구</p>
+        <p className="text-[11px] text-slate-400">캔버스를 만지지 않고 텍스트만 바꾸세요.</p>
+      </div>
+      {texts.map((t, i) => {
+        const label = t.text.replace(/\s+/g, " ").trim().slice(0, 14) || `텍스트 ${i + 1}`;
+        return (
+          <div key={t.id}>
+            <button type="button" onClick={() => onSelect(t.id)} className="mb-0.5 block max-w-full truncate text-[10px] text-slate-400 hover:text-brand" title="이 요소 선택">
+              {label}
+            </button>
+            <textarea value={t.text} onChange={(e) => onChangeText(t.id, e.target.value)} rows={2}
+              className="w-full resize-none rounded-lg border border-line bg-white px-2 py-1.5 text-sm text-ink outline-none focus:border-brand" />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function PageProperties({ page, onChange }: { page: StudioPage; onChange: (bg: string) => void }) {
   return (
     <div className="space-y-4 text-sm">
