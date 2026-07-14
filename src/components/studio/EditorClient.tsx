@@ -12,7 +12,8 @@ import {
   ArrowLeft, Type, Square, Circle, ImagePlus, Plus, Undo2, Redo2, Download,
   Trash2, Copy, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Lock, Unlock, Loader2, Check, Sparkles, Maximize2,
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
-  AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd
+  AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
+  Group as GroupIcon, Ungroup
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -51,7 +52,7 @@ export function EditorClient({
   const router = useRouter();
   const [doc, setDoc] = useState<StudioDoc>(initialDoc);
   const [pageIndex, setPageIndex] = useState(0);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [title, setTitle] = useState(initialTitle);
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [scale, setScale] = useState(0.4);
@@ -72,7 +73,37 @@ export function EditorClient({
   const scaleRef = useRef(0.4); // 현재 화면 스케일(멀티페이지 내보내기에서 프레임 대기 후 최신값 참조)
 
   const page = doc.pages[Math.min(pageIndex, doc.pages.length - 1)];
-  const selected = page.elements.find((e) => e.id === selectedId) ?? null;
+  const selectedElements = useMemo(
+    () => page.elements.filter((e) => selectedIds.includes(e.id)),
+    [page.elements, selectedIds]
+  );
+  const single = selectedElements.length === 1 ? selectedElements[0] : null;
+
+  // 요소 선택 — 같은 groupId를 가진 형제는 함께 선택. additive(shift)면 토글.
+  const selectElement = useCallback((id: string | null, additive = false) => {
+    if (id === null) { setSelectedIds([]); return; }
+    const el = page.elements.find((e) => e.id === id);
+    const ids = el?.groupId
+      ? page.elements.filter((e) => e.groupId === el.groupId).map((e) => e.id)
+      : [id];
+    setSelectedIds((prev) => {
+      if (!additive) return ids;
+      const already = ids.every((g) => prev.includes(g));
+      return already ? prev.filter((p) => !ids.includes(p)) : Array.from(new Set([...prev, ...ids]));
+    });
+  }, [page.elements]);
+
+  // 마퀴(드래그 사각형) 선택 — 걸린 요소 + 그 그룹의 형제까지 포함.
+  const selectMany = useCallback((ids: string[]) => {
+    if (ids.length === 0) { setSelectedIds([]); return; }
+    const set = new Set(ids);
+    for (const el of page.elements) {
+      if (el.groupId && set.has(el.id)) {
+        for (const sib of page.elements) if (sib.groupId === el.groupId) set.add(sib.id);
+      }
+    }
+    setSelectedIds(Array.from(set));
+  }, [page.elements]);
 
   // ── 캔버스 맞춤 스케일 ──
   useEffect(() => {
@@ -122,9 +153,19 @@ export function EditorClient({
     });
   }, [updatePage]);
 
+  // 여러 요소를 한 번의 히스토리 커밋으로 갱신(다중 이동·정렬).
+  const changeElements = useCallback((patches: { id: string; patch: Partial<StudioElement> }[]) => {
+    updatePage((p) => {
+      for (const { id, patch } of patches) {
+        const idx = p.elements.findIndex((e) => e.id === id);
+        if (idx >= 0) p.elements[idx] = { ...p.elements[idx], ...patch } as StudioElement;
+      }
+    });
+  }, [updatePage]);
+
   function addElement(el: StudioElement) {
     updatePage((p) => p.elements.push(el));
-    setSelectedId(el.id);
+    setSelectedIds([el.id]);
   }
 
   function addText() {
@@ -205,43 +246,97 @@ export function EditorClient({
   }
 
   function deleteSelected() {
-    if (!selectedId) return;
+    if (selectedIds.length === 0) return;
     updatePage((p) => {
-      const idx = p.elements.findIndex((e) => e.id === selectedId);
-      if (idx >= 0) p.elements.splice(idx, 1);
+      p.elements = p.elements.filter((e) => !selectedIds.includes(e.id));
     });
-    setSelectedId(null);
+    setSelectedIds([]);
   }
   function duplicateSelected() {
-    if (!selected) return;
-    const copy = { ...clone(selected), id: makeId(selected.type.slice(0, 2)), x: selected.x + 24, y: selected.y + 24 };
-    addElement(copy);
+    if (selectedElements.length === 0) return;
+    // 그룹째 복제 시 새 groupId로 재매핑(원본과 분리).
+    const gidMap = new Map<string, string>();
+    const copies = selectedElements.map((el) => {
+      let groupId = el.groupId ?? null;
+      if (groupId) {
+        if (!gidMap.has(groupId)) gidMap.set(groupId, makeId("grp"));
+        groupId = gidMap.get(groupId)!;
+      }
+      return { ...clone(el), id: makeId(el.type.slice(0, 2)), x: el.x + 24, y: el.y + 24, groupId } as StudioElement;
+    });
+    updatePage((p) => p.elements.push(...copies));
+    setSelectedIds(copies.map((c) => c.id));
   }
   function reorder(dir: "front" | "back" | "up" | "down") {
-    if (!selectedId) return;
+    if (selectedIds.length === 0) return;
     updatePage((p) => {
-      const idx = p.elements.findIndex((e) => e.id === selectedId);
-      if (idx < 0) return;
-      if (dir === "front") { const [el] = p.elements.splice(idx, 1); p.elements.push(el); }
-      else if (dir === "back") { const [el] = p.elements.splice(idx, 1); p.elements.unshift(el); }
-      else if (dir === "up" && idx < p.elements.length - 1) { [p.elements[idx], p.elements[idx + 1]] = [p.elements[idx + 1], p.elements[idx]]; }
-      else if (dir === "down" && idx > 0) { [p.elements[idx], p.elements[idx - 1]] = [p.elements[idx - 1], p.elements[idx]]; }
+      const picked = p.elements.filter((e) => selectedIds.includes(e.id));
+      const rest = p.elements.filter((e) => !selectedIds.includes(e.id));
+      if (dir === "front") { p.elements = [...rest, ...picked]; return; }
+      if (dir === "back") { p.elements = [...picked, ...rest]; return; }
+      // up/down: 선택 블록을 인접 요소와 한 칸 교환(다중은 최상/최하단 기준으로 이동).
+      const idxs = p.elements.map((e, i) => (selectedIds.includes(e.id) ? i : -1)).filter((i) => i >= 0);
+      if (dir === "up") {
+        const top = Math.max(...idxs);
+        if (top < p.elements.length - 1) {
+          const [moved] = p.elements.splice(top + 1, 1);
+          p.elements.splice(Math.min(...idxs), 0, moved);
+        }
+      } else {
+        const bottom = Math.min(...idxs);
+        if (bottom > 0) {
+          const [moved] = p.elements.splice(bottom - 1, 1);
+          p.elements.splice(Math.max(...idxs), 0, moved);
+        }
+      }
     });
   }
 
-  // 선택 요소를 캔버스 기준으로 정렬(가운데·상/하 맞춤 등).
-  function align(dir: "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom") {
-    const el = page.elements.find((e) => e.id === selectedId);
-    if (!el) return;
-    const patch: Partial<StudioElement> =
-      dir === "left" ? { x: 0 }
-      : dir === "hcenter" ? { x: Math.round((page.width - el.width) / 2) }
-      : dir === "right" ? { x: page.width - el.width }
-      : dir === "top" ? { y: 0 }
-      : dir === "vcenter" ? { y: Math.round((page.height - el.height) / 2) }
-      : { y: page.height - el.height };
-    changeElement(el.id, patch);
+  type AlignDirName = "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom";
+  // 단일: 캔버스 기준 정렬. 다중: 선택 영역(바운딩 박스) 기준 정렬.
+  function align(dir: AlignDirName) {
+    if (selectedElements.length === 0) return;
+    if (selectedElements.length === 1) {
+      const el = selectedElements[0];
+      const patch: Partial<StudioElement> =
+        dir === "left" ? { x: 0 }
+        : dir === "hcenter" ? { x: Math.round((page.width - el.width) / 2) }
+        : dir === "right" ? { x: page.width - el.width }
+        : dir === "top" ? { y: 0 }
+        : dir === "vcenter" ? { y: Math.round((page.height - el.height) / 2) }
+        : { y: page.height - el.height };
+      changeElement(el.id, patch);
+      return;
+    }
+    const minX = Math.min(...selectedElements.map((e) => e.x));
+    const maxX = Math.max(...selectedElements.map((e) => e.x + e.width));
+    const minY = Math.min(...selectedElements.map((e) => e.y));
+    const maxY = Math.max(...selectedElements.map((e) => e.y + e.height));
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const patches = selectedElements.map((e) => {
+      const patch: Partial<StudioElement> =
+        dir === "left" ? { x: Math.round(minX) }
+        : dir === "hcenter" ? { x: Math.round(cx - e.width / 2) }
+        : dir === "right" ? { x: Math.round(maxX - e.width) }
+        : dir === "top" ? { y: Math.round(minY) }
+        : dir === "vcenter" ? { y: Math.round(cy - e.height / 2) }
+        : { y: Math.round(maxY - e.height) };
+      return { id: e.id, patch };
+    });
+    changeElements(patches);
   }
+
+  // 그룹 지정/해제 — 선택된 요소들에 공통 groupId 부여/제거.
+  function groupSelected() {
+    if (selectedIds.length < 2) return;
+    const gid = makeId("grp");
+    changeElements(selectedIds.map((id) => ({ id, patch: { groupId: gid } as Partial<StudioElement> })));
+  }
+  function ungroupSelected() {
+    changeElements(selectedIds.map((id) => ({ id, patch: { groupId: null } as Partial<StudioElement> })));
+  }
+  const isGrouped = selectedElements.length >= 2 && selectedElements.every((e) => e.groupId && e.groupId === selectedElements[0].groupId);
 
   // ── 페이지 관리 ──
   function addPage() {
@@ -249,7 +344,7 @@ export function EditorClient({
     next.pages.push(blankPage(page.width, page.height));
     commit(next);
     setPageIndex(next.pages.length - 1);
-    setSelectedId(null);
+    setSelectedIds([]);
   }
   function duplicatePage() {
     const next = clone(doc);
@@ -259,7 +354,7 @@ export function EditorClient({
     next.pages.splice(pageIndex + 1, 0, dup);
     commit(next);
     setPageIndex(pageIndex + 1);
-    setSelectedId(null);
+    setSelectedIds([]);
   }
   function deletePage() {
     if (doc.pages.length <= 1) return;
@@ -267,7 +362,7 @@ export function EditorClient({
     next.pages.splice(pageIndex, 1);
     commit(next);
     setPageIndex(Math.max(0, pageIndex - 1));
-    setSelectedId(null);
+    setSelectedIds([]);
   }
 
   // ── 실행취소/다시실행 ──
@@ -276,7 +371,7 @@ export function EditorClient({
     if (!prev) return;
     future.current.push(clone(doc));
     setDoc(prev);
-    setSelectedId(null);
+    setSelectedIds([]);
     setSaveState("dirty");
   }, [doc]);
   const redo = useCallback(() => {
@@ -284,7 +379,7 @@ export function EditorClient({
     if (!nxt) return;
     past.current.push(clone(doc));
     setDoc(nxt);
-    setSelectedId(null);
+    setSelectedIds([]);
     setSaveState("dirty");
   }, [doc]);
 
@@ -292,17 +387,26 @@ export function EditorClient({
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+      const meta = e.metaKey || e.ctrlKey;
+      if (meta && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) redo(); else undo();
+      } else if (meta && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        setSelectedIds(page.elements.filter((el) => !el.locked).map((el) => el.id)); // 전체 선택
+      } else if (meta && e.key.toLowerCase() === "g") {
+        e.preventDefault();
+        if (e.shiftKey) ungroupSelected(); else groupSelected();
+      } else if (e.key === "Escape") {
+        setSelectedIds([]);
       } else if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedId) { e.preventDefault(); deleteSelected(); }
+        if (selectedIds.length) { e.preventDefault(); deleteSelected(); }
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [undo, redo, selectedId]);
+  }, [undo, redo, selectedIds, page.elements]);
 
   // ── 래스터화(핸들 제외) ──
   const rasterize = useCallback((mime: string, quality: number, pixelRatio: number): string | null => {
@@ -337,7 +441,7 @@ export function EditorClient({
   }
 
   function download(mime: string, ext: string, exportScale: number) {
-    setSelectedId(null);
+    setSelectedIds([]);
     setShowExport(false);
     setTimeout(() => {
       const url = rasterize(mime, 0.92, exportScale / (scale || 1));
@@ -359,7 +463,7 @@ export function EditorClient({
   async function rasterizeAllPages(mime: string, quality: number, exportScale: number) {
     const shots: { url: string; w: number; h: number }[] = [];
     const orig = pageIndex;
-    setSelectedId(null);
+    setSelectedIds([]);
     for (let i = 0; i < doc.pages.length; i++) {
       setPageIndex(i);
       await nextFrames();
@@ -563,10 +667,12 @@ export function EditorClient({
             <CanvasStage
               page={page}
               scale={scale}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
+              selectedIds={selectedIds}
+              onSelect={selectElement}
+              onSelectMany={selectMany}
               onChangeElement={changeElement}
-              onEditText={setSelectedId}
+              onChangeElements={changeElements}
+              onEditText={(id) => setSelectedIds([id])}
               onReady={(s) => { stageRef.current = s; }}
             />
           </div>
@@ -574,12 +680,23 @@ export function EditorClient({
 
         {/* 우측 속성 */}
         <aside className="w-64 shrink-0 overflow-y-auto border-l border-line bg-card p-3">
-          {selected ? (
-            <ElementProperties el={selected} onChange={(patch) => changeElement(selected.id, patch)}
+          {selectedElements.length > 1 ? (
+            <MultiSelectPanel
+              count={selectedElements.length}
+              isGrouped={isGrouped}
+              onGroup={groupSelected}
+              onUngroup={ungroupSelected}
+              onAlign={align}
+              onReorder={reorder}
+              onDuplicate={duplicateSelected}
+              onDelete={deleteSelected}
+            />
+          ) : single ? (
+            <ElementProperties el={single} onChange={(patch) => changeElement(single.id, patch)}
               onDelete={deleteSelected} onDuplicate={duplicateSelected} onReorder={reorder} onAlign={align} brandColors={brandColors} />
           ) : (
             <>
-              <QuickEditPanel page={page} onChangeText={(id, text) => changeElement(id, { text })} onSelect={setSelectedId} />
+              <QuickEditPanel page={page} onChangeText={(id, text) => changeElement(id, { text })} onSelect={(id) => setSelectedIds([id])} />
               <PageProperties page={page} onChange={(bg) => updatePage((p) => { p.background = bg; })} />
             </>
           )}
@@ -589,7 +706,7 @@ export function EditorClient({
       {/* 하단 페이지 스트립 */}
       <footer className="flex items-center gap-2 overflow-x-auto border-t border-line bg-card px-3 py-2">
         {doc.pages.map((pg, i) => (
-          <button key={pg.id} type="button" onClick={() => { setPageIndex(i); setSelectedId(null); }}
+          <button key={pg.id} type="button" onClick={() => { setPageIndex(i); setSelectedIds([]); }}
             className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border text-xs font-bold ${i === pageIndex ? "border-brand bg-brand/10 text-brand" : "border-line text-slate-400 hover:border-brand"}`}>
             {i + 1}
           </button>
@@ -606,8 +723,93 @@ export function EditorClient({
   );
 }
 
-// ── 우측: 요소 속성 ──
+// ── 정렬 버튼 메타(단일=캔버스 기준, 다중=선택영역 기준으로 재사용) ──
 type AlignDir = "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom";
+const ALIGN_BTNS: { dir: AlignDir; Icon: LucideIcon; label: string }[] = [
+  { dir: "left", Icon: AlignHorizontalJustifyStart, label: "왼쪽" },
+  { dir: "hcenter", Icon: AlignHorizontalJustifyCenter, label: "가로 가운데" },
+  { dir: "right", Icon: AlignHorizontalJustifyEnd, label: "오른쪽" },
+  { dir: "top", Icon: AlignVerticalJustifyStart, label: "위 맞춤" },
+  { dir: "vcenter", Icon: AlignVerticalJustifyCenter, label: "세로 가운데" },
+  { dir: "bottom", Icon: AlignVerticalJustifyEnd, label: "아래 맞춤" }
+];
+
+function AlignRow({ onAlign }: { onAlign: (dir: AlignDir) => void }) {
+  return (
+    <div className="flex gap-1">
+      {ALIGN_BTNS.map((b, i) => (
+        <span key={b.dir} className="contents">
+          {i === 3 && <span className="mx-0.5 w-px self-stretch bg-line" />}
+          <button type="button" onClick={() => onAlign(b.dir)} title={b.label} aria-label={b.label}
+            className="flex flex-1 items-center justify-center rounded-lg border border-line p-1.5 text-slate-500 hover:border-brand hover:text-brand">
+            <b.Icon className="h-4 w-4" />
+          </button>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ReorderRow({ onReorder }: { onReorder: (dir: "front" | "back" | "up" | "down") => void }) {
+  return (
+    <div className="flex gap-1">
+      <button type="button" onClick={() => onReorder("front")} title="맨 앞으로" className="flex flex-1 items-center justify-center rounded-lg border border-line p-1.5 text-slate-500 hover:border-brand hover:text-brand"><ChevronsUp className="h-4 w-4" /></button>
+      <button type="button" onClick={() => onReorder("up")} title="한 단계 위로" className="flex flex-1 items-center justify-center rounded-lg border border-line p-1.5 text-slate-500 hover:border-brand hover:text-brand"><ChevronUp className="h-4 w-4" /></button>
+      <button type="button" onClick={() => onReorder("down")} title="한 단계 아래로" className="flex flex-1 items-center justify-center rounded-lg border border-line p-1.5 text-slate-500 hover:border-brand hover:text-brand"><ChevronDown className="h-4 w-4" /></button>
+      <button type="button" onClick={() => onReorder("back")} title="맨 뒤로" className="flex flex-1 items-center justify-center rounded-lg border border-line p-1.5 text-slate-500 hover:border-brand hover:text-brand"><ChevronsDown className="h-4 w-4" /></button>
+    </div>
+  );
+}
+
+// ── 우측: 다중 선택 패널(그룹·정렬·순서·복제·삭제) ──
+function MultiSelectPanel({ count, isGrouped, onGroup, onUngroup, onAlign, onReorder, onDuplicate, onDelete }: {
+  count: number;
+  isGrouped: boolean;
+  onGroup: () => void;
+  onUngroup: () => void;
+  onAlign: (dir: AlignDir) => void;
+  onReorder: (dir: "front" | "back" | "up" | "down") => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="space-y-4 text-sm">
+      <div className="rounded-xl border border-brand/30 bg-brand/5 px-3 py-2">
+        <p className="text-xs font-bold text-brand">{count}개 요소 선택됨</p>
+        <p className="text-[11px] text-slate-400">함께 이동·정렬하거나 그룹으로 묶으세요.</p>
+      </div>
+
+      <div className="flex gap-1">
+        {isGrouped ? (
+          <button type="button" onClick={onUngroup} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-line py-2 text-xs hover:border-brand">
+            <Ungroup className="h-4 w-4" /> 그룹 해제
+          </button>
+        ) : (
+          <button type="button" onClick={onGroup} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-line py-2 text-xs hover:border-brand">
+            <GroupIcon className="h-4 w-4" /> 그룹 지정
+          </button>
+        )}
+      </div>
+
+      <div>
+        <p className="mb-1 text-[11px] font-semibold text-slate-500">선택 영역 기준 정렬</p>
+        <AlignRow onAlign={onAlign} />
+      </div>
+
+      <div>
+        <p className="mb-1 text-[11px] font-semibold text-slate-500">노출 순서</p>
+        <ReorderRow onReorder={onReorder} />
+      </div>
+
+      <div className="flex items-center gap-1">
+        <button type="button" onClick={onDuplicate} className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-line py-1.5 text-xs hover:border-brand"><Copy className="h-3.5 w-3.5" /> 복제</button>
+        <button type="button" onClick={onDelete} className="rounded-lg border border-line p-1.5 text-red-500 hover:border-red-500" aria-label="삭제"><Trash2 className="h-3.5 w-3.5" /></button>
+      </div>
+    </div>
+  );
+}
+
+// ── 우측: 요소 속성 ──
 function ElementProperties({ el, onChange, onDelete, onDuplicate, onReorder, onAlign, brandColors }: {
   el: StudioElement;
   onChange: (patch: Partial<StudioElement>) => void;
@@ -618,14 +820,6 @@ function ElementProperties({ el, onChange, onDelete, onDuplicate, onReorder, onA
   brandColors: string[];
 }) {
   const canFill = el.type === "text" || el.type === "rect" || el.type === "ellipse";
-  const alignBtns: { dir: AlignDir; Icon: LucideIcon; label: string }[] = [
-    { dir: "left", Icon: AlignHorizontalJustifyStart, label: "왼쪽" },
-    { dir: "hcenter", Icon: AlignHorizontalJustifyCenter, label: "가로 가운데" },
-    { dir: "right", Icon: AlignHorizontalJustifyEnd, label: "오른쪽" },
-    { dir: "top", Icon: AlignVerticalJustifyStart, label: "위 맞춤" },
-    { dir: "vcenter", Icon: AlignVerticalJustifyCenter, label: "세로 가운데" },
-    { dir: "bottom", Icon: AlignVerticalJustifyEnd, label: "아래 맞춤" }
-  ];
   return (
     <div className="space-y-4 text-sm">
       <div className="flex items-center gap-1">
@@ -639,28 +833,13 @@ function ElementProperties({ el, onChange, onDelete, onDuplicate, onReorder, onA
       {/* 캔버스 정렬 */}
       <div>
         <p className="mb-1 text-[11px] font-semibold text-slate-500">캔버스 정렬</p>
-        <div className="flex gap-1">
-          {alignBtns.map((b, i) => (
-            <span key={b.dir} className="contents">
-              {i === 3 && <span className="mx-0.5 w-px self-stretch bg-line" />}
-              <button type="button" onClick={() => onAlign(b.dir)} title={b.label} aria-label={b.label}
-                className="flex flex-1 items-center justify-center rounded-lg border border-line p-1.5 text-slate-500 hover:border-brand hover:text-brand">
-                <b.Icon className="h-4 w-4" />
-              </button>
-            </span>
-          ))}
-        </div>
+        <AlignRow onAlign={onAlign} />
       </div>
 
       {/* 노출 순서 */}
       <div>
         <p className="mb-1 text-[11px] font-semibold text-slate-500">노출 순서</p>
-        <div className="flex gap-1">
-          <button type="button" onClick={() => onReorder("front")} title="맨 앞으로" className="flex flex-1 items-center justify-center rounded-lg border border-line p-1.5 text-slate-500 hover:border-brand hover:text-brand"><ChevronsUp className="h-4 w-4" /></button>
-          <button type="button" onClick={() => onReorder("up")} title="한 단계 위로" className="flex flex-1 items-center justify-center rounded-lg border border-line p-1.5 text-slate-500 hover:border-brand hover:text-brand"><ChevronUp className="h-4 w-4" /></button>
-          <button type="button" onClick={() => onReorder("down")} title="한 단계 아래로" className="flex flex-1 items-center justify-center rounded-lg border border-line p-1.5 text-slate-500 hover:border-brand hover:text-brand"><ChevronDown className="h-4 w-4" /></button>
-          <button type="button" onClick={() => onReorder("back")} title="맨 뒤로" className="flex flex-1 items-center justify-center rounded-lg border border-line p-1.5 text-slate-500 hover:border-brand hover:text-brand"><ChevronsDown className="h-4 w-4" /></button>
-        </div>
+        <ReorderRow onReorder={onReorder} />
       </div>
 
       {canFill && brandColors.length > 0 && (

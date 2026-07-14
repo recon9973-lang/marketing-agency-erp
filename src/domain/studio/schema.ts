@@ -25,7 +25,10 @@ const baseElement = z.object({
   height: z.number(),
   rotation: z.number().default(0),
   opacity: z.number().min(0).max(1).default(1),
-  locked: z.boolean().default(false)
+  locked: z.boolean().default(false),
+  // 그룹 지정 — 같은 groupId를 가진 요소들은 한 번의 클릭으로 함께 선택·이동된다.
+  // optional(추가 필드) → 기존 저장 문서·요소 리터럴과 하위호환.
+  groupId: z.string().nullable().optional()
 });
 
 export const textElement = baseElement.extend({

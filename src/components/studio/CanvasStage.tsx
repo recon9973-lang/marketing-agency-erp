@@ -8,12 +8,16 @@ import type Konva from "konva";
 import type { StudioElement, StudioPage } from "@/domain/studio/schema";
 import { computeSnap } from "@/domain/studio/snap";
 
+export type ElementPatch = { id: string; patch: Partial<StudioElement> };
+
 type Props = {
   page: StudioPage;
   scale: number;
-  selectedId: string | null;
-  onSelect: (id: string | null) => void;
+  selectedIds: string[];
+  onSelect: (id: string | null, additive?: boolean) => void;
+  onSelectMany: (ids: string[]) => void;
   onChangeElement: (id: string, patch: Partial<StudioElement>) => void;
+  onChangeElements: (patches: ElementPatch[]) => void;
   onEditText: (id: string) => void;
   onReady: (stage: Konva.Stage | null) => void;
 };
@@ -40,33 +44,47 @@ function URLImage({ el }: { el: Extract<StudioElement, { type: "image" }> }) {
   );
 }
 
+// 두 박스가 겹치는지(마퀴 선택 판정).
+function intersects(a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) {
+  return !(a.x + a.w < b.x || b.x + b.w < a.x || a.y + a.h < b.y || b.y + b.h < a.y);
+}
+
 export default function CanvasStage({
   page,
   scale,
-  selectedId,
+  selectedIds,
   onSelect,
+  onSelectMany,
   onChangeElement,
+  onChangeElements,
   onEditText,
   onReady
 }: Props) {
   const stageRef = useRef<Konva.Stage>(null);
   const trRef = useRef<Konva.Transformer>(null);
   const [guides, setGuides] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] });
+  // 여러 요소를 함께 드래그할 때 시작 위치 스냅샷.
+  const dragState = useRef<{ id: string; ox: number; oy: number; others: { id: string; x: number; y: number }[] } | null>(null);
+  // 마퀴(드래그 사각형) 선택 상태.
+  const marquee = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const [marqueeRect, setMarqueeRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
   useEffect(() => {
     onReady(stageRef.current);
     return () => onReady(null);
   }, [onReady]);
 
-  // 선택 요소에 Transformer(핸들) 부착.
+  // 선택 요소(들)에 Transformer(핸들) 부착.
   useEffect(() => {
     const tr = trRef.current;
     const stage = stageRef.current;
     if (!tr || !stage) return;
-    const node = selectedId ? stage.findOne(`#${selectedId}`) : null;
-    tr.nodes(node ? [node] : []);
+    const nodes = selectedIds
+      .map((id) => stage.findOne(`#${id}`))
+      .filter((n): n is Konva.Node => Boolean(n));
+    tr.nodes(nodes);
     tr.getLayer()?.batchDraw();
-  }, [selectedId, page]);
+  }, [selectedIds, page]);
 
   function commitTransform(id: string, node: Konva.Node, base: StudioElement) {
     const scaleX = node.scaleX();
@@ -82,6 +100,14 @@ export default function CanvasStage({
     });
   }
 
+  // 디자인 좌표계의 포인터 위치(스테이지 스케일 역보정).
+  function pointerDesign(): { x: number; y: number } | null {
+    const stage = stageRef.current;
+    const p = stage?.getPointerPosition();
+    if (!p) return null;
+    return { x: p.x / scale, y: p.y / scale };
+  }
+
   return (
     <Stage
       ref={stageRef}
@@ -90,7 +116,42 @@ export default function CanvasStage({
       scaleX={scale}
       scaleY={scale}
       onMouseDown={(e) => {
-        if (e.target === e.target.getStage() || e.target.name() === "bg") onSelect(null);
+        // 빈 곳/배경에서 시작 → 마퀴 선택 준비.
+        if (e.target === e.target.getStage() || e.target.name() === "bg") {
+          const p = pointerDesign();
+          if (p) marquee.current = { x: p.x, y: p.y, moved: false };
+        }
+      }}
+      onMouseMove={() => {
+        if (!marquee.current) return;
+        const p = pointerDesign();
+        if (!p) return;
+        const dx = Math.abs(p.x - marquee.current.x) * scale;
+        const dy = Math.abs(p.y - marquee.current.y) * scale;
+        if (dx > 4 || dy > 4) marquee.current.moved = true;
+        setMarqueeRect({
+          x: Math.min(marquee.current.x, p.x),
+          y: Math.min(marquee.current.y, p.y),
+          w: Math.abs(p.x - marquee.current.x),
+          h: Math.abs(p.y - marquee.current.y)
+        });
+      }}
+      onMouseUp={() => {
+        const m = marquee.current;
+        marquee.current = null;
+        setMarqueeRect(null);
+        if (!m) return;
+        if (!m.moved) {
+          onSelect(null); // 빈 곳 클릭 → 선택 해제
+          return;
+        }
+        const p = pointerDesign();
+        if (!p) return;
+        const box = { x: Math.min(m.x, p.x), y: Math.min(m.y, p.y), w: Math.abs(p.x - m.x), h: Math.abs(p.y - m.y) };
+        const hit = page.elements
+          .filter((el) => !el.locked && intersects(box, { x: el.x, y: el.y, w: el.width, h: el.height }))
+          .map((el) => el.id);
+        onSelectMany(hit);
       }}
     >
       <Layer>
@@ -105,10 +166,38 @@ export default function CanvasStage({
             rotation: el.rotation,
             opacity: el.opacity,
             draggable: !el.locked,
-            onClick: () => onSelect(el.id),
+            onClick: (e: Konva.KonvaEventObject<MouseEvent>) => onSelect(el.id, e.evt.shiftKey),
             onTap: () => onSelect(el.id),
+            onDragStart: () => {
+              // 다중 선택 상태에서 선택된 요소를 잡으면 → 함께 이동 준비.
+              if (selectedIds.length > 1 && selectedIds.includes(el.id)) {
+                dragState.current = {
+                  id: el.id,
+                  ox: el.x,
+                  oy: el.y,
+                  others: page.elements
+                    .filter((o) => selectedIds.includes(o.id) && o.id !== el.id)
+                    .map((o) => ({ id: o.id, x: o.x, y: o.y }))
+                };
+              } else {
+                dragState.current = null;
+              }
+            },
             onDragMove: (e: Konva.KonvaEventObject<DragEvent>) => {
               const node = e.target;
+              const ds = dragState.current;
+              if (ds && ds.id === el.id) {
+                // 다중 이동 — 델타를 나머지 선택 요소에 적용(스냅 없음).
+                const dx = node.x() - ds.ox;
+                const dy = node.y() - ds.oy;
+                for (const o of ds.others) {
+                  const n = stageRef.current?.findOne(`#${o.id}`);
+                  if (n) { n.x(o.x + dx); n.y(o.y + dy); }
+                }
+                setGuides({ v: [], h: [] });
+                return;
+              }
+              // 단일 이동 — 스마트 가이드 스냅.
               const others = page.elements
                 .filter((o) => o.id !== el.id)
                 .map((o) => ({ x: o.x, y: o.y, width: o.width, height: o.height }));
@@ -124,7 +213,18 @@ export default function CanvasStage({
             },
             onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => {
               setGuides({ v: [], h: [] });
-              onChangeElement(el.id, { x: e.target.x(), y: e.target.y() });
+              const ds = dragState.current;
+              if (ds && ds.id === el.id) {
+                const dx = e.target.x() - ds.ox;
+                const dy = e.target.y() - ds.oy;
+                onChangeElements([
+                  { id: el.id, patch: { x: e.target.x(), y: e.target.y() } },
+                  ...ds.others.map((o) => ({ id: o.id, patch: { x: o.x + dx, y: o.y + dy } }))
+                ]);
+                dragState.current = null;
+              } else {
+                onChangeElement(el.id, { x: e.target.x(), y: e.target.y() });
+              }
             },
             onTransformEnd: (e: Konva.KonvaEventObject<Event>) => commitTransform(el.id, e.target, el)
           };
@@ -192,6 +292,21 @@ export default function CanvasStage({
         {guides.h.map((y, i) => (
           <Line key={`h${i}`} points={[0, y, page.width, y]} stroke="#d9662e" strokeWidth={1 / scale} dash={[6 / scale, 4 / scale]} listening={false} />
         ))}
+
+        {/* 마퀴(드래그 선택) 사각형 */}
+        {marqueeRect && (
+          <Rect
+            x={marqueeRect.x}
+            y={marqueeRect.y}
+            width={marqueeRect.w}
+            height={marqueeRect.h}
+            fill="rgba(217,102,46,0.10)"
+            stroke="#d9662e"
+            strokeWidth={1 / scale}
+            dash={[4 / scale, 3 / scale]}
+            listening={false}
+          />
+        )}
 
         <Transformer
           ref={trRef}
