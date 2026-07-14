@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FolderPlus, Trash2, Upload, Download } from "lucide-react";
-import { createVaultFolder, deleteVaultFolder, deleteVaultFile, uploadVaultFile } from "@/server/actions/vault";
+import { createVaultFolder, deleteVaultFolder, deleteVaultFile, moveVaultFile, uploadVaultFile } from "@/server/actions/vault";
 
 const inputCls = "h-10 rounded-md border border-line px-3 text-sm text-ink outline-none focus:border-brand";
 
@@ -101,10 +101,20 @@ export function UploadForm({ folderId }: { folderId: string | null }) {
   );
 }
 
-/** 파일 다운로드 + 삭제(누구나). */
-export function FileActions({ fileId }: { fileId: string }) {
+/** 파일 다운로드 + (선택) 폴더 이동 + 삭제(누구나). */
+export function FileActions({
+  fileId,
+  folders,
+  currentFolderId
+}: {
+  fileId: string;
+  folders?: { id: string; name: string }[];
+  currentFolderId?: string | null;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [moving, startMove] = useTransition();
+
   function onDelete() {
     if (!confirm("이 파일을 삭제할까요?")) return;
     start(async () => {
@@ -113,8 +123,32 @@ export function FileActions({ fileId }: { fileId: string }) {
       router.refresh();
     });
   }
+  function onMove(e: React.ChangeEvent<HTMLSelectElement>) {
+    const v = e.target.value;
+    startMove(async () => {
+      const res = await moveVaultFile({ id: fileId, folderId: v || null });
+      if (!res.ok) return alert("폴더 이동에 실패했습니다.");
+      router.refresh();
+    });
+  }
+
   return (
     <div className="flex items-center justify-end gap-1.5">
+      {folders && folders.length > 0 ? (
+        <select
+          value={currentFolderId ?? ""}
+          onChange={onMove}
+          disabled={moving}
+          title="폴더로 이동"
+          aria-label="폴더로 이동"
+          className="max-w-[112px] rounded-md border border-line bg-white px-1.5 py-1.5 text-xs text-slate-600 outline-none focus:border-brand disabled:opacity-50"
+        >
+          <option value="">📂 미분류</option>
+          {folders.map((f) => (
+            <option key={f.id} value={f.id}>📁 {f.name}</option>
+          ))}
+        </select>
+      ) : null}
       <a href={`/api/vault/${fileId}`} className="inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-surface">
         <Download className="h-3.5 w-3.5" /> 다운로드
       </a>
