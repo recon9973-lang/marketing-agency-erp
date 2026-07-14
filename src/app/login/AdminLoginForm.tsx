@@ -12,7 +12,7 @@ function SubmittingOverlay() {
   const { pending } = useFormStatus();
   if (!pending) return null;
   return (
-    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 rounded-2xl bg-[#0c0b0f]/80 backdrop-blur-sm">
+    <div className="absolute -inset-4 z-20 flex flex-col items-center justify-center gap-4 rounded-xl bg-[#0c0b0f]/90 backdrop-blur-md">
       <div className="relative h-12 w-12">
         <div className="absolute inset-0 rounded-full border-2 border-white/10" />
         <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-brand" />

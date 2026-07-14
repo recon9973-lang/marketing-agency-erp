@@ -35,11 +35,13 @@ function secureEquals(a: string, b: string): boolean {
  */
 async function authorizeAdmin(rawEmail: unknown, rawPassword: unknown) {
   const adminEmail = (process.env.ADMIN_EMAIL ?? "").trim().toLowerCase();
-  const adminPassword = process.env.ADMIN_PASSWORD ?? "";
+  // 비밀번호도 양끝 공백 제거 — 환경변수에 실수로 붙은 개행/공백, PC 자동완성·IME가 붙이는
+  // 끝 공백으로 인한 맥↔PC 로그인 불일치를 방지(내부 공백은 보존).
+  const adminPassword = (process.env.ADMIN_PASSWORD ?? "").trim();
   if (!adminEmail || !adminPassword) return null;
 
   const email = String(rawEmail ?? "").trim().toLowerCase();
-  const password = String(rawPassword ?? "");
+  const password = String(rawPassword ?? "").trim();
   if (!email || !password) return null;
   if (!secureEquals(email, adminEmail)) return null;
   if (!secureEquals(password, adminPassword)) return null;
