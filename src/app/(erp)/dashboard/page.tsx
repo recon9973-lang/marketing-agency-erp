@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { DashboardHome } from "@/components/dashboard/DashboardHome";
 import { SearchEngineNotices, SearchNoticesSkeleton } from "@/components/dashboard/SearchEngineNotices";
+import { SafeBoundary } from "@/components/util/SafeBoundary";
 import { summarizeDashboard, type DashboardSummary } from "@/domain/dashboard";
 import { fetchDashboardInput } from "@/server/repositories/dashboard";
 import { listClientConfirmations, listClientMonitor, listComplianceRiskItems } from "@/server/repositories/dashboard-extras";
@@ -73,9 +74,11 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <Suspense fallback={<SearchNoticesSkeleton />}>
-        <SearchEngineNotices />
-      </Suspense>
+      <SafeBoundary fallback={null}>
+        <Suspense fallback={<SearchNoticesSkeleton />}>
+          <SearchEngineNotices />
+        </Suspense>
+      </SafeBoundary>
       <DashboardHome
         userName={user.name}
         role={user.role}
