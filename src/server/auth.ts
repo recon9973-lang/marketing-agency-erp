@@ -28,14 +28,29 @@ function secureEquals(a: string, b: string): boolean {
 }
 
 /**
- * 입력·환경변수 정규화 — 맥↔PC 로그인 불일치의 실제 원인 두 가지를 코드에서 흡수.
+ * 입력·환경변수 정규화 — 맥↔PC 로그인 불일치의 실제 원인들을 코드에서 흡수.
  * (1) trim: 자동완성·IME·env 개행이 붙이는 양끝 공백 제거(내부 공백은 보존).
- * (2) NFC: 한글 유니코드 조합 방식 차이 통일. macOS는 자모 분리형(NFD),
- *     Windows는 조합형(NFC)으로 입력돼 "같은 비밀번호"가 바이트로는 달라지는데,
- *     둘 다 NFC로 정규화하면 동일해진다 → Vercel 환경변수를 바꿀 필요 없음.
+ * (2) NFKC: 유니코드 호환 정규화. 세 가지 맥↔PC 차이를 한 번에 통일한다 —
+ *     ① 한글 조합 방식(macOS 분리형 NFD ↔ Windows 조합형),
+ *     ② 전각(full-width) ASCII(ａｂｃ１２３) ↔ 반각(abc123) — PC 한글 IME가
+ *        영문/숫자를 전각으로 입력하는 경우,
+ *     ③ 기타 호환문자. 양쪽을 같은 규칙으로 정규화하므로 비교가 일치한다.
+ *   ※ NFKC로도 안 통일되는 건 아예 다른 문자(예: 원화 ₩ U+20A9 ↔ 백슬래시 \)라,
+ *     그 경우는 비밀번호에서 \ 를 빼는 것이 근본 해결이다.
  */
 function normalizeCredential(v: string): string {
-  return v.normalize("NFC").trim();
+  return v.normalize("NFKC").trim();
+}
+
+/** 진단용 — 입력 문자의 "종류"만 분류(실제 값은 노출하지 않음). 맥↔PC 원인 파악. */
+function classifyChars(s: string): string {
+  const flags: string[] = [];
+  const codes = Array.from(s).map((c) => c.codePointAt(0) ?? 0);
+  if (codes.some((c) => c >= 0xff01 && c <= 0xff5e)) flags.push("fullwidth"); // 전각 ASCII(PC 한글IME)
+  if (codes.some((c) => c === 0x20a9)) flags.push("won"); // 원화 기호 ₩(백슬래시 자리)
+  if (/\s/.test(s)) flags.push("space"); // 내부 공백
+  if (codes.some((c) => c < 0x20 || c > 0x7e)) flags.push("nonascii"); // 출력가능 ASCII 밖
+  return flags.join(",") || "ascii";
 }
 
 /**
@@ -53,8 +68,19 @@ async function authorizeAdmin(rawEmail: unknown, rawPassword: unknown) {
   const email = normalizeCredential(String(rawEmail ?? "")).toLowerCase();
   const password = normalizeCredential(String(rawPassword ?? ""));
   if (!email || !password) return null;
-  if (!secureEquals(email, adminEmail)) return null;
-  if (!secureEquals(password, adminPassword)) return null;
+
+  const emailOk = secureEquals(email, adminEmail);
+  const passOk = secureEquals(password, adminPassword);
+  if (!emailOk || !passOk) {
+    // 비밀공백/전각 등 맥↔PC 원인 추적용 — 실제 값은 절대 로그하지 않는다(길이·문자군만).
+    console.warn(
+      `[auth] admin login fail: emailOk=${emailOk} passOk=${passOk}` +
+        ` lenEq=${password.length === adminPassword.length}` +
+        ` rawClass=${classifyChars(String(rawPassword ?? ""))}` +
+        ` normClass=${classifyChars(password)}`
+    );
+    return null;
+  }
 
   const user = await db.user.upsert({
     where: { email: adminEmail },
