@@ -28,20 +28,30 @@ function secureEquals(a: string, b: string): boolean {
 }
 
 /**
+ * 입력·환경변수 정규화 — 맥↔PC 로그인 불일치의 실제 원인 두 가지를 코드에서 흡수.
+ * (1) trim: 자동완성·IME·env 개행이 붙이는 양끝 공백 제거(내부 공백은 보존).
+ * (2) NFC: 한글 유니코드 조합 방식 차이 통일. macOS는 자모 분리형(NFD),
+ *     Windows는 조합형(NFC)으로 입력돼 "같은 비밀번호"가 바이트로는 달라지는데,
+ *     둘 다 NFC로 정규화하면 동일해진다 → Vercel 환경변수를 바꿀 필요 없음.
+ */
+function normalizeCredential(v: string): string {
+  return v.normalize("NFC").trim();
+}
+
+/**
  * 이메일+비밀번호 관리자 로그인.
  * env(ADMIN_EMAIL/ADMIN_PASSWORD)와 일치하면 해당 이메일을 최고관리자(ACTIVE)로
  * upsert 하고 로그인시킨다. 비밀번호는 DB에 저장하지 않고 env로만 검증한다.
  * env는 요청 시점(런타임)에 읽는다 — 빌드 시점 정적 평가로 굳는 것 방지.
  */
 async function authorizeAdmin(rawEmail: unknown, rawPassword: unknown) {
-  const adminEmail = (process.env.ADMIN_EMAIL ?? "").trim().toLowerCase();
-  // 비밀번호도 양끝 공백 제거 — 환경변수에 실수로 붙은 개행/공백, PC 자동완성·IME가 붙이는
-  // 끝 공백으로 인한 맥↔PC 로그인 불일치를 방지(내부 공백은 보존).
-  const adminPassword = (process.env.ADMIN_PASSWORD ?? "").trim();
+  const adminEmail = normalizeCredential(process.env.ADMIN_EMAIL ?? "").toLowerCase();
+  // 비밀번호도 정규화(NFC+trim) — 맥↔PC 한글 조합 방식 차이·끝 공백으로 인한 불일치 방지.
+  const adminPassword = normalizeCredential(process.env.ADMIN_PASSWORD ?? "");
   if (!adminEmail || !adminPassword) return null;
 
-  const email = String(rawEmail ?? "").trim().toLowerCase();
-  const password = String(rawPassword ?? "").trim();
+  const email = normalizeCredential(String(rawEmail ?? "")).toLowerCase();
+  const password = normalizeCredential(String(rawPassword ?? ""));
   if (!email || !password) return null;
   if (!secureEquals(email, adminEmail)) return null;
   if (!secureEquals(password, adminPassword)) return null;
