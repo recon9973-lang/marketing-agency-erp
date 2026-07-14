@@ -81,13 +81,22 @@ function parseFeed(xml: string, feed: Feed, perFeed: number): SearchNotice[] {
 export async function getSearchNotices(limit = 6, perFeed = 4): Promise<{ items: SearchNotice[]; degraded: boolean }> {
   const settled = await Promise.allSettled(
     FEEDS.map(async (feed) => {
-      const res = await fetch(feed.url, {
-        // 1시간 캐시(ISR). UA 지정 — 일부 피드가 기본 UA를 막음.
-        next: { revalidate: 3600 },
-        headers: { "user-agent": "Mozilla/5.0 (compatible; VENOM-ERP/1.0; +https://venom.example)" }
-      });
-      if (!res.ok) throw new Error(`${feed.url} → ${res.status}`);
-      return parseFeed(await res.text(), feed, perFeed);
+      // 피드가 응답을 안 하면 서버리스 함수 타임아웃 → 화면 로드 실패로 이어진다.
+      // 피드당 4초로 강제 중단 → 실패한 피드는 폴백/스킵(allSettled가 흡수).
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4000);
+      try {
+        const res = await fetch(feed.url, {
+          // 1시간 캐시(ISR). UA 지정 — 일부 피드가 기본 UA를 막음.
+          next: { revalidate: 3600 },
+          headers: { "user-agent": "Mozilla/5.0 (compatible; VENOM-ERP/1.0; +https://venom.example)" },
+          signal: controller.signal
+        });
+        if (!res.ok) throw new Error(`${feed.url} → ${res.status}`);
+        return parseFeed(await res.text(), feed, perFeed);
+      } finally {
+        clearTimeout(timer);
+      }
     })
   );
 
