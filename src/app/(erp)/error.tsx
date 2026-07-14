@@ -24,6 +24,13 @@ export default function ErpError({ error, reset }: { error: Error & { digest?: s
         {error?.digest ? (
           <p className="mt-3 rounded-lg bg-surface px-3 py-2 text-[11px] text-slate-400">오류 코드: {error.digest}</p>
         ) : null}
+        {/* 임시 진단 — 실제 원인 메시지 노출(원인 파악 후 제거 예정) */}
+        {error?.message ? (
+          <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-surface px-3 py-2 text-left text-[11px] leading-5 text-amber-600">
+            {error.message}
+            {error.stack ? `\n\n${error.stack.split("\n").slice(0, 6).join("\n")}` : ""}
+          </pre>
+        ) : null}
         <button
           type="button"
           onClick={reset}
