@@ -1,6 +1,7 @@
 // 대시보드 위젯 — 검색엔진(구글·네이버) 공식 공지. 서버 컴포넌트에서 피드를 받아
 // 렌더한다. 피드 로딩이 느려도 대시보드를 막지 않도록 Suspense로 감싸 사용한다.
-import { Megaphone, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { Megaphone, ExternalLink, ArrowRight } from "lucide-react";
 import { getSearchNotices, type NoticeSource } from "@/server/integrations/search-notices";
 
 const dateFmt = new Intl.DateTimeFormat("ko-KR", { year: "2-digit", month: "numeric", day: "numeric" });
@@ -36,10 +37,13 @@ export async function SearchEngineNotices() {
         <h2 className="text-sm font-bold text-ink">검색엔진 공지</h2>
         <span className="text-[11px] text-slate-400">구글 · 네이버 공식</span>
         {degraded && (
-          <span className="ml-auto text-[10px] text-slate-400" title="실시간 피드를 불러오지 못했습니다. 공식 공지 페이지로 연결합니다.">
+          <span className="text-[10px] text-slate-400" title="실시간 피드를 불러오지 못했습니다. 공식 공지 페이지로 연결합니다.">
             공식 페이지 연결
           </span>
         )}
+        <Link href="/notices" className="ml-auto flex items-center gap-0.5 text-[11px] font-semibold text-brand hover:underline">
+          더보기 <ArrowRight className="h-3 w-3" />
+        </Link>
       </div>
 
       <ul className="mt-3 space-y-1">

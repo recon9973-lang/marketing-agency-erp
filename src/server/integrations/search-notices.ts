@@ -78,7 +78,7 @@ function parseFeed(xml: string, feed: Feed, perFeed: number): SearchNotice[] {
  * 검색엔진 공지 최신 N개. 하나라도 성공하면 degraded=false.
  * 전부 실패(차단/형식오류)면 폴백 링크를 degraded=true로 돌려준다.
  */
-export async function getSearchNotices(limit = 6): Promise<{ items: SearchNotice[]; degraded: boolean }> {
+export async function getSearchNotices(limit = 6, perFeed = 4): Promise<{ items: SearchNotice[]; degraded: boolean }> {
   const settled = await Promise.allSettled(
     FEEDS.map(async (feed) => {
       const res = await fetch(feed.url, {
@@ -87,7 +87,7 @@ export async function getSearchNotices(limit = 6): Promise<{ items: SearchNotice
         headers: { "user-agent": "Mozilla/5.0 (compatible; VENOM-ERP/1.0; +https://venom.example)" }
       });
       if (!res.ok) throw new Error(`${feed.url} → ${res.status}`);
-      return parseFeed(await res.text(), feed, 4);
+      return parseFeed(await res.text(), feed, perFeed);
     })
   );
 

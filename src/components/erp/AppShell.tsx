@@ -36,6 +36,7 @@ import { BrandLogo } from "@/components/erp/BrandLogo";
 import { ThemeToggle } from "@/components/erp/ThemeToggle";
 import { NotificationBell } from "@/components/collab/NotificationBell";
 import { CommandPalette } from "@/components/search/CommandPalette";
+import { ErpSearch } from "@/components/search/ErpSearch";
 
 type ErpRoute =
   | "/dashboard"
@@ -320,7 +321,10 @@ export function AppShell({
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
-        setPaletteOpen((v) => !v);
+        // 데스크톱은 헤더의 큰 검색 바로 포커스, (바가 숨겨진) 모바일은 팔레트.
+        const el = document.getElementById("erp-header-search") as HTMLInputElement | null;
+        if (el && el.offsetParent !== null) el.focus();
+        else setPaletteOpen((v) => !v);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -331,10 +335,10 @@ export function AppShell({
     <div className="min-h-screen bg-surface text-ink">
       {/* 데스크톱 화이트 사이드바 (테마 토큰 — 다크 자동 반전) */}
       <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-line bg-panel px-3.5 py-5 md:flex">
-        <div className="px-2 pb-5 pt-1">
+        <Link href="/dashboard" className="block rounded-lg px-2 pb-5 pt-1 transition hover:opacity-80" aria-label="대시보드로">
           <BrandLogo tone="auto" className="text-[22px]" />
           <p className="mt-1.5 text-[10px] tracking-[0.14em] text-slate-400">MARKETING ERP</p>
-        </div>
+        </Link>
 
         <nav className="flex-1 overflow-y-auto">
           {home ? (
@@ -371,20 +375,15 @@ export function AppShell({
 
       <main className="min-h-screen md:pl-60">
         <header className="sticky top-0 z-10 border-b border-line bg-panel/95 px-4 py-3.5 backdrop-blur sm:px-6">
-          <div className="flex items-center gap-4">
-            <div className="min-w-0">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="min-w-0 shrink-0">
               <h1 className="text-base font-bold text-ink">{current?.label ?? "대시보드"}</h1>
               <p className="mt-0.5 text-xs text-slate-500">역할: {ROLE_LABEL[role]}</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setPaletteOpen(true)}
-              className="ml-auto hidden items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-xs text-slate-400 transition hover:text-ink sm:flex"
-            >
-              <Search className="h-3.5 w-3.5" />
-              거래처·업무 검색…
-              <kbd className="rounded border border-line px-1 text-[10px] leading-4">⌘K</kbd>
-            </button>
+            {/* 데스크톱: 빈 공간을 채우는 큰 ERP 전체 검색 바 */}
+            <div className="hidden min-w-0 flex-1 sm:block">
+              <ErpSearch role={role} inputId="erp-header-search" />
+            </div>
             <div className="ml-auto flex items-center gap-2 sm:ml-0">
               <button
                 type="button"

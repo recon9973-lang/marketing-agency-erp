@@ -6,7 +6,7 @@ import { Search, CornerDownLeft } from "lucide-react";
 import { Role } from "@/domain/types";
 import { useErpSearch, SearchResultsList } from "@/components/search/searchCore";
 
-export function ErpSearch({ role }: { role: Role }) {
+export function ErpSearch({ role, inputId }: { role: Role; inputId?: string }) {
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const { query, setQuery, loading, active, setActive, groups, onKey, go } = useErpSearch(role, () => setOpen(false));
@@ -26,6 +26,7 @@ export function ErpSearch({ role }: { role: Role }) {
       <div className="flex items-center gap-2 rounded-xl border border-line bg-card px-3.5 py-2.5 focus-within:border-brand">
         <Search className="h-4 w-4 shrink-0 text-slate-400" />
         <input
+          id={inputId}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}
