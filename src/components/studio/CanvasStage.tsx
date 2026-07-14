@@ -3,9 +3,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Stage, Layer, Group, Rect, Ellipse, Text, Image as KonvaImage, Transformer } from "react-konva";
+import { Stage, Layer, Group, Rect, Ellipse, Text, Image as KonvaImage, Transformer, Line } from "react-konva";
 import type Konva from "konva";
 import type { StudioElement, StudioPage } from "@/domain/studio/schema";
+import { computeSnap } from "@/domain/studio/snap";
 
 type Props = {
   page: StudioPage;
@@ -50,6 +51,7 @@ export default function CanvasStage({
 }: Props) {
   const stageRef = useRef<Konva.Stage>(null);
   const trRef = useRef<Konva.Transformer>(null);
+  const [guides, setGuides] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] });
 
   useEffect(() => {
     onReady(stageRef.current);
@@ -105,8 +107,25 @@ export default function CanvasStage({
             draggable: !el.locked,
             onClick: () => onSelect(el.id),
             onTap: () => onSelect(el.id),
-            onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) =>
-              onChangeElement(el.id, { x: e.target.x(), y: e.target.y() }),
+            onDragMove: (e: Konva.KonvaEventObject<DragEvent>) => {
+              const node = e.target;
+              const others = page.elements
+                .filter((o) => o.id !== el.id)
+                .map((o) => ({ x: o.x, y: o.y, width: o.width, height: o.height }));
+              const snap = computeSnap(
+                { x: node.x(), y: node.y(), width: el.width, height: el.height },
+                others,
+                { width: page.width, height: page.height },
+                6 / scale
+              );
+              node.x(snap.x);
+              node.y(snap.y);
+              setGuides({ v: snap.vLines, h: snap.hLines });
+            },
+            onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => {
+              setGuides({ v: [], h: [] });
+              onChangeElement(el.id, { x: e.target.x(), y: e.target.y() });
+            },
             onTransformEnd: (e: Konva.KonvaEventObject<Event>) => commitTransform(el.id, e.target, el)
           };
 
@@ -165,6 +184,14 @@ export default function CanvasStage({
           }
           return null;
         })}
+
+        {/* 스마트 가이드(스냅) 선 — 드래그 중에만 */}
+        {guides.v.map((x, i) => (
+          <Line key={`v${i}`} points={[x, 0, x, page.height]} stroke="#d9662e" strokeWidth={1 / scale} dash={[6 / scale, 4 / scale]} listening={false} />
+        ))}
+        {guides.h.map((y, i) => (
+          <Line key={`h${i}`} points={[0, y, page.width, y]} stroke="#d9662e" strokeWidth={1 / scale} dash={[6 / scale, 4 / scale]} listening={false} />
+        ))}
 
         <Transformer
           ref={trRef}
