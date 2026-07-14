@@ -1,6 +1,7 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { DashboardHome } from "@/components/dashboard/DashboardHome";
-import { ErpSearch } from "@/components/search/ErpSearch";
+import { SearchEngineNotices, SearchNoticesSkeleton } from "@/components/dashboard/SearchEngineNotices";
 import { summarizeDashboard, type DashboardSummary } from "@/domain/dashboard";
 import { fetchDashboardInput } from "@/server/repositories/dashboard";
 import { listClientConfirmations, listClientMonitor, listComplianceRiskItems } from "@/server/repositories/dashboard-extras";
@@ -72,7 +73,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <ErpSearch role={user.role} />
+      <Suspense fallback={<SearchNoticesSkeleton />}>
+        <SearchEngineNotices />
+      </Suspense>
       <DashboardHome
         userName={user.name}
         role={user.role}
