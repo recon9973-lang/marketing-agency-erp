@@ -9,7 +9,9 @@ import { Role } from "@/domain/types";
 import { db } from "@/server/db";
 import { recordAudit, requestMeta, requireUser, runAction, type ActionResult } from "@/server/actions/_helpers";
 
-export const MAX_VAULT_FILE_SIZE = 8 * 1024 * 1024; // 8MB
+// ⚠️ "use server" 파일은 async 함수만 export 가능(Next 15.5+ 엄격 검증).
+//    상수는 절대 export하지 말 것 — 클라이언트가 이 파일을 import하는 순간 빌드/런타임에서 터진다.
+const MAX_VAULT_FILE_SIZE = 8 * 1024 * 1024; // 8MB
 
 export async function createVaultFolder(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
