@@ -78,21 +78,6 @@ export async function uploadVaultFile(formData: FormData): Promise<ActionResult<
   });
 }
 
-export async function moveVaultFile(input: unknown): Promise<ActionResult> {
-  return runAction(async () => {
-    await requireUser(); // 누구나 정리 가능
-    const p = z.object({ id: z.string().min(1), folderId: z.string().min(1).nullable() }).safeParse(input);
-    if (!p.success) throw new Error("VALIDATION");
-    let folderId = p.data.folderId;
-    if (folderId) {
-      const exists = await db.vaultFolder.findUnique({ where: { id: folderId }, select: { id: true } });
-      if (!exists) folderId = null; // 폴더가 사라졌으면 미분류로
-    }
-    await db.storedFile.update({ where: { id: p.data.id }, data: { folderId } });
-    revalidatePath("/vault");
-  });
-}
-
 export async function deleteVaultFile(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
     await requireUser(); // 누구나 삭제 가능
