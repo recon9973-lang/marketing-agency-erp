@@ -3,18 +3,18 @@
 > 🤖 자동 생성 파일. 직접 수정 금지 — `node scripts/gen-project-state.mjs`(또는 CI)가 push마다 갱신.
 > **새 세션은 이 파일부터 읽어 재탐색 토큰을 아낀다.**
 
-- **저장소**: marketing-agency-erp  ·  **현재 브랜치**: claude/project-audit-progress-z4bn01  ·  **기본 브랜치**: claude/project-audit-progress-z4bn01
+- **저장소**: marketing-agency-erp  ·  **현재 브랜치**: erp-v1  ·  **기본 브랜치**: erp-v1
 - **이어갈 작업(RESUME)**: 없음
 
 ## 최근 커밋 (8)
-- 2026-07-14 feat(studio): 전체 페이지 ZIP·PDF 대량 내보내기 (순번 파일명)
-- 2026-07-13 feat(docs): 회사 도장 서식 자동 날인 — 대표 서명란에 인영 오버레이
-- 2026-07-13 feat(docs): 회사 공식 서식 반영 — 임직원용 비밀유지 서약서 추가 + 멱등 백필
-- 2026-07-13 refactor(nav): 업무 흐름 기반 메뉴 재편 + 유사 카테고리 정리
-- 2026-07-13 feat(search): 빈 검색 상태에 즐겨찾기·최근 방문 노출
-- 2026-07-13 feat(pwa): iOS 홈화면 아이콘(apple-touch-icon) 명시
-- 2026-07-14 feat(studio): 템플릿 라이브러리(B1) + 카드뉴스 자동 분할(C1) (#39)
-- 2026-07-14 feat(studio): 디자인 스튜디오 MVP + 에셋 스토리지(S3/DB) (#38)
+- 2026-07-16 feat(system): 세션 연속성·토큰 절약 시스템(최강스킬) 설치 (#41)
+- 2026-07-15 feat(middleware): CANONICAL_HOST 정규 주소 통합 리다이렉트
+- 2026-07-15 feat(surveys): 시작/마감 점검 2종 설문 + 문항별 기타 직접입력
+- 2026-07-15 fix(contracts): 서명 가독성 개선 — 크게·진하게, 배경 문구 흐림 처리
+- 2026-07-15 fix(contracts): 서명 크기 10% 확대·진하게
+- 2026-07-15 feat(surveys): 계약서 기본 내용 설문폼 동기화
+- 2026-07-15 fix(contracts): 도장 60px로 축소·서명 이름 옆 겹침·(서명 또는 인) 양쪽 표시
+- 2026-07-15 fix(contracts): 갑 서명 다시 표시 + 베놈 도장 크게(위치 유지)
 
 ## 워크플로 (1)
 - `project-state.yml` · 수동
@@ -41,10 +41,10 @@
 - `src/app/dev/session/route.ts`
 
 ## package 스크립트
-`dev` · `build` · `seo:sync` · `postinstall` · `start` · `lint` · `test` · `test:watch` · `test:e2e` · `prisma:generate` · `prisma:migrate` · `prisma:seed`  ·  deps 15개
+`dev` · `build` · `seo:sync` · `postinstall` · `start` · `lint` · `test` · `test:watch` · `test:e2e` · `prisma:generate` · `prisma:migrate` · `prisma:seed`  ·  deps 17개
 
-## 환경변수 표면 (이름만, 값 아님 · 626)
-`ADMIN_EMAIL` · `ADMIN_PASSWORD` · `ADMIN_SECRET` · `ALLOW_DEV_SESSION` · `ANTHROPIC_API_KEY` · `APPDATA` · `ARM_VERSION` · `AUTH_DEMO_LOGIN` · `AUTH_FIGMA_ID` · `AUTH_FIGMA_SECRET` · `AUTH_FUSIONAUTH_CLIENT_ID` · `AUTH_FUSIONAUTH_CLIENT_SECRET` · `AUTH_FUSIONAUTH_ISSUER` · `AUTH_FUSIONAUTH_TENANT_ID` · `AUTH_LOOPS_KEY` · `AUTH_LOOPS_TRANSACTIONAL_ID` · `AUTH_MICROSOFT_ENTRA_ID_ID` · `AUTH_MICROSOFT_ENTRA_ID_ISSUER` · `AUTH_MICROSOFT_ENTRA_ID_SECRET` · `AUTH_SECRET` · `AUTH_TIKTOK_ID` · `AUTH_URL` · `AUTH_VIPPS_ID` · `AUTH_VIPPS_SECRET` · `AUTOPREFIXER_GRID` · `AWS_CONFIG_FILE` · `AWS_EC2_METADATA_SERVICE_ENDPOINT` · `AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE` · `AWS_LAMBDA_BENCHMARK_MODE` · `AWS_LAMBDA_FUNCTION_VERSION` · `AWS_LAMBDA_JS_RUNTIME` · `AWS_LOGIN_CACHE_DIRECTORY` · `AWS_PROFILE` · `AWS_REGION` · `AWS_SDK_JS_NODE_VERSION_SUPPORT_WARNING_DISABLED` · `AWS_SHARED_CREDENTIALS_FILE` · `AZURE_DEVOPS_APP_ID` · `AZURE_DEVOPS_CLIENT_SECRET` · `AZURE_DEVOPS_SCOPE` · `BABEL_ENV` · `…(+586)`
+## 환경변수 표면 (이름만, 값 아님 · 66)
+`ADMIN_EMAIL` · `ADMIN_PASSWORD` · `ADMIN_SECRET` · `ALLOW_DEV_SESSION` · `ANTHROPIC_API_KEY` · `AUTH_DEMO_LOGIN` · `AUTH_SECRET` · `AUTH_URL` · `CANONICAL_HOST` · `CANVA_ACCESS_TOKEN` · `CREDENTIAL_ENC_KEY` · `CRON_SECRET` · `DATABASE_URL` · `DATABASE_URL_UNPOOLED` · `DEV_SESSION_ROLE` · `EMAIL_FROM` · `EMAIL_SERVER` · `GEMINI_MODEL` · `GEO_ANTHROPIC_MODEL` · `GOOGLE_AI_API_KEY` · `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` · `GOOGLE_REDIRECT_URI` · `HIGGSFIELD_API_KEY` · `HIGGSFIELD_API_URL` · `KAKAO_ALIMTALK_API_KEY` · `KAKAO_ALIMTALK_ENDPOINT` · `KAKAO_ALIMTALK_SENDER` · `KAKAO_ALIMTALK_TEMPLATE` · `KW_PROXY_URL` · `MAGAZINE_DAILY_DRAFTS` · `MAKE_WEBHOOK_URL` · `MARKETING_CRON_SECRET` · `NAVER_AD_API_KEY` · `NAVER_AD_CUSTOMER_ID` · `NAVER_AD_SECRET` · `NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` · `NAVER_SEARCH_CLIENT_ID` · `NAVER_SEARCH_CLIENT_SECRET` · `…(+26)`
 
 ---
-*생성: 커밋 7cbb5f7 기준. 값·비밀은 포함하지 않음.*
+*생성: 커밋 97b8f82 기준. 값·비밀은 포함하지 않음.*
