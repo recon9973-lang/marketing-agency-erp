@@ -18,8 +18,9 @@ export function CreateContractForm({ clients, templates }: { clients: { id: stri
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("ad");
 
-  // 공통
-  const [clientId, setClientId] = useState("");
+  // 공통 — 거래처: 신규 거래처명(기본) 또는 기존 거래처 선택
+  const [clientName, setClientName] = useState("");
+  const [existingClientId, setExistingClientId] = useState("");
   const [title, setTitle] = useState("광고 업무 대행 계약서");
   const [amount, setAmount] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -45,17 +46,18 @@ export function CreateContractForm({ clients, templates }: { clients: { id: stri
   function applyTemplate(templateId: string) {
     const tpl = templates.find((t) => t.id === templateId);
     if (!tpl) return;
-    const clientName = clients.find((c) => c.id === clientId)?.name ?? "{거래처명}";
+    const nm = existingClientId ? clients.find((c) => c.id === existingClientId)?.name ?? clientName : clientName || "{거래처명}";
     setTitle(tpl.title);
-    setBody(tpl.body.replaceAll("{거래처명}", clientName));
+    setBody(tpl.body.replaceAll("{거래처명}", nm));
   }
 
   function submit() {
     setError(null);
-    if (!clientId) return setError("거래처를 선택하세요.");
+    const useExisting = Boolean(existingClientId);
+    if (!useExisting && !clientName.trim()) return setError("거래처명을 입력하세요.");
     if (!title.trim()) return setError("계약명을 입력하세요.");
     const base = {
-      clientId,
+      ...(useExisting ? { clientId: existingClientId } : { clientName: clientName.trim() }),
       title: title.trim(),
       amount: amount ? Number(amount) : null,
       startDate: startDate || null,
@@ -108,11 +110,14 @@ export function CreateContractForm({ clients, templates }: { clients: { id: stri
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <label className="block">
-          <span className={labelCls}>거래처(갑) *</span>
-          <select required value={clientId} onChange={(e) => setClientId(e.target.value)} className={inputCls}>
-            <option value="" disabled>선택</option>
-            {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <span className={labelCls}>거래처명(갑) *</span>
+          <input value={clientName} onChange={(e) => { setClientName(e.target.value); setExistingClientId(""); }} disabled={Boolean(existingClientId)} placeholder="예: 미소진치과 (신규는 계약 생성 시 자동 등록)" className={inputCls} />
+          {clients.length > 0 ? (
+            <select value={existingClientId} onChange={(e) => { setExistingClientId(e.target.value); const c = clients.find((x) => x.id === e.target.value); if (c) setClientName(c.name); }} className={`${inputCls} mt-1.5 text-xs`}>
+              <option value="">＋ 신규 거래처로 등록 (위에 이름 입력)</option>
+              {clients.map((c) => <option key={c.id} value={c.id}>기존: {c.name}</option>)}
+            </select>
+          ) : null}
         </label>
         <label className="block">
           <span className={labelCls}>계약명 *</span>

@@ -14,6 +14,7 @@ import type { Prisma } from "@prisma/client";
 import { Role, WorkCategory } from "@/domain/types";
 import { assertCanAccessClient } from "@/domain/access-control";
 import { contractBodyText, type ContractDetails } from "@/domain/contract";
+import { getDefaultOrgId } from "@/server/org";
 import { checkGuaranteeClaims, NON_GUARANTEE_DISCLAIMER } from "@/server/compliance/medical-law";
 import { db } from "@/server/db";
 import {
@@ -53,15 +54,63 @@ const detailsSchema = z
   .optional()
   .nullable();
 
-const createSchema = z.object({
-  clientId: z.string().min(1),
-  title: z.string().trim().min(1).max(200),
-  body: z.string().trim().optional().nullable(), // details로 생성 가능하므로 선택
-  details: detailsSchema,
-  amount: z.coerce.number().nonnegative().optional().nullable(),
-  startDate: optionalDate,
-  endDate: optionalDate
-});
+const createSchema = z
+  .object({
+    // 순서 개선: 기존 거래처 선택(clientId) 또는 신규 거래처명(clientName)으로 계약 작성 →
+    // clientId 없으면 계약 생성 시 거래처를 자동 생성한다.
+    clientId: z.string().trim().optional().nullable(),
+    clientName: z.string().trim().max(200).optional().nullable(),
+    title: z.string().trim().min(1).max(200),
+    body: z.string().trim().optional().nullable(),
+    details: detailsSchema,
+    amount: z.coerce.number().nonnegative().optional().nullable(),
+    startDate: optionalDate,
+    endDate: optionalDate
+  })
+  .refine((v) => Boolean(v.clientId) || Boolean(v.clientName?.trim()), "거래처를 선택하거나 거래처명을 입력하세요.");
+
+/** 거래처 코드 자동 생성 — VC-0001 순번(clients.ts와 동일 규칙). */
+async function nextClientCode(): Promise<string> {
+  const last = await db.client.findFirst({ where: { code: { startsWith: "VC-" } }, orderBy: { code: "desc" }, select: { code: true } });
+  const lastNum = last?.code ? Number.parseInt(last.code.slice(3), 10) : 0;
+  const next = Number.isFinite(lastNum) ? lastNum + 1 : 1;
+  return `VC-${String(next).padStart(4, "0")}`;
+}
+
+/** 계약 폼 데이터로 신규 거래처 생성 — code 충돌 시 재시도. 담당자=MARKETER면 본인 배정. */
+async function createClientForContract(
+  user: CurrentUser,
+  name: string,
+  details: ContractDetails | null | undefined,
+  dates: { startDate: Date | null; endDate: Date | null },
+  amount: number | null
+): Promise<string> {
+  const orgId = await getDefaultOrgId();
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const client = await db.client.create({
+        data: {
+          name,
+          code: await nextClientCode(),
+          orgId,
+          businessNumber: details?.clientBizNo || null,
+          contactName: details?.clientCeo || null,
+          region: details?.clientAddress || null,
+          contractStartDate: dates.startDate,
+          contractEndDate: dates.endDate,
+          monthlyContractFee: amount ?? null,
+          assignedMarketerId: user.role === Role.MARKETER ? user.id : null
+        },
+        select: { id: true }
+      });
+      return client.id;
+    } catch (error) {
+      if ((error as { code?: string })?.code === "P2002" && attempt < 4) continue; // code 충돌 → 재시도
+      throw error;
+    }
+  }
+  throw new Error("VALIDATION");
+}
 
 // body가 없으면 구조화 details로 평문 본문 생성(저장·검색·레거시용).
 function resolveBody(args: { body?: string | null; details?: ContractDetails | null; clientName: string; amount: number | null; startDate: Date | null; endDate: Date | null }): string {
@@ -77,11 +126,23 @@ export async function createContract(input: unknown): Promise<ActionResult<{ id:
     const p = createSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const d = p.data;
-    const client = await db.client.findUnique({ where: { id: d.clientId } });
-    if (!client) throw new Error("NOT_FOUND");
-    await assertClient(user, d.clientId, client.assignedMarketerId);
 
-    const rawBody = resolveBody({ body: d.body, details: d.details, clientName: client.name, amount: d.amount ?? null, startDate: d.startDate, endDate: d.endDate });
+    // 거래처: 기존 선택(clientId) 또는 신규 거래처명(clientName)으로 자동 생성.
+    let clientId: string;
+    let clientName: string;
+    if (d.clientId) {
+      const client = await db.client.findUnique({ where: { id: d.clientId } });
+      if (!client) throw new Error("NOT_FOUND");
+      await assertClient(user, d.clientId, client.assignedMarketerId);
+      clientId = d.clientId;
+      clientName = client.name;
+    } else {
+      clientName = (d.clientName ?? "").trim();
+      if (!clientName) throw new Error("VALIDATION");
+      clientId = await createClientForContract(user, clientName, d.details, { startDate: d.startDate, endDate: d.endDate }, d.amount ?? null);
+    }
+
+    const rawBody = resolveBody({ body: d.body, details: d.details, clientName, amount: d.amount ?? null, startDate: d.startDate, endDate: d.endDate });
     if (!rawBody) throw new Error("VALIDATION");
     // 성과 미보장 고지 자동 삽입(기획서 §9) + 보장성 문구 감지 결과를 감사로그에 기록
     const body = rawBody.includes("[성과 미보장 고지]") ? rawBody : `${rawBody}\n\n${NON_GUARANTEE_DISCLAIMER}`;
@@ -91,7 +152,7 @@ export async function createContract(input: unknown): Promise<ActionResult<{ id:
     const saved = await db.$transaction(async (tx) => {
       const contract = await tx.contract.create({
         data: {
-          clientId: d.clientId,
+          clientId,
           authorId: user.id,
           title: d.title,
           body,
@@ -106,6 +167,7 @@ export async function createContract(input: unknown): Promise<ActionResult<{ id:
       return contract;
     });
     revalidatePath("/contracts");
+    revalidatePath("/clients"); // 신규 거래처 자동 생성 반영
     return { id: saved.id };
   });
 }
