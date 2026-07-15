@@ -42,13 +42,34 @@ function getBusinessDate() {
   return `${year}-${month}-${day}`;
 }
 
+type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
+
 export default async function DashboardPage() {
+  // 인증 확인은 쿠키 기반이라 빠르다 → 여기서만 대기.
+  // 무거운 DB 조회는 아래 <Suspense> 안(DashboardData)에서 스트리밍한다.
+  // 덕분에 껍데기(스켈레톤)가 즉시 뜨고, 데이터는 준비되는 대로 채워진다.
   const user = await getCurrentUser();
 
   if (!user) {
     redirect("/login");
   }
 
+  return (
+    <div className="space-y-6">
+      <SafeBoundary fallback={null}>
+        <Suspense fallback={<SearchNoticesSkeleton />}>
+          <SearchEngineNotices />
+        </Suspense>
+      </SafeBoundary>
+      <Suspense fallback={<DashboardSkeleton />}>
+        <DashboardData user={user} />
+      </Suspense>
+    </div>
+  );
+}
+
+// 대시보드 데이터 — 무거운 조회를 담당. Suspense 경계 안에서 스트리밍된다.
+async function DashboardData({ user }: { user: CurrentUser }) {
   const today = getBusinessDate();
   // 방어적: 인증 랜딩(대시보드)은 흰 500으로 죽지 않게 각 조회를 독립 강등한다.
   // 한 위젯의 조회 실패가 전체 화면을 막지 않고, 실패한 부분만 빈 상태로 보인다.
@@ -73,22 +94,36 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <SafeBoundary fallback={null}>
-        <Suspense fallback={<SearchNoticesSkeleton />}>
-          <SearchEngineNotices />
-        </Suspense>
-      </SafeBoundary>
-      <DashboardHome
-        userName={user.name}
-        role={user.role}
-        summary={summary}
-        riskItems={riskItems}
-        clientMonitor={clientMonitor}
-        confirmations={confirmations}
-        leadPipeline={leadPipeline}
-        geoSummary={geoSummary}
-      />
+    <DashboardHome
+      userName={user.name}
+      role={user.role}
+      summary={summary}
+      riskItems={riskItems}
+      clientMonitor={clientMonitor}
+      confirmations={confirmations}
+      leadPipeline={leadPipeline}
+      geoSummary={geoSummary}
+    />
+  );
+}
+
+// 데이터 도착 전 즉시 뜨는 골격 — KPI 카드 줄 + 하단 패널 형태만 잡아준다.
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6" aria-hidden>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-28 animate-pulse rounded-2xl border border-line bg-slate-100/70" />
+        ))}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="h-64 animate-pulse rounded-2xl border border-line bg-slate-100/70 lg:col-span-2" />
+        <div className="h-64 animate-pulse rounded-2xl border border-line bg-slate-100/70" />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="h-48 animate-pulse rounded-2xl border border-line bg-slate-100/70" />
+        <div className="h-48 animate-pulse rounded-2xl border border-line bg-slate-100/70" />
+      </div>
     </div>
   );
 }
