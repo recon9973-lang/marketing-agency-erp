@@ -6,7 +6,9 @@
 import { useState, useTransition } from "react";
 import { submitSurveyResponse } from "@/server/actions/surveys";
 
-type Question = { id: string; label: string; type: string; options?: string[]; required?: boolean; default?: string };
+type Question = { id: string; label: string; type: string; options?: string[]; required?: boolean; default?: string; allowOther?: boolean };
+
+const OTHER = "__other__";
 
 const inputCls = "mt-1 w-full rounded-md border border-line px-3 py-2.5 text-sm text-ink outline-none focus:border-brand";
 
@@ -20,6 +22,8 @@ export function PublicSurveyForm({ token, questions }: { token: string; question
     for (const q of questions) if (q.default?.trim()) init[q.id] = q.default;
     return init;
   });
+  // choice 문항에서 "기타(직접 입력)"가 선택된 항목 추적.
+  const [otherOn, setOtherOn] = useState<Record<string, boolean>>({});
 
   function submit() {
     setError(null);
@@ -61,10 +65,29 @@ export function PublicSurveyForm({ token, questions }: { token: string; question
             {q.type === "textarea" ? (
               <textarea value={values[q.id] ?? ""} onChange={(e) => setValues({ ...values, [q.id]: e.target.value })} rows={3} className={`${inputCls} resize-y`} />
             ) : q.type === "choice" ? (
-              <select value={values[q.id] ?? ""} onChange={(e) => setValues({ ...values, [q.id]: e.target.value })} className={inputCls}>
-                <option value="">선택</option>
-                {(q.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
+              <>
+                <select
+                  value={otherOn[q.id] ? OTHER : (values[q.id] ?? "")}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === OTHER) {
+                      setOtherOn({ ...otherOn, [q.id]: true });
+                      setValues({ ...values, [q.id]: "" });
+                    } else {
+                      setOtherOn({ ...otherOn, [q.id]: false });
+                      setValues({ ...values, [q.id]: val });
+                    }
+                  }}
+                  className={inputCls}
+                >
+                  <option value="">선택</option>
+                  {(q.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
+                  {q.allowOther ? <option value={OTHER}>기타(직접 입력)</option> : null}
+                </select>
+                {q.allowOther && otherOn[q.id] ? (
+                  <input value={values[q.id] ?? ""} onChange={(e) => setValues({ ...values, [q.id]: e.target.value })} placeholder="직접 입력해 주세요" className={`${inputCls} mt-2`} autoFocus />
+                ) : null}
+              </>
             ) : (
               <input value={values[q.id] ?? ""} onChange={(e) => setValues({ ...values, [q.id]: e.target.value })} className={inputCls} />
             )}

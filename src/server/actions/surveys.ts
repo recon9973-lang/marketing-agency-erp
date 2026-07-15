@@ -26,52 +26,54 @@ import {
   type ActionResult
 } from "@/server/actions/_helpers";
 
-export type SurveyQuestion = { id: string; label: string; type: "text" | "textarea" | "choice"; options?: string[]; required?: boolean; default?: string };
+export type SurveyQuestion = { id: string; label: string; type: "text" | "textarea" | "choice"; options?: string[]; required?: boolean; default?: string; allowOther?: boolean };
 
-// 병원 기본 문항(planning §C). 모든 설문 공통.
-const BASE_QUESTIONS: SurveyQuestion[] = [
-  { id: "hospital_name", label: "병원명", type: "text", required: true },
-  { id: "departments", label: "진료과목", type: "text", required: true },
-  { id: "doctors", label: "대표원장·의료진 소개", type: "textarea" },
-  { id: "strengths", label: "병원 강점·차별점", type: "textarea" },
-  { id: "prohibited", label: "사용을 피해야 할 표현(의료법 주의)", type: "textarea" },
-  { id: "tone", label: "선호하는 문체·톤", type: "text" },
-  { id: "competitors", label: "경쟁 병원", type: "text" },
-  { id: "keywords", label: "노출을 원하는 키워드", type: "textarea" },
-  { id: "photos", label: "제공 가능한 사진·자료", type: "choice", options: ["있음", "일부 있음", "없음"] },
-  { id: "events", label: "진행 중이거나 예정된 이벤트", type: "textarea" },
-  { id: "notes", label: "기타 요청·주의사항", type: "textarea" }
+// ── STEP 1. 마케팅 시작 설문 ── (시작 전 1회). 진료·고객 현황 + 방향성·강점 수집.
+const START_QUESTIONS: SurveyQuestion[] = [
+  { id: "hospital_name", label: "업체명(병원명)", type: "text", required: true },
+  { id: "rep_name", label: "대표 / 원장 성함", type: "text" },
+  { id: "departments", label: "진료과목 · 주요 치료 질환 (주력 과목은 [주력] 표시)", type: "textarea", required: true },
+  { id: "gender_ratio", label: "내원 환자 남/여 비율 (예: 남 45 : 여 55)", type: "text" },
+  { id: "age_dist", label: "내원 환자 연령층 분포 (예: 21~30세 70%)", type: "textarea" },
+  { id: "patient_region", label: "내원 환자 주요 거주 지역 (지역 타겟팅용)", type: "textarea" },
+  { id: "new_patients", label: "일/주/월 신환 유입 수 · 유형별 유입 경로 비율", type: "textarea" },
+  { id: "competitors", label: "주요 경쟁사(병원) 상호 · 경쟁사 마케팅 강점", type: "textarea" },
+  { id: "ad_direction", label: "추구하는 온라인 광고 방향 · 참고 사이트 (톤앤매너 / 벤치마킹 / URL)", type: "textarea" },
+  { id: "strengths", label: "당사만의 장점 · 차별점 · 강조하고 싶은 점", type: "textarea" },
+  { id: "story_cases", label: "기억에 남는 진료/치료 사례 (개인정보 제외, 상황 위주 — 스토리텔링 소재)", type: "textarea" },
+  { id: "philosophy", label: "원장님만의 특별한 치료 철학", type: "textarea" },
+  { id: "rep_email", label: "대표 이메일", type: "text" },
+  { id: "managers", label: "담당자 정보 (총괄/대표 · 브랜드 블로그 · 블로그 배포 담당 — 성함/연락처)", type: "textarea" },
+  { id: "extra_notes", label: "그 밖에 공유할 자료 · 요청사항", type: "textarea" }
 ];
 
-// 상품 카테고리별 추가 문항.
-const CATEGORY_QUESTIONS: Record<string, SurveyQuestion[]> = {
-  블로그: [{ id: "blog_topics", label: "블로그에서 다뤘으면 하는 주제", type: "textarea" }],
-  플레이스: [
-    { id: "place_hours", label: "영업시간", type: "text" },
-    { id: "place_access", label: "주차·오시는 길", type: "textarea" }
-  ],
-  SNS: [{ id: "sns_handles", label: "운영 중인 SNS 계정(인스타/페북 등)", type: "text" }],
-  검색광고: [
-    { id: "ad_budget", label: "월 광고 예산(희망)", type: "text" },
-    { id: "ad_landing", label: "광고 랜딩 URL", type: "text" }
-  ]
+// 계약 대행범위에 맞춰 조건부로 붙는 채널 계정 정보 문항. (준비된 항목만 입력)
+const CHANNEL_QUESTIONS: Record<string, SurveyQuestion[]> = {
+  블로그: [{ id: "acct_blog", label: "네이버 블로그 계정 (아이디 / 비밀번호 — 준비된 항목만)", type: "textarea" }],
+  플레이스: [{ id: "acct_place", label: "플레이스 / 검색광고 계정 (아이디 / 비밀번호)", type: "textarea" }],
+  검색광고: [{ id: "acct_place", label: "플레이스 / 검색광고 계정 (아이디 / 비밀번호)", type: "textarea" }],
+  SNS: [{ id: "acct_insta", label: "인스타그램 계정 (아이디 / 비밀번호)", type: "textarea" }]
 };
 
-function buildQuestions(categories: string[]): SurveyQuestion[] {
-  const out = [...BASE_QUESTIONS];
-  const seen = new Set(out.map((q) => q.id));
-  for (const c of new Set(categories)) {
-    for (const q of CATEGORY_QUESTIONS[c] ?? []) {
-      if (!seen.has(q.id)) {
-        out.push(q);
-        seen.add(q.id);
-      }
-    }
-  }
-  return out;
-}
+// ── STEP 2. 중간 점검 설문 ── (매달 마감 후). 만족도·성과·콘텐츠 피드백 점검.
+const MONTHLY_QUESTIONS: SurveyQuestion[] = [
+  { id: "overall_satisfaction", label: "현재까지 진행된 마케팅 전반적 만족도 (1 매우 불만족 ~ 10 매우 만족)", type: "choice", options: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], required: true, allowOther: true },
+  { id: "effect_blog", label: "채널별 체감 효과 — 네이버 블로그(브랜드/배포)", type: "choice", options: ["매우 효과적", "효과적", "보통", "아쉬움", "잘 모르겠음"], allowOther: true },
+  { id: "effect_place", label: "채널별 체감 효과 — 플레이스 / 검색광고", type: "choice", options: ["매우 효과적", "효과적", "보통", "아쉬움", "잘 모르겠음"], allowOther: true },
+  { id: "effect_sns", label: "채널별 체감 효과 — 인스타그램 / SNS", type: "choice", options: ["매우 효과적", "효과적", "보통", "아쉬움", "잘 모르겠음"], allowOther: true },
+  { id: "patient_change", label: "마케팅 시작 이후 신환 유입 / 문의량 변화", type: "choice", options: ["크게 증가", "다소 증가", "비슷함", "감소", "아직 파악 어려움"], allowOther: true },
+  { id: "patient_change_detail", label: "구체적 수치·체감 변화 (예: 월 신환 120→150명)", type: "textarea" },
+  { id: "attribution_case", label: "\"이 경로로 알고 왔다\"고 직접 확인된 사례 (블로그 후기 보고 내원, 지도 검색 후 방문 등)", type: "textarea" },
+  { id: "content_good", label: "지금까지 발행된 콘텐츠 중 만족스러웠던 점", type: "textarea" },
+  { id: "content_bad", label: "아쉬웠던 점 / 수정 요청", type: "textarea" },
+  { id: "new_emphasis", label: "남은 기간 새롭게 강조하고 싶은 진료/서비스·이벤트 (신규 장비, 계절 질환, 신규 시술, 프로모션 등)", type: "textarea" },
+  { id: "competitor_change", label: "경쟁사 동향 변화 (신규 오픈, 공격적 광고 등)", type: "textarea" },
+  { id: "manager_comm", label: "담당 매니저와의 소통 (응대 속도·이해도·보고)", type: "choice", options: ["매우 만족", "만족", "보통", "불만족"], allowOther: true },
+  { id: "manager_comm_note", label: "소통 관련 요청사항", type: "textarea" },
+  { id: "improvement", label: "그 밖에 개선을 바라는 점이나 요청사항", type: "textarea" }
+];
 
-// 계약서 대행범위(라벨)를 설문 카테고리로 매핑 — 계약에 담긴 범위에 맞춰 추가 문항 생성.
+// 계약서 대행범위(라벨)를 설문 카테고리로 매핑 — 계약에 담긴 범위에 맞춰 채널 문항 생성.
 function scopeLabelToCategories(label: string): string[] {
   const l = label.toLowerCase();
   const cats: string[] = [];
@@ -93,10 +95,31 @@ function prefillFromContract(
   });
 }
 
+// 시작 설문 = 공통 문항 + 계약 대행범위에 맞는 채널 계정 문항.
+function buildStartQuestions(categories: string[], prefill: Record<string, string | null | undefined>): SurveyQuestion[] {
+  const out = [...START_QUESTIONS];
+  const seen = new Set(out.map((q) => q.id));
+  const cats = new Set(categories.filter(Boolean));
+  const catList = cats.size > 0 ? [...cats] : ["블로그", "플레이스", "SNS"]; // 범위 불명 시 기본 채널 전부
+  for (const c of catList) {
+    for (const q of CHANNEL_QUESTIONS[c] ?? []) {
+      if (!seen.has(q.id)) {
+        out.push(q);
+        seen.add(q.id);
+      }
+    }
+  }
+  return prefillFromContract(out, prefill);
+}
+
 export async function createSurveyForContract(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const user = await requireUser();
-    const p = z.object({ contractId: z.string().min(1), round: z.coerce.number().int().positive().optional() }).safeParse(input);
+    const p = z.object({
+      contractId: z.string().min(1),
+      kind: z.enum(["START", "MONTHLY"]).optional(),
+      round: z.coerce.number().int().positive().optional()
+    }).safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
 
     const contract = await db.contract.findUnique({
@@ -111,18 +134,35 @@ export async function createSurveyForContract(input: unknown): Promise<ActionRes
     const scopes = await getAdminScopes(user);
     assertCanAccessClient(user, contract.clientId, scopes, contract.client.assignedMarketerId);
 
-    // 카테고리 = 계약 상품 분류 ∪ 계약서 대행범위(details.scopeItems)에서 유추.
-    const details = parseContractDetails(contract.details);
-    const scopeItems = resolveScopeItems(details);
-    const categories = [
-      ...contract.products.map((cp) => cp.product.category),
-      ...scopeItems.flatMap((it) => scopeLabelToCategories(it.label))
-    ];
+    // 설문 종류: 시작 전(START, 1회) / 매달 마감 후(MONTHLY, 반복).
+    const kind = p.data.kind ?? (p.data.round && p.data.round >= 2 ? "MONTHLY" : "START");
+    const name = contract.client.name;
 
-    // 계약서에 있는 기본 내용을 설문 문항 기본값으로 동기화(재입력 최소화).
-    const questions = prefillFromContract(buildQuestions(categories), {
-      hospital_name: contract.client.name
-    });
+    let round: number;
+    let questions: SurveyQuestion[];
+    let title: string;
+    if (kind === "MONTHLY") {
+      // 마감 점검은 회차 누적: 기존 마감 설문 수 + 1차부터. round 2 → 1차.
+      const prior = await db.survey.count({ where: { contractId: contract.id, round: { gte: 2 } } });
+      round = prior + 2;
+      questions = MONTHLY_QUESTIONS;
+      title = `${name} 마케팅 중간 점검 설문 (${round - 1}차)`;
+    } else {
+      // 카테고리 = 계약 상품 분류 ∪ 계약서 대행범위(details.scopeItems)에서 유추.
+      const details = parseContractDetails(contract.details);
+      const scopeItems = resolveScopeItems(details);
+      const categories = [
+        ...contract.products.map((cp) => cp.product.category),
+        ...scopeItems.flatMap((it) => scopeLabelToCategories(it.label))
+      ];
+      round = 1;
+      // 계약서에 있는 기본 내용을 문항 기본값으로 동기화(재입력 최소화).
+      questions = buildStartQuestions(categories, {
+        hospital_name: name,
+        rep_name: details.clientCeo
+      });
+      title = `${name} 마케팅 시작 설문`;
+    }
 
     const meta = await requestMeta();
     const orgId = await getDefaultOrgId();
@@ -131,14 +171,14 @@ export async function createSurveyForContract(input: unknown): Promise<ActionRes
         data: {
           clientId: contract.clientId,
           contractId: contract.id,
-          title: `${contract.client.name} 온보딩 설문`,
+          title,
           questions,
-          round: p.data.round ?? 1,
+          round,
           publicToken: crypto.randomUUID(),
           orgId
         }
       });
-      await recordAudit(tx, { actorId: user.id, action: "survey.create", targetType: "Survey", targetId: survey.id, afterState: { contractId: contract.id, questions: questions.length }, ...meta });
+      await recordAudit(tx, { actorId: user.id, action: "survey.create", targetType: "Survey", targetId: survey.id, afterState: { contractId: contract.id, kind, round, questions: questions.length }, ...meta });
       return survey;
     });
 
@@ -227,7 +267,7 @@ export async function submitSurveyResponse(input: unknown): Promise<ActionResult
     if (!survey) throw new Error("NOT_FOUND");
     if (survey.status === "COMPLETED") throw new Error("ALREADY_SUBMITTED");
 
-    // 응답의 키워드로 콘텐츠 기획 초안(최대 5개). 없으면 온보딩 기반 1개.
+    // 응답에 노출 키워드가 담긴 경우에만 콘텐츠 기획 초안(최대 5개)을 자동 생성.
     const kwRaw = p.data.answers["keywords"] ?? "";
     const keywords = kwRaw.split(/[,\n]/).map((s) => s.trim()).filter((s) => s.length > 0).slice(0, 5);
     const month = currentMonth();
@@ -236,9 +276,7 @@ export async function submitSurveyResponse(input: unknown): Promise<ActionResult
       await tx.surveyResponse.create({ data: { surveyId: survey.id, answers: p.data.answers } });
       await tx.survey.update({ where: { id: survey.id }, data: { status: "COMPLETED" } });
 
-      const plans = keywords.length > 0
-        ? keywords.map((kw) => ({ topic: `${kw} 콘텐츠 기획`, keyword: kw }))
-        : [{ topic: "온보딩 설문 기반 콘텐츠 기획", keyword: null as string | null }];
+      const plans = keywords.map((kw) => ({ topic: `${kw} 콘텐츠 기획`, keyword: kw }));
       for (const pl of plans) {
         await tx.contentPlan.create({
           data: { clientId: survey.clientId, month, topic: pl.topic, keyword: pl.keyword, status: "PLANNED", orgId: survey.orgId }
@@ -252,7 +290,7 @@ export async function submitSurveyResponse(input: unknown): Promise<ActionResult
             userId: survey.client.assignedMarketerId,
             type: "SURVEY_COMPLETED",
             title: `${survey.client.name} 설문 응답 완료`,
-            body: `콘텐츠 기획 ${plans.length}건이 자동 생성되었습니다.`,
+            body: plans.length > 0 ? `콘텐츠 기획 ${plans.length}건이 자동 생성되었습니다.` : "설문 응답이 도착했습니다.",
             link: `/clients/${survey.clientId}`,
             targetType: "Survey",
             targetId: survey.id,
