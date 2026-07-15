@@ -136,7 +136,7 @@ function SignBlock({
             <img src="/seal-venom.png" alt="베놈 도장" style={{ width: "60px", height: "60px" }} className="pointer-events-none absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain opacity-90" />
           ) : signatureData ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={signatureData} alt="서명" style={{ height: "52px", maxWidth: "150px" }} className="pointer-events-none absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain" />
+            <img src={signatureData} alt="서명" style={{ height: "57px", maxWidth: "165px", filter: "contrast(1.5) brightness(0.75)" }} className="pointer-events-none absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain" />
           ) : null}
         </span>
       </p>
