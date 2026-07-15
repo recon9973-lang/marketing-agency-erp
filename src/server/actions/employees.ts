@@ -5,6 +5,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { randomBytes } from "node:crypto";
 import { z } from "zod";
 
 import { Role, UserStatus } from "@/domain/types";
@@ -18,6 +19,11 @@ import {
   runAction,
   type ActionResult
 } from "@/server/actions/_helpers";
+
+// 추측 불가한 개인 로그인 링크 토큰(32바이트 → base64url ~43자).
+function newLoginToken(): string {
+  return randomBytes(32).toString("base64url");
+}
 
 const inviteSchema = z.object({
   email: z.string().trim().email(),
@@ -41,7 +47,8 @@ export async function inviteEmployee(input: unknown): Promise<ActionResult<{ id:
     const orgId = await getDefaultOrgId();
     const created = await db.$transaction(async (tx) => {
       const u = await tx.user.create({
-        data: { email: d.email.toLowerCase(), name: d.name, role: d.role as never, status: UserStatus.INVITED, orgId }
+        // loginLinkToken 즉시 발급 → 관리자가 링크를 복사해 바로 전달 가능(메일 불필요).
+        data: { email: d.email.toLowerCase(), name: d.name, role: d.role as never, status: UserStatus.INVITED, orgId, loginLinkToken: newLoginToken() }
       });
       await recordAudit(tx, { actorId: user.id, action: "employee.invite", targetType: "User", targetId: u.id, afterState: { email: u.email, role: u.role }, ...meta });
       return u;
@@ -57,6 +64,31 @@ export async function inviteEmployee(input: unknown): Promise<ActionResult<{ id:
 
     revalidatePath("/settings");
     return { id: created.id };
+  });
+}
+
+/**
+ * 개인 로그인 링크 토큰 확보 — 없으면 생성, 있으면 그대로(또는 regenerate=true면 새로 발급해 기존 폐기).
+ * 관리자가 이 토큰으로 /invite/{token} 링크를 만들어 직원에게 전달한다. (SUPER_ADMIN/ADMIN)
+ */
+export async function getOrCreateLoginLink(input: unknown): Promise<ActionResult<{ token: string }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    if (user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN) throw new Error("FORBIDDEN");
+    const p = z.object({ userId: z.string().min(1), regenerate: z.boolean().optional() }).safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+
+    const target = await db.user.findUnique({ where: { id: p.data.userId }, select: { id: true, role: true, loginLinkToken: true } });
+    if (!target) throw new Error("NOT_FOUND");
+    if (target.role === Role.SUPER_ADMIN) throw new Error("FORBIDDEN"); // 최고관리자는 비밀번호 로그인 사용
+
+    let token = target.loginLinkToken;
+    if (!token || p.data.regenerate) {
+      token = newLoginToken();
+      await db.user.update({ where: { id: target.id }, data: { loginLinkToken: token } });
+    }
+    revalidatePath("/settings");
+    return { token };
   });
 }
 

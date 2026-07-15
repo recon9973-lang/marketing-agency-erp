@@ -98,6 +98,23 @@ async function authorizeAdmin(rawEmail: unknown, rawPassword: unknown) {
   return { id: user.id, email: user.email, name: user.name };
 }
 
+/**
+ * 개인 로그인 링크 인증 — 이메일(SMTP) 없이 직원을 로그인시킨다.
+ * User.loginLinkToken과 일치하고 로그인 허용 상태(ACTIVE/INVITED)면 통과.
+ * 관리자가 링크를 카톡/문자로 전달 → 받은 사람이 클릭하면 자동 로그인된다.
+ * (INVITED는 signIn 이벤트에서 ACTIVE로 전환됨)
+ */
+async function authorizeLoginToken(rawToken: unknown) {
+  const token = String(rawToken ?? "").trim();
+  if (token.length < 16) return null;
+  const user = await db.user.findFirst({
+    where: { loginLinkToken: token, status: { in: [UserStatus.ACTIVE, UserStatus.INVITED] } },
+    select: { id: true, email: true, name: true }
+  });
+  if (!user) return null;
+  return { id: user.id, email: user.email, name: user.name };
+}
+
 const authSecret =
   process.env.AUTH_SECRET ?? (process.env.NODE_ENV === "production" ? undefined : "dev-auth-secret");
 
@@ -169,6 +186,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "비밀번호", type: "password" }
       },
       authorize: async (credentials) => authorizeAdmin(credentials?.email, credentials?.password)
+    }),
+    Credentials({
+      id: "login-link",
+      name: "로그인 링크",
+      credentials: { token: { label: "토큰", type: "text" } },
+      authorize: async (credentials) => authorizeLoginToken(credentials?.token)
     }),
     ...(emailConfigured
       ? [
