@@ -128,19 +128,16 @@ function SignBlock({
       <p>사업자번호 : {bizNo || "____________"}</p>
       <p>
         대　　표 : {repName}{" "}
-        {/* 날인/서명 표시 — 을은 (인) 위에 도장을 겹쳐 찍고, 갑은 서명 이미지가 있으면 그걸 표시 */}
+        {/* 을: (인) 자리에 도장 겹쳐 날인(크게). 갑: 서명 이미지를 인라인으로 표시. */}
         {seal ? (
           <span className="relative inline-block align-middle">
             <span className="text-black/45">(인)</span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/seal-venom.png" alt="베놈 도장" className="pointer-events-none absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 object-contain opacity-90" />
+            <img src="/seal-venom.png" alt="베놈 도장" style={{ width: "96px", height: "96px" }} className="pointer-events-none absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain opacity-90" />
           </span>
         ) : signatureData ? (
-          <span className="relative inline-block align-middle">
-            <span className="text-black/30">(서명)</span>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={signatureData} alt="서명" className="absolute left-1/2 top-1/2 h-12 -translate-x-1/2 -translate-y-1/2 object-contain" />
-          </span>
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={signatureData} alt="서명" className="ml-1 inline-block h-14 max-w-[180px] align-middle object-contain" />
         ) : (
           <span className="text-black/40">(인/서명)</span>
         )}
