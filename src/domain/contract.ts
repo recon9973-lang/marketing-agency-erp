@@ -44,18 +44,32 @@ export const PAY_TERMS_PRESETS = [
   "계약금 50% 선입금 후 착수, 잔금은 익월 정산."
 ] as const;
 
+export type ScopeGroup = "online" | "offline" | "etc";
+export type ScopeItem = { label: string; group: ScopeGroup; qty: number };
+export const SCOPE_GROUP_LABEL: Record<ScopeGroup, string> = { online: "온라인", offline: "오프라인", etc: "기타" };
+
 // 계약서 구조화 필드(Contract.details JSON에 저장).
 export type ContractDetails = {
   clientAddress?: string; // 갑 주소
   clientBizNo?: string; // 갑 사업자번호
   clientCeo?: string; // 갑 대표자
-  scopeOnline?: string[]; // 선택된 온라인 범위
-  scopeOffline?: string[]; // 선택된 오프라인 범위
+  scopeItems?: ScopeItem[]; // 선택된 대행 범위 항목 + 수량(기타 수기 포함)
+  scopeOnline?: string[]; // (레거시) 선택된 온라인 범위
+  scopeOffline?: string[]; // (레거시) 선택된 오프라인 범위
   vatIncluded?: boolean; // 광고비 VAT 포함 여부
   payTerms?: string; // 지불조건 문구
   autoRenew?: boolean; // 1년 자동갱신
   special?: string; // 특약사항(선택)
 };
+
+/** 레거시(scopeOnline/Offline)를 scopeItems로 정규화 — 렌더/출력은 이것만 쓴다. */
+export function resolveScopeItems(d: ContractDetails): ScopeItem[] {
+  if (d.scopeItems?.length) return d.scopeItems;
+  const items: ScopeItem[] = [];
+  for (const l of d.scopeOnline ?? []) items.push({ label: l, group: "online", qty: 1 });
+  for (const l of d.scopeOffline ?? []) items.push({ label: l, group: "offline", qty: 1 });
+  return items;
+}
 
 /** 알 수 없는 값 방어 파서 — 저장된 details를 안전하게 읽는다. */
 export function parseContractDetails(value: unknown): ContractDetails {
@@ -63,10 +77,24 @@ export function parseContractDetails(value: unknown): ContractDetails {
   const v = value as Record<string, unknown>;
   const strArr = (x: unknown) => (Array.isArray(x) ? x.filter((s): s is string => typeof s === "string") : undefined);
   const str = (x: unknown) => (typeof x === "string" ? x : undefined);
+  const scopeItems = Array.isArray(v.scopeItems)
+    ? v.scopeItems
+        .map((it): ScopeItem | null => {
+          if (!it || typeof it !== "object") return null;
+          const o = it as Record<string, unknown>;
+          const label = typeof o.label === "string" ? o.label.trim() : "";
+          const group = o.group === "online" || o.group === "offline" || o.group === "etc" ? o.group : "etc";
+          const qty = Number(o.qty);
+          if (!label) return null;
+          return { label, group, qty: Number.isFinite(qty) && qty >= 1 ? Math.floor(qty) : 1 };
+        })
+        .filter((x): x is ScopeItem => x !== null)
+    : undefined;
   return {
     clientAddress: str(v.clientAddress),
     clientBizNo: str(v.clientBizNo),
     clientCeo: str(v.clientCeo),
+    scopeItems,
     scopeOnline: strArr(v.scopeOnline),
     scopeOffline: strArr(v.scopeOffline),
     vatIncluded: typeof v.vatIncluded === "boolean" ? v.vatIncluded : undefined,
@@ -97,8 +125,12 @@ export function contractBodyText(args: {
   details: ContractDetails;
 }): string {
   const d = args.details;
-  const online = (d.scopeOnline ?? []).join(", ") || "-";
-  const offline = (d.scopeOffline ?? []).join(", ") || "-";
+  const items = resolveScopeItems(d);
+  const grp = (g: ScopeGroup) => items.filter((i) => i.group === g).map((i) => (i.qty > 1 ? `${i.label}×${i.qty}` : i.label)).join(", ");
+  const scopeLine = (["online", "offline", "etc"] as ScopeGroup[])
+    .map((g) => (grp(g) ? `${SCOPE_GROUP_LABEL[g]}: ${grp(g)}` : null))
+    .filter(Boolean)
+    .join(" / ") || "-";
   const vat = d.vatIncluded !== false ? "포함" : "별도";
   const pay = d.payTerms?.trim() || "첫 진행 전 선결제, 월간 정산·청구.";
   return [
@@ -106,7 +138,7 @@ export function contractBodyText(args: {
     `광고주 ${args.clientName} (갑) / ${VENOM.name} (을)`,
     ``,
     `제1조 목적: 광고 업무 대행 위임.`,
-    `제2조 대행범위 — 온라인: ${online} / 오프라인: ${offline}`,
+    `제2조 대행범위 — ${scopeLine}`,
     `제3조 광고비: 매월 ${formatWon(args.amount)}원 (VAT ${vat})`,
     `제4조 지불조건: ${pay}`,
     `제5조 계약기간: ${formatKoreanDate(args.startDate)} ~ ${formatKoreanDate(args.endDate)}${d.autoRenew === false ? " (만료 종료)" : " (1년 자동갱신)"}`,

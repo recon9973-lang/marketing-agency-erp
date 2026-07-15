@@ -44,6 +44,11 @@ const detailsSchema = z
     clientAddress: z.string().trim().max(300).optional(),
     clientBizNo: z.string().trim().max(50).optional(),
     clientCeo: z.string().trim().max(100).optional(),
+    scopeItems: z.array(z.object({
+      label: z.string().trim().min(1).max(100),
+      group: z.enum(["online", "offline", "etc"]),
+      qty: z.coerce.number().int().min(1).max(9999)
+    })).max(60).optional(),
     scopeOnline: z.array(z.string().trim().max(80)).max(30).optional(),
     scopeOffline: z.array(z.string().trim().max(80)).max(30).optional(),
     vatIncluded: z.boolean().optional(),

@@ -1,8 +1,8 @@
 // 광고 업무 대행 계약서 — 서식 렌더(항목 데이터 → 계약서 형태).
 // 서버/클라 양쪽에서 쓸 수 있는 순수 컴포넌트. 인쇄·PDF·원격 서명 페이지에서 재사용.
 import {
-  VENOM, SCOPE_ONLINE, SCOPE_OFFLINE, NON_GUARANTEE_DISCLAIMER,
-  formatKoreanDate, formatWon, type ContractDetails
+  VENOM, NON_GUARANTEE_DISCLAIMER, SCOPE_GROUP_LABEL, resolveScopeItems,
+  formatKoreanDate, formatWon, type ContractDetails, type ScopeGroup
 } from "@/domain/contract";
 
 export type ContractDocVariant = "customer" | "venom";
@@ -20,24 +20,19 @@ export type ContractDocProps = {
   signedAt?: Date | string | null;
 };
 
-function ScopeLine({ label, selected }: { label: string; selected: string[] }) {
-  const on = selected.includes(label);
-  return (
-    <span className="mr-3 inline-block whitespace-nowrap">
-      <span className="font-bold">{on ? "☑" : "☐"}</span> {label}
-    </span>
-  );
-}
-
 export function ContractDocument({
   clientName, amount, startDate, endDate, details, variant,
   signerName, signerTitle, signatureData, signedAt
 }: ContractDocProps) {
-  const online = details.scopeOnline ?? [];
-  const offline = details.scopeOffline ?? [];
   const vat = details.vatIncluded !== false; // 기본 VAT 포함
   const payTerms = details.payTerms?.trim() || "첫 진행 전 선결제를 원칙으로 하고, 월간 단위로 정산·청구한다.";
   const dateStr = formatKoreanDate(signedAt ?? new Date());
+
+  // 선택된 항목만 그룹별로. (미선택 항목은 출력하지 않음)
+  const items = resolveScopeItems(details);
+  const groups = (["online", "offline", "etc"] as ScopeGroup[])
+    .map((g) => ({ g, list: items.filter((i) => i.group === g) }))
+    .filter((x) => x.list.length > 0);
 
   return (
     <article className="contract-doc mx-auto max-w-[820px] bg-white px-10 py-12 text-[13px] leading-[1.9] text-black" style={{ fontFamily: "'Pretendard', 'Apple SD Gothic Neo', sans-serif" }}>
@@ -53,12 +48,17 @@ export function ContractDocument({
       </Section>
 
       <Section n="2" title="광고 품목 및 대행 범위">
-        <div className="mt-1">
-          <p className="mb-1"><b>온라인</b></p>
-          <p className="pl-3">{SCOPE_ONLINE.map((s) => <ScopeLine key={s} label={s} selected={online} />)}</p>
-          <p className="mb-1 mt-2"><b>오프라인</b></p>
-          <p className="pl-3">{SCOPE_OFFLINE.map((s) => <ScopeLine key={s} label={s} selected={offline} />)}</p>
-        </div>
+        {groups.length === 0 ? (
+          <p className="pl-1 text-black/40">—</p>
+        ) : (
+          <div className="mt-1 space-y-1">
+            {groups.map(({ g, list }) => (
+              <p key={g} className="pl-1">
+                <b>{SCOPE_GROUP_LABEL[g]}</b>　:　{list.map((i) => (i.qty > 1 ? `${i.label} ×${i.qty}` : i.label)).join(",　")}
+              </p>
+            ))}
+          </div>
+        )}
       </Section>
 
       <Section n="3" title="광고비">
@@ -119,25 +119,30 @@ function SignBlock({
   role: string; name?: string | null; address?: string | null; bizNo?: string | null; ceo?: string | null;
   seal?: boolean; signatureData?: string | null; signerName?: string | null; signerTitle?: string | null;
 }) {
+  const repName = ceo || signerName || "____________";
   return (
     <div className="rounded border border-black/15 p-3 text-[12px] leading-[1.9]">
       <p className="mb-1 font-bold">{role}</p>
       <p>회 사 명 : {name || "____________"}</p>
       <p>주　　소 : {address || "____________"}</p>
       <p>사업자번호 : {bizNo || "____________"}</p>
-      <p className="relative">
-        대　　표 : {ceo || (signerName || "____________")}
-        {/* 을(베놈) 도장 자동 날인 */}
+      <p>
+        대　　표 : {repName}{" "}
+        {/* 날인/서명 표시 — 을은 (인) 위에 도장을 겹쳐 찍고, 갑은 서명 이미지가 있으면 그걸 표시 */}
         {seal ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src="/seal-venom.png" alt="베놈 도장" className="absolute -top-3 right-6 h-16 w-16 object-contain opacity-90" />
-        ) : null}
-        {/* 갑(고객) 서명 이미지 */}
-        {!seal && signatureData ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={signatureData} alt="서명" className="absolute -top-4 right-2 h-14 object-contain" />
+          <span className="relative inline-block align-middle">
+            <span className="text-black/45">(인)</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/seal-venom.png" alt="베놈 도장" className="pointer-events-none absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 object-contain opacity-90" />
+          </span>
+        ) : signatureData ? (
+          <span className="relative inline-block align-middle">
+            <span className="text-black/30">(서명)</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={signatureData} alt="서명" className="absolute left-1/2 top-1/2 h-12 -translate-x-1/2 -translate-y-1/2 object-contain" />
+          </span>
         ) : (
-          <span className="text-black/40"> {seal ? "(인)" : "(인/서명)"}</span>
+          <span className="text-black/40">(인/서명)</span>
         )}
       </p>
       {!seal && signerTitle ? <p className="mt-1 text-[11px] text-black/50">{signerTitle}</p> : null}
