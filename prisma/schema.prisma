@@ -1525,3 +1525,44 @@ model GeoAnswerRecord {
   @@index([questionId, checkedOn])
   @@index([createdById])
 }
+
+/// 인스타 관리 — 발행 계정. 액세스 토큰은 DB에 저장하지 않고 환경변수 이름(tokenRef)만 보관(보안).
+model InstagramAccount {
+  id           String          @id @default(cuid())
+  name         String // 표시명(예: GROUND)
+  handle       String // @핸들(예: ground_geo)
+  igBusinessId String // 인스타 비즈니스 계정 ID
+  tokenRef     String // 토큰이 담긴 환경변수 이름(예: INSTAGRAM_ACCESS_TOKEN). 토큰 원문은 미저장.
+  graphVersion String          @default("v21.0")
+  active       Boolean         @default(true)
+  orgId        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  posts        InstagramPost[]
+
+  @@unique([igBusinessId])
+  @@index([orgId])
+}
+
+/// 인스타 발행 큐. status: DRAFT → QUEUED(예약) → PUBLISHED / FAILED
+model InstagramPost {
+  id          String           @id @default(cuid())
+  accountId   String
+  caption     String
+  images      Json // 공개 이미지 URL 배열(1장=단일, 2~10장=캐러셀)
+  status      String           @default("DRAFT")
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  mediaId     String?
+  permalink   String?
+  error       String?
+  createdById String?
+  orgId       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  account     InstagramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledAt])
+  @@index([accountId])
+  @@index([orgId])
+}

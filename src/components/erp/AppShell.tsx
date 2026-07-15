@@ -25,6 +25,7 @@ import {
   Megaphone,
   LineChart,
   Newspaper,
+  Instagram,
   Target
 } from "lucide-react";
 import Link from "next/link";
@@ -42,6 +43,7 @@ type ErpRoute =
   | "/insights"
   | "/geo"
   | "/magazine"
+  | "/insta"
   | "/contracts"
   | "/work"
   | "/manuscript"
@@ -176,6 +178,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "매거진",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Newspaper,
+      group: "운영"
+    },
+    {
+      href: "/insta",
+      label: "인스타 관리",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Instagram,
       group: "운영"
     },
     {
