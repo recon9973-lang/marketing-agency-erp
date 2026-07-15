@@ -130,13 +130,14 @@ function SignBlock({
         대　　표 : {repName}{" "}
         {/* 갑·을 모두 이름 옆 "(서명 또는 인)" 자리에 서명/도장을 겹쳐 표시. */}
         <span className="relative inline-block align-middle">
-          <span className="text-black/45">(서명 또는 인)</span>
+          {/* 서명·도장이 있으면 뒤 안내문구는 더 흐리게 — 겹침 비침으로 인한 가독성 저하 방지. */}
+          <span className={seal || signatureData ? "text-black/15" : "text-black/45"}>(서명 또는 인)</span>
           {seal ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src="/seal-venom.png" alt="베놈 도장" style={{ width: "60px", height: "60px" }} className="pointer-events-none absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain opacity-90" />
           ) : signatureData ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={signatureData} alt="서명" style={{ height: "57px", maxWidth: "165px", filter: "contrast(1.5) brightness(0.75)" }} className="pointer-events-none absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain" />
+            <img src={signatureData} alt="서명" style={{ height: "72px", maxWidth: "210px", filter: "contrast(1.8) brightness(0.65)" }} className="pointer-events-none absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain" />
           ) : null}
         </span>
       </p>
