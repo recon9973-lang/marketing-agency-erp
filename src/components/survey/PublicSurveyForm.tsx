@@ -6,7 +6,7 @@
 import { useState, useTransition } from "react";
 import { submitSurveyResponse } from "@/server/actions/surveys";
 
-type Question = { id: string; label: string; type: string; options?: string[]; required?: boolean };
+type Question = { id: string; label: string; type: string; options?: string[]; required?: boolean; default?: string };
 
 const inputCls = "mt-1 w-full rounded-md border border-line px-3 py-2.5 text-sm text-ink outline-none focus:border-brand";
 
@@ -14,7 +14,12 @@ export function PublicSurveyForm({ token, questions }: { token: string; question
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const [values, setValues] = useState<Record<string, string>>({});
+  // 계약서에서 동기화된 기본값으로 초기화(수정 가능).
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    for (const q of questions) if (q.default?.trim()) init[q.id] = q.default;
+    return init;
+  });
 
   function submit() {
     setError(null);
@@ -51,6 +56,7 @@ export function PublicSurveyForm({ token, questions }: { token: string; question
             <span className="text-sm font-semibold text-ink">
               {q.label}
               {q.required ? <span className="ml-1 text-danger">*</span> : null}
+              {q.default?.trim() ? <span className="ml-2 rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-medium text-brand-strong">계약서 자동입력</span> : null}
             </span>
             {q.type === "textarea" ? (
               <textarea value={values[q.id] ?? ""} onChange={(e) => setValues({ ...values, [q.id]: e.target.value })} rows={3} className={`${inputCls} resize-y`} />

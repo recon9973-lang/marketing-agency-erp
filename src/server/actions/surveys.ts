@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { assertCanAccessClient } from "@/domain/access-control";
+import { parseContractDetails, resolveScopeItems } from "@/domain/contract";
 import { db } from "@/server/db";
 import { sendAlimtalk } from "@/server/integrations/kakao";
 import { getDefaultOrgId } from "@/server/org";
@@ -25,7 +26,7 @@ import {
   type ActionResult
 } from "@/server/actions/_helpers";
 
-export type SurveyQuestion = { id: string; label: string; type: "text" | "textarea" | "choice"; options?: string[]; required?: boolean };
+export type SurveyQuestion = { id: string; label: string; type: "text" | "textarea" | "choice"; options?: string[]; required?: boolean; default?: string };
 
 // 병원 기본 문항(planning §C). 모든 설문 공통.
 const BASE_QUESTIONS: SurveyQuestion[] = [
@@ -70,6 +71,28 @@ function buildQuestions(categories: string[]): SurveyQuestion[] {
   return out;
 }
 
+// 계약서 대행범위(라벨)를 설문 카테고리로 매핑 — 계약에 담긴 범위에 맞춰 추가 문항 생성.
+function scopeLabelToCategories(label: string): string[] {
+  const l = label.toLowerCase();
+  const cats: string[] = [];
+  if (label.includes("블로그")) cats.push("블로그");
+  if (label.includes("플레이스")) cats.push("플레이스");
+  if (l.includes("sns") || label.includes("인스타") || label.includes("페이스북")) cats.push("SNS");
+  if (label.includes("파워링크") || label.includes("검색광고") || label.includes("파워콘텐츠") || label.includes("파워콘텐트")) cats.push("검색광고");
+  return cats;
+}
+
+// 계약서 기본 내용 → 설문 문항 기본값(prefill). 계약에서 이미 아는 값을 미리 채워 재입력을 줄인다.
+function prefillFromContract(
+  questions: SurveyQuestion[],
+  prefill: Record<string, string | null | undefined>
+): SurveyQuestion[] {
+  return questions.map((q) => {
+    const v = prefill[q.id];
+    return v && v.trim() ? { ...q, default: v.trim() } : q;
+  });
+}
+
 export async function createSurveyForContract(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const user = await requireUser();
@@ -78,14 +101,28 @@ export async function createSurveyForContract(input: unknown): Promise<ActionRes
 
     const contract = await db.contract.findUnique({
       where: { id: p.data.contractId },
-      select: { id: true, clientId: true, title: true, client: { select: { assignedMarketerId: true, name: true } }, products: { select: { product: { select: { category: true } } } } }
+      select: {
+        id: true, clientId: true, title: true, details: true,
+        client: { select: { assignedMarketerId: true, name: true } },
+        products: { select: { product: { select: { category: true } } } }
+      }
     });
     if (!contract) throw new Error("NOT_FOUND");
     const scopes = await getAdminScopes(user);
     assertCanAccessClient(user, contract.clientId, scopes, contract.client.assignedMarketerId);
 
-    const categories = contract.products.map((cp) => cp.product.category);
-    const questions = buildQuestions(categories);
+    // 카테고리 = 계약 상품 분류 ∪ 계약서 대행범위(details.scopeItems)에서 유추.
+    const details = parseContractDetails(contract.details);
+    const scopeItems = resolveScopeItems(details);
+    const categories = [
+      ...contract.products.map((cp) => cp.product.category),
+      ...scopeItems.flatMap((it) => scopeLabelToCategories(it.label))
+    ];
+
+    // 계약서에 있는 기본 내용을 설문 문항 기본값으로 동기화(재입력 최소화).
+    const questions = prefillFromContract(buildQuestions(categories), {
+      hospital_name: contract.client.name
+    });
 
     const meta = await requestMeta();
     const orgId = await getDefaultOrgId();
