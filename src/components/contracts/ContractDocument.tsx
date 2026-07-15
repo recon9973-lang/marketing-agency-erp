@@ -128,19 +128,17 @@ function SignBlock({
       <p>사업자번호 : {bizNo || "____________"}</p>
       <p>
         대　　표 : {repName}{" "}
-        {/* 을: (인) 자리에 도장 겹쳐 날인(크게). 갑: 서명 이미지를 인라인으로 표시. */}
-        {seal ? (
-          <span className="relative inline-block align-middle">
-            <span className="text-black/45">(인)</span>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/seal-venom.png" alt="베놈 도장" style={{ width: "96px", height: "96px" }} className="pointer-events-none absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain opacity-90" />
-          </span>
-        ) : signatureData ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={signatureData} alt="서명" className="ml-1 inline-block h-14 max-w-[180px] align-middle object-contain" />
-        ) : (
-          <span className="text-black/40">(인/서명)</span>
-        )}
+        {/* 갑·을 모두 이름 옆 "(서명 또는 인)" 자리에 서명/도장을 겹쳐 표시. */}
+        <span className="relative inline-block align-middle">
+          <span className="text-black/45">(서명 또는 인)</span>
+          {seal ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/seal-venom.png" alt="베놈 도장" style={{ width: "60px", height: "60px" }} className="pointer-events-none absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain opacity-90" />
+          ) : signatureData ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={signatureData} alt="서명" style={{ height: "52px", maxWidth: "150px" }} className="pointer-events-none absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain" />
+          ) : null}
+        </span>
       </p>
       {!seal && signerTitle ? <p className="mt-1 text-[11px] text-black/50">{signerTitle}</p> : null}
     </div>
