@@ -36,6 +36,8 @@ export type ContractDetail = {
   authorName: string;
   title: string;
   body: string;
+  details: unknown; // 구조화 계약 항목(JSON) — parseContractDetails로 해석
+  signToken: string | null;
   amount: string | null;
   startDate: Date | null;
   endDate: Date | null;
@@ -110,6 +112,43 @@ export async function fetchContractsForUser(user: CurrentUser): Promise<Contract
   }));
 }
 
+export type ContractForSign = {
+  id: string;
+  title: string;
+  clientName: string;
+  amount: string | null;
+  startDate: Date | null;
+  endDate: Date | null;
+  details: unknown;
+  status: string;
+  signerName: string | null;
+  signatureData: string | null;
+  signedAt: Date | null;
+};
+
+/** 원격 서명 페이지용 — signToken으로 조회(인증 불필요). 없으면 null. */
+export async function getContractForSigning(token: string): Promise<ContractForSign | null> {
+  if (!token || token.length < 16) return null;
+  const c = await db.contract.findUnique({
+    where: { signToken: token },
+    include: { client: { select: { name: true } } }
+  });
+  if (!c) return null;
+  return {
+    id: c.id,
+    title: c.title,
+    clientName: c.client.name,
+    amount: c.amount ? c.amount.toString() : null,
+    startDate: c.startDate,
+    endDate: c.endDate,
+    details: c.details,
+    status: c.status,
+    signerName: c.signerName,
+    signatureData: c.signatureData,
+    signedAt: c.signedAt
+  };
+}
+
 export async function getContractDetail(user: CurrentUser, id: string): Promise<ContractDetail | null> {
   const c = await db.contract.findUnique({
     where: { id },
@@ -156,6 +195,8 @@ export async function getContractDetail(user: CurrentUser, id: string): Promise<
     authorName: c.author.name,
     title: c.title,
     body: c.body,
+    details: c.details,
+    signToken: c.signToken,
     amount: c.amount ? c.amount.toString() : null,
     startDate: c.startDate,
     endDate: c.endDate,

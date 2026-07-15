@@ -3,21 +3,45 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createContract } from "@/server/actions/contracts";
+import { SCOPE_ONLINE, SCOPE_OFFLINE, PAY_TERMS_PRESETS, type ContractDetails } from "@/domain/contract";
 
 const inputCls = "mt-1 w-full rounded-md border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand";
+const labelCls = "text-xs font-semibold text-slate-500";
 
 type Template = { id: string; name: string; title: string; body: string };
+type Mode = "ad" | "free";
 
 export function CreateContractForm({ clients, templates }: { clients: { id: string; name: string }[]; templates: Template[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode>("ad");
+
+  // 공통
   const [clientId, setClientId] = useState("");
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState("광고 업무 대행 계약서");
+  const [amount, setAmount] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  // 광고 대행(구조화)
+  const [scopeOnline, setScopeOnline] = useState<string[]>([]);
+  const [scopeOffline, setScopeOffline] = useState<string[]>([]);
+  const [clientAddress, setClientAddress] = useState("");
+  const [clientBizNo, setClientBizNo] = useState("");
+  const [clientCeo, setClientCeo] = useState("");
+  const [vatIncluded, setVatIncluded] = useState(true);
+  const [payTerms, setPayTerms] = useState<string>(PAY_TERMS_PRESETS[0]);
+  const [autoRenew, setAutoRenew] = useState(true);
+  const [special, setSpecial] = useState("");
+
+  // 자유 서식
   const [body, setBody] = useState("");
 
-  // 템플릿 선택 → 본문·계약명 채움. {거래처명}은 선택한 거래처로 치환.
+  function toggle(list: string[], setList: (v: string[]) => void, v: string) {
+    setList(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+  }
   function applyTemplate(templateId: string) {
     const tpl = templates.find((t) => t.id === templateId);
     if (!tpl) return;
@@ -26,22 +50,38 @@ export function CreateContractForm({ clients, templates }: { clients: { id: stri
     setBody(tpl.body.replaceAll("{거래처명}", clientName));
   }
 
-  function onSubmit(fd: FormData) {
+  function submit() {
     setError(null);
-    const payload = {
-      clientId: String(fd.get("clientId") || ""),
-      title: String(fd.get("title") || ""),
-      body: String(fd.get("body") || ""),
-      amount: fd.get("amount") ? Number(fd.get("amount")) : null,
-      startDate: String(fd.get("startDate") || "") || null,
-      endDate: String(fd.get("endDate") || "") || null
+    if (!clientId) return setError("거래처를 선택하세요.");
+    if (!title.trim()) return setError("계약명을 입력하세요.");
+    const base = {
+      clientId,
+      title: title.trim(),
+      amount: amount ? Number(amount) : null,
+      startDate: startDate || null,
+      endDate: endDate || null
     };
+    let payload: Record<string, unknown>;
+    if (mode === "ad") {
+      const details: ContractDetails = {
+        clientAddress: clientAddress.trim() || undefined,
+        clientBizNo: clientBizNo.trim() || undefined,
+        clientCeo: clientCeo.trim() || undefined,
+        scopeOnline,
+        scopeOffline,
+        vatIncluded,
+        payTerms: payTerms.trim() || undefined,
+        autoRenew,
+        special: special.trim() || undefined
+      };
+      payload = { ...base, details };
+    } else {
+      if (!body.trim()) return setError("계약 내용을 입력하세요.");
+      payload = { ...base, body };
+    }
     start(async () => {
       const res = await createContract(payload);
-      if (!res.ok) {
-        setError(res.error);
-        return;
-      }
+      if (!res.ok) { setError(res.error === "VALIDATION" ? "입력값을 확인해 주세요." : "저장에 실패했습니다."); return; }
       setOpen(false);
       if (res.data?.id) router.push(`/contracts/${res.data.id}` as never);
       else router.refresh();
@@ -57,56 +97,105 @@ export function CreateContractForm({ clients, templates }: { clients: { id: stri
   }
 
   return (
-    <form action={onSubmit} className="rounded-2xl border border-line bg-white p-4">
+    <div className="rounded-2xl border border-line bg-white p-4">
+      {/* 모드 탭 */}
+      <div className="mb-4 inline-flex rounded-lg border border-line p-0.5 text-sm">
+        <button type="button" onClick={() => { setMode("ad"); setTitle("광고 업무 대행 계약서"); }}
+          className={mode === "ad" ? "rounded-md bg-brand px-3 py-1.5 font-semibold text-white" : "px-3 py-1.5 text-slate-600"}>광고 대행 계약(항목별)</button>
+        <button type="button" onClick={() => setMode("free")}
+          className={mode === "free" ? "rounded-md bg-brand px-3 py-1.5 font-semibold text-white" : "px-3 py-1.5 text-slate-600"}>일반 서식(템플릿)</button>
+      </div>
+
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <label className="block">
-          <span className="text-xs font-semibold text-slate-500">거래처 *</span>
-          <select name="clientId" required value={clientId} onChange={(e) => setClientId(e.target.value)} className={inputCls}>
+          <span className={labelCls}>거래처(갑) *</span>
+          <select required value={clientId} onChange={(e) => setClientId(e.target.value)} className={inputCls}>
             <option value="" disabled>선택</option>
             {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </label>
-        {templates.length > 0 ? (
-          <label className="block">
-            <span className="text-xs font-semibold text-slate-500">서식 템플릿</span>
-            <select defaultValue="" onChange={(e) => { applyTemplate(e.target.value); e.target.value = ""; }} className={inputCls}>
-              <option value="" disabled>템플릿 선택(선택 시 본문 자동 채움)</option>
-              {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </label>
-        ) : null}
         <label className="block">
-          <span className="text-xs font-semibold text-slate-500">계약명 *</span>
-          <input name="title" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 2026년 블로그 마케팅 대행 계약" className={inputCls} />
+          <span className={labelCls}>계약명 *</span>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} />
         </label>
         <label className="block">
-          <span className="text-xs font-semibold text-slate-500">계약 금액(원)</span>
-          <input name="amount" type="number" min="0" step="1" placeholder="예: 3000000" className={inputCls} />
+          <span className={labelCls}>월 광고비(원)</span>
+          <input type="number" min="0" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="예: 3000000" className={inputCls} />
         </label>
         <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="text-xs font-semibold text-slate-500">시작일</span>
-            <input name="startDate" type="date" className={inputCls} />
-          </label>
-          <label className="block">
-            <span className="text-xs font-semibold text-slate-500">종료일</span>
-            <input name="endDate" type="date" className={inputCls} />
-          </label>
+          <label className="block"><span className={labelCls}>시작일</span><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputCls} /></label>
+          <label className="block"><span className={labelCls}>종료일</span><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={inputCls} /></label>
         </div>
       </div>
-      <label className="mt-3 block">
-        <span className="text-xs font-semibold text-slate-500">계약 내용 *</span>
-        <textarea name="body" required value={body} onChange={(e) => setBody(e.target.value)} rows={10} placeholder="계약 조항/내용을 입력하거나 위에서 서식 템플릿을 선택하세요." className={`${inputCls} resize-y font-mono text-xs`} />
-      </label>
-      {error ? (
-        <p className="mt-2 text-sm text-danger">{error === "VALIDATION" ? "입력값을 확인해 주세요." : "저장에 실패했습니다."}</p>
-      ) : null}
-      <div className="mt-3 flex gap-2">
-        <button type="submit" disabled={pending} className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+
+      {mode === "ad" ? (
+        <div className="mt-4 space-y-4">
+          {/* 갑 정보 */}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <label className="block"><span className={labelCls}>갑 주소</span><input value={clientAddress} onChange={(e) => setClientAddress(e.target.value)} className={inputCls} /></label>
+            <label className="block"><span className={labelCls}>갑 사업자번호</span><input value={clientBizNo} onChange={(e) => setClientBizNo(e.target.value)} className={inputCls} /></label>
+            <label className="block"><span className={labelCls}>갑 대표자</span><input value={clientCeo} onChange={(e) => setClientCeo(e.target.value)} className={inputCls} /></label>
+          </div>
+          {/* 대행 범위 */}
+          <div>
+            <p className={labelCls}>대행 범위 — 온라인</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {SCOPE_ONLINE.map((s) => (
+                <button key={s} type="button" onClick={() => toggle(scopeOnline, setScopeOnline, s)}
+                  className={`rounded-full border px-2.5 py-1 text-xs ${scopeOnline.includes(s) ? "border-brand bg-brand/10 text-brand" : "border-line text-slate-600 hover:border-brand"}`}>{s}</button>
+              ))}
+            </div>
+            <p className={`${labelCls} mt-3`}>대행 범위 — 오프라인</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {SCOPE_OFFLINE.map((s) => (
+                <button key={s} type="button" onClick={() => toggle(scopeOffline, setScopeOffline, s)}
+                  className={`rounded-full border px-2.5 py-1 text-xs ${scopeOffline.includes(s) ? "border-brand bg-brand/10 text-brand" : "border-line text-slate-600 hover:border-brand"}`}>{s}</button>
+              ))}
+            </div>
+          </div>
+          {/* 조건 */}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <label className="block">
+              <span className={labelCls}>지불조건</span>
+              <select value={payTerms} onChange={(e) => setPayTerms(e.target.value)} className={inputCls}>
+                {PAY_TERMS_PRESETS.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </label>
+            <div className="flex items-end gap-4 pb-1">
+              <label className="inline-flex items-center gap-1.5 text-sm text-slate-600"><input type="checkbox" checked={vatIncluded} onChange={(e) => setVatIncluded(e.target.checked)} /> VAT 포함</label>
+              <label className="inline-flex items-center gap-1.5 text-sm text-slate-600"><input type="checkbox" checked={autoRenew} onChange={(e) => setAutoRenew(e.target.checked)} /> 1년 자동갱신</label>
+            </div>
+          </div>
+          <label className="block">
+            <span className={labelCls}>특약사항 (선택)</span>
+            <textarea value={special} onChange={(e) => setSpecial(e.target.value)} rows={2} className={`${inputCls} resize-y`} placeholder="추가 합의 사항이 있으면 입력" />
+          </label>
+        </div>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {templates.length > 0 ? (
+            <label className="block">
+              <span className={labelCls}>서식 템플릿</span>
+              <select defaultValue="" onChange={(e) => { applyTemplate(e.target.value); e.target.value = ""; }} className={inputCls}>
+                <option value="" disabled>템플릿 선택(선택 시 본문 자동 채움)</option>
+                {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </label>
+          ) : null}
+          <label className="block">
+            <span className={labelCls}>계약 내용 *</span>
+            <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={10} placeholder="계약 조항/내용을 입력하거나 위에서 서식 템플릿을 선택하세요." className={`${inputCls} resize-y font-mono text-xs`} />
+          </label>
+        </div>
+      )}
+
+      {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
+      <div className="mt-4 flex gap-2">
+        <button type="button" onClick={submit} disabled={pending} className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
           {pending ? "저장 중…" : "계약서 생성"}
         </button>
         <button type="button" onClick={() => setOpen(false)} className="rounded-md border border-line px-4 py-2 text-sm text-slate-600">취소</button>
       </div>
-    </form>
+    </div>
   );
 }

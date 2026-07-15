@@ -784,7 +784,9 @@ model Contract {
   clientId      String
   authorId      String
   title         String
-  body          String // 계약 내용(본문 텍스트)
+  body          String // 계약 내용(본문 텍스트, 레거시/폴백)
+  details       Json? // 구조화 계약 항목(대행범위·갑정보·지불조건 등) — ContractDocument가 서식 렌더
+  signToken     String?   @unique // 원격 서명 링크 토큰(/sign/{token})
   amount        Decimal?  @db.Decimal(12, 2) // 계약 금액(원)
   startDate     DateTime?
   endDate       DateTime?

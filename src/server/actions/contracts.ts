@@ -8,8 +8,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { randomBytes } from "node:crypto";
+import type { Prisma } from "@prisma/client";
+
 import { Role, WorkCategory } from "@/domain/types";
 import { assertCanAccessClient } from "@/domain/access-control";
+import { contractBodyText, type ContractDetails } from "@/domain/contract";
 import { checkGuaranteeClaims, NON_GUARANTEE_DISCLAIMER } from "@/server/compliance/medical-law";
 import { db } from "@/server/db";
 import {
@@ -34,14 +38,38 @@ const optionalDate = z
   .nullable()
   .transform((v) => (v ? new Date(v) : null));
 
+const detailsSchema = z
+  .object({
+    clientAddress: z.string().trim().max(300).optional(),
+    clientBizNo: z.string().trim().max(50).optional(),
+    clientCeo: z.string().trim().max(100).optional(),
+    scopeOnline: z.array(z.string().trim().max(80)).max(30).optional(),
+    scopeOffline: z.array(z.string().trim().max(80)).max(30).optional(),
+    vatIncluded: z.boolean().optional(),
+    payTerms: z.string().trim().max(2000).optional(),
+    autoRenew: z.boolean().optional(),
+    special: z.string().trim().max(3000).optional()
+  })
+  .optional()
+  .nullable();
+
 const createSchema = z.object({
   clientId: z.string().min(1),
   title: z.string().trim().min(1).max(200),
-  body: z.string().trim().min(1),
+  body: z.string().trim().optional().nullable(), // details로 생성 가능하므로 선택
+  details: detailsSchema,
   amount: z.coerce.number().nonnegative().optional().nullable(),
   startDate: optionalDate,
   endDate: optionalDate
 });
+
+// body가 없으면 구조화 details로 평문 본문 생성(저장·검색·레거시용).
+function resolveBody(args: { body?: string | null; details?: ContractDetails | null; clientName: string; amount: number | null; startDate: Date | null; endDate: Date | null }): string {
+  const raw = args.body?.trim();
+  if (raw) return raw;
+  if (args.details) return contractBodyText({ clientName: args.clientName, amount: args.amount, startDate: args.startDate, endDate: args.endDate, details: args.details });
+  return "";
+}
 
 export async function createContract(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
@@ -53,9 +81,11 @@ export async function createContract(input: unknown): Promise<ActionResult<{ id:
     if (!client) throw new Error("NOT_FOUND");
     await assertClient(user, d.clientId, client.assignedMarketerId);
 
+    const rawBody = resolveBody({ body: d.body, details: d.details, clientName: client.name, amount: d.amount ?? null, startDate: d.startDate, endDate: d.endDate });
+    if (!rawBody) throw new Error("VALIDATION");
     // 성과 미보장 고지 자동 삽입(기획서 §9) + 보장성 문구 감지 결과를 감사로그에 기록
-    const body = d.body.includes("[성과 미보장 고지]") ? d.body : `${d.body}\n\n${NON_GUARANTEE_DISCLAIMER}`;
-    const guaranteeFlags = checkGuaranteeClaims(d.body).flags.map((f) => f.matched);
+    const body = rawBody.includes("[성과 미보장 고지]") ? rawBody : `${rawBody}\n\n${NON_GUARANTEE_DISCLAIMER}`;
+    const guaranteeFlags = checkGuaranteeClaims(rawBody).flags.map((f) => f.matched);
 
     const meta = await requestMeta();
     const saved = await db.$transaction(async (tx) => {
@@ -65,6 +95,7 @@ export async function createContract(input: unknown): Promise<ActionResult<{ id:
           authorId: user.id,
           title: d.title,
           body,
+          details: d.details ?? undefined,
           amount: d.amount ?? null,
           startDate: d.startDate,
           endDate: d.endDate,
@@ -82,7 +113,8 @@ export async function createContract(input: unknown): Promise<ActionResult<{ id:
 const updateSchema = z.object({
   id: z.string().min(1),
   title: z.string().trim().min(1).max(200),
-  body: z.string().trim().min(1),
+  body: z.string().trim().optional().nullable(),
+  details: detailsSchema,
   amount: z.coerce.number().nonnegative().optional().nullable(),
   startDate: optionalDate,
   endDate: optionalDate
@@ -94,16 +126,20 @@ export async function updateContract(input: unknown): Promise<ActionResult> {
     const p = updateSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const d = p.data;
-    const existing = await db.contract.findUnique({ where: { id: d.id }, include: { client: { select: { assignedMarketerId: true } } } });
+    const existing = await db.contract.findUnique({ where: { id: d.id }, include: { client: { select: { name: true, assignedMarketerId: true } } } });
     if (!existing) throw new Error("NOT_FOUND");
     await assertClient(user, existing.clientId, existing.client.assignedMarketerId);
     if (existing.status === "SIGNED") throw new Error("ALREADY_SIGNED");
+
+    const rawBody = resolveBody({ body: d.body, details: d.details, clientName: existing.client.name, amount: d.amount ?? null, startDate: d.startDate, endDate: d.endDate });
+    if (!rawBody) throw new Error("VALIDATION");
+    const body = rawBody.includes("[성과 미보장 고지]") ? rawBody : `${rawBody}\n\n${NON_GUARANTEE_DISCLAIMER}`;
 
     const meta = await requestMeta();
     await db.$transaction(async (tx) => {
       await tx.contract.update({
         where: { id: d.id },
-        data: { title: d.title, body: d.body, amount: d.amount ?? null, startDate: d.startDate, endDate: d.endDate }
+        data: { title: d.title, body, details: d.details ?? undefined, amount: d.amount ?? null, startDate: d.startDate, endDate: d.endDate }
       });
       await recordAudit(tx, { actorId: user.id, action: "contract.update", targetType: "Contract", targetId: d.id, afterState: { title: d.title }, ...meta });
     });
@@ -287,6 +323,96 @@ export async function signContract(input: unknown): Promise<ActionResult> {
 
     revalidatePath("/contracts");
     revalidatePath(`/contracts/${d.id}`);
+    if (created > 0) revalidatePath("/work");
+  });
+}
+
+/** 계약 확정 시 상품별 업무 자동 생성(원격 서명용 공용 헬퍼). */
+async function generateWorkItems(
+  tx: Prisma.TransactionClient,
+  products: { product: { name: string; category: string; defaultTasks: unknown } }[],
+  base: { clientId: string; ownerId: string; createdById: string; startDate: Date; endDate: Date | null; contractTitle: string }
+): Promise<number> {
+  let count = 0;
+  for (const cp of products) {
+    const templated = parseDefaultTasks(cp.product.defaultTasks, cp.product.name, cp.product.category, base);
+    if (templated) {
+      await tx.workItem.createMany({ data: templated });
+      count += templated.length;
+    } else {
+      await tx.workItem.create({
+        data: {
+          clientId: base.clientId, ownerId: base.ownerId, createdById: base.createdById,
+          title: cp.product.name, category: productToWorkCategory(cp.product.name, cp.product.category),
+          status: "NOT_STARTED", dueDate: base.startDate,
+          progressNotes: `계약 "${base.contractTitle}" 확정으로 자동 생성`
+        }
+      });
+      count++;
+    }
+  }
+  return count;
+}
+
+/** 원격 서명 링크 발급 — 계약 접근 가능자. token으로 /sign/{token} 링크를 만들어 고객에게 전달. */
+export async function createSignLink(input: unknown): Promise<ActionResult<{ token: string }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const p = z.object({ id: z.string().min(1), regenerate: z.boolean().optional() }).safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    const existing = await db.contract.findUnique({ where: { id: p.data.id }, include: { client: { select: { assignedMarketerId: true } } } });
+    if (!existing) throw new Error("NOT_FOUND");
+    await assertClient(user, existing.clientId, existing.client.assignedMarketerId);
+    let token = existing.signToken;
+    if (!token || p.data.regenerate) {
+      token = randomBytes(24).toString("base64url");
+      await db.contract.update({ where: { id: existing.id }, data: { signToken: token } });
+    }
+    revalidatePath(`/contracts/${existing.id}`);
+    return { token };
+  });
+}
+
+const signByTokenSchema = z.object({
+  token: z.string().min(16),
+  signerName: z.string().trim().min(1).max(100),
+  signerTitle: z.string().trim().max(100).optional().nullable(),
+  signatureData: z.string().min(1).max(3_000_000).refine((v) => v.startsWith("data:image/"), "서명 이미지 형식이 아닙니다.")
+});
+
+/** 원격 서명 — 인증 없이 signToken으로 검증해 고객이 자기 기기에서 서명한다. */
+export async function signContractByToken(input: unknown): Promise<ActionResult> {
+  return runAction(async () => {
+    const p = signByTokenSchema.safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    const d = p.data;
+    const existing = await db.contract.findUnique({
+      where: { signToken: d.token },
+      include: {
+        client: { select: { assignedMarketerId: true } },
+        products: { include: { product: { select: { name: true, category: true, defaultTasks: true } } } }
+      }
+    });
+    if (!existing) throw new Error("NOT_FOUND");
+    if (existing.status === "SIGNED") throw new Error("ALREADY_SIGNED");
+
+    const ownerId = existing.client.assignedMarketerId ?? existing.authorId;
+    const startDate = existing.startDate ?? new Date();
+    const endDate = existing.endDate ?? null;
+    const meta = await requestMeta();
+    const created = await db.$transaction(async (tx) => {
+      await tx.contract.update({
+        where: { id: existing.id },
+        data: { signerName: d.signerName, signerTitle: d.signerTitle || null, signatureData: d.signatureData, status: "SIGNED", signedAt: new Date() }
+      });
+      const count = existing.products.length
+        ? await generateWorkItems(tx, existing.products, { clientId: existing.clientId, ownerId, createdById: existing.authorId, startDate, endDate, contractTitle: existing.title })
+        : 0;
+      await recordAudit(tx, { actorId: existing.authorId, action: "contract.sign.remote", targetType: "Contract", targetId: existing.id, afterState: { signerName: d.signerName, generatedWorkItems: count }, ...meta });
+      return count;
+    });
+    revalidatePath("/contracts");
+    revalidatePath(`/contracts/${existing.id}`);
     if (created > 0) revalidatePath("/work");
   });
 }
