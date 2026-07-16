@@ -12,6 +12,10 @@ export type OnboardingTaskTemplate = {
   offsetDays: number;
   offsetFrom: "START" | "END";
   checklist?: string[];
+  // GEO 채널 업무의 자동화 상한(cap). geo-channels 의 채널 automationLevel 로 clamp 되어,
+  // 위키/커뮤니티 등 고위험 채널은 A/B(자동 실행)로 승격 불가. 인라인 리터럴(순환 import 방지).
+  automationLevel?: "A" | "B" | "C" | "D";
+  channel?: string; // GEO_CHANNEL_PLAYBOOK.channel 연결키(cap 조회용)
 };
 
 export const STANDARD_ONBOARDING_TASKS: OnboardingTaskTemplate[] = [
