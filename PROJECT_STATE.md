@@ -7,13 +7,13 @@
 - **이어갈 작업(RESUME)**: 없음
 
 ## 최근 커밋 (8)
+- 2026-07-16 build: DB 단계 타임아웃·방어 — 빌드 무한 대기 방지
+- 2026-07-16 chore: PROJECT_STATE 자동 갱신 [skip ci]
 - 2026-07-16 feat(settings): 기능 단위 접근 권한 (④)
 - 2026-07-16 chore: PROJECT_STATE 자동 갱신 [skip ci]
 - 2026-07-16 feat(settings): 담당자별 배정 현황 화면 (②)
 - 2026-07-16 chore: PROJECT_STATE 자동 갱신 [skip ci]
 - 2026-07-16 feat(settings): 관리자 접근범위 편집 UI + 권한 화면 정리 (①③)
-- 2026-07-16 chore: PROJECT_STATE 자동 갱신 [skip ci]
-- 2026-07-16 feat(settings): ERP 로그인 비밀번호 관리 화면
 - 2026-07-16 chore: PROJECT_STATE 자동 갱신 [skip ci]
 
 ## 워크플로 (1)
@@ -47,4 +47,4 @@
 `ADMIN_EMAIL` · `ADMIN_PASSWORD` · `ADMIN_SECRET` · `ALLOW_DEV_SESSION` · `ANTHROPIC_API_KEY` · `AUTH_DEMO_LOGIN` · `AUTH_SECRET` · `AUTH_URL` · `CANONICAL_HOST` · `CANVA_ACCESS_TOKEN` · `CREDENTIAL_ENC_KEY` · `CRON_SECRET` · `DATABASE_URL` · `DATABASE_URL_UNPOOLED` · `DEV_SESSION_ROLE` · `EMAIL_FROM` · `EMAIL_SERVER` · `GEMINI_MODEL` · `GEO_ANTHROPIC_MODEL` · `GOOGLE_AI_API_KEY` · `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` · `GOOGLE_REDIRECT_URI` · `HIGGSFIELD_API_KEY` · `HIGGSFIELD_API_URL` · `KAKAO_ALIMTALK_API_KEY` · `KAKAO_ALIMTALK_ENDPOINT` · `KAKAO_ALIMTALK_SENDER` · `KAKAO_ALIMTALK_TEMPLATE` · `KW_PROXY_URL` · `MAGAZINE_DAILY_DRAFTS` · `MAKE_WEBHOOK_URL` · `MARKETING_CRON_SECRET` · `NAVER_AD_API_KEY` · `NAVER_AD_CUSTOMER_ID` · `NAVER_AD_SECRET` · `NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` · `NAVER_SEARCH_CLIENT_ID` · `NAVER_SEARCH_CLIENT_SECRET` · `…(+26)`
 
 ---
-*생성: 커밋 f9fdb2b 기준. 값·비밀은 포함하지 않음.*
+*생성: 커밋 3a2f6fc 기준. 값·비밀은 포함하지 않음.*
