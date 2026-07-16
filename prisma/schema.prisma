@@ -160,6 +160,7 @@ model User {
   image                   String?
   kakaoId                 String?         @unique
   loginLinkToken          String?         @unique // 이메일 없이 쓰는 개인 로그인 링크(초대/직원 접속). 재발급으로 폐기 가능.
+  passwordHash            String?         // ERP 관리자 로그인 비밀번호(scrypt 해시). 설정 시 로그인에서 우선 검증, 미설정 시 env ADMIN_PASSWORD 사용.
   timezone                String          @default("Asia/Seoul")
   isActive                Boolean         @default(true)
   googleCalendarConnected Boolean         @default(false)

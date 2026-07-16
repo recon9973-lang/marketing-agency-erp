@@ -19,6 +19,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { db } from "@/server/db";
 import { Role, UserStatus } from "@/domain/types";
 import { recordLogin } from "@/server/tracking";
+import { verifyPassword } from "@/server/security/password";
 
 /** 길이 노출/불일치 예외 없이 상수시간 비교(둘 다 SHA-256으로 고정길이화). */
 function secureEquals(a: string, b: string): boolean {
@@ -61,21 +62,32 @@ function classifyChars(s: string): string {
  */
 async function authorizeAdmin(rawEmail: unknown, rawPassword: unknown) {
   const adminEmail = normalizeCredential(process.env.ADMIN_EMAIL ?? "").toLowerCase();
-  // 비밀번호도 정규화(NFC+trim) — 맥↔PC 한글 조합 방식 차이·끝 공백으로 인한 불일치 방지.
-  const adminPassword = normalizeCredential(process.env.ADMIN_PASSWORD ?? "");
-  if (!adminEmail || !adminPassword) return null;
+  if (!adminEmail) return null;
 
   const email = normalizeCredential(String(rawEmail ?? "")).toLowerCase();
+  // 비밀번호도 정규화(NFKC+trim) — 맥↔PC 한글 조합 방식 차이·끝 공백으로 인한 불일치 방지.
   const password = normalizeCredential(String(rawPassword ?? ""));
   if (!email || !password) return null;
 
   const emailOk = secureEquals(email, adminEmail);
-  const passOk = secureEquals(password, adminPassword);
-  if (!emailOk || !passOk) {
-    // 비밀공백/전각 등 맥↔PC 원인 추적용 — 실제 값은 절대 로그하지 않는다(길이·문자군만).
+  if (!emailOk) return null;
+
+  // 비밀번호 검증: 설정된 DB 해시(우선) 또는 env ADMIN_PASSWORD(복구용) 중 하나라도 맞으면 통과.
+  // → 설정 화면에서 바꾼 비밀번호가 즉시 반영되고, env는 잠금 방지용 복구 수단으로 유지된다.
+  // 컬럼 미반영(배포 직후 마이그레이션 지연) 등으로 조회가 실패해도 env 검증으로 폴백 — 잠금 방지.
+  let existing: { passwordHash: string | null } | null = null;
+  try {
+    existing = await db.user.findUnique({ where: { email: adminEmail }, select: { passwordHash: true } });
+  } catch {
+    existing = null;
+  }
+  const envPassword = normalizeCredential(process.env.ADMIN_PASSWORD ?? "");
+  const hashOk = verifyPassword(password, existing?.passwordHash);
+  const envOk = envPassword.length > 0 && secureEquals(password, envPassword);
+  if (!hashOk && !envOk) {
+    // 실제 값은 절대 로그하지 않는다 — 원인 파악용 분류만(전각/공백 등).
     console.warn(
-      `[auth] admin login fail: emailOk=${emailOk} passOk=${passOk}` +
-        ` lenEq=${password.length === adminPassword.length}` +
+      `[auth] admin login fail: hasHash=${Boolean(existing?.passwordHash)}` +
         ` rawClass=${classifyChars(String(rawPassword ?? ""))}` +
         ` normClass=${classifyChars(password)}`
     );

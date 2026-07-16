@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { EmployeeSettings } from "@/components/settings/EmployeeSettings";
+import { AdminPasswordCard } from "@/components/settings/AdminPasswordCard";
 import { MasterManager } from "@/components/settings/MasterManager";
 import { DocumentTemplateManager } from "@/components/settings/DocumentTemplateManager";
 import { TemplateFiller } from "@/components/settings/TemplateFiller";
@@ -146,6 +147,13 @@ export default async function SettingsPage() {
         <h3 className="text-base font-semibold text-ink">관리자 접근 범위</h3>
         <DataTable columns={scopeColumns} rows={overview.scopes} emptyMessage="등록된 접근 범위가 없습니다." />
       </div>
+
+      {isSuperAdmin && (
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-ink">로그인 비밀번호</h3>
+          <AdminPasswordCard adminEmail={process.env.ADMIN_EMAIL ?? null} />
+        </div>
+      )}
 
       {isSuperAdmin && (
         <div className="space-y-3">
