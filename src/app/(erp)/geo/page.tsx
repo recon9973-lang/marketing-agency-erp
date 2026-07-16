@@ -18,7 +18,7 @@ import { configuredEngines } from "@/server/geo-engine/engines";
 import { buildLlmsTxt, llmsInputFromClient } from "@/server/geo-engine/llms-txt";
 import { GEO_DISCLAIMER } from "@/domain/sales/geo";
 import { db } from "@/server/db";
-import { geoMonthlyTrend, listGeoMatrix, listPublishedPages, summarizeGeoMatrix } from "@/server/repositories/geo";
+import { computeGeoSov, geoMonthlyTrend, listGeoMatrix, listPublishedPages, summarizeGeoMatrix } from "@/server/repositories/geo";
 import { listInsightClients } from "@/server/repositories/insights";
 import { getCurrentUser } from "@/server/session";
 
@@ -75,6 +75,7 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
       ])
     : [[], [], null, []];
   const summary = summarizeGeoMatrix(rows);
+  const sov = computeGeoSov(rows); // 경쟁사 대비 SOV(파생·저장 없음)
 
   // 진료과 기본값: 업종(진료과목) 마스터 → 병원프로필 진료과 첫 항목 순으로 채움
   const defaultDepartment =
@@ -98,7 +99,13 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
     { label: "전체 질문", value: summary.totalQuestions, icon: KPI_ICONS.question, tone: "emerald" },
     { label: "승인 대기", value: summary.candidateCount, icon: KPI_ICONS.clock, tone: summary.candidateCount > 0 ? "amber" : "emerald" },
     { label: "출현 질문", value: summary.appearedCount, icon: KPI_ICONS.eye, tone: "emerald" },
-    { label: "인용 질문", value: summary.citedCount, icon: KPI_ICONS.link, tone: "emerald" }
+    { label: "인용 질문", value: summary.citedCount, icon: KPI_ICONS.link, tone: "emerald" },
+    {
+      label: "경쟁사 SOV",
+      value: sov.sovPct === null ? "—" : `${sov.sovPct}%`,
+      icon: KPI_ICONS.eye,
+      tone: sov.sovPct !== null && sov.sovPct < 50 ? "amber" : "emerald"
+    }
   ] as const;
 
   return (

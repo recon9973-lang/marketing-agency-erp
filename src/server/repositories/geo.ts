@@ -4,10 +4,12 @@
 // 규모 상한(질문 ≤ 수십 × 엔진 5)이라 조인 후 메모리 축약으로 충분(패널 결정 #6).
 import { GEO_ENGINES, type GeoEngine } from "@/domain/sales/geo";
 import { db } from "@/server/db";
+import { buildSov, asCompetitors, type SovCell, type SovResult } from "@/server/geo-engine/sov";
 
 export type GeoCell = {
   appeared: boolean;
   cited: boolean;
+  competitors: string[]; // 이 관측에서 언급된 경쟁사(SOV 산출용)
   checkedOn: string;
   snippet: string | null;
   evidenceUrl: string | null;
@@ -46,6 +48,7 @@ export async function listGeoMatrix(clientId: string): Promise<GeoQuestionRow[]>
       cells[engine] = {
         appeared: rec.appeared,
         cited: rec.cited,
+        competitors: asCompetitors(rec.competitorsMentioned),
         checkedOn: rec.checkedOn.toISOString().slice(0, 10),
         snippet: rec.snippet,
         evidenceUrl: rec.evidenceUrl
@@ -66,6 +69,22 @@ export async function listGeoMatrix(clientId: string): Promise<GeoQuestionRow[]>
   });
   // 종료(RETIRED) 질문은 맨 뒤 — 복원(오조작 복구)용으로만 노출
   return rows.sort((a, b) => Number(a.status === "RETIRED") - Number(b.status === "RETIRED"));
+}
+
+/**
+ * 경쟁사 대비 SOV(Share of Voice) — listGeoMatrix rows 에서 파생(추가 쿼리 없음).
+ * RETIRED 질문 제외, 질문×엔진 최신 셀을 평탄화해 자사 출현 vs 경쟁사 언급으로 산출.
+ * 저장하지 않는 상대지표(매 조회 파생). competitors 미등록/미언급 시 sovPct=null.
+ */
+export function computeGeoSov(allRows: GeoQuestionRow[]): SovResult {
+  const cells: SovCell[] = [];
+  for (const r of allRows) {
+    if (r.status === "RETIRED") continue;
+    for (const cell of Object.values(r.cells)) {
+      if (cell) cells.push({ appeared: cell.appeared, competitors: cell.competitors });
+    }
+  }
+  return buildSov(cells);
 }
 
 export type GeoSummary = {
