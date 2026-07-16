@@ -9,6 +9,7 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 
 import { Role, UserStatus } from "@/domain/types";
+import { parseFeatureKeys } from "@/domain/features";
 import { signIn } from "@/server/auth";
 import { db } from "@/server/db";
 import { getDefaultOrgId } from "@/server/org";
@@ -141,6 +142,37 @@ export async function setSettingsAccess(input: unknown): Promise<ActionResult> {
       });
     });
     revalidatePath("/settings");
+  });
+}
+
+/** 기능(메뉴) 단위 접근 권한 설정 — 최고관리자 전용. deniedFeatures = 차단할 기능 키 목록. */
+export async function setUserFeatureAccess(input: unknown): Promise<ActionResult> {
+  return runAction(async () => {
+    const user = await requireUser();
+    if (user.role !== Role.SUPER_ADMIN) throw new Error("FORBIDDEN");
+    const p = z.object({ userId: z.string().min(1), deniedFeatures: z.array(z.string()) }).safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+
+    const target = await db.user.findUnique({ where: { id: p.data.userId }, select: { role: true, deniedFeatures: true } });
+    if (!target) throw new Error("NOT_FOUND");
+    if (target.role === Role.SUPER_ADMIN) throw new Error("FORBIDDEN"); // 최고관리자는 항상 전체 접근
+
+    const denied = parseFeatureKeys(p.data.deniedFeatures);
+    const meta = await requestMeta();
+    await db.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: p.data.userId }, data: { deniedFeatures: denied } });
+      await recordAudit(tx, {
+        actorId: user.id,
+        action: "employee.featureAccess",
+        targetType: "User",
+        targetId: p.data.userId,
+        beforeState: { deniedFeatures: parseFeatureKeys(target.deniedFeatures) },
+        afterState: { deniedFeatures: denied },
+        ...meta
+      });
+    });
+    revalidatePath("/settings");
+    revalidatePath("/dashboard");
   });
 }
 

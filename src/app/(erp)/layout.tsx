@@ -15,7 +15,7 @@ export default async function ErpLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppShell role={user.role} canAccessSettings={user.canAccessSettings}>
+    <AppShell role={user.role} canAccessSettings={user.canAccessSettings} deniedFeatures={user.deniedFeatures}>
       <KeepWarm />
       {children}
     </AppShell>

@@ -1,4 +1,5 @@
 import { ConnectionStatus, FinancialAccountType, Role, UserStatus } from "@/domain/types";
+import { parseFeatureKeys, type FeatureKey } from "@/domain/features";
 import { db } from "@/server/db";
 import type { CurrentUser } from "@/server/session";
 
@@ -9,6 +10,7 @@ export type StaffSettingsItem = {
   role: Role;
   status: UserStatus;
   canAccessSettings: boolean;
+  deniedFeatures: FeatureKey[];
   kakaoLinked: boolean;
   googleCalendarConnected: boolean;
   naverCalendarConnected: boolean;
@@ -55,6 +57,7 @@ export async function fetchSettingsOverview(user: CurrentUser): Promise<Settings
         role: true,
         status: true,
         canAccessSettings: true,
+        deniedFeatures: true,
         kakaoId: true,
         googleCalendarConnected: true,
         naverCalendarConnected: true
@@ -99,6 +102,7 @@ export async function fetchSettingsOverview(user: CurrentUser): Promise<Settings
       role: member.role,
       status: member.status,
       canAccessSettings: member.canAccessSettings,
+      deniedFeatures: parseFeatureKeys(member.deniedFeatures),
       kakaoLinked: Boolean(member.kakaoId),
       googleCalendarConnected: member.googleCalendarConnected,
       naverCalendarConnected: member.naverCalendarConnected

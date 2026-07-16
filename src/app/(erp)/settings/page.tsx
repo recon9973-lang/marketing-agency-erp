@@ -5,6 +5,7 @@ import { EmployeeSettings } from "@/components/settings/EmployeeSettings";
 import { AdminPasswordCard } from "@/components/settings/AdminPasswordCard";
 import { AdminScopeManager } from "@/components/settings/AdminScopeManager";
 import { MarketerAssignment } from "@/components/settings/MarketerAssignment";
+import { FeaturePermissions } from "@/components/settings/FeaturePermissions";
 import { MasterManager } from "@/components/settings/MasterManager";
 import { DocumentTemplateManager } from "@/components/settings/DocumentTemplateManager";
 import { TemplateFiller } from "@/components/settings/TemplateFiller";
@@ -162,6 +163,18 @@ export default async function SettingsPage() {
           <DataTable columns={scopeColumns} rows={overview.scopes} emptyMessage="등록된 접근 범위가 없습니다." />
         )}
       </div>
+
+      {isSuperAdmin && (
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-ink">기능 접근 권한</h3>
+          <p className="text-sm text-slate-500">직원별로 메뉴 접근을 켜고 끕니다. 끄면 사이드바에서 숨겨지고 URL로 들어와도 차단됩니다.</p>
+          <FeaturePermissions
+            members={overview.staff
+              .filter((m) => m.role !== Role.SUPER_ADMIN)
+              .map((m) => ({ id: m.id, name: m.name, role: m.role, deniedFeatures: m.deniedFeatures }))}
+          />
+        </div>
+      )}
 
       {isSuperAdmin && (
         <div className="space-y-3">

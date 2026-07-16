@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { Role, UserStatus } from "@/domain/types";
+import { parseFeatureKeys, type FeatureKey } from "@/domain/features";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 
@@ -10,6 +11,7 @@ export type CurrentUser = {
   email: string;
   role: Role;
   canAccessSettings: boolean;
+  deniedFeatures: FeatureKey[];
 };
 
 type SessionUserLike = {
@@ -65,7 +67,8 @@ const STAFF_SELECT = {
   role: true,
   status: true,
   isActive: true,
-  canAccessSettings: true
+  canAccessSettings: true,
+  deniedFeatures: true
 } as const;
 
 // 이메일 로그인(주 경로)의 직원 조회를 요청 간 캐시 — 매 네비게이션마다 도는
@@ -102,7 +105,8 @@ async function resolveStaffUser(user?: SessionUserLike | null): Promise<CurrentU
     name: staffUser.name,
     email: staffUser.email,
     role,
-    canAccessSettings: staffUser.canAccessSettings
+    canAccessSettings: staffUser.canAccessSettings,
+    deniedFeatures: parseFeatureKeys(staffUser.deniedFeatures)
   };
 }
 
@@ -118,7 +122,8 @@ function getDevUser(requestedRole?: unknown): CurrentUser | null {
     name: "Local Preview",
     email: "dev@marketing-erp.local",
     role,
-    canAccessSettings: true
+    canAccessSettings: true,
+    deniedFeatures: []
   };
 }
 

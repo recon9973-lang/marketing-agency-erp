@@ -32,6 +32,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { Role } from "@/domain/types";
+import { canUseFeature, CONTROLLABLE_FEATURES, type FeatureKey } from "@/domain/features";
 import { BrandLogo } from "@/components/erp/BrandLogo";
 import { ThemeToggle } from "@/components/erp/ThemeToggle";
 import { NotificationBell } from "@/components/collab/NotificationBell";
@@ -79,7 +80,10 @@ export type NavItem = {
   group: NavGroup;
 };
 
-export function getNavigationItems(role: Role, canAccessSettings = false): NavItem[] {
+// 기능 제어 대상 메뉴의 href → 기능 키. 차단된 사용자에게는 사이드바에서 숨긴다.
+const HREF_TO_FEATURE = new Map<string, FeatureKey>(CONTROLLABLE_FEATURES.map((f) => [f.href, f.key]));
+
+export function getNavigationItems(role: Role, canAccessSettings = false, deniedFeatures: FeatureKey[] = []): NavItem[] {
   const items: NavItem[] = [
     // 홈(상단 고정)
     {
@@ -265,6 +269,9 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
   ];
 
   return items.filter((item) => {
+    // 기능 단위 차단 — 사용자별로 막힌 메뉴는 숨김(최고관리자는 canUseFeature에서 항상 통과).
+    const featureKey = HREF_TO_FEATURE.get(item.href);
+    if (featureKey && !canUseFeature(role, deniedFeatures, featureKey)) return false;
     // 설정·연동은 최고관리자 전용이되, 승인받은 관리자/담당자에게도 노출.
     if (item.href === "/settings" || item.href === "/integrations") {
       return role === Role.SUPER_ADMIN || canAccessSettings;
@@ -304,14 +311,16 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 export function AppShell({
   children,
   role,
-  canAccessSettings = false
+  canAccessSettings = false,
+  deniedFeatures = []
 }: {
   children: ReactNode;
   role: Role;
   canAccessSettings?: boolean;
+  deniedFeatures?: FeatureKey[];
 }) {
   const pathname = usePathname() ?? "";
-  const items = getNavigationItems(role, canAccessSettings);
+  const items = getNavigationItems(role, canAccessSettings, deniedFeatures);
   const home = items.find((i) => i.group === "홈");
   const current = items.find((i) => isActive(pathname, i.href));
   const [paletteOpen, setPaletteOpen] = useState(false);

@@ -31,7 +31,8 @@ describe("fetchWorkItemsForUser", () => {
       name: "Admin",
       email: "admin@agency.test",
       role: Role.ADMIN,
-      canAccessSettings: false
+      canAccessSettings: false,
+      deniedFeatures: []
     });
 
     expect(workItemFindManyMock).toHaveBeenCalledWith(
@@ -50,7 +51,8 @@ describe("fetchWorkItemsForUser", () => {
         name: "Marketer",
         email: "marketer@agency.test",
         role: Role.MARKETER,
-        canAccessSettings: false
+        canAccessSettings: false,
+        deniedFeatures: []
       },
       { status: WorkStatus.IN_PROGRESS, category: WorkCategory.SNS_MANAGEMENT }
     );
