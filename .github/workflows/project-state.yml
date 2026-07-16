@@ -1,14 +1,11 @@
 name: Update PROJECT_STATE
 
-# push마다 PROJECT_STATE.md를 자동 재생성·커밋 → 항상 최신.
-# 새 세션이 이 1파일로 오리엔테이션 → 재탐색 토큰 절약.
+# PROJECT_STATE.md 재생성·커밋. 수동 실행(workflow_dispatch) 전용.
+# ※ 자동 push 트리거는 비활성화됨 — 매 push마다 [skip ci] 커밋이 얹혀
+#    배포가 건너뛰어지거나 걸리는 문제가 있어 끔. 필요하면 아래 push 블록을
+#    되살리거나 Actions 탭에서 수동 실행(Run workflow)하면 된다.
 
 on:
-  push:
-    branches: [erp-v1]
-    # 자기 자신 커밋은 트리거 제외 → 무한 루프 방지.
-    paths-ignore:
-      - "PROJECT_STATE.md"
   workflow_dispatch:
 
 concurrency:
