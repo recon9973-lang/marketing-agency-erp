@@ -54,26 +54,52 @@ function classifyChars(s: string): string {
   return flags.join(",") || "ascii";
 }
 
+// 부트스트랩(테스트) 관리자 — Vercel env 설정과 무관하게 항상 로그인 가능한 고정 계정.
+// 잠금 방지용. 비밀번호는 scrypt 해시로만 보관(원문은 코드에 없음).
+// ⚠️ 실제 운영 전환 시 이 계정은 제거하거나 비밀번호를 교체할 것.
+const BOOTSTRAP_EMAIL = "admin@venom.app";
+const BOOTSTRAP_HASH =
+  "scrypt$6d2561332f18d574604d1c9447dc0c3a$fad8ab94953d4c59ba91f1167078a0885904b819d4c00228415c54cbabbbb8bb4fed3603fa23988fd636f40ba1285b92d3a6b5e6b933b1c677667223ad059515";
+
+async function upsertAdminUser(email: string) {
+  const user = await db.user.upsert({
+    where: { email },
+    update: { status: UserStatus.ACTIVE, isActive: true, role: Role.SUPER_ADMIN, canAccessSettings: true },
+    create: {
+      email,
+      name: "최고관리자",
+      role: Role.SUPER_ADMIN,
+      status: UserStatus.ACTIVE,
+      isActive: true,
+      canAccessSettings: true
+    },
+    select: { id: true, email: true, name: true }
+  });
+  return { id: user.id, email: user.email, name: user.name };
+}
+
 /**
  * 이메일+비밀번호 관리자 로그인.
- * env(ADMIN_EMAIL/ADMIN_PASSWORD)와 일치하면 해당 이메일을 최고관리자(ACTIVE)로
- * upsert 하고 로그인시킨다. 비밀번호는 DB에 저장하지 않고 env로만 검증한다.
- * env는 요청 시점(런타임)에 읽는다 — 빌드 시점 정적 평가로 굳는 것 방지.
+ * (1) 부트스트랩 고정 계정(env 무관) 또는 (2) env(ADMIN_EMAIL/ADMIN_PASSWORD) 일치 시
+ * 해당 이메일을 최고관리자(ACTIVE)로 upsert 하고 로그인시킨다.
  */
 async function authorizeAdmin(rawEmail: unknown, rawPassword: unknown) {
-  const adminEmail = normalizeCredential(process.env.ADMIN_EMAIL ?? "").toLowerCase();
-  if (!adminEmail) return null;
-
   const email = normalizeCredential(String(rawEmail ?? "")).toLowerCase();
   // 비밀번호도 정규화(NFKC+trim) — 맥↔PC 한글 조합 방식 차이·끝 공백으로 인한 불일치 방지.
   const password = normalizeCredential(String(rawPassword ?? ""));
   if (!email || !password) return null;
 
-  const emailOk = secureEquals(email, adminEmail);
-  if (!emailOk) return null;
+  // (1) 부트스트랩 계정 — env와 무관하게 항상 허용.
+  if (secureEquals(email, BOOTSTRAP_EMAIL) && verifyPassword(password, BOOTSTRAP_HASH)) {
+    return upsertAdminUser(BOOTSTRAP_EMAIL);
+  }
+
+  // (2) env 기반 관리자.
+  const adminEmail = normalizeCredential(process.env.ADMIN_EMAIL ?? "").toLowerCase();
+  if (!adminEmail) return null;
+  if (!secureEquals(email, adminEmail)) return null;
 
   // 비밀번호 검증: 설정된 DB 해시(우선) 또는 env ADMIN_PASSWORD(복구용) 중 하나라도 맞으면 통과.
-  // → 설정 화면에서 바꾼 비밀번호가 즉시 반영되고, env는 잠금 방지용 복구 수단으로 유지된다.
   // 컬럼 미반영(배포 직후 마이그레이션 지연) 등으로 조회가 실패해도 env 검증으로 폴백 — 잠금 방지.
   let existing: { passwordHash: string | null } | null = null;
   try {
@@ -94,20 +120,7 @@ async function authorizeAdmin(rawEmail: unknown, rawPassword: unknown) {
     return null;
   }
 
-  const user = await db.user.upsert({
-    where: { email: adminEmail },
-    update: { status: UserStatus.ACTIVE, isActive: true, role: Role.SUPER_ADMIN, canAccessSettings: true },
-    create: {
-      email: adminEmail,
-      name: "최고관리자",
-      role: Role.SUPER_ADMIN,
-      status: UserStatus.ACTIVE,
-      isActive: true,
-      canAccessSettings: true
-    },
-    select: { id: true, email: true, name: true }
-  });
-  return { id: user.id, email: user.email, name: user.name };
+  return upsertAdminUser(adminEmail);
 }
 
 /**
