@@ -4,6 +4,7 @@ import { ShieldCheck } from "lucide-react";
 import { signIn } from "@/server/auth";
 import { BrandLogo } from "@/components/erp/BrandLogo";
 import { AdminLoginForm } from "./AdminLoginForm";
+import { SignupRequestForm } from "@/components/auth/SignupRequestForm";
 
 // Sensitive 환경변수(ADMIN_*, EMAIL_SERVER)는 빌드 시점엔 안 보이고 런타임에만 주입된다.
 // 요청마다(런타임) 읽도록 강제한다.
@@ -144,6 +145,8 @@ export default async function LoginPage({
               </div>
             </form>
           ) : null}
+
+          <SignupRequestForm />
 
           <div className="mt-7 flex items-center gap-2 border-t border-white/5 pt-5 text-white/30">
             <ShieldCheck className="h-3.5 w-3.5" />

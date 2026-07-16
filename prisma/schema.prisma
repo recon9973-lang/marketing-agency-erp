@@ -21,6 +21,7 @@ enum UserStatus {
   ACTIVE
   INVITED
   SUSPENDED
+  PENDING // 셀프 가입 요청 — 관리자 승인 전까지 로그인 불가
 }
 
 enum WorkCategory {

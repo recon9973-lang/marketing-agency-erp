@@ -6,6 +6,7 @@ import { AdminPasswordCard } from "@/components/settings/AdminPasswordCard";
 import { AdminScopeManager } from "@/components/settings/AdminScopeManager";
 import { MarketerAssignment } from "@/components/settings/MarketerAssignment";
 import { FeaturePermissions } from "@/components/settings/FeaturePermissions";
+import { PendingApprovals } from "@/components/settings/PendingApprovals";
 import { MasterManager } from "@/components/settings/MasterManager";
 import { DocumentTemplateManager } from "@/components/settings/DocumentTemplateManager";
 import { TemplateFiller } from "@/components/settings/TemplateFiller";
@@ -30,7 +31,8 @@ const roleLabels: Record<Role, string> = {
 const userStatusLabels: Record<UserStatus, string> = {
   [UserStatus.ACTIVE]: "활성",
   [UserStatus.INVITED]: "초대",
-  [UserStatus.SUSPENDED]: "정지"
+  [UserStatus.SUSPENDED]: "정지",
+  [UserStatus.PENDING]: "승인대기"
 };
 
 function connectionLabel(status: ConnectionStatus) {
@@ -119,12 +121,17 @@ export default async function SettingsPage() {
   const isAdmin = user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN;
   const isSuperAdmin = user.role === Role.SUPER_ADMIN;
 
-  const [overview, workCategories, companySetting, docTemplates, usableTemplates] = await Promise.all([
+  const [overview, workCategories, companySetting, docTemplates, usableTemplates, pendingRequests] = await Promise.all([
     fetchSettingsOverview(user),
     isAdmin ? getWorkCategories() : Promise.resolve([]),
     isSuperAdmin ? db.companySetting.findFirst() : Promise.resolve(null),
     isAdmin ? listAllTemplates() : Promise.resolve([]),
-    listTemplatesForUse(["HR", "GENERAL"], user.role)
+    listTemplatesForUse(["HR", "GENERAL"], user.role),
+    isAdmin
+      ? db.user
+          .findMany({ where: { status: UserStatus.PENDING }, orderBy: { createdAt: "desc" }, select: { id: true, name: true, email: true, createdAt: true } })
+          .catch(() => [] as { id: string; name: string; email: string; createdAt: Date }[]) // enum 미반영 등에도 설정 화면이 깨지지 않게
+      : Promise.resolve([])
   ]);
 
   return (
@@ -163,6 +170,14 @@ export default async function SettingsPage() {
           <DataTable columns={scopeColumns} rows={overview.scopes} emptyMessage="등록된 접근 범위가 없습니다." />
         )}
       </div>
+
+      {isAdmin && (
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-ink">가입 승인 대기</h3>
+          <p className="text-sm text-slate-500">직원이 로그인 화면에서 요청한 가입입니다. 승인하면 역할이 부여되고 로그인 링크 메일이 발송됩니다.</p>
+          <PendingApprovals requests={pendingRequests.map((r) => ({ id: r.id, name: r.name, email: r.email, createdAt: r.createdAt.toISOString() }))} />
+        </div>
+      )}
 
       {isSuperAdmin && (
         <div className="space-y-3">
