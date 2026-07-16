@@ -40,13 +40,24 @@
 - **가입 흐름**: 초대 자동메일 + 셀프가입(로그인 화면)·관리자 승인(설정) 배포됨.
 - **부트스트랩 로그인 계정**이 `src/server/auth.ts` 에 있음(env 무관 고정, 테스트/잠금방지용). 운영 전 제거/교체 필요.
 
-## 다음에 할 일 (우선순위)
+## 진행 중 / 미완료 오더 (다음 세션 TODO)
 
-1. **[사용자] Vercel env 마무리** — `EMAIL_FROM=noreply@seokorea.org`, `AUTH_URL=https://erp.seokorea.org`, (선택)`CANONICAL_HOST=erp.seokorea.org` 설정 후 재배포. → 이메일 기능 완전체.
-2. **초대·셀프가입 메일 E2E 수신 확인** (다른 이메일로도 도착하는지).
-3. **운영 전환 시 부트스트랩 계정(`admin@venom.app`) 제거/비번 교체**.
-4. **거래처 탭 로딩 제거 테스트**(`src/app/(erp)/clients/loading.tsx`, 커밋 34799bf) 유지/삭제 결정.
-5. (기존 백로그) GEO 엔진 v1.8.0 디렉터 저장소 패치 / misojin.kr 실측 66점 대조 / 작업문서 Google Docs 업로드.
+> 이번 세션의 **코드 작업은 미완성 없음**(전부 커밋·배포됨). 남은 건 아래 A~D.
+
+### A. 사용자 액션 대기 (코드 완료, 누르면 끝)
+- **[#30] Vercel env 마무리 + 재배포** — `EMAIL_FROM=noreply@seokorea.org`, `AUTH_URL=https://erp.seokorea.org`, (선택)`CANONICAL_HOST=erp.seokorea.org` → 재배포. **이메일 기능 완전체.** ★가장 먼저.
+- **[#31] 초대·셀프가입 메일 E2E 수신 확인** — #30 후 다른 이메일로 초대/가입요청→승인 시 실제 도착 확인.
+
+### B. 결정 필요
+- **[#33] 거래처 탭 로딩 제거 테스트** — `src/app/(erp)/clients/loading.tsx`(커밋 34799bf). 로더 없는 방식 유지 vs FunLoader 원복 — 결정 후 즉시 반영.
+
+### C. 운영 전환 전 필수 (지금은 그대로 둬도 됨)
+- **[#32] 부트스트랩 계정 제거/교체** — 테스트용 고정 로그인 `admin@venom.app`(auth.ts). 상용 전환 시 제거하거나 비번 교체(보안).
+
+### D. 외부/별도 저장소 백로그 (이 저장소·환경 밖 — 선행조건 필요)
+- **[#6] GEO 엔진 v1.8.0 → 디렉터 저장소 패치** — 대상 `desktop-tutorial` 저장소가 **GitHub 범위 밖**. 진행하려면 범위 확장 필요.
+- **[#7] 배포 misojin.kr 엔진 실측 → 66점 대조** — **배포 환경 실측** 필요(로컬 샌드박스 외부망 제한).
+- **[#8] 작업 문서 Google Docs 업로드** — **Google Drive 커넥터** 연동 필요(현재 비활성).
 
 ## 핵심 교훈(재발 방지)
 
