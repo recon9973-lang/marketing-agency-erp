@@ -26,7 +26,7 @@ export type ScopeSettingsItem = {
   allClients: boolean;
 };
 
-export type ClientPickItem = { id: string; name: string };
+export type ClientPickItem = { id: string; name: string; assignedMarketerId: string | null };
 
 export type IntegrationSettingsItem = {
   id: string;
@@ -87,7 +87,7 @@ export async function fetchSettingsOverview(user: CurrentUser): Promise<Settings
     }),
     // 거래처 선택기용 목록(최고관리자만 필요). 편집 UI의 '특정 거래처' 선택에 사용.
     isSuper
-      ? db.client.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } })
+      ? db.client.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, assignedMarketerId: true } })
       : Promise.resolve([])
   ]);
 

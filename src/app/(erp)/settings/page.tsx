@@ -4,6 +4,7 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { EmployeeSettings } from "@/components/settings/EmployeeSettings";
 import { AdminPasswordCard } from "@/components/settings/AdminPasswordCard";
 import { AdminScopeManager } from "@/components/settings/AdminScopeManager";
+import { MarketerAssignment } from "@/components/settings/MarketerAssignment";
 import { MasterManager } from "@/components/settings/MasterManager";
 import { DocumentTemplateManager } from "@/components/settings/DocumentTemplateManager";
 import { TemplateFiller } from "@/components/settings/TemplateFiller";
@@ -161,6 +162,17 @@ export default async function SettingsPage() {
           <DataTable columns={scopeColumns} rows={overview.scopes} emptyMessage="등록된 접근 범위가 없습니다." />
         )}
       </div>
+
+      {isSuperAdmin && (
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-ink">담당자 배정 현황</h3>
+          <p className="text-sm text-slate-500">담당자(마케터)별 담당 거래처를 확인하고 다른 담당자로 이동합니다. 이동 시 미완료 업무도 함께 이관됩니다.</p>
+          <MarketerAssignment
+            marketers={overview.staff.filter((m) => m.role === Role.MARKETER).map((m) => ({ id: m.id, name: m.name }))}
+            clients={overview.clients}
+          />
+        </div>
+      )}
 
       {isSuperAdmin && (
         <div className="space-y-3">
