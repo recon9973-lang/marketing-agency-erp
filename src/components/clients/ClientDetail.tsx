@@ -15,6 +15,7 @@ import { AddChannelForm } from "@/components/clients/AddChannelForm";
 import { ExposureTracker, type GuardKeyword } from "@/components/clients/ExposureTracker";
 import { WorkStatusButtons } from "@/components/work/WorkStatusButtons";
 import { AddWorkForm } from "@/components/work/AddWorkForm";
+import { ClientOnboardingProgress } from "@/components/clients/ClientOnboardingProgress";
 import { ReportEditor } from "@/components/reports/ReportEditor";
 
 type WorkStatus = "NOT_STARTED" | "IN_PROGRESS" | "WAITING" | "REVIEW_NEEDED" | "COMPLETED" | "BLOCKED";
@@ -111,6 +112,7 @@ export function ClientDetail({
     "채널계정",
     "월보장",
     "업무",
+    "Phase 진행률",
     ...(canViewFinance ? ["입금"] : []),
     "보고서"
   ];
@@ -253,6 +255,8 @@ export function ClientDetail({
           </table>
         </div>
       )}
+
+      {tab === "Phase 진행률" && <ClientOnboardingProgress works={works} />}
 
       {tab === "입금" && canViewFinance && (
         <table className="w-full text-sm">
