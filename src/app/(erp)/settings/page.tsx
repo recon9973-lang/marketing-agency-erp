@@ -3,6 +3,7 @@ import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { EmployeeSettings } from "@/components/settings/EmployeeSettings";
 import { AdminPasswordCard } from "@/components/settings/AdminPasswordCard";
+import { AdminScopeManager } from "@/components/settings/AdminScopeManager";
 import { MasterManager } from "@/components/settings/MasterManager";
 import { DocumentTemplateManager } from "@/components/settings/DocumentTemplateManager";
 import { TemplateFiller } from "@/components/settings/TemplateFiller";
@@ -138,14 +139,27 @@ export default async function SettingsPage() {
         ))}
       </div>
 
-      <div className="space-y-3">
-        <h3 className="text-base font-semibold text-ink">{user.role === Role.SUPER_ADMIN ? "직원 권한" : "내 계정"}</h3>
-        <DataTable columns={staffColumns} rows={overview.staff} emptyMessage="조회 가능한 직원이 없습니다." />
-      </div>
+      {/* 최고관리자는 아래 '직원 초대·권한'에서 편집 가능한 목록을 보므로 읽기 전용 표는 본인 계정에만 노출. */}
+      {!isSuperAdmin && (
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-ink">내 계정</h3>
+          <DataTable columns={staffColumns} rows={overview.staff} emptyMessage="조회 가능한 직원이 없습니다." />
+        </div>
+      )}
 
       <div className="space-y-3">
         <h3 className="text-base font-semibold text-ink">관리자 접근 범위</h3>
-        <DataTable columns={scopeColumns} rows={overview.scopes} emptyMessage="등록된 접근 범위가 없습니다." />
+        <p className="text-sm text-slate-500">관리자(ADMIN)가 볼 수 있는 담당자·거래처 범위를 지정합니다. 최고관리자는 전체, 담당자는 본인 거래처만 봅니다.</p>
+        {isSuperAdmin ? (
+          <AdminScopeManager
+            admins={overview.staff.filter((m) => m.role === Role.ADMIN).map((m) => ({ id: m.id, name: m.name }))}
+            marketers={overview.staff.filter((m) => m.role === Role.MARKETER).map((m) => ({ id: m.id, name: m.name }))}
+            clients={overview.clients}
+            scopes={overview.scopes}
+          />
+        ) : (
+          <DataTable columns={scopeColumns} rows={overview.scopes} emptyMessage="등록된 접근 범위가 없습니다." />
+        )}
       </div>
 
       {isSuperAdmin && (

@@ -16,12 +16,17 @@ export type StaffSettingsItem = {
 
 export type ScopeSettingsItem = {
   id: string;
+  adminId: string;
   adminName: string;
+  marketerId: string | null;
   marketerName: string | null;
+  clientId: string | null;
   clientName: string | null;
   allMarketers: boolean;
   allClients: boolean;
 };
+
+export type ClientPickItem = { id: string; name: string };
 
 export type IntegrationSettingsItem = {
   id: string;
@@ -33,11 +38,13 @@ export type IntegrationSettingsItem = {
 export type SettingsOverview = {
   staff: StaffSettingsItem[];
   scopes: ScopeSettingsItem[];
+  clients: ClientPickItem[];
   integrations: IntegrationSettingsItem[];
 };
 
 export async function fetchSettingsOverview(user: CurrentUser): Promise<SettingsOverview> {
-  const [staff, scopes, accounts] = await Promise.all([
+  const isSuper = user.role === Role.SUPER_ADMIN;
+  const [staff, scopes, accounts, clients] = await Promise.all([
     db.user.findMany({
       where: user.role === Role.SUPER_ADMIN ? {} : { id: user.id },
       orderBy: [{ role: "asc" }, { name: "asc" }],
@@ -58,6 +65,9 @@ export async function fetchSettingsOverview(user: CurrentUser): Promise<Settings
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
+        adminId: true,
+        marketerId: true,
+        clientId: true,
         allMarketers: true,
         allClients: true,
         admin: { select: { name: true } },
@@ -74,7 +84,11 @@ export async function fetchSettingsOverview(user: CurrentUser): Promise<Settings
         institutionName: true,
         connectionStatus: true
       }
-    })
+    }),
+    // 거래처 선택기용 목록(최고관리자만 필요). 편집 UI의 '특정 거래처' 선택에 사용.
+    isSuper
+      ? db.client.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } })
+      : Promise.resolve([])
   ]);
 
   return {
@@ -91,12 +105,16 @@ export async function fetchSettingsOverview(user: CurrentUser): Promise<Settings
     })),
     scopes: scopes.map((scope) => ({
       id: scope.id,
+      adminId: scope.adminId,
       adminName: scope.admin.name,
+      marketerId: scope.marketerId,
       marketerName: scope.marketer?.name ?? null,
+      clientId: scope.clientId,
       clientName: scope.client?.name ?? null,
       allMarketers: scope.allMarketers,
       allClients: scope.allClients
     })),
+    clients,
     integrations: [
       {
         id: "kakao-login",
