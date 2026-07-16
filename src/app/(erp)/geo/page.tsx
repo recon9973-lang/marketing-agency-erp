@@ -12,6 +12,7 @@ import { GeoAutoWatch } from "@/components/geo/GeoAutoWatch";
 import { GeoChannelGuide } from "@/components/geo/GeoChannelGuide";
 import { GeoTabs } from "@/components/geo/GeoTabs";
 import { GeoTrendBars } from "@/components/geo/GeoTrendBars";
+import { SovChart } from "@/components/geo/SovChart";
 import { GeoWorkflowSteps } from "@/components/geo/GeoWorkflowSteps";
 import { GeoLlmsTxt } from "@/components/geo/GeoLlmsTxt";
 import { configuredEngines } from "@/server/geo-engine/engines";
@@ -183,6 +184,7 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
                   monitorableCount={rows.filter((r) => r.status === "APPROVED" || r.status === "MONITORING").length}
                 />
                 <GeoMatrix clientId={selectedId} rows={rows} />
+                <SovChart sov={sov} />
                 <GeoTrendBars trend={trend} />
               </>
               <>
