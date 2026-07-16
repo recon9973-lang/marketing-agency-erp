@@ -27,7 +27,13 @@ async function passwordLogin(formData: FormData) {
     await signIn("admin-password", { email, password, redirectTo: "/dashboard" });
   } catch (error) {
     if (error instanceof AuthError) {
-      redirect(`/login?error=${error.type ?? "CredentialsSignin"}`);
+      // [임시 진단] 실제 에러 타입·메시지·원인을 URL에 노출해 원인 특정. 복구 후 원복.
+      const type = String(error.type ?? "none");
+      const msg = String((error as { message?: string }).message ?? "").slice(0, 160);
+      const cause = String(
+        (error as { cause?: { err?: { message?: string } } }).cause?.err?.message ?? ""
+      ).slice(0, 200);
+      redirect(`/login?error=${encodeURIComponent(type)}&d=${encodeURIComponent(msg)}&c=${encodeURIComponent(cause)}`);
     }
     throw error; // 성공 리다이렉트(NEXT_REDIRECT)는 흘려보냄
   }
