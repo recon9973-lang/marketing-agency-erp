@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
+import type { Prisma } from "@prisma/client";
 import { Role, UserStatus } from "@/domain/types";
 import { parseFeatureKeys, type FeatureKey } from "@/domain/features";
 import { auth } from "@/server/auth";
@@ -60,23 +61,34 @@ function buildUserLookup(user?: SessionUserLike | null) {
   };
 }
 
-const STAFF_SELECT = {
+const STAFF_SELECT_BASE = {
   id: true,
   name: true,
   email: true,
   role: true,
   status: true,
   isActive: true,
-  canAccessSettings: true,
-  deniedFeatures: true
+  canAccessSettings: true
 } as const;
+
+const STAFF_SELECT = { ...STAFF_SELECT_BASE, deniedFeatures: true } as const;
+
+// deniedFeatures 컬럼이 아직 DB에 반영되지 않았어도 로그인/세션이 깨지지 않도록,
+// 조회가 실패하면 그 컬럼 없이 재조회한다(게이팅은 기본 허용으로 동작). 로그인 직후
+// getCurrentUser가 컬럼 부재로 던져 되튕기던 문제를 원천 차단.
+async function findStaff(where: Prisma.UserWhereInput) {
+  try {
+    return await db.user.findFirst({ where, select: STAFF_SELECT });
+  } catch {
+    return await db.user.findFirst({ where, select: STAFF_SELECT_BASE });
+  }
+}
 
 // 이메일 로그인(주 경로)의 직원 조회를 요청 간 캐시 — 매 네비게이션마다 도는
 // db.user.findFirst 왕복을 제거해 화면 전환 지연을 줄인다. 30초 후 자동 갱신
 // (권한/상태 변경은 최대 30초 내 반영). 소셜 로그인은 캐시 없이 직접 조회.
 const loadStaffByEmail = unstable_cache(
-  async (email: string) =>
-    db.user.findFirst({ where: { email, isActive: true, status: UserStatus.ACTIVE }, select: STAFF_SELECT }),
+  async (email: string) => findStaff({ email, isActive: true, status: UserStatus.ACTIVE }),
   ["staff-by-email"],
   { revalidate: 30 }
 );
@@ -91,7 +103,7 @@ async function resolveStaffUser(user?: SessionUserLike | null): Promise<CurrentU
     staffUser = await loadStaffByEmail(email);
   } else {
     const where = buildUserLookup(user);
-    staffUser = where ? await db.user.findFirst({ where, select: STAFF_SELECT }) : null;
+    staffUser = where ? await findStaff(where) : null;
   }
 
   const role = parseRole(staffUser?.role);
@@ -106,7 +118,8 @@ async function resolveStaffUser(user?: SessionUserLike | null): Promise<CurrentU
     email: staffUser.email,
     role,
     canAccessSettings: staffUser.canAccessSettings,
-    deniedFeatures: parseFeatureKeys(staffUser.deniedFeatures)
+    // 폴백 조회 시 deniedFeatures가 없을 수 있음 → parseFeatureKeys가 안전 처리(빈 배열).
+    deniedFeatures: parseFeatureKeys((staffUser as { deniedFeatures?: unknown }).deniedFeatures)
   };
 }
 
