@@ -1,149 +1,168 @@
-# VENOM GrowthOps(M1~M4) + 진단엔진 → ERP 병합·업그레이드 검토
+# GEO Studio(M1~M5) → ERP 병합·업그레이드 검토
 
-> 작성: 2026-07-17 · 목적: `desktop-tutorial`(디렉터 정본)의 GEO/SEO 마케팅 프로그램을 ERP(`erp-v1`)로 병합·업그레이드하기 위한 **사전 검토(설계 전 단계)**.
-> 원칙: 없는 건 추가, 부족한 건 채움. **API 토큰·내부구조 중복은 파이프라인으로 제거.** 구현은 별도 승인 후.
+> 작성: 2026-07-17 · 대상 소스: 사장님 업로드 `M1~M5` (GEO Studio, Python 5개 패키지, ~4,600 LOC).
+> 목적: "GEO SEO marketing analysis" 프로젝트의 M1~M5를 ERP(`erp-v1`)로 병합·업그레이드하기 위한 **사전 검토(설계 전)**. 구현은 별도 승인 후.
+> ⚠️ 본 문서는 이전 오판(디렉터 저장소 GrowthOps를 M시리즈로 착각) 을 **정정한 정본**이다.
 
 ---
 
 ## 0. TL;DR
 
-- **모듈 축은 M1~M4가 전부다.** "M5" 모듈은 **존재하지 않음**. 다섯 번째로 보이던 **SEO/GEO 진단 엔진은 M시리즈가 아니라 별도 제품이며, 이미 ERP에 벤더링·가동 중**(재구축 금지, dedupe만).
-- **"캠페인 1~5"는 접근 가능한 두 저장소(desktop-tutorial·ERP) 어디에도 정의가 없음.** 강의 `Session1~5`(별개)만 존재 → **사장님 확인 필요**(§8).
-- 포팅 난이도: **M1·M2·M4 = 순수 로직(거의 그대로 TS 이식)**, **M3 = 절반(파서는 순수, fetch·저장은 재작성)**, **진단엔진 = 순수(이미 보유)**.
-- ERP는 이미 **단일 크론 디스패처 + 멱등 잡 + provider 계층 + 암호화 크레덴셜 볼트**를 갖춰, M모듈을 "얹기" 좋은 상태. 신규 서버리스 함수 한도(Vercel 12개) 제약은 Next.js route 구조에서 **소멸**.
-- 최대 리스크는 코드가 아니라 **시크릿 이름 불일치**(네이버·Gemini)와 **LLM provider 이중구현**. → 파이프라인 §4에서 제거.
+- **진짜 M1~M5 = GEO Studio** (Generative Engine Optimization 스위트): `스캔→CEP발굴→콘텐츠생성→경로분석→채널/캠페인 실행` 파이프라인. **Python·async·dataclass**.
+- **의존성이 사실상 없다.** 4,600 LOC 전체에서 서드파티 import는 표준 `unicodedata`뿐. k-means·임베딩유사도·여정트리·TA·ROI 전부 **순수 파이썬 + 결정적 목(mock) 폴백**. LLM SDK(openai/anthropic/httpx)는 live일 때만 **지연 임포트**. → **TypeScript 이식이 매우 유리**(numpy/sklearn 없음).
+- **외부 의존은 4개 LLM 키뿐**: `OPENAI_API_KEY`(+임베딩 text-embedding-3-large)·`ANTHROPIC_API_KEY`·`GEMINI_API_KEY`·`PERPLEXITY_API_KEY`. **ERP `geo-engine/`이 이미 이 4개를 그대로 사용** → 토큰 중복 문제 거의 자동 해소(이름 1건만 조율).
+- **ERP는 이미 GEO 엔진을 보유**(`src/server/geo-engine/`: 4-AI 어댑터·인용탐지·SoV·llms.txt·주간크론 + `GeoQuestion`/`GeoAnswerRecord`). → **M1·M4·M3일부는 재구축이 아니라 이 엔진 확장/dedup**. 순net-new는 M2(CEP)·M5(캠페인).
+- **캠페인**은 M5(`geo_channel_planner/campaign.py`)의 기능: 목표→태스크→채널믹스→ROI. 별도 "캠페인 1~5" 축이 아니라 **M5의 실행 계획 로직**.
 
 ---
 
-## 1. 용어 정리 (혼동 방지)
+## 1. GEO Studio 파이프라인 (5개 모듈)
 
-| 축 | 정체 | 개수 | 상태 |
-|---|---|---|---|
-| **모듈 M1~M4** | VENOM GrowthOps (검색 성장 자동화) | **4개** | desktop-tutorial `venom-wordpress/preview/`에서 확인 |
-| **진단 엔진** | 룰기반 SEO/GEO 점수기(구 "M5" 오해) | 1개(별도 제품) | ERP에 이미 벤더링(SEO) + GEO 엔진 자체 보유 |
-| **캠페인 1~5** | ❓ 정의 미발견 | ? | **사장님 확인 필요**(§8) |
-| (참고) 강의 Session1~5 | 교육 자료(pptx) | 5개 | 캠페인 아님 |
-
----
-
-## 2. 소스 인벤토리 — M1~M4 + 진단엔진
-
-경로: `desktop-tutorial/venom-wordpress/preview/`. 저장은 전부 **GitHub JSON 파일**(`content/*.json`) + 일부 KV 언급이나 실제 코드는 JSON. API는 함수 한도 회피용으로 `api/growthops.js` 하나에 다중화.
-
-| 모듈 | 파일 | LOC | 핵심 로직 | 외부 API | 포팅성 |
-|---|---|---|---|---|---|
-| **M1 토픽 클러스터** | `lib/topic-cluster.js` | 173 | 필러↔클러스터 설계, 글↔하위주제 매칭(코사인+동일 cat), 다음 빈칸 탐지 | 없음(키워드는 호출부가 주입) | **순수** → clusters.json만 Prisma로 |
-| **M2 내부링크** | `lib/internal-linker.js` | 241 | 글간 관련도 점수, 고아글 탐지, 관련글 블록 idempotent 주입, 앵커 다양화 | 없음 | **순수** (그대로 이식) |
-| **M3 SEO 모니터링** | `lib/psi.js`(+`search-console.js`, `growthops.js`) | 97(+GSC ~130) | PSI 파싱(CWV), GSC 순위(RS256 JWT 자체서명), 인덱싱추정, 일별 스냅샷 | Google PSI v5, GSC Search Analytics | **절반** — 파서 순수, fetch(`https`→`fetch`)·저장(JSON→Postgres) 재작성 |
-| **M4 아웃리치 CRM** | `lib/outreach.js`(+`growthops.js` draft) | 143 | 매체/블로그 연락처, 리드→…→게재 파이프라인, 리마인더, 제안메일 초안 | (초안만) OpenAI | **순수** → outreach.json만 Prisma로 |
-| **진단엔진(=구 "M5")** | `seo/seo-engine.js`(+`seo-rules.json`) | 700(+34룰) | URL→100점/5등급/카테고리별 점수, robots RFC9309 파서, 인포그래픽 | 없음(PSI는 호출부가 주입) | **순수**(가장 이식 쉬움) — 이미 ERP 벤더링 |
-
-**통합 seam(M1/M2 ↔ 발행 파이프라인)**: `api/cron-daily-posts.js`의 cluster 모드(`TC.nextGap`→다음 슬롯 선정, `TC.fillSubtopic`→발행 후 채움), `linker.suggestLinks`+`injectRelatedBlock`(발행 직전 관련글 주입). 토글은 `posting-settings.js`(`mode`, `autoInternalLinks`, `clusterAutoExpand`).
-
----
-
-## 3. ERP 현황 대비 갭 매트릭스
-
-ERP 경로: `erp-v1`. 상태: HAS(구현됨) / PARTIAL(일부) / MISSING(없음).
-
-| 모듈 | 상태 | ERP에 이미 있는 것(재사용) | 갭(추가할 것) |
-|---|---|---|---|
-| **M1 토픽 클러스터** | **PARTIAL** | 키워드 리서치(`marketing/research.ts`, 네이버 provider), `Keyword` 모델, 월별 `ContentPlan`(topic/angle/faq) | **필러↔클러스터 그래프 모델**, 커버리지/빈칸 스코어링, 키워드→클러스터 배정 |
-| **M2 내부링크** | **MISSING** | (직접 없음) `render-plan.ts`(HTML 렌더), WordPress 발행 | **전부 신규**(순수 로직 이식) — `MagazinePost` 위에서 계산 |
-| **M3 SEO 모니터링** | **PARTIAL(~70%)** | GSC/GA4 OAuth(`integrations/google.ts`)+일별 `channel-sync`, 순위 `keyword-rank`/`guard-rank`, `ExposureSnapshot`·`PlaceRankRecord`·`ChannelMetric` 시계열, `report-assembly` | **PSI(CWV) 미연동**(엔진은 mergePSI 지원하나 ERP가 PSI 호출 안 함), **링크헬스**, **인덱싱 API** |
-| **M4 아웃리치 CRM** | **PARTIAL** | 영업 `Lead` 파이프라인+`nextActionAt` 리마인더(`daily-alerts`)+`Notification`+`Quote` | **매체/PR 연락처 도메인**(리드=병원영업과 다름), 아웃리치 상태전이, **제안메일 초안** |
-| **진단엔진** | **HAS** | SEO 엔진 벤더링(`seo-engine/`)+`runSeoAudit`(리드 감사에 연결), **GEO 엔진 자체 보유**(`geo-engine/` ChatGPT·Perplexity·Gemini·Claude+SoV+주간크론) | **중복 제거만** + PSI 실연동(엔진 v1.8.0 동기화는 오더 #6) |
-
-**ERP 크론 구조(핵심 재사용 자산)**: `vercel.json` 단일 크론 → `/api/marketing/cron`(GET=Vercel, `CRON_SECRET`; POST=외부/수동, `MARKETING_CRON_SECRET`). 순차 멱등 실행: `daily-alerts → guard-rank → channel-sync → magazine-autodraft → work-recur → (월)geo-watch`. **M3 스냅샷·M4 리마인더는 새 스케줄러 없이 여기 훅**.
-
----
-
-## 4. 시크릿·API 토큰 중복방지 파이프라인 ★
-
-> 원칙(레지스트리 `API-KEYS-REGISTRY.md`와 일치): **값은 시크릿 매니저 단일소스에만. git·DB·문서 금지. 코드는 정규 이름 하나만 읽는다.**
-
-### 4.1 즉시 조치가 필요한 이름 불일치(값 넣어도 조용히 실패하는 함정)
-| 정규 이름 | 문제 | 위치 | 조치 |
-|---|---|---|---|
-| `NAVER_CLIENT_ID/_SECRET` | ERP `providers/naver.ts`가 `NAVER_SEARCH_CLIENT_*`(폴백 없음) 사용 → 정규명으로 넣으면 **CONFIG_MISSING** | `marketing/providers/naver.ts` | 정규명으로 통일(또는 폴백 추가) |
-| Gemini 키 | `GEMINI_API_KEY`(레지스트리)/`GOOGLE_AI_KEY`(M구)/`GOOGLE_AI_API_KEY`(ERP실제) **3종** | `geo-engine/engines.ts` | 하나로 확정(권장: `GOOGLE_AI_API_KEY` 또는 폴백) |
-| `NAVER_AD_*` | M엔 구이름 폴백 있음, ERP엔 없음 | `integrations/naver-search.ts` | `NAVER_AD_*` 정규 채택(현재 일치) |
-
-### 4.2 LLM provider 이중구현 제거
-- **M = OpenAI 우선**(생성 전반), **ERP = Anthropic 우선**(`ai/claude.ts`, `claude-opus-4-8` 고정). OpenAI는 ERP에서 전사·이미지 등 비생성 용도.
-- **양쪽 다 4엔진(OpenAI·Perplexity·Gemini·Claude) 노출매트릭스를 각자 중복 구현**(M `lib/ai-engines.js` ↔ ERP `geo-engine/engines.ts`).
-- → **단일 `integrations/llm` 레이어**: `complete()/completeJson()/stream()` + provider enum, provider별 env 키 **하나씩**, 모델ID는 시크릿이 아니라 **설정값**. 병합된 M엔진·ERP 생성기 모두 이 레이어만 사용.
-
-### 4.3 통합 provider 구조(서비스당 클라이언트 1 + env 이름 1)
-ERP는 이미 `ProviderResult`/`provOk`/`provFail` + `PublishProvider`/`ResearchProvider` 규약 보유. 병합 대상을 이 구조로 수렴:
 ```
-src/server/integrations/
-  llm/            OPENAI_API_KEY · ANTHROPIC_API_KEY · PERPLEXITY_API_KEY · <Gemini 1개>
-  naver/          NAVER_CLIENT_ID/_SECRET(검색+데이터랩) · NAVER_AD_*(키워드도구)  ← NAVER_SEARCH_CLIENT_* 제거
-  google-search/  PSI_KEY · GSC_SERVICE_ACCOUNT_JSON|(_CLIENT_EMAIL+_PRIVATE_KEY) · GSC_SITE_URL   (ERP OAuth GOOGLE_CLIENT_*와 별개 유지)
-  publish/        PublishProvider: wordpress(WORDPRESS_*) + github-store(GITHUB_*)  ← 형제 provider
-  storage/        S3 sink(STUDIO_S3_*) 단일 이미지/에셋 싱크
-  messaging/      KAKAO_ALIMTALK_* · payments/ TOSS_*
+M1 스캐너 ─────► M2 CEP 파인더 ─────► M3 콘텐츠 빌더 ─────► M4 Path Analyzer ─────► M5 채널 플래너
+(인용율 측정)     (진입계기 발굴·브리프)   (인용최적 콘텐츠)      (여정·TA·갭)          (캠페인·채널믹스·ROI)
+   │                  │                    │                    │                    ▲
+   └ citation_rate    └ cep_coverage/brief └ GEO점수 게이트      └ ta_score ──────────┘  (M1~M4 결과를 실행으로)
 ```
-각 모듈 규칙: env를 **한 번, 한 이름으로** 읽고 `xConfigured()` 노출(우아한 degrade), **다른 모듈은 그 provider의 `process.env`를 직접 읽지 않음**(grep/lint 게이트로 재발 방지).
 
-### 4.4 크레덴셜 2면 분리(이미 ERP에 구현됨 — 재사용)
-- **공용 플랫폼 키 → env(Doppler 단일소스 권장)**: 대행사 자체 계정(OpenAI/Anthropic/Naver/PSI/GSC/S3…). §4.3 provider가 소비.
-- **거래처별 시크릿 → DB AES-256-GCM**: `crypto.ts`(`encryptSecret`/`decryptSecret`, `v1:` 버전prefix, `CREDENTIAL_ENC_KEY`) + `ClientAccount.usernameEnc/passwordEnc`. 거래처 자체 WP·네이버플레이스 로그인 등.
-- **규칙**: "모든 거래처에 하나면 충분?" → env. "특정 거래처 로그인?" → 볼트(복호화 JIT·UI 마스킹·`recordAudit`). provider는 **"거래처 계정 override, 없으면 공용 env"** 한 seam으로 발행 주체 전환.
+4대 AI = **ChatGPT·Gemini·Claude·Perplexity**를 병렬 인터로게이션하는 게 전 모듈 공통 기반.
 
 ---
 
-## 5. 데이터모델 매핑 (JSON/KV → Prisma/Postgres)
+## 2. 모듈별 소스 인벤토리
 
-> ERP엔 **KV/Redis 없음** → M3 시계열은 전부 Postgres. (M코드도 이미 KV 버리고 JSON 사용 중이라 자연 수렴.) 신규 모델은 ERP 관례: `cuid` id·`orgId?`·`createdAt/updatedAt`·문자열 status·`@@unique([scope,dateCol])` 멱등 upsert.
+경로: 업로드 `M{n}/geo_*`. 각 모듈 `config.py`(설정)·`clients.py`(4-AI, live/mock)·`models.py`(DB대응 dataclass)·`__main__.py`(CLI)·오케스트레이터 공통 구조.
 
-| M-소스 | 결정 | 대상 모델·필드 |
+### M1 · GEO 스캐너 (`geo_scanner`, ~530 LOC)
+- **목적**: 브랜드가 4대 AI 답변에 인용/언급되는지 측정(citation rate).
+- **공개 API**: `scan(brand, keywords, competitors, platforms, variations)` → `ScanResult[]`; `detect(response_text, brand)` → `Detection{mentioned,count,contexts}`; `aggregate`/`mention_rate`; `build_queries`/`generate_variations`.
+- **핵심**: 쿼리 변형 생성 → 4-AI 병렬 조회(async+세마포어) → 브랜드 정규식 탐지(±2문장 맥락) → 언급률 집계.
+- **외부**: 4 LLM. **ERP `geo-engine/detect.ts`·`engines.ts`와 직접 중복.**
+
+### M2 · CEP 파인더 (`cep_finder`, ~1,000 LOC) ⭐가장 net-new
+- **목적**: Category Entry Points(소비자가 AI에 묻는 상황·맥락) 발굴 + 5차원 태깅 + 우선순위 + 경쟁사맵 + 콘텐츠 브리프.
+- **공개 API**: `discover_ceps(brand, category, competitors)` → report; `build_probes/_multi`; `priority_score`; `share_of_ceps`/`whitespace_ceps`/`overlap_ceps`; `build_matrix`/`coverage_summary`; `build_brief(cep, type) → ContentBrief`(→M3 입력).
+- **핵심**: 프로브30+ → 4-AI 인터로게이션 → 문장추출 → **임베딩(text-embedding-3-large) → 순수파이썬 코사인 k-means 클러스터링/중복제거** → 5차원 태깅(상황/감성/시간/장소/동반자) → Priority = 언급×기회×시장.
+- **데이터모델**: `CEP`(5태그·priority_score·is_whitespace·ai_mention_count·…)·`CEPCandidate`·`CompetitorCEP`·`ContentBrief`. 기획안 스키마 `cep_projects/cep_entries/cep_competitor_map/cep_content_links`에 1:1(Supabase+pgvector 설계).
+- **외부**: 4 LLM + **임베딩**. ERP에 대응물 **없음(신규)**.
+
+### M3 · GEO 콘텐츠 빌더 (`geo_content_builder`, ~900 LOC)
+- **목적**: AI 인용되는 콘텐츠로 재작성·구조화(BLUF·FAQ스키마·E-E-A-T·llms.txt).
+- **공개 API**: `build_content(title, keyword, source_content, template_type, brand)` → `BuiltContent`; `analyze_geo`(GEO점수); `rewrite_bluf`/`bluf_score`; `generate_faq`/`build_json_ld`/`validate_json_ld`; `audit_eeat`; `crawl_and_generate`(llms.txt); `simulate_citation`(=M1 scan 계약); `render_template`(6종).
+- **GEO 점수**: BLUF25·FAQ25·인용가능성30·E-E-A-T15·구조화5.
+- **데이터모델**: `GeoScore·FAQSchema(json_ld)·EEATReport·LLMSTxt·CitationSimulation·BuiltContent`.
+- **외부**: rewrite=GPT·faq=Claude·eeat=Gemini·simulate=Perplexity(전부 폴백). ERP 중복: **llms.txt는 `geo-engine/llms-txt.ts`에 이미 있음**; 콘텐츠 생성은 매거진/AiContent와 인접.
+
+### M4 · GEO Path Analyzer (`geo_path_analyzer`, ~830 LOC)
+- **목적**: AI 답변 속 질문 여정 트리·브랜드 미언급 갭경로·Topical Authority·인용 소스 역추적.
+- **공개 API**: `analyze_journey`/`full_report`; `explore_journey`(재귀 여정트리); `analyze_gaps`/`top_paths`(Sankey); `compute_ta`(coverage40·quality35·trust25); `plan_clusters`/`missing_clusters`; `trace_sources`/`summarize_traces`.
+- **데이터모델**: `JourneyNode/Tree·TopicalAuthority·ClusterPlan·SourceTrace`.
+- **외부**: 4 LLM. ERP 중복: 인용 소스/경쟁 탐지는 `geo-engine/detect.ts`·`sov.ts`와 인접; 클러스터 플래너는 M2/콘텐츠기획과 연결.
+
+### M5 · GEO 채널 플래너 (`geo_channel_planner`, ~750 LOC) ⭐net-new
+- **목적**: M1~M4 결과 → 실행 캠페인(태스크·채널믹스·ROI·KPI·캘린더·리포트).
+- **공개 API**: `build_campaign(name, goal, current, industry, team)`/`campaign_summary`; `decompose_goal`/`analyze_gap`(목표→태스크); `recommend_mix`(채널믹스); `calculate_roi`/`compare_scenarios`; `kpi_progress`/`make_snapshot`; `calendar_view`/`suggest_publish_timing`/`upcoming_deadlines`; `render_report`.
+- **데이터모델**: `GEOGoal·CurrentState·ExecutionTask·ChannelAllocation·ChannelMix·ROIResult·KPISnapshot·Campaign`.
+- **외부**: **AI 키 없이 완전 동작**(결정적 계획 로직). `CurrentState`는 M1(citation)·M2(coverage)·M4(ta)에서 채움. ERP 중복: 태스크=`WorkItem`, 캘린더=`CalendarEvent`, 리포트=`Report`, ROI/KPI는 신규.
+
+---
+
+## 3. 기술 특성 (병합 판단의 근거)
+
+| 항목 | 사실 | 병합 함의 |
 |---|---|---|
-| **blog-posts.json**(자사 글) | **REUSE/EXTEND `MagazinePost`** | 같은 개념(자사 미디어·WP발행). 확장: `slug· seoTitle· metaDesc· keywords· region· catCode· bodyHtml· images(Json)· views· validation(Json)· tokenUsage(Json)· publishedAt`. **ContentPlan 아님**(그건 거래처·의료법 게이트). M1/M2는 MagazinePost 위에서 동작 |
-| **M1 clusters.json** | **ADD `TopicCluster` + `ClusterSubtopic`** | `TopicCluster{ orgId?, pillar, category, region="", status="active" }` · `ClusterSubtopic{ clusterId FK, kw, magazinePostId FK?, status="open", sortOrder }`(슬롯=MagazinePost FK) |
-| **M2 링크그래프/고아** | **REUSE(계산) — 영속 그래프 없음** | MagazinePost 위 온디맨드 계산, 관련글 블록은 `bodyHtml` 내부. 롤업(고아수/평균링크)은 M3 스냅샷 행에 합침. 필요시 `MagazinePost.orphan Boolean` 비정규화 |
-| **M3 CWV+스냅샷** | **ADD `SeoSnapshot`(+선택 `CwvMeasurement`)** | `SeoSnapshot{ orgId?, snapshotDate @db.Date, posts, orphanCount, orphanRate, avgLinksPerPost, cwv Json?, @@unique([orgId,snapshotDate]) }`. 개별 URL 차트 필요시 `CwvMeasurement{ url, strategy, measuredOn, performance,seo,lcpMs,cls,… @@unique([url,strategy,measuredOn]) }` |
-| **M4 outreach.json** | **ADD `OutreachContact`(Lead 재활용 금지)** | `OutreachContact{ orgId?, name, type="guestpost", status="lead", site?, owner?, email?, notes?, nextActionAt?, history Json?(또는 OutreachEvent 자식), assigneeId? }`. 리마인더=`daily-alerts`+`Notification` 재사용 |
+| 언어/구조 | Python, async, dataclass, 모듈당 clients/config/models/오케스트레이터 | 계약이 깔끔 → 이식 용이 |
+| 서드파티 의존 | **사실상 0**(unicodedata만). k-means·임베딩유사도 자체구현 | numpy/sklearn 불필요 → **TS 포팅 현실적** |
+| live/mock | 키 없으면 **결정적 목 폴백** 전 모듈 | 이식 시 **동일 목으로 골든테스트** 가능(회귀 안전) |
+| 외부 API | 4 LLM + OpenAI 임베딩(M2) | ERP `geo-engine`이 이미 4-AI 사용 → **클라이언트 재사용** |
+| 저장 설계 | Supabase Postgres + **pgvector**(M2 임베딩) | ERP=Neon Postgres. pgvector 확장 여부만 결정(또는 임베딩 미저장·온디맨드) |
+| 비밀값 | `OPENAI/ANTHROPIC/GEMINI/PERPLEXITY_API_KEY` | 전부 정규명, ERP 기보유. **Gemini 이름 1건만 조율**(§5) |
 
 ---
 
-## 6. 통합 아키텍처 결론
+## 4. ERP 현황 대비 — 무엇이 dedup, 무엇이 신규
 
-1. **저장**: 전부 Postgres/Prisma로 수렴(GitHub-JSON·KV 폐기). `github-store`는 발행 provider로만 잔존.
-2. **API**: Vercel 12함수 한도 소멸 → `growthops.js` 다중화를 **Next.js route/서버액션으로 분해**(모듈별 깔끔히).
-3. **크론**: 신규 스케줄러 금지. `runTopicClusterExpand`/`runSeoSnapshot`/`runOutreachReminders`를 `/api/marketing/cron` 시퀀스에 등록.
-4. **LLM/외부연동**: §4.3 provider 계층으로 단일화 → 토큰·클라이언트 중복 제거.
-5. **UI**: `growthops.html`(정적) → ERP `(erp)` 라우트 + 기존 대시보드/`StatusBadge`/차트 재사용.
+**핵심 앵커: ERP `src/server/geo-engine/`** (engines.ts 4-AI 어댑터 · detect.ts 언급/인용/경쟁 탐지 · sov.ts SoV · runner.ts 주간크론 · answer-page.ts · llms-txt.ts) + `GeoQuestion`/`GeoAnswerRecord` + `geo/page.tsx` + `geo-weekly.ts`.
 
----
+| M | ERP 상태 | dedup/재사용 | 신규 구축 |
+|---|---|---|---|
+| **M1 스캐너** | **대부분 있음** | geo-engine `engines/detect` = 4-AI 인용탐지 그대로 | 쿼리변형·집계 지표를 스캐너 계약으로 정리 |
+| **M2 CEP** | **없음(신규)** ⭐ | 4-AI 클라이언트만 재사용 | 프로브·임베딩·클러스터·태깅·경쟁맵·브리프 + 신규 모델 |
+| **M3 콘텐츠빌더** | **부분** | llms.txt(geo-engine)·매거진 발행·AiContent | BLUF/FAQ-JSONLD/E-E-A-T/GEO점수/시뮬 엔진 |
+| **M4 Path** | **부분** | detect/sov(인용·경쟁)·기존 클러스터 논의 | 여정트리·갭경로·TA·소스역추적 + 신규 모델 |
+| **M5 캠페인** | **부분** | WorkItem(태스크)·CalendarEvent·Report·Notification(마감알림) | 목표분해·채널믹스·ROI·KPI 엔진 + 신규 모델 |
+| (진단엔진) | 있음 | SEO 엔진 벤더링 = 별개 유지 | — |
 
-## 7. 단계별 실행 로드맵(제안 — 구현은 승인 후)
-
-각 단계 독립 배포 가능. 의존성·효과 순.
-
-- **P0 · 파이프라인 기반(선행)**: 시크릿 이름 정규화(§4.1), `integrations/llm` 단일화(§4.2), provider 구조 정리(§4.3). *코드 소량, 리스크 최소, 이후 전부의 토대.*
-- **P1 · M2 내부링크**: 순수 이식, MagazinePost만으로 즉효, M3 링크헬스의 입력. 외부의존 0.
-- **P2 · M1 토픽 클러스터**: `TopicCluster/ClusterSubtopic` + 매거진 자동초안 크론에 cluster 모드.
-- **P3 · M3 모니터링**: PSI provider 신설(CWV) + `SeoSnapshot` 크론 + 링크헬스/인덱싱. GSC는 기존 재사용.
-- **P4 · M4 아웃리치 CRM**: `OutreachContact` + 파이프라인 UI + 제안메일 초안(LLM 레이어).
-- **P5 · 진단엔진 dedupe**: 벤더 엔진 v1.8.0 동기화(오더 #6) + PSI 병합 실연동, 리드 감사와 통합.
-
-> 다른 프로젝트의 ERP 업그레이드와 **충돌 방지**: P0는 provider/시크릿이라 그 작업과 겹칠 수 있음 → **머지 순서 조율 후 착수**. P1~P5는 신규 파일 위주라 충돌 적음.
+**ERP 재사용 인프라**: 단일 크론 디스패처(`/api/marketing/cron`, 멱등 시퀀스) · provider 계층(`ProviderResult`/`provOk`) · 암호화 크레덴셜 볼트(`crypto.ts`+`ClientAccount`) · `StatusBadge`/대시보드/차트.
 
 ---
 
-## 8. 사장님 결정 필요 사항
+## 5. 시크릿·API 토큰 중복방지 (실측 반영)
 
-1. **캠페인 1~5 정의** — 무엇을/어디에? (a)강의 Session을 캠페인으로 지칭 (b)다른 프로젝트(영양제·원장님앱 등) (c)미문서화 구상 (d)특정 파일 위치. → 이 축의 병합 범위 결정.
-2. **시크릿 매니저** — Doppler(멀티프로젝트 권장) vs Vercel env 유지.
-3. **Gemini/네이버 이름 정규화 방향** — 위 §4.1 권장안 승인 여부.
-4. **착수 시점** — 다른 ERP 업그레이드 프로젝트와의 머지 순서(특히 P0 provider 계층).
-5. **범위** — M1~M4 전체 + 진단엔진 dedupe로 확정? 우선순위 조정?
+GEO Studio가 쓰는 비밀값은 **4개 LLM 키뿐**이고 전부 정규명이라, 중복 위험이 낮다. 나머지 config는 전부 **비-시크릿 튜닝값**(`CEP_N_CLUSTERS`, `CEP_DEDUP_THRESHOLD`, `GEO_PATH_MAX_DEPTH`, `GEO_ROI_CTR/CVR/AOV`, `GEO_SCORE_GATE` 등) → 코드 기본값/설정으로.
+
+| 정규 키 | GEO Studio | ERP | 조치 |
+|---|---|---|---|
+| `OPENAI_API_KEY`(+임베딩) | ✅ | ✅(`geo-engine`,`ai/image`) | 공유 — 그대로 |
+| `ANTHROPIC_API_KEY` | ✅ | ✅ | 공유 — 그대로 |
+| `PERPLEXITY_API_KEY` | ✅ | ✅ | 공유 — 그대로 |
+| Gemini 키 | `GEMINI_API_KEY` | `GOOGLE_AI_API_KEY` | **이름 1건 조율**(하나로 통일 또는 폴백) |
+
+**설계**: §이전 파이프라인 그대로 — 병합 모듈은 ERP `integrations/llm` **단일 LLM 레이어**만 호출(provider별 키 1개, 모델ID=설정), 절대 `process.env`를 직접 읽지 않음. 공용키=env(Doppler 단일소스 권장), 거래처별=DB AES-256-GCM 볼트. **M2 임베딩**도 이 레이어에 `embed()` 추가.
 
 ---
 
-## 부록. 근거 파일 포인터
-- M소스: `preview/lib/{topic-cluster,internal-linker,psi,outreach}.js`, `preview/api/growthops.js`, `preview/api/cron-daily-posts.js`, `preview/seo/seo-engine.js`
-- 기획: `desktop-tutorial/docs/PLAN-growthops.md`, `growthops-README.md`, `API-KEYS-REGISTRY.md`
-- ERP: `src/server/marketing/*`, `src/server/geo-engine/*`, `src/server/seo-engine/*`, `src/server/jobs/*`, `src/server/integrations/*`, `src/server/crypto.ts`, `prisma/schema.prisma`, `src/app/api/marketing/cron/route.ts`
+## 6. 데이터모델 매핑 (dataclass → Prisma/Postgres)
+
+ERP엔 KV/Redis 없음 → 전부 Postgres. 신규 모델은 ERP 관례(cuid·`orgId?`·`clientId?`·`createdAt/updatedAt`·문자열 status·`Json?`·`@@unique([scope,date])`).
+
+| GEO Studio | 결정 | ERP 대상(제안) |
+|---|---|---|
+| M1 `ScanResult`/`Detection` | **REUSE** | `GeoAnswerRecord`/`GeoQuestion` 확장(citation·contexts) |
+| M2 `CEP`/`CEPCandidate`/`CompetitorCEP`/`ContentBrief` | **ADD** | `CepProject`·`CepEntry`(5태그·priorityScore·isWhitespace·embedding `Json`/pgvector?)·`CepCompetitor`·`CepBrief` |
+| M3 `BuiltContent`/`GeoScore`/`FAQSchema`/`EEATReport` | **EXTEND+ADD** | 결과는 `MagazinePost`/`AiContent`에 GEO점수·faqJsonLd·eeat 필드 추가; `LLMSTxt`는 geo-engine 재사용 |
+| M4 `JourneyTree`/`TopicalAuthority`/`ClusterPlan`/`SourceTrace` | **ADD** | `GeoJourney`(root `Json` 트리)·`TopicalAuthority`(coverage/quality/trust)·`GeoClusterPlan`·`GeoSourceTrace` |
+| M5 `Campaign`/`ExecutionTask`/`ChannelMix`/`ROIResult`/`KPISnapshot` | **REUSE+ADD** | `ExecutionTask`→`WorkItem` 매핑; `GeoCampaign`·`ChannelMix`·`RoiScenario`·`GeoKpiSnapshot`(시계열 `@@unique([campaignId,snapshotDate])`) |
+
+임베딩(M2)만 결정 필요: **(a)** Neon에 `pgvector` 확장 활성 → 벡터컬럼, **(b)** 임베딩 미저장·클러스터링만 온디맨드(순수파이썬 로직 이식이라 가능), **(c)** `Json` 배열 저장. → 권장 **(b)**(가장 가벼움, 재클러스터 필요 시 재계산).
+
+---
+
+## 7. 통합 방향 — 포팅 vs 파이썬 서비스
+
+| 안 | 장점 | 단점 | 판정 |
+|---|---|---|---|
+| **A. TS 이식(권장)** | ERP 단일 스택·단일 배포, geo-engine 클라이언트 재사용, 목 골든테스트로 안전 이식, Vercel 서버리스 그대로 | 4,600 LOC 재작성(단, 순수로직이라 기계적) | ⭐ **권장** — 의존성 0라서 가장 현실적 |
+| B. 파이썬 별도 서비스 | 재작성 최소 | 인프라 1개 추가(배포·인증·CORS·비용), LLM키·크레덴셜 2중관리, ERP와 데이터 왕복 | 비권장(중복 유발) |
+| C. 하이브리드 | M2 임베딩·클러스터만 파이썬 | 부분 인프라 | 임베딩을 OpenAI로만 하면 불필요 |
+
+→ **A(이식)**: 순수 로직 + 결정적 목이라 **모듈별로 "같은 입력→같은 출력" 골든테스트**를 걸고 안전하게 옮길 수 있음. Python은 참조 스펙으로 보존.
+
+---
+
+## 8. 단계별 로드맵 (구현은 승인 후)
+
+- **P0 · 기반**: LLM 레이어 단일화 + Gemini 이름 조율 + geo-engine 클라이언트를 `integrations/llm`으로 정리(이식 모듈 공통 토대).
+- **P1 · M1 dedup**: 스캐너를 기존 geo-engine 위 계약으로 통합(쿼리변형·집계). 최소 신규.
+- **P2 · M2 CEP** ⭐: 최대 net-new. 프로브→인터로게이션→임베딩→클러스터→태깅→브리프 + `Cep*` 모델. 브리프가 M3 입력.
+- **P3 · M3 콘텐츠빌더**: BLUF/FAQ-JSONLD/E-E-A-T/GEO점수/시뮬 → 매거진·발행 파이프라인에 결합.
+- **P4 · M4 Path**: 여정트리·갭·TA·소스추적 + 모델. 대시보드(Sankey/트리) UI.
+- **P5 · M5 캠페인** ⭐: 목표분해→WorkItem·채널믹스·ROI·KPI·캘린더·리포트. M1~M4 지표를 `CurrentState`로 수급.
+- 각 단계 독립 배포. **다른 ERP 업그레이드 프로젝트와 P0(공통 provider/시크릿)만 머지순서 조율** 필요(P1~P5는 신규파일 위주 저충돌).
+
+---
+
+## 9. 사장님 결정 필요
+
+1. **통합 방향** — TS 이식(권장) vs 파이썬 서비스? (§7)
+2. **임베딩 저장** — pgvector 활성 vs 온디맨드 재계산(권장) vs Json? (§6)
+3. **Gemini 키 이름** — `GOOGLE_AI_API_KEY`로 통일 vs 폴백 추가? (§5)
+4. **범위·우선순위** — 5개 전체 순서 P1~P5 확정? M2(CEP)·M5(캠페인) 우선?
+5. **착수 시점** — 다른 ERP 업그레이드와 P0 머지순서 조율.
+
+---
+
+## 부록. 근거 포인터
+- GEO Studio: 업로드 `M1~M5` — 각 `geo_*/{config,clients,models,__main__}.py` + 오케스트레이터(`scanner/finder/builder/analyzer/campaign`.py), `M2~M5/README.md`.
+- ERP: `src/server/geo-engine/*`(핵심 dedup), `seo-engine/*`, `marketing/*`, `jobs/*`, `integrations/*`, `crypto.ts`, `prisma/schema.prisma`, `app/api/marketing/cron/route.ts`.
+- (참고·별개) 디렉터 저장소 GrowthOps M1~M4: GEO Studio와 무관. `desktop-tutorial/docs/API-KEYS-REGISTRY.md`는 생태계 시크릿 전략 참고용으로 유효.
