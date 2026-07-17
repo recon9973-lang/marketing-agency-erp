@@ -6,6 +6,7 @@ import {
   BriefcaseBusiness,
   CalendarCheck,
   CalendarDays,
+  Compass,
   ChartNoAxesCombined,
   CircleCheck,
   ClipboardList,
@@ -46,6 +47,7 @@ type ErpRoute =
   | "/clients"
   | "/insights"
   | "/geo"
+  | "/geo-cep"
   | "/geo-planner"
   | "/magazine"
   | "/contracts"
@@ -137,6 +139,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       label: "GEO 모니터링",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Radar,
+      group: "기획·분석"
+    },
+    {
+      href: "/geo-cep",
+      label: "CEP 파인더",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Compass,
       group: "기획·분석"
     },
     {
