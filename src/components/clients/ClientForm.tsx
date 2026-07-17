@@ -111,7 +111,7 @@ export function ClientForm({
       </div>
 
       {error && <p className="text-sm text-rose-600">{error}</p>}
-      <button type="submit" disabled={pending} className="rounded bg-brand px-4 py-2 text-white disabled:opacity-50">
+      <button type="submit" disabled={pending} className="rounded bg-[#533afd] px-4 py-2 text-white disabled:opacity-50">
         {pending ? "저장 중..." : initial?.id ? "수정" : "등록"}
       </button>
     </form>

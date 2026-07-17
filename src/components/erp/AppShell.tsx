@@ -82,8 +82,6 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       group: "업무"
     },
     {
-    },
-    {
       href: "/reports",
       label: "보고서",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],

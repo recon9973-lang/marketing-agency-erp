@@ -26,7 +26,6 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         channels={detail.channels}
         works={detail.works}
         billings={detail.billings}
-        reports={detail.reports}
         canViewFinance={canViewFinance}
       />
     </div>

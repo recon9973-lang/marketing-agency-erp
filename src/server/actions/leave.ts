@@ -8,7 +8,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { Role } from "@/domain/types";
-import { leaveDays } from "@/domain/leave-rules";
 import { db } from "@/server/db";
 import {
   recordAudit,
@@ -17,6 +16,13 @@ import {
   runAction,
   type ActionResult
 } from "@/server/actions/_helpers";
+
+/** 휴가 유형별 소요 일수. 반차=0.5. */
+function leaveDays(type: string, start: Date, end: Date): number {
+  if (type === "HALF_DAY_AM" || type === "HALF_DAY_PM") return 0.5;
+  const ms = +new Date(end.toDateString()) - +new Date(start.toDateString());
+  return Math.floor(ms / 86400000) + 1;
+}
 
 const requestSchema = z.object({
   type: z.enum(["ANNUAL", "HALF_DAY_AM", "HALF_DAY_PM", "SICK", "OTHER"]),
@@ -40,7 +46,7 @@ export async function requestLeave(input: unknown): Promise<ActionResult<{ id: s
       const req = await tx.leaveRequest.create({
         data: {
           requesterId: user.id,
-          type: d.type,
+          type: d.type as never,
           status: "REQUESTED",
           startDate: d.startDate,
           endDate: d.endDate,

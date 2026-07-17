@@ -48,7 +48,7 @@ export function BankReconcile({ suggestions }: { suggestions: Suggestion[] }) {
                   {matched ? (
                     <span className="text-xs text-green-600">✓ 확정됨</span>
                   ) : (
-                    <button onClick={() => confirm(s)} disabled={pending} className="rounded bg-brand px-2.5 py-1 text-xs text-white disabled:opacity-50">
+                    <button onClick={() => confirm(s)} disabled={pending} className="rounded bg-[#533afd] px-2.5 py-1 text-xs text-white disabled:opacity-50">
                       대사 확정
                     </button>
                   )}

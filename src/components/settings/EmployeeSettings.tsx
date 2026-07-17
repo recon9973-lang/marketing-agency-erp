@@ -4,9 +4,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { inviteEmployee, changeRole, setExpensePolicy, setSettingsAccess } from "@/server/actions/employees";
+import { inviteEmployee, changeRole, setExpensePolicy } from "@/server/actions/employees";
 
-type Employee = { id: string; name: string; email: string; role: string; status: string; canAccessSettings: boolean };
+type Employee = { id: string; name: string; email: string; role: string; status: string };
 
 export function EmployeeSettings({ employees, isSuperAdmin, adminCanManageExpense }: { employees: Employee[]; isSuperAdmin: boolean; adminCanManageExpense: boolean }) {
   const [pending, start] = useTransition();
@@ -25,10 +25,6 @@ export function EmployeeSettings({ employees, isSuperAdmin, adminCanManageExpens
   function toggleExpense(v: boolean) {
     start(async () => { const res = await setExpensePolicy({ adminCanManageExpense: v }); if (!res.ok) setError(res.error); });
   }
-  function toggleSettingsAccess(userId: string, canAccess: boolean) {
-    setError(null);
-    start(async () => { const res = await setSettingsAccess({ userId, canAccess }); if (!res.ok) setError(res.error); });
-  }
 
   return (
     <div className="space-y-6">
@@ -38,12 +34,12 @@ export function EmployeeSettings({ employees, isSuperAdmin, adminCanManageExpens
         <label className="block"><span className="text-xs text-slate-500">역할</span>
           <select name="role" className="mt-1 rounded border px-2 py-1"><option value="MARKETER">마케터</option><option value="ADMIN">관리자</option></select>
         </label>
-        <button type="submit" disabled={pending} className="rounded bg-brand px-3 py-1.5 text-sm text-white disabled:opacity-50">초대</button>
+        <button type="submit" disabled={pending} className="rounded bg-[#533afd] px-3 py-1.5 text-sm text-white disabled:opacity-50">초대</button>
       </form>
       {error && <p className="text-sm text-rose-600">{error}</p>}
 
       <table className="w-full text-sm">
-        <thead><tr className="text-left text-slate-500"><th className="py-2">이름</th><th>이메일</th><th>상태</th><th>역할</th><th>설정 접근</th></tr></thead>
+        <thead><tr className="text-left text-slate-500"><th className="py-2">이름</th><th>이메일</th><th>상태</th><th>역할</th></tr></thead>
         <tbody>
           {employees.map((e) => (
             <tr key={e.id} className="border-t">
@@ -57,23 +53,6 @@ export function EmployeeSettings({ employees, isSuperAdmin, adminCanManageExpens
                   <select value={e.role} onChange={(ev) => setRole(e.id, ev.target.value)} disabled={pending} className="rounded border px-2 py-0.5 text-xs">
                     <option value="MARKETER">마케터</option><option value="ADMIN">관리자</option>
                   </select>
-                )}
-              </td>
-              <td>
-                {e.role === "SUPER_ADMIN" ? (
-                  <span className="text-xs text-slate-400">항상 허용</span>
-                ) : isSuperAdmin ? (
-                  <label className="inline-flex items-center gap-1.5 text-xs text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={e.canAccessSettings}
-                      onChange={(ev) => toggleSettingsAccess(e.id, ev.target.checked)}
-                      disabled={pending}
-                    />
-                    {e.canAccessSettings ? "허용됨" : "차단"}
-                  </label>
-                ) : (
-                  <span className="text-xs text-slate-400">{e.canAccessSettings ? "허용됨" : "차단"}</span>
                 )}
               </td>
             </tr>

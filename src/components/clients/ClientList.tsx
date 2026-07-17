@@ -3,7 +3,6 @@
 // 거래처 목록 — 업종 색상 태그 + 담당자/상태 + 상세 링크. 권한 스코프는 서버 조회에서 적용.
 "use client";
 
-import type { Route } from "next";
 import Link from "next/link";
 
 type Row = {
@@ -46,7 +45,7 @@ export function ClientList({ rows }: { rows: Row[] }) {
             <td>{r.assignedMarketerName ?? <span className="text-slate-300">미배정</span>}</td>
             <td>{r.active ? <span className="text-xs text-green-600">운영중</span> : <span className="text-xs text-slate-400">비활성</span>}</td>
             <td>{r.outstanding ? <span className="text-xs text-rose-600">있음</span> : <span className="text-xs text-slate-400">-</span>}</td>
-            <td className="text-right"><Link href={`/clients/${r.id}` as Route} className="text-xs text-brand underline">상세</Link></td>
+            <td className="text-right"><Link href={`/clients/${r.id}`} className="text-xs text-[#533afd] underline">상세</Link></td>
           </tr>
         ))}
       </tbody>

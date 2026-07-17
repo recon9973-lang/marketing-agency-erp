@@ -8,7 +8,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { Role, UserStatus } from "@/domain/types";
-import { signIn } from "@/server/auth";
 import { db } from "@/server/db";
 import {
   recordAudit,
@@ -44,15 +43,6 @@ export async function inviteEmployee(input: unknown): Promise<ActionResult<{ id:
       await recordAudit(tx, { actorId: user.id, action: "employee.invite", targetType: "User", targetId: u.id, afterState: { email: u.email, role: u.role }, ...meta });
       return u;
     });
-
-    // 초대 즉시 로그인(매직) 링크 메일 발송 — 받은 사람이 링크만 누르면 로그인.
-    // 베스트에포트: 메일 발송이 실패해도 초대(명단 등록) 자체는 유효(관리자가 로그인 URL 공유 가능).
-    try {
-      await signIn("nodemailer", { email: d.email.toLowerCase(), redirect: false, redirectTo: "/dashboard" });
-    } catch {
-      /* SMTP 미설정/발송 실패는 초대를 막지 않음 */
-    }
-
     revalidatePath("/settings");
     return { id: created.id };
   });
@@ -76,35 +66,6 @@ export async function changeRole(input: unknown): Promise<ActionResult> {
     await db.$transaction(async (tx) => {
       await tx.user.update({ where: { id: p.data.userId }, data: { role: p.data.role as never } });
       await recordAudit(tx, { actorId: user.id, action: "employee.changeRole", targetType: "User", targetId: p.data.userId, beforeState: { role: target.role }, afterState: { role: p.data.role }, ...meta });
-    });
-    revalidatePath("/settings");
-  });
-}
-
-/** 설정(직원/권한) 화면 접근 승인 토글 — 최고관리자 전용. 관리자/담당자에게 부여/회수. */
-export async function setSettingsAccess(input: unknown): Promise<ActionResult> {
-  return runAction(async () => {
-    const user = await requireUser();
-    if (user.role !== Role.SUPER_ADMIN) throw new Error("FORBIDDEN");
-    const p = z.object({ userId: z.string().min(1), canAccess: z.boolean() }).safeParse(input);
-    if (!p.success) throw new Error("VALIDATION");
-
-    const target = await db.user.findUnique({ where: { id: p.data.userId } });
-    if (!target) throw new Error("NOT_FOUND");
-    if (target.role === Role.SUPER_ADMIN) throw new Error("FORBIDDEN"); // 최고관리자는 항상 접근, 토글 대상 아님
-
-    const meta = await requestMeta();
-    await db.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: p.data.userId }, data: { canAccessSettings: p.data.canAccess } });
-      await recordAudit(tx, {
-        actorId: user.id,
-        action: "employee.settingsAccess",
-        targetType: "User",
-        targetId: p.data.userId,
-        beforeState: { canAccessSettings: target.canAccessSettings },
-        afterState: { canAccessSettings: p.data.canAccess },
-        ...meta
-      });
     });
     revalidatePath("/settings");
   });

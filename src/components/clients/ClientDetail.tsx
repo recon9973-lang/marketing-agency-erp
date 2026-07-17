@@ -6,23 +6,18 @@
 
 import { useState } from "react";
 import { CredentialField } from "@/components/clients/CredentialField";
-import { WorkStatusButtons } from "@/components/work/WorkStatusButtons";
-import { ReportEditor } from "@/components/reports/ReportEditor";
 
-type WorkStatus = "NOT_STARTED" | "IN_PROGRESS" | "WAITING" | "REVIEW_NEEDED" | "COMPLETED" | "BLOCKED";
 type Channel = { id: string; label: string; channelName: string; externalUrl: string | null; hasCredentials: boolean };
 type WorkRow = { id: string; title: string; status: string; dueDate: string | null };
 type Billing = { id: string; billingMonth: string; issuedAmount: number; paidAmount: number; status: string };
-type ReportRow = { id: string; title: string; reportingMonth: string; status: string; metrics: Record<string, unknown> | null };
 
 export function ClientDetail({
-  client, channels, works, billings, reports, canViewFinance
+  client, channels, works, billings, canViewFinance
 }: {
   client: { id: string; name: string; code: string; industryName: string | null; assignedMarketerName: string | null; active: boolean };
   channels: Channel[];
   works: WorkRow[];
   billings: Billing[];
-  reports: ReportRow[];
   canViewFinance: boolean;
 }) {
   const tabs = ["기본정보", "채널계정", "업무", ...(canViewFinance ? ["입금"] : []), "보고서"];
@@ -39,7 +34,7 @@ export function ClientDetail({
 
       <nav className="mb-4 flex gap-1 border-b">
         {tabs.map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`px-3 py-2 text-sm ${tab === t ? "border-b-2 border-brand text-brand" : "text-slate-500"}`}>{t}</button>
+          <button key={t} onClick={() => setTab(t)} className={`px-3 py-2 text-sm ${tab === t ? "border-b-2 border-[#533afd] text-[#533afd]" : "text-slate-500"}`}>{t}</button>
         ))}
       </nav>
 
@@ -57,7 +52,7 @@ export function ClientDetail({
               <tr key={c.id} className="border-t">
                 <td className="py-2">{c.channelName}</td>
                 <td>{c.label}</td>
-                <td>{c.externalUrl ? <a href={c.externalUrl} className="text-brand underline" target="_blank" rel="noreferrer">링크</a> : "-"}</td>
+                <td>{c.externalUrl ? <a href={c.externalUrl} className="text-[#533afd] underline" target="_blank" rel="noreferrer">링크</a> : "-"}</td>
                 <td><CredentialField accountId={c.id} hasCredentials={c.hasCredentials} /></td>
               </tr>
             ))}
@@ -68,15 +63,8 @@ export function ClientDetail({
       {tab === "업무" && (
         <table className="w-full text-sm">
           <tbody>
-            {works.length === 0 && (
-              <tr><td className="py-2 text-slate-400">등록된 업무가 없습니다.</td></tr>
-            )}
             {works.map((w) => (
-              <tr key={w.id} className="border-t">
-                <td className="py-2">{w.title}</td>
-                <td className="text-slate-500">{w.dueDate ?? "-"}</td>
-                <td className="py-2 text-right"><WorkStatusButtons workId={w.id} status={w.status as WorkStatus} /></td>
-              </tr>
+              <tr key={w.id} className="border-t"><td className="py-2">{w.title}</td><td>{w.status}</td><td className="text-right text-slate-400">{w.dueDate ?? "-"}</td></tr>
             ))}
           </tbody>
         </table>
@@ -96,20 +84,7 @@ export function ClientDetail({
         </table>
       )}
 
-      {tab === "보고서" && (
-        <div className="space-y-6">
-          {reports.length === 0 && <p className="text-sm text-slate-400">등록된 보고서가 없습니다. 보고서는 /reports 에서도 생성할 수 있습니다.</p>}
-          {reports.map((r) => (
-            <section key={r.id} className="rounded-lg border p-4">
-              <div className="mb-3 flex items-center gap-2">
-                <h3 className="font-medium">{r.title}</h3>
-                <span className="text-xs text-slate-400">{r.reportingMonth}</span>
-              </div>
-              <ReportEditor report={{ id: r.id, status: r.status, metrics: r.metrics }} />
-            </section>
-          ))}
-        </div>
-      )}
+      {tab === "보고서" && <p className="text-sm text-slate-400">보고서 목록은 /reports 에서 관리합니다.</p>}
     </div>
   );
 }

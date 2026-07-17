@@ -52,7 +52,7 @@ export function LeavePanel({ pending, canApprove }: { pending: Pending[]; canApp
         </div>
         <label className="block"><span className="text-xs text-slate-500">사유</span><input name="reason" className="mt-1 w-full rounded border px-2 py-1" /></label>
         {error && <p className="text-sm text-rose-600">{error}</p>}
-        <button type="submit" disabled={isPending} className="rounded bg-brand px-3 py-1.5 text-sm text-white disabled:opacity-50">신청</button>
+        <button type="submit" disabled={isPending} className="rounded bg-[#533afd] px-3 py-1.5 text-sm text-white disabled:opacity-50">신청</button>
       </form>
 
       {canApprove && (
