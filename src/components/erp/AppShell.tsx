@@ -21,6 +21,7 @@ import {
   Video,
   MessageSquare,
   Radar,
+  Rocket,
   Search,
   Megaphone,
   LineChart,
@@ -45,6 +46,7 @@ type ErpRoute =
   | "/clients"
   | "/insights"
   | "/geo"
+  | "/geo-planner"
   | "/magazine"
   | "/contracts"
   | "/work"
@@ -135,6 +137,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       label: "GEO 모니터링",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Radar,
+      group: "기획·분석"
+    },
+    {
+      href: "/geo-planner",
+      label: "GEO 캠페인",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Rocket,
       group: "기획·분석"
     },
     {
