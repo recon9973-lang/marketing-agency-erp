@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -110,6 +111,16 @@ export default async function ReportsPage() {
             <p className="mt-1 font-semibold text-brand">{delivered}</p>
           </div>
         </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-ink">거래처 GEO 주간 리포트를 규칙기반으로 조립합니다.</p>
+        <Link
+          href="/reports/geo-weekly"
+          className="shrink-0 rounded-full border border-emerald-200 bg-card px-3.5 py-1.5 text-xs font-semibold text-emerald-700 hover:border-emerald-300 hover:text-emerald-800"
+        >
+          GEO 주간 리포트 →
+        </Link>
       </div>
 
       <GenerateMonthlyReport clients={clientOptions} />
