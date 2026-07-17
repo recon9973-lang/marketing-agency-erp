@@ -27,13 +27,17 @@ import {
 } from "@/server/marketing/research";
 import { runBlogDraftPipeline, type DraftPipelineResult } from "@/server/marketing/content-pipeline";
 import { assembleMonthlyReport, type RankSummary } from "@/server/marketing/report-assembly";
+import {
+  findCrossClientKeywordInsights,
+  type CrossClientInsightsResult
+} from "@/server/marketing/graph-insights";
 
 async function assertClient(user: CurrentUser, clientId: string, assignedMarketerId: string | null) {
   const scopes = await getAdminScopes(user);
   assertCanAccessClient(user, clientId, scopes, assignedMarketerId);
 }
 
-/** ① 키워드 리서치(트렌드+경쟁강도). 거래처 접근권한 확인. */
+/** ① 키워드 리서치(트렌드+경쟁강도). 거래처 접근권한 확인. KeywordResearch 모델에 저장. */
 export async function researchKeyword(input: unknown): Promise<ActionResult<KeywordResearchSnapshot>> {
   return runAction(async () => {
     const user = await requireUser();
@@ -41,18 +45,24 @@ export async function researchKeyword(input: unknown): Promise<ActionResult<Keyw
       .object({
         clientId: z.string().min(1),
         seedKeyword: z.string().trim().min(1).max(100),
-        related: z.array(z.string().trim().min(1)).max(10).optional()
+        related: z.array(z.string().trim().min(1)).max(10).optional(),
+        workItemId: z.string().min(1).optional()
       })
       .safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const client = await db.client.findUnique({ where: { id: p.data.clientId }, select: { assignedMarketerId: true } });
     if (!client) throw new Error("NOT_FOUND");
     await assertClient(user, p.data.clientId, client.assignedMarketerId);
-    return collectKeywordResearch({ seedKeyword: p.data.seedKeyword, related: p.data.related });
+    return collectKeywordResearch({
+      seedKeyword: p.data.seedKeyword,
+      related: p.data.related,
+      clientId: p.data.clientId,
+      workItemId: p.data.workItemId,
+    });
   });
 }
 
-/** ② SEO 블로그 초안 생성 + (의료 주제면) 의료광고법 검수 게이트. */
+/** ② SEO 블로그 초안 생성 + (의료 주제면) 의료광고법 검수 게이트. ContentAsset 모델에 저장. */
 export async function generateBlogDraft(input: unknown): Promise<ActionResult<DraftPipelineResult>> {
   return runAction(async () => {
     const user = await requireUser();
@@ -63,7 +73,8 @@ export async function generateBlogDraft(input: unknown): Promise<ActionResult<Dr
         audience: z.string().trim().max(200).optional(),
         referenceUrls: z.array(z.string().url()).max(10).optional(),
         notes: z.string().max(2000).optional(),
-        medical: z.boolean().optional()
+        medical: z.boolean().optional(),
+        workItemId: z.string().min(1).optional()
       })
       .safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
@@ -149,5 +160,30 @@ export async function assembleReport(
     revalidatePath("/reports");
     revalidatePath("/studio");
     return summary;
+  });
+}
+
+/** ⑤ Graph RAG Lite — 동일 업종 타 거래처의 키워드 인사이트 조회. */
+export async function getClientIndustryInsights(
+  input: unknown
+): Promise<ActionResult<CrossClientInsightsResult>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const p = z
+      .object({
+        clientId: z.string().min(1),
+        maxPerClient: z.number().int().min(1).max(20).optional()
+      })
+      .safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    const client = await db.client.findUnique({
+      where: { id: p.data.clientId },
+      select: { assignedMarketerId: true }
+    });
+    if (!client) throw new Error("NOT_FOUND");
+    await assertClient(user, p.data.clientId, client.assignedMarketerId);
+    return findCrossClientKeywordInsights(p.data.clientId, {
+      maxPerClient: p.data.maxPerClient
+    });
   });
 }

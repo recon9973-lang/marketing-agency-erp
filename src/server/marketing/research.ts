@@ -2,14 +2,13 @@
 //
 // S2 · 리서치·성과수집 서비스.
 // naver provider(providers/naver.ts)를 사용해:
-//   1) 키워드 리서치 스냅샷(트렌드 + 경쟁강도)
+//   1) 키워드 리서치 스냅샷(트렌드 + 경쟁강도) → KeywordResearch 모델 저장
 //   2) 보고서 성과수집(키워드 노출순위 + 경쟁강도) → 기존 Report.metrics(Json)에 병합
 //   3) 월간 배치(runMonthlyPerformanceCollection)
 //
 // 설계 메모(plan-research 3단계 채택안 B):
 //   - 기존 keyword-rank.ts를 수정하지 않고 별도 서비스로 추가(무회귀).
-//   - 신규 Prisma 모델(KeywordResearch 등)은 아직 미마이그레이션이므로,
-//     성과 적재는 이미 존재하는 Report.metrics 만 사용해 지금도 end-to-end 동작.
+//   - clientId 제공 시 KeywordResearch 모델에 저장(마이그레이션 완료).
 //   - 네이버 키 미설정 시 provider가 CONFIG_MISSING 반환 → 배치가 죽지 않음.
 
 import { db } from "@/server/db";
@@ -26,15 +25,18 @@ export type KeywordResearchSnapshot = {
   collectedAt: string;
   source: string;
   warnings: string[];
+  savedId?: string; // KeywordResearch record id (clientId 제공 시)
 };
 
 /**
  * 시드 키워드(+연관어)의 검색 트렌드와 경쟁강도를 수집한다.
- * 반환 데이터는 KeywordResearch 모델 마이그레이션 후 그대로 저장 가능한 형태.
+ * clientId 가 제공되면 KeywordResearch 모델에 결과를 저장한다.
  */
 export async function collectKeywordResearch(input: {
   seedKeyword: string;
   related?: string[];
+  clientId?: string;
+  workItemId?: string;
 }): Promise<KeywordResearchSnapshot> {
   const keywords = [input.seedKeyword, ...(input.related ?? [])].filter(Boolean);
   const warnings: string[] = [];
@@ -52,7 +54,7 @@ export async function collectKeywordResearch(input: {
     }
   }
 
-  return {
+  const snapshot: KeywordResearchSnapshot = {
     seedKeyword: input.seedKeyword,
     trend: trendRes.ok ? trendRes.data : null,
     competition,
@@ -60,6 +62,33 @@ export async function collectKeywordResearch(input: {
     source: "naver",
     warnings,
   };
+
+  // KeywordResearch 모델에 저장 (clientId 제공 시)
+  if (input.clientId) {
+    try {
+      const saved = await db.keywordResearch.create({
+        data: {
+          clientId: input.clientId,
+          workItemId: input.workItemId ?? null,
+          seedKeyword: input.seedKeyword,
+          results: {
+            trend: snapshot.trend,
+            competition: snapshot.competition,
+            warnings: snapshot.warnings,
+          } as never,
+          source: snapshot.source,
+          collectedAt: new Date(snapshot.collectedAt),
+        },
+        select: { id: true },
+      });
+      snapshot.savedId = saved.id;
+    } catch (err) {
+      // DB 저장 실패 시 결과는 반환하되 경고만 추가(dev 환경 DB 없는 경우 등)
+      warnings.push(`persist:${(err as Error).message?.slice(0, 60)}`);
+    }
+  }
+
+  return snapshot;
 }
 
 // ─────────────────────────────────────────────

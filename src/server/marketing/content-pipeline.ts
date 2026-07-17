@@ -8,9 +8,9 @@
 //   - verdict WARN   → READY로 진행하되 findings를 함께 전달(검토 권고).
 //   - verdict PASS   → READY.
 //
-// 저장: ContentAsset 모델은 아직 미마이그레이션이므로 결과를 구조화해 반환한다.
-// 호출부(server action/UI)가 ContentAsset 또는 WorkItem에 저장한다(모델 병합 후 이 파일에서 직접 persist 예정).
+// 저장: clientId 제공 시 ContentAsset 모델에 결과를 저장한다(마이그레이션 완료).
 
+import { db } from "@/server/db";
 import { seoGeneratorContent } from "./providers/seo-content";
 import { reviewMedicalCompliance, type ComplianceReport } from "./compliance";
 import type { BlogDraft } from "./providers/types";
@@ -22,11 +22,12 @@ export type DraftPipelineResult = {
   draft?: BlogDraft;
   compliance?: ComplianceReport;
   error?: string;
+  savedId?: string; // ContentAsset record id (clientId 제공 시)
 };
 
 /**
  * 블로그 초안 파이프라인 실행.
- * @param raw 검증 전 입력(blogDraftInput 스키마로 파싱).
+ * @param raw 검증 전 입력(blogDraftInput 스키마로 파싱: clientId, workItemId, keyword, medical 등).
  */
 export async function runBlogDraftPipeline(raw: unknown): Promise<DraftPipelineResult> {
   const parsed = blogDraftInput.safeParse(raw);
@@ -41,17 +42,59 @@ export async function runBlogDraftPipeline(raw: unknown): Promise<DraftPipelineR
   }
   const draft = draftRes.data;
 
+  let result: DraftPipelineResult;
+
   // 비의료 주제: 검수 게이트 없이 READY.
   if (!input.medical) {
-    return { ok: true, stage: "READY", draft };
+    result = { ok: true, stage: "READY", draft };
+  } else {
+    // 의료 주제: 의료광고법 검수 게이트.
+    const compliance = reviewMedicalCompliance(collectComplianceText(draft));
+    if (compliance.verdict === "BLOCK") {
+      result = { ok: false, stage: "COMPLIANCE_REVIEW", draft, compliance };
+    } else {
+      result = { ok: true, stage: "READY", draft, compliance };
+    }
   }
 
-  // 의료 주제: 의료광고법 검수 게이트.
-  const compliance = reviewMedicalCompliance(collectComplianceText(draft));
-  if (compliance.verdict === "BLOCK") {
-    return { ok: false, stage: "COMPLIANCE_REVIEW", draft, compliance };
+  // ContentAsset 저장 (clientId 제공 시)
+  if (input.clientId) {
+    try {
+      const complianceVerdict = result.compliance
+        ? (result.compliance.verdict as "PASS" | "WARN" | "BLOCK")
+        : input.medical
+          ? "PENDING"
+          : "PASS";
+
+      const saved = await db.contentAsset.create({
+        data: {
+          clientId: input.clientId,
+          workItemId: input.workItemId ?? null,
+          type: "BLOG_POST",
+          stage: result.stage,
+          title: draft.recommendedTitle ?? null,
+          bodyMarkdown: draft.bodyMarkdown ?? null,
+          meta: {
+            metaDescription: draft.metaDescription,
+            titleCandidates: draft.titleCandidates,
+            faq: draft.faq,
+            keyword: input.keyword,
+            audience: input.audience,
+          } as never,
+          complianceVerdict: complianceVerdict as never,
+          complianceNotes:
+            result.compliance?.findings?.map((f) => f.message).join("\n") ?? null,
+        },
+        select: { id: true },
+      });
+      result.savedId = saved.id;
+    } catch (err) {
+      // DB 저장 실패 시 결과는 반환(dev 환경 DB 없는 경우 등)
+      result.error = result.error ?? `persist:${(err as Error).message?.slice(0, 60)}`;
+    }
   }
-  return { ok: true, stage: "READY", draft, compliance };
+
+  return result;
 }
 
 /** 검수 대상 텍스트 취합(제목·메타·본문·FAQ). */
