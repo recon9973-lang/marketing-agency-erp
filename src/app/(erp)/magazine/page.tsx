@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { MagazineImport } from "@/components/magazine/MagazineImport";
 import { MagazineQueue } from "@/components/magazine/MagazineQueue";
 import { MagazineBatchButton } from "@/components/magazine/MagazineBatchButton";
+import { MagazineIntegrationStatus } from "@/components/magazine/MagazineIntegrationStatus";
 import { isAiConfigured } from "@/server/ai/claude";
 import { MAGAZINE_CATEGORIES } from "@/domain/content/magazine";
 import { listMagazineQueue, magazineSummary } from "@/server/repositories/magazine";
@@ -47,6 +48,8 @@ export default async function MagazinePage({ searchParams }: { searchParams: Pro
           </div>
         ))}
       </div>
+
+      <MagazineIntegrationStatus />
 
       {/* 카테고리 필터 */}
       <div className="flex flex-wrap gap-1.5">
