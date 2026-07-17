@@ -18,15 +18,17 @@ server/marketing/
     canva.ts            #   카드뉴스/썸네일
     wordpress.ts        #   WordPress.com 발행
     make.ts             #   Make 시나리오 위임 발행
-  research.ts           # S2 키워드 리서치 + 성과수집 → Report.metrics
+  research.ts           # S2 키워드 리서치 + 성과수집 → Report.metrics + KeywordResearch DB
   compliance.ts         # S3 의료광고법 검수 게이트
-  content-pipeline.ts   # S3 초안 → 검수 게이트 → 스테이지/판정
+  content-pipeline.ts   # S3 초안 → 검수 게이트 → ContentAsset DB 저장
+  graph-insights.ts     # Graph RAG Lite — 업종 내 크로스 거래처 키워드 인사이트
   creative.ts           # S4 브리프 → kind별 provider 라우팅
   publish.ts            # S5 발행 게이트 + 채널 라우팅
   report-assembly.ts    # S6 월간 리포트 집계 + 요약 코멘트 → Report.metrics
   *.test.ts             # 상태머신·컴플라이언스·리포트 집계 단위테스트
 domain/marketing/schemas.ts   # enum · zod · 파이프라인 상태머신
 app/api/marketing/cron/route.ts  # 성과수집 배치 트리거(secret 보호)
+server/jobs/keyword-rank.ts   # 경량 순위배치 래퍼 (naverResearch.rankCheck로 통합)
 ```
 
 ## 이중 실행 모델
@@ -55,11 +57,17 @@ MAKE_WEBHOOK_URL                                      # Make 위임 발행
 ## 진행 상태
 
 - [x] S0 기획 / S1 스캐폴딩 / S2 리서치·성과수집 / S3 콘텐츠+의료광고법 / S4 크리에이티브 / S5 발행·배포 / S6 리포트 자동조립
-- [ ] **공통 마무리 (로컬 `pnpm` 검증 필요 — 원격 환경 밖):**
-  - [ ] `docs/venom-marketing-engine-schema.prisma` → `prisma/schema.prisma` 병합 + `prisma migrate`
-  - [ ] 스튜디오 UI(`app/(erp)/studio/`) + server actions(ActionResult/RBAC/audit 연동)
-  - [ ] provider 실키 주입 후 e2e 검증
-  - [ ] 로컬 검증 시 `keyword-rank.ts`를 naver provider로 통합
+- [x] `docs/venom-marketing-engine-schema.prisma` → `prisma/schema.prisma` 병합 + `prisma migrate` 완료
+- [x] 스튜디오 UI(`app/(erp)/studio/`) + server actions(ActionResult/RBAC/audit 연동) 완료
+- [x] `research.ts` `collectKeywordResearch()` → `KeywordResearch` 모델 DB 저장 (clientId 제공 시)
+- [x] `content-pipeline.ts` `runBlogDraftPipeline()` → `ContentAsset` 모델 DB 저장 (clientId 제공 시)
+- [x] **Graph RAG Lite** `graph-insights.ts` — 업종 내 크로스 거래처 키워드 인사이트 (3-홉 Prisma 탐색)
+- [x] `keyword-rank.ts` → `naverResearch.rankCheck()` 통합 (`KW_PROXY_URL` 의존 제거)
 
-> S2~S6 서비스는 마이그레이션 없이 `Report.metrics`만으로 동작한다(키 주입 시 실데이터).
-> 신규 Prisma 모델·발행/콘텐츠 영속화는 위 공통 마무리에서 완결.
+## 남은 작업
+
+- [ ] provider 실키 주입 후 e2e 검증 (네이버 API 키·SEO Generator·Higgsfield 키 설정 후 스튜디오 UI 실동작 확인)
+
+> **배치 표준 경로**: `research.ts`의 `runMonthlyPerformanceCollection()` — 트렌드·경쟁강도 포함.
+> `keyword-rank.ts`의 `runMonthlyKeywordCollection()`은 순위만 필요한 경량 대안.
+> 두 경로 모두 `naverResearch.rankCheck()` 단일 provider 사용.
