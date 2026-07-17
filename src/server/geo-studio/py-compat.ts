@@ -50,3 +50,38 @@ export function pyRound(x: number, ndigits = 0): number {
   if (result === 0) return 0; // -0 정규화(파이썬 round(-0.5)=0)
   return neg ? -result : result;
 }
+
+// ── 파이썬 datetime.date 호환 (ISO YYYY-MM-DD, UTC 고정으로 TZ 무관) ──
+
+function isoParts(iso: string): [number, number, number] {
+  const [y, m, d] = iso.split("-").map(Number);
+  return [y, m, d];
+}
+
+/** date.fromisoformat(iso) + timedelta(days=n) → ISO. */
+export function isoAddDays(iso: string, n: number): string {
+  const [y, m, d] = isoParts(iso);
+  const dt = new Date(Date.UTC(y, m - 1, d) + n * 86_400_000);
+  const p = (v: number) => String(v).padStart(2, "0");
+  return `${dt.getUTCFullYear()}-${p(dt.getUTCMonth() + 1)}-${p(dt.getUTCDate())}`;
+}
+
+/** 파이썬 date.weekday(): 월=0 … 일=6. */
+export function isoWeekday(iso: string): number {
+  const [y, m, d] = isoParts(iso);
+  return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;
+}
+
+/** (a - b) 일수 차 — 파이썬 (date_a - date_b).days. */
+export function isoDiffDays(a: string, b: string): number {
+  const [ay, am, ad] = isoParts(a);
+  const [by, bm, bd] = isoParts(b);
+  return Math.round((Date.UTC(ay, am - 1, ad) - Date.UTC(by, bm - 1, bd)) / 86_400_000);
+}
+
+/** 로컬 오늘(ISO) — 파이썬 date.today() 대응. 결정성이 필요한 호출부는 명시 날짜를 넘긴다. */
+export function todayIso(): string {
+  const dt = new Date();
+  const p = (v: number) => String(v).padStart(2, "0");
+  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`;
+}
