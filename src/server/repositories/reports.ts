@@ -125,3 +125,44 @@ export async function fetchReportsForUser(user: CurrentUser): Promise<ReportList
     metricsSummary: summarizeMetrics(report.metrics)
   }));
 }
+
+
+export type ReportDetail = {
+  id: string;
+  title: string;
+  status: ReportStatus;
+  metrics: Record<string, unknown> | null;
+  clientName: string;
+  reportingMonth: Date;
+};
+
+/**
+ * 단일 보고서 상세. buildReportWhere로 접근 권한을 강제한다
+ * (권한 없는 보고서 id는 null 반환 → 페이지에서 notFound 처리).
+ */
+export async function fetchReportDetail(user: CurrentUser, id: string): Promise<ReportDetail | null> {
+  const report = await db.report.findFirst({
+    where: { AND: [{ id }, await buildReportWhere(user)] },
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      metrics: true,
+      reportingMonth: true,
+      client: { select: { name: true } }
+    }
+  });
+
+  if (!report) {
+    return null;
+  }
+
+  return {
+    id: report.id,
+    title: report.title,
+    status: report.status,
+    metrics: (report.metrics as Record<string, unknown> | null) ?? null,
+    clientName: report.client.name,
+    reportingMonth: report.reportingMonth
+  };
+}

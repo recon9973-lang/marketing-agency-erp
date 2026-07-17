@@ -25,7 +25,9 @@ const columns: DataTableColumn<ReportListItem>[] = [
     header: "보고서",
     render: (report) => (
       <div>
-        <p className="font-medium text-ink">{report.title}</p>
+        <a href={`/reports/${report.id}`} className="font-medium text-brand underline-offset-2 hover:underline">
+          {report.title}
+        </a>
         <p className="mt-1 text-xs text-slate-500">{monthFormatter.format(report.reportingMonth)}</p>
       </div>
     )
