@@ -16,14 +16,16 @@ export const magazineKindLabels: Record<MagazineKind, string> = {
   news: "동향"
 };
 
-// QUEUED(큐 대기) → DRAFTED(AI 초안) → REVIEWED(사람 검토) → PUBLISHED(발행)
-export const MAGAZINE_STATUSES = ["QUEUED", "DRAFTED", "REVIEWED", "PUBLISHED"] as const;
+// QUEUED(큐 대기) → DRAFTED(AI 초안) → REVIEWED(사람 검토) → SCHEDULED(예약) → PUBLISHED(발행)
+// SCHEDULED: 워드프레스 future 예약이 잡힌 상태(발행 시각 미도래). 실제 게시는 예약 시각에 자동.
+export const MAGAZINE_STATUSES = ["QUEUED", "DRAFTED", "REVIEWED", "SCHEDULED", "PUBLISHED"] as const;
 export type MagazineStatus = (typeof MAGAZINE_STATUSES)[number];
 
 export const magazineStatusLabels: Record<MagazineStatus, string> = {
   QUEUED: "큐 대기",
   DRAFTED: "초안",
   REVIEWED: "검토",
+  SCHEDULED: "예약",
   PUBLISHED: "발행"
 };
 

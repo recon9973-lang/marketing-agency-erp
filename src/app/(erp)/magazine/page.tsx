@@ -86,7 +86,7 @@ export default async function MagazinePage({ searchParams }: { searchParams: Pro
       <MagazineQueue rows={rows} />
 
       <p className="rounded-xl border border-line bg-surface/60 px-3 py-2 text-[11px] text-slate-500">
-        다음 단계: 검토 완료 항목 → 워드프레스 예약 발행 + 커버 자동 생성. (후속 PR)
+        검토 완료(REVIEWED) 항목은 <b className="text-slate-600">발행</b>에서 예약 시각·커버(자동 생성)를 지정할 수 있습니다. 미래 시각이면 워드프레스에 예약(자동 게시)됩니다.
       </p>
     </section>
   );

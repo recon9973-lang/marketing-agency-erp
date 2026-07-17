@@ -1014,10 +1014,12 @@ model MagazinePost {
   category     String // "AEO/GEO" | "SEO" | "AI마케팅" | "병원마케팅"
   kind         String   @default("glossary") // glossary | article | howto | news
   seed         String? // 한 줄 정의/메모(초안 생성 힌트)
-  status       String   @default("QUEUED") // QUEUED → DRAFTED → REVIEWED → PUBLISHED
+  status       String    @default("QUEUED") // QUEUED → DRAFTED → REVIEWED → SCHEDULED → PUBLISHED
   draft        String? // 생성된 초안(마크다운/HTML)
   publishedUrl String? // 발행 URL(게시 증빙)
   wpPostId     Int? // 워드프레스 글 ID
+  scheduledAt  DateTime? // 예약 발행 시각(있으면 워드프레스 future 예약)
+  coverUrl     String? // 대표이미지 원본 URL(발행 증빙)
   orgId        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

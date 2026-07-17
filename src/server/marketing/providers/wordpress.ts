@@ -44,6 +44,40 @@ function authHeaderOf(c: WpConfig): string {
 }
 
 /**
+ * 이미지 바이트 → 워드프레스 미디어 업로드(서버 측). 대표이미지 media_id 반환.
+ * ERP가 만든 커버(브라우저 Canvas PNG 등)나 외부에서 받은 이미지를 그대로 올릴 때 사용.
+ */
+export async function wordpressUploadMediaBytes(
+  buf: Buffer,
+  contentType: string,
+  filename = "cover.png",
+): Promise<ProviderResult<{ id: number; sourceUrl?: string }>> {
+  const c = cfg();
+  if (!c) return provFail("CONFIG_MISSING", "WordPress 미설정");
+  if (!contentType.startsWith("image/")) return provFail("INVALID_INPUT", "이미지가 아닙니다");
+  if (buf.length > 8_000_000) return provFail("INVALID_INPUT", "이미지가 너무 큽니다(8MB 초과)");
+  try {
+    const res = await fetch(`${c.origin}/wp-json/wp/v2/media`, {
+      method: "POST",
+      headers: {
+        Authorization: authHeaderOf(c),
+        "Content-Type": contentType,
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+      body: new Uint8Array(buf),
+      cache: "no-store",
+    });
+    if (res.status === 401 || res.status === 403) return provFail("UNAUTHORIZED", "WordPress 인증 실패");
+    if (!res.ok) return provFail("UPSTREAM_ERROR", `미디어 업로드 실패 (${res.status})`);
+    const json = (await res.json()) as { id?: number; source_url?: string };
+    if (!json.id) return provFail("UPSTREAM_ERROR", "미디어 응답 해석 실패");
+    return provOk({ id: json.id, sourceUrl: json.source_url }, { source: "wordpress" });
+  } catch (e) {
+    return provFail("UPSTREAM_ERROR", "미디어 업로드 실패", e);
+  }
+}
+
+/**
  * 이미지 URL → 워드프레스 미디어 업로드(서버 측). 서버(Vercel)는 egress 제한이 없어
  * 외부 CDN(힉스필드 등) 이미지를 가져와 미디어함에 올릴 수 있다. 대표이미지 media_id 반환.
  */
@@ -59,23 +93,7 @@ export async function wordpressUploadMediaFromUrl(
     const contentType = img.headers.get("content-type") || "image/png";
     if (!contentType.startsWith("image/")) return provFail("INVALID_INPUT", "이미지 URL이 아닙니다");
     const buf = Buffer.from(await img.arrayBuffer());
-    if (buf.length > 8_000_000) return provFail("INVALID_INPUT", "이미지가 너무 큽니다(8MB 초과)");
-
-    const res = await fetch(`${c.origin}/wp-json/wp/v2/media`, {
-      method: "POST",
-      headers: {
-        Authorization: authHeaderOf(c),
-        "Content-Type": contentType,
-        "Content-Disposition": `attachment; filename="${filename}"`,
-      },
-      body: buf,
-      cache: "no-store",
-    });
-    if (res.status === 401 || res.status === 403) return provFail("UNAUTHORIZED", "WordPress 인증 실패");
-    if (!res.ok) return provFail("UPSTREAM_ERROR", `미디어 업로드 실패 (${res.status})`);
-    const json = (await res.json()) as { id?: number; source_url?: string };
-    if (!json.id) return provFail("UPSTREAM_ERROR", "미디어 응답 해석 실패");
-    return provOk({ id: json.id, sourceUrl: json.source_url }, { source: "wordpress" });
+    return wordpressUploadMediaBytes(buf, contentType, filename);
   } catch (e) {
     return provFail("UPSTREAM_ERROR", "미디어 업로드 실패", e);
   }

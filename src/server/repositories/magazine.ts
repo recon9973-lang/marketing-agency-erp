@@ -12,6 +12,7 @@ export type MagazineRow = {
   status: string;
   draft: string | null;
   publishedUrl: string | null;
+  scheduledAt: string | null;
   createdAt: string;
 };
 
@@ -23,7 +24,7 @@ export async function listMagazineQueue(filter?: { status?: string; category?: s
     },
     orderBy: [{ createdAt: "desc" }],
     take: 300,
-    select: { id: true, title: true, category: true, kind: true, seed: true, status: true, draft: true, publishedUrl: true, createdAt: true }
+    select: { id: true, title: true, category: true, kind: true, seed: true, status: true, draft: true, publishedUrl: true, scheduledAt: true, createdAt: true }
   });
   return rows.map((r) => ({
     id: r.id,
@@ -34,6 +35,7 @@ export async function listMagazineQueue(filter?: { status?: string; category?: s
     status: r.status,
     draft: r.draft,
     publishedUrl: r.publishedUrl,
+    scheduledAt: r.scheduledAt ? r.scheduledAt.toISOString() : null,
     createdAt: r.createdAt.toISOString()
   }));
 }

@@ -11,7 +11,7 @@ import { buildMagazineMarkdown, isMagazineCategory, isMagazineKind, MAGAZINE_STA
 import { db } from "@/server/db";
 import { generateMagazineDraft, isAiConfigured } from "@/server/ai/claude";
 import { markdownToHtml } from "@/server/marketing/render-plan";
-import { wordpressPublish, wordpressUploadMediaFromUrl, wordpressFindCategoryId } from "@/server/marketing/providers/wordpress";
+import { wordpressPublish, wordpressUploadMediaFromUrl, wordpressUploadMediaBytes, wordpressFindCategoryId } from "@/server/marketing/providers/wordpress";
 import { getDefaultOrgId } from "@/server/org";
 import { recordAudit, requestMeta, requireUser, runAction, type ActionResult } from "@/server/actions/_helpers";
 
@@ -146,7 +146,8 @@ export async function setMagazineStatus(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
     const p = z.object({ id: z.string().min(1), status: z.enum(MAGAZINE_STATUSES) }).safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
-    if (p.data.status === "PUBLISHED") throw new Error("VALIDATION"); // 발행은 별도 액션(후속)
+    // 발행/예약은 별도 액션(publishMagazinePost) 전용 — 상태 전이로 직접 설정 불가.
+    if (p.data.status === "PUBLISHED" || p.data.status === "SCHEDULED") throw new Error("VALIDATION");
     const post = await db.magazinePost.findUnique({ where: { id: p.data.id }, select: { id: true, status: true, draft: true } });
     if (!post) throw new Error("NOT_FOUND");
     // 초안 없이 검토 완료로 올릴 수 없음
@@ -162,16 +163,28 @@ export async function setMagazineStatus(input: unknown): Promise<ActionResult> {
   });
 }
 
+// data:image/(png|jpeg|webp);base64,.... 형태만 허용(브라우저 Canvas 커버). 그 외엔 null.
+const COVER_DATAURL_RE = /^data:(image\/(?:png|jpe?g|webp));base64,([A-Za-z0-9+/=]+)$/;
+
+const publishSchema = z.object({
+  id: z.string().min(1),
+  // 직접 입력 이미지 URL(선택) — 서버가 받아 업로드.
+  coverImageUrl: z.string().url().max(1000).optional().nullable(),
+  // 자동 생성 커버(브라우저 Canvas) — data URL(base64). URL과 함께 오면 URL 우선.
+  coverDataUrl: z.string().max(8_000_000).optional().nullable(),
+  // 예약 발행 시각(ISO). 미래면 워드프레스 future 예약, 과거/없으면 즉시 발행.
+  scheduledAt: z.string().datetime({ offset: true }).optional().nullable()
+});
+
 /**
  * 파이프라인 ③ — 검토 완료(REVIEWED) 글을 워드프레스로 서버 측 발행.
- * 서버(Vercel)는 egress 제한이 없어 커버 이미지 URL을 가져와 대표이미지로 자동 업로드한다.
+ * 서버(Vercel)는 egress 제한이 없어 커버 이미지(URL 또는 Canvas 자동생성)를 대표이미지로 자동 업로드한다.
+ * scheduledAt(미래)이면 워드프레스 future로 예약 발행(SCHEDULED), 없으면 즉시 발행(PUBLISHED).
  * 카테고리는 이름으로 워드프레스 카테고리 ID를 조회해 자동 매핑(있으면).
  */
-export async function publishMagazinePost(input: unknown): Promise<ActionResult<{ url: string }>> {
+export async function publishMagazinePost(input: unknown): Promise<ActionResult<{ url: string; scheduled: boolean }>> {
   return runAction(async () => {
-    const p = z
-      .object({ id: z.string().min(1), coverImageUrl: z.string().url().max(1000).optional().nullable() })
-      .safeParse(input);
+    const p = publishSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
 
     const post = await db.magazinePost.findUnique({
@@ -186,12 +199,28 @@ export async function publishMagazinePost(input: unknown): Promise<ActionResult<
     const html = markdownToHtml(stripLeadingTitle(post.draft));
     if (!html.trim()) throw new Error("NOTHING_TO_PUBLISH");
 
-    // 커버 이미지(선택) — 서버가 URL을 가져와 미디어함에 업로드 → 대표이미지
+    // 예약 여부 — 미래 시각이면 예약, 그 외엔 즉시.
+    const scheduledIso = p.data.scheduledAt ?? null;
+    const scheduled = !!scheduledIso && new Date(scheduledIso).getTime() > Date.now();
+
+    // 커버 대표이미지: ① 직접 URL 우선 → ② Canvas data URL. 서버가 미디어함에 업로드.
     let featuredMediaId: number | undefined;
+    let coverSourceUrl: string | null = null;
     if (p.data.coverImageUrl) {
       const media = await wordpressUploadMediaFromUrl(p.data.coverImageUrl, `${post.id}.png`);
       if (!media.ok) throw new Error(media.error.code === "CONFIG_MISSING" ? "WORDPRESS_NOT_CONFIGURED" : "PUBLISH_FAILED");
       featuredMediaId = media.data.id;
+      coverSourceUrl = media.data.sourceUrl ?? p.data.coverImageUrl;
+    } else if (p.data.coverDataUrl) {
+      const m = COVER_DATAURL_RE.exec(p.data.coverDataUrl);
+      if (!m) throw new Error("VALIDATION");
+      const buf = Buffer.from(m[2], "base64");
+      if (buf.length === 0 || buf.length > 8_000_000) throw new Error("VALIDATION");
+      const ext = m[1] === "image/png" ? "png" : m[1] === "image/webp" ? "webp" : "jpg";
+      const media = await wordpressUploadMediaBytes(buf, m[1], `${post.id}.${ext}`);
+      if (!media.ok) throw new Error(media.error.code === "CONFIG_MISSING" ? "WORDPRESS_NOT_CONFIGURED" : "PUBLISH_FAILED");
+      featuredMediaId = media.data.id;
+      coverSourceUrl = media.data.sourceUrl ?? null;
     }
 
     // 카테고리 이름 → 워드프레스 카테고리 ID(있으면)
@@ -201,6 +230,7 @@ export async function publishMagazinePost(input: unknown): Promise<ActionResult<
       channel: "WORDPRESS",
       title: post.title,
       bodyHtmlOrMarkdown: html,
+      scheduledAt: scheduled ? scheduledIso! : undefined,
       featuredMediaId,
       categories: catId ? [catId] : undefined
     });
@@ -216,19 +246,25 @@ export async function publishMagazinePost(input: unknown): Promise<ActionResult<
     await db.$transaction(async (tx) => {
       await tx.magazinePost.update({
         where: { id: p.data.id },
-        data: { status: "PUBLISHED", ...(publishedUrl ? { publishedUrl } : {}), ...(wpPostId ? { wpPostId } : {}) }
+        data: {
+          status: scheduled ? "SCHEDULED" : "PUBLISHED",
+          scheduledAt: scheduled ? new Date(scheduledIso!) : null,
+          ...(publishedUrl ? { publishedUrl } : {}),
+          ...(wpPostId ? { wpPostId } : {}),
+          ...(coverSourceUrl ? { coverUrl: coverSourceUrl } : {})
+        }
       });
       await recordAudit(tx, {
         actorId: user.id,
-        action: "magazine.publish",
+        action: scheduled ? "magazine.schedule" : "magazine.publish",
         targetType: "MagazinePost",
         targetId: p.data.id,
-        afterState: { publishedUrl, wpPostId, featured: Boolean(featuredMediaId) },
+        afterState: { publishedUrl, wpPostId, featured: Boolean(featuredMediaId), scheduledAt: scheduled ? scheduledIso : null },
         ...meta
       });
     });
     revalidatePath("/magazine");
-    return { url: publishedUrl ?? "" };
+    return { url: publishedUrl ?? "", scheduled };
   });
 }
 
