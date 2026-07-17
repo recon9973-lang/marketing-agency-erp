@@ -16,7 +16,8 @@ import { getCurrentUser } from "@/server/session";
 const roleLabels: Record<Role, string> = {
   [Role.SUPER_ADMIN]: "최고관리자",
   [Role.ADMIN]: "관리자",
-  [Role.MARKETER]: "담당자"
+  [Role.MARKETER]: "담당자",
+  [Role.CLIENT]: "거래처"
 };
 
 const userStatusLabels: Record<UserStatus, string> = {

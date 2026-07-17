@@ -18,7 +18,7 @@ async function sendMagicLink(formData: FormData) {
   }
   try {
     // 성공 시 next-auth가 "메일 확인" 페이지로 리다이렉트(throw)한다.
-    await signIn("nodemailer", { email, redirectTo: "/dashboard" });
+    await signIn("nodemailer", { email, redirectTo: "/" });
   } catch (error) {
     // 미등록/권한없음(AccessDenied) 등은 AuthError → 안내와 함께 로그인으로 복귀.
     if (error instanceof AuthError) {

@@ -11,6 +11,7 @@ enum Role {
   SUPER_ADMIN
   ADMIN
   MARKETER
+  CLIENT // 거래처 외부 사용자 (포털 전용)
 }
 
 enum UserStatus {
@@ -129,6 +130,36 @@ enum ClientAccountPlatform {
   OTHER
 }
 
+// ─────────────────────────────────────────────
+// 포털 전용 enum
+// ─────────────────────────────────────────────
+
+enum ClientStatus {
+  PROSPECT      // 잠재 고객
+  CONSULTING    // 상담 중
+  MEETING       // 미팅 진행
+  NEGOTIATING   // 계약 협의
+  ACTIVE        // 계약 활성
+  PAUSED        // 일시 중단
+  LOST          // 이탈
+}
+
+enum ClientRequestStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum ClientRequestCategory {
+  CONTENT_REQUEST
+  REPORT_INQUIRY
+  SCHEDULE_CHANGE
+  ACCOUNT_ISSUE
+  BILLING_INQUIRY
+  OTHER
+}
+
 model User {
   id                      String          @id @default(cuid())
   name                    String
@@ -136,18 +167,22 @@ model User {
   emailVerified           DateTime?
   role                    Role
   status                  UserStatus      @default(ACTIVE)
-  canAccessSettings       Boolean         @default(false) // 최고관리자가 승인하면 관리자/담당자도 설정 화면 열람
+  canAccessSettings       Boolean         @default(false)
   image                   String?
   kakaoId                 String?         @unique
   timezone                String          @default("Asia/Seoul")
   isActive                Boolean         @default(true)
   googleCalendarConnected Boolean         @default(false)
   naverCalendarConnected  Boolean         @default(false)
+  // ─── 포털 사용자 전용 ───
+  clientId                String?         // CLIENT 역할일 때 연결된 거래처
+  portalNote              String?         // 관리자 메모 (포털 계정용)
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
   adminScopes             AccessScope[]   @relation("AdminScopes")
   scopedMarketers         AccessScope[]   @relation("ScopedMarketers")
   ownedClients            Client[]        @relation("AssignedMarketer")
+  stageAssignedClients    Client[]        @relation("StageAssignee")
   managedAccounts         ClientAccount[] @relation("AccountManager")
   workTemplates           WorkTemplate[]  @relation("TemplateCreator")
   ownedWorkItems          WorkItem[]      @relation("WorkOwner")
@@ -166,6 +201,14 @@ model User {
   accounts                Account[]
   sessions                Session[]
   loginHistory            LoginHistory[]  @relation("UserLoginHistory")
+  // ─── 포털 관계 ───
+  portalClient            Client?         @relation("PortalUsers", fields: [clientId], references: [id])
+  clientRequests          ClientRequest[] @relation("RequestAuthor")
+  assignedRequests        ClientRequest[] @relation("RequestAssignee")
+  clientComments          ClientComment[]
+  clientAttachments       ClientAttachment[]
+
+  @@index([clientId])
 }
 
 model AccessScope {
@@ -201,10 +244,15 @@ model Client {
   active             Boolean           @default(true)
   assignedMarketerId String?
   industryCategoryId String?
-  industryCustom     String? // 업종 "기타" 수기 입력
+  industryCustom     String?
+  // ─── 포털/영업 파이프라인 ───
+  status             ClientStatus      @default(PROSPECT)
+  statusHistory      Json?             // [{status, changedAt, changedBy, note}]
+  stageAssigneeId    String?           // 현재 단계 담당자 (영업/마케터)
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   assignedMarketer   User?             @relation("AssignedMarketer", fields: [assignedMarketerId], references: [id])
+  stageAssignee      User?             @relation("StageAssignee", fields: [stageAssigneeId], references: [id])
   industryCategory   IndustryCategory? @relation(fields: [industryCategoryId], references: [id])
   accessScopes       AccessScope[]
   accounts           ClientAccount[]
@@ -213,19 +261,27 @@ model Client {
   billingRecords     BillingRecord[]
   expenseRecords     ExpenseRecord[]
   reports            Report[]
+  // ─── 포털 관계 ───
+  portalUsers        User[]            @relation("PortalUsers")
+  clientRequests     ClientRequest[]
+  clientComments     ClientComment[]
+  clientAttachments  ClientAttachment[]
+  consultationForms  ConsultationForm[]
 
   @@index([assignedMarketerId])
   @@index([industryCategoryId])
+  @@index([stageAssigneeId])
+  @@index([status])
 }
 
 model ClientAccount {
   id             String                 @id @default(cuid())
   clientId       String
   managerId      String?
-  platform       ClientAccountPlatform? // §3-D: 신규는 channelType 경로로 일원화, 이관 기간 nullable
+  platform       ClientAccountPlatform?
   channelTypeId  String?
-  usernameEnc    String? // AES-256-GCM 암호화 저장 (crypto.ts)
-  passwordEnc    String? // AES-256-GCM 암호화 저장
+  usernameEnc    String?
+  passwordEnc    String?
   label          String
   handle         String?
   loginReference String?
@@ -284,7 +340,7 @@ model WorkItem {
   scheduledStart   DateTime?
   scheduledEnd     DateTime?
   estimatedMinutes Int?
-  workCategoryId   String? // WorkCategoryMaster FK (기존 category enum과 병행/이관)
+  workCategoryId   String?
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
   client           Client              @relation(fields: [clientId], references: [id])
@@ -513,6 +569,9 @@ model Report {
   reviewer       User?           @relation("ReportReviewer", fields: [reviewerId], references: [id])
   workItem       WorkItem?       @relation(fields: [workItemId], references: [id])
   calendarEvents CalendarEvent[]
+  // ─── 포털 관계 ───
+  comments       ClientComment[]
+  attachments    ClientAttachment[]
 
   @@unique([clientId, reportingMonth])
   @@index([authorId])
@@ -577,16 +636,15 @@ model VerificationToken {
 }
 
 // ─────────────────────────────────────────────
-// V2.1 마스터/추적/재무/정책 (erp-v2-staging 병합)
+// V2.1 마스터/추적/재무/정책
 // ─────────────────────────────────────────────
 
-/// 업종 마스터 (2단: parentId=null 대분류 / parent 지정 하위=진료과 등)
 model IndustryCategory {
   id        String   @id @default(cuid())
   name      String
   parentId  String?
-  colorTag  String? // hex, 목록/캘린더 색상 표시
-  isLocked  Boolean  @default(false) // 최고관리자만 해제/수정
+  colorTag  String?
+  isLocked  Boolean  @default(false)
   isActive  Boolean  @default(true)
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
@@ -600,11 +658,10 @@ model IndustryCategory {
   @@index([isActive, sortOrder])
 }
 
-/// 업무 카테고리 마스터 (그룹: 블로그/검색광고/지도/SNS/웹/운영)
 model WorkCategoryMaster {
   id        String   @id @default(cuid())
   name      String
-  group     String // 표시용 그룹 라벨
+  group     String
   colorTag  String?
   isLocked  Boolean  @default(false)
   isActive  Boolean  @default(true)
@@ -617,7 +674,6 @@ model WorkCategoryMaster {
   @@index([isActive, sortOrder])
 }
 
-/// 채널 종류 마스터 (네이버블로그/인스타/플레이스/홈페이지/파워링크 등)
 model ChannelType {
   id        String   @id @default(cuid())
   name      String
@@ -632,7 +688,6 @@ model ChannelType {
   @@index([isActive, sortOrder])
 }
 
-/// 로그인 이력 (최고관리자 추적용)
 model LoginHistory {
   id        String    @id @default(cuid())
   userId    String
@@ -648,15 +703,14 @@ model LoginHistory {
   @@index([at])
 }
 
-/// 은행 거래내역 (입금 반자동 대사용 임포트 데이터)
 model BankTransaction {
   id               String   @id @default(cuid())
   importedAt       DateTime @default(now())
   txDate           DateTime
   amount           Decimal  @db.Decimal(14, 2)
-  counterpartyName String? // 입금자명
+  counterpartyName String?
   memo             String?
-  matchStatus      String   @default("UNMATCHED") // UNMATCHED/SUGGESTED/CONFIRMED/IGNORED
+  matchStatus      String   @default("UNMATCHED")
   matchedBillingId String?
 
   matchedBilling BillingRecord? @relation("BillingBankMatch", fields: [matchedBillingId], references: [id])
@@ -665,12 +719,110 @@ model BankTransaction {
   @@index([matchedBillingId])
 }
 
-/// 회사 정책 (싱글턴 레코드로 운용)
 model CompanySetting {
   id                    String   @id @default(cuid())
-  adminCanManageExpense Boolean  @default(false) // 회사 지출 등록/검토를 관리자에게 허용할지
-  auditRetentionDays    Int      @default(365) // 추적 로그 보존일
-  workloadDailyMinutes  Int      @default(480) // 마케터 1일 가용시간(워크로드 기준)
+  adminCanManageExpense Boolean  @default(false)
+  auditRetentionDays    Int      @default(365)
+  workloadDailyMinutes  Int      @default(480)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// 클라이언트 포털 모델
+// ─────────────────────────────────────────────
+
+/// 거래처가 제출한 요청/문의
+model ClientRequest {
+  id          String               @id @default(cuid())
+  clientId    String
+  authorId    String
+  assigneeId  String?              // 담당 마케터
+  category    ClientRequestCategory
+  title       String
+  body        String
+  status      ClientRequestStatus  @default(OPEN)
+  adminNote   String?              // 마케터/관리자 공식 답변
+  resolvedAt  DateTime?
+  closedAt    DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  client      Client               @relation(fields: [clientId], references: [id])
+  author      User                 @relation("RequestAuthor", fields: [authorId], references: [id])
+  assignee    User?                @relation("RequestAssignee", fields: [assigneeId], references: [id])
+  comments    ClientComment[]
+  attachments ClientAttachment[]
+
+  @@index([clientId, status, createdAt])
+  @@index([assigneeId, status])
+  @@index([authorId])
+}
+
+/// 보고서 또는 요청에 달리는 댓글 (거래처/마케터 양방향)
+model ClientComment {
+  id        String   @id @default(cuid())
+  authorId  String
+  clientId  String   // 소속 거래처 (빠른 필터링용)
+  body      String
+  reportId  String?
+  requestId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author    User           @relation(fields: [authorId], references: [id])
+  client    Client         @relation(fields: [clientId], references: [id])
+  report    Report?        @relation(fields: [reportId], references: [id])
+  request   ClientRequest? @relation(fields: [requestId], references: [id])
+
+  @@index([reportId, createdAt])
+  @@index([requestId, createdAt])
+  @@index([clientId, createdAt])
+  @@index([authorId])
+}
+
+/// 포털에서 업로드된 첨부파일 메타데이터 (실제 파일은 Supabase Storage)
+model ClientAttachment {
+  id            String   @id @default(cuid())
+  clientId      String
+  uploaderId    String
+  fileName      String
+  fileUrl       String
+  fileSizeBytes Int?
+  mimeType      String?
+  requestId     String?
+  reportId      String?
+  createdAt     DateTime @default(now())
+
+  client    Client         @relation(fields: [clientId], references: [id])
+  uploader  User           @relation(fields: [uploaderId], references: [id])
+  request   ClientRequest? @relation(fields: [requestId], references: [id])
+  report    Report?        @relation(fields: [reportId], references: [id])
+
+  @@index([clientId, createdAt])
+  @@index([requestId])
+  @@index([reportId])
+  @@index([uploaderId])
+}
+
+/// 상담 신청 폼 (영업 파이프라인 Stage 0)
+model ConsultationForm {
+  id          String   @id @default(cuid())
+  clientId    String?  // 기존 거래처 연결 or null(신규 잠재 고객)
+  companyName String
+  contactName String
+  contactPhone String?
+  contactEmail String?
+  serviceInterest String?
+  budget       String?
+  message      String?
+  source       String?  // referral | direct | naver | instagram | etc.
+  submittedAt  DateTime @default(now())
+  reviewedAt   DateTime?
+  reviewNote   String?
+
+  client Client? @relation(fields: [clientId], references: [id])
+
+  @@index([clientId])
+  @@index([submittedAt])
 }

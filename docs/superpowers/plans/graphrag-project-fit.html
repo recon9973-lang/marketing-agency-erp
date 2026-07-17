@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Graph RAG × 프로젝트 적용 가능성 분석</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3350;
+    --accent: #6c63ff;
+    --accent2: #00d4aa;
+    --accent3: #ff6b6b;
+    --accent4: #ffd166;
+    --text: #e8eaf6;
+    --text-muted: #8892b0;
+    --text-dim: #4a5280;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif; line-height: 1.7; }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, #0f1117 0%, #1a1040 60%, #0a1a30 100%);
+    padding: 52px 40px 40px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 70% 60% at 50% -10%, rgba(108,99,255,0.15) 0%, transparent 70%);
+  }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(255,209,102,0.12);
+    border: 1px solid rgba(255,209,102,0.35);
+    color: #ffd166;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 100px;
+    margin-bottom: 18px;
+  }
+  .hero h1 {
+    font-size: clamp(22px, 4vw, 38px);
+    font-weight: 800;
+    background: linear-gradient(135deg, #fff 0%, #a78bfa 50%, #67e8f9 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.3;
+    margin-bottom: 12px;
+  }
+  .hero p { color: var(--text-muted); font-size: 14px; max-width: 560px; margin: 0 auto; }
+
+  .container { max-width: 940px; margin: 0 auto; padding: 0 24px; }
+  section { padding: 52px 0 36px; border-bottom: 1px solid var(--border); }
+  section:last-child { border-bottom: none; }
+
+  /* VERDICT BANNER */
+  .verdict {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin: 36px 0 48px;
+  }
+  @media(max-width:600px) { .verdict { grid-template-columns: 1fr; } }
+
+  .verdict-card {
+    border-radius: 18px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .verdict-card.high {
+    background: linear-gradient(135deg, rgba(0,212,170,0.12), rgba(0,212,170,0.04));
+    border: 1px solid rgba(0,212,170,0.35);
+  }
+  .verdict-card.medium {
+    background: linear-gradient(135deg, rgba(255,209,102,0.12), rgba(255,209,102,0.04));
+    border: 1px solid rgba(255,209,102,0.35);
+  }
+  .verdict-card .project-tag {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: block;
+  }
+  .verdict-card.high .project-tag { color: #00d4aa; }
+  .verdict-card.medium .project-tag { color: #ffd166; }
+
+  .verdict-card h2 { font-size: 18px; margin-bottom: 8px; }
+  .verdict-card .score {
+    font-size: 42px;
+    font-weight: 900;
+    line-height: 1;
+    margin: 12px 0 8px;
+  }
+  .verdict-card.high .score { color: #00d4aa; }
+  .verdict-card.medium .score { color: #ffd166; }
+  .verdict-card .score-label { font-size: 12px; color: var(--text-muted); }
+  .verdict-card p { font-size: 13.5px; color: var(--text-muted); margin-top: 12px; }
+
+  /* SECTION HEADER */
+  .sec-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .sec-label.erp { color: #00d4aa; }
+  .sec-label.geo { color: #ffd166; }
+  .sec-label .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .sec-label.erp .dot { background: #00d4aa; }
+  .sec-label.geo .dot { background: #ffd166; }
+
+  h2 { font-size: clamp(20px, 3vw, 28px); font-weight: 700; color: #fff; margin-bottom: 8px; }
+  .sec-desc { color: var(--text-muted); font-size: 14px; margin-bottom: 28px; max-width: 640px; }
+  h3 { font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 8px; }
+  h4 { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px; }
+  p { color: var(--text-muted); font-size: 14px; }
+
+  /* APPLICABILITY TABLE */
+  .app-table {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin: 20px 0;
+  }
+  .app-row {
+    display: grid;
+    grid-template-columns: 200px 1fr 100px;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    align-items: stretch;
+  }
+  .app-row:last-child { border-bottom: none; }
+  .app-row.header { background: var(--surface2); }
+  .app-cell {
+    padding: 14px 18px;
+    font-size: 13px;
+    color: var(--text-muted);
+    border-right: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+  }
+  .app-cell:last-child { border-right: none; }
+  .app-row.header .app-cell {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .app-cell strong { color: #fff; font-size: 13.5px; }
+  .app-cell code {
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-size: 11px;
+    background: rgba(108,99,255,0.15);
+    border: 1px solid rgba(108,99,255,0.25);
+    color: #a78bfa;
+    padding: 1px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+  .pill.high   { background: rgba(0,212,170,0.15); color: #00d4aa; border: 1px solid rgba(0,212,170,0.3); }
+  .pill.medium { background: rgba(255,209,102,0.15); color: #ffd166; border: 1px solid rgba(255,209,102,0.3); }
+  .pill.low    { background: rgba(255,107,107,0.15); color: #ff6b6b; border: 1px solid rgba(255,107,107,0.3); }
+  .pill.maybe  { background: rgba(108,99,255,0.15); color: #a78bfa; border: 1px solid rgba(108,99,255,0.3); }
+
+  @media(max-width:600px) {
+    .app-row { grid-template-columns: 1fr; }
+    .app-cell { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+
+  /* USE CASE CARDS */
+  .usecase-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 20px 0;
+  }
+  @media(max-width:600px) { .usecase-grid { grid-template-columns: 1fr; } }
+
+  .usecase-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .usecase-card .uc-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .uc-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .usecase-card.erp .uc-icon { background: rgba(0,212,170,0.15); }
+  .usecase-card.geo .uc-icon { background: rgba(255,209,102,0.15); }
+  .usecase-card h3 { font-size: 14px; margin-bottom: 0; }
+  .usecase-card p { font-size: 13px; margin-bottom: 10px; }
+  .usecase-card .impact {
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    margin-top: 10px;
+  }
+  .usecase-card.erp .impact { background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.2); color: #5eead4; }
+  .usecase-card.geo .impact { background: rgba(255,209,102,0.08); border: 1px solid rgba(255,209,102,0.2); color: #fde68a; }
+
+  /* GRAPH STRUCTURE */
+  .graph-struct {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+  .node-flow {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
+    margin: 8px 0;
+  }
+  .gnode {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .gnode.model {
+    background: rgba(108,99,255,0.12);
+    border-color: rgba(108,99,255,0.35);
+    color: #c4b5fd;
+    font-family: 'Menlo', 'Consolas', monospace;
+  }
+  .garrow {
+    color: var(--text-dim);
+    padding: 0 6px;
+    font-size: 14px;
+  }
+  .grel {
+    font-size: 10px;
+    color: var(--text-dim);
+    padding: 0 2px;
+    font-style: italic;
+  }
+
+  /* SCHEMA BOX */
+  .schema-box {
+    background: #0d1117;
+    border: 1px solid rgba(108,99,255,0.3);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 12px 0;
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-size: 12px;
+    color: #8892b0;
+    line-height: 1.8;
+  }
+  .schema-box .kw { color: #ff79c6; }
+  .schema-box .model-name { color: #8be9fd; }
+  .schema-box .field { color: #f8f8f2; }
+  .schema-box .type { color: #bd93f9; }
+  .schema-box .rel { color: #50fa7b; }
+  .schema-box .comment { color: #6272a4; }
+
+  /* PRIORITY ROADMAP */
+  .roadmap {
+    position: relative;
+    padding-left: 28px;
+    margin: 20px 0;
+  }
+  .roadmap::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--accent), var(--accent2));
+    border-radius: 2px;
+  }
+  .rm-item {
+    position: relative;
+    margin-bottom: 20px;
+  }
+  .rm-item::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    background: var(--bg);
+  }
+  .rm-item:nth-child(2)::before { border-color: #7c72ff; }
+  .rm-item:nth-child(3)::before { border-color: var(--accent2); }
+  .rm-item:nth-child(4)::before { border-color: var(--accent4); }
+  .rm-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .rm-phase {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .rm-item h3 { font-size: 14.5px; margin: 0; }
+  .rm-item p { font-size: 13px; }
+
+  /* CALLOUT */
+  .callout {
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin: 20px 0;
+  }
+  .callout.info { background: rgba(108,99,255,0.1); border: 1px solid rgba(108,99,255,0.25); }
+  .callout.warn { background: rgba(255,209,102,0.1); border: 1px solid rgba(255,209,102,0.25); }
+  .callout.tip  { background: rgba(0,212,170,0.1); border: 1px solid rgba(0,212,170,0.25); }
+  .callout.alert { background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.25); }
+  .callout .ci { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .callout p { font-size: 13.5px; }
+
+  /* DIVIDER */
+  .proj-divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 40px 0 32px;
+  }
+  .proj-divider .line { flex: 1; height: 1px; background: var(--border); }
+  .proj-divider .label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  /* DECISION */
+  .decision-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 24px 0;
+  }
+  @media(max-width:600px) { .decision-grid { grid-template-columns: 1fr; } }
+
+  .dec-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+  }
+  .dec-card .dc-icon { font-size: 26px; margin-bottom: 12px; display: block; }
+  .dec-card h3 { font-size: 15px; margin-bottom: 8px; }
+  .dec-card ul { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .dec-card ul li { font-size: 12.5px; color: var(--text-muted); padding-left: 16px; position: relative; }
+  .dec-card ul li::before { content: '→'; position: absolute; left: 0; color: var(--accent2); font-size: 11px; }
+
+  footer {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 28px 40px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">프로젝트 적용 가능성 분석</div>
+  <h1>Graph RAG × 두 프로젝트<br>얼마나 필요한가?</h1>
+  <p>GEO SEO marketing analysis · venom_erp_v1 두 프로젝트에 Graph RAG 기술이 실제로 필요한 파트와 우선순위를 분석합니다.</p>
+</div>
+
+<div class="container">
+
+  <!-- VERDICT -->
+  <section style="border: none; padding-bottom: 0;">
+    <h4 style="text-align:center; margin: 32px 0 20px;">종합 판단</h4>
+    <div class="verdict">
+      <div class="verdict-card high">
+        <span class="project-tag">🏗️ venom_erp_v1</span>
+        <h2>마케팅 에이전시 ERP</h2>
+        <div class="score">매우 높음</div>
+        <p class="score-label">Graph RAG 도입 적합성</p>
+        <p>거래처-마케터-업무-콘텐츠-보고서-청구로 이어지는 복잡한 관계망이 Graph RAG 구조와 완벽히 일치합니다. VME(콘텐츠 파이프라인) + 포털 + ERP 세 축의 연결 지점이 핵심입니다.</p>
+      </div>
+      <div class="verdict-card medium">
+        <span class="project-tag">📊 GEO SEO 프로젝트</span>
+        <h2>마케팅 분석</h2>
+        <div class="score">중간</div>
+        <p class="score-label">Graph RAG 도입 적합성</p>
+        <p>키워드 군집 관계, 콘텐츠 연결, 경쟁사 연결망 분석에 부분 적용 가능하지만, 먼저 기존 벡터 RAG로도 충분한 파트가 있습니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ ERP 프로젝트 ══ -->
+  <section id="erp">
+    <div class="sec-label erp"><span class="dot"></span>venom_erp_v1</div>
+    <h2>마케팅 에이전시 ERP — Graph RAG 적용 파트 분석</h2>
+    <p class="sec-desc">이 ERP는 <strong>거래처(Client) → 업무(WorkItem) → 콘텐츠(ContentAsset) → 보고서(Report) → 청구(BillingRecord)</strong>로 이어지는 관계 체인을 가집니다. 마케터-거래처-업무-성과의 연결망을 Graph RAG로 탐색하면 기존 SQL 쿼리로는 불가능한 맥락 기반 인사이트를 뽑을 수 있습니다.</p>
+
+    <!-- 실제 스키마 지식 그래프 -->
+    <h3 style="margin-bottom: 14px;">🗄️ 실제 Prisma 스키마 기반 핵심 관계망</h3>
+    <div class="graph-struct">
+      <h4 style="margin-bottom: 14px;">업무 실행 체인 (마케터 → 거래처 → 성과)</h4>
+      <div class="node-flow">
+        <div class="gnode model">User(marketer)</div>
+        <span class="garrow">→<span class="grel">assignedMarketer</span></span>
+        <div class="gnode model">Client</div>
+        <span class="garrow">→<span class="grel">workItems</span></span>
+        <div class="gnode model">WorkItem</div>
+        <span class="garrow">→<span class="grel">contentAssets</span></span>
+        <div class="gnode model">ContentAsset</div>
+        <span class="garrow">→<span class="grel">publishJobs</span></span>
+        <div class="gnode model">PublishJob</div>
+      </div>
+      <div style="height: 14px;"></div>
+      <h4 style="margin-bottom: 10px;">보고서-키워드-콘텐츠 연결 경로</h4>
+      <div class="node-flow">
+        <div class="gnode model">Report</div>
+        <span class="garrow">→<span class="grel">workItem</span></span>
+        <div class="gnode model">WorkItem</div>
+        <span class="garrow">→<span class="grel">keywordResearch</span></span>
+        <div class="gnode model">KeywordResearch</div>
+        <span class="garrow">→<span class="grel">results(JSON)</span></span>
+        <div class="gnode">순위 데이터</div>
+      </div>
+      <div style="height: 14px;"></div>
+      <h4 style="margin-bottom: 10px;">재무 대사 체인</h4>
+      <div class="node-flow">
+        <div class="gnode model">Client</div>
+        <span class="garrow">→</span>
+        <div class="gnode model">BillingRecord</div>
+        <span class="garrow">→<span class="grel">payments</span></span>
+        <div class="gnode model">PaymentRecord</div>
+        <span class="garrow">←</span>
+        <div class="gnode model">BankTransaction</div>
+        <span class="garrow">→<span class="grel">matchedBilling</span></span>
+        <div class="gnode">대사 완료</div>
+      </div>
+      <div style="height: 14px;"></div>
+      <h4 style="margin-bottom: 10px;">권한 범위 체인 (관리자 → 거래처 접근)</h4>
+      <div class="node-flow">
+        <div class="gnode model">User(admin)</div>
+        <span class="garrow">→<span class="grel">adminScopes</span></span>
+        <div class="gnode model">AccessScope</div>
+        <span class="garrow">→<span class="grel">client/marketer</span></span>
+        <div class="gnode model">Client</div>
+        <span class="garrow">→</span>
+        <div class="gnode model">WorkItem</div>
+      </div>
+      <div style="height: 14px;"></div>
+      <h4 style="margin-bottom: 10px;">포털 요청 체인 (거래처 → 마케터)</h4>
+      <div class="node-flow">
+        <div class="gnode model">User(CLIENT)</div>
+        <span class="garrow">→<span class="grel">clientRequests</span></span>
+        <div class="gnode model">ClientRequest</div>
+        <span class="garrow">→<span class="grel">assignee</span></span>
+        <div class="gnode model">User(marketer)</div>
+        <span class="garrow">→</span>
+        <div class="gnode model">ClientComment</div>
+      </div>
+    </div>
+
+    <!-- 모듈별 적합성 -->
+    <h3 style="margin: 28px 0 14px;">ERP 모듈별 Graph RAG 적합성</h3>
+    <div class="app-table">
+      <div class="app-row header">
+        <div class="app-cell">ERP 모듈</div>
+        <div class="app-cell">Graph RAG 활용 포인트 (실제 모델 기준)</div>
+        <div class="app-cell" style="justify-content: center;">적합도</div>
+      </div>
+      <div class="app-row">
+        <div class="app-cell"><strong>🏢 거래처 관리</strong></div>
+        <div class="app-cell"><code>Client</code>→<code>IndustryCategory</code>→<code>WorkItem</code>→<code>BillingRecord</code> 연결망. "이 업종 거래처들의 평균 성과와 미납 패턴은?" 복합 탐색</div>
+        <div class="app-cell" style="justify-content: center;"><span class="pill high">최우선</span></div>
+      </div>
+      <div class="app-row">
+        <div class="app-cell"><strong>📋 업무 관리 (VME)</strong></div>
+        <div class="app-cell"><code>WorkItem</code>→<code>WorkCategoryMaster</code>→<code>ContentAsset</code>→<code>PublishJob</code>→<code>ClientAccount</code> 체인. 업무 완결 경로 & 채널별 성과 추적</div>
+        <div class="app-cell" style="justify-content: center;"><span class="pill high">최우선</span></div>
+      </div>
+      <div class="app-row">
+        <div class="app-cell"><strong>📊 보고서 & 성과</strong></div>
+        <div class="app-cell"><code>Report.metrics</code>(JSON)→<code>KeywordResearch.results</code>→<code>ContentAsset</code> 연결. "이 보고서 지표에 기여한 콘텐츠/키워드 경로" 자동 추적</div>
+        <div class="app-cell" style="justify-content: center;"><span class="pill high">최우선</span></div>
+      </div>
+      <div class="app-row">
+        <div class="app-cell"><strong>🔐 권한 & 접근 범위</strong></div>
+        <div class="app-cell"><code>User</code>→<code>AccessScope</code>→<code>Client/Marketer</code> 계층. "이 관리자가 접근 가능한 거래처와 진행 중 업무 전체" 그래프 탐색</div>
+        <div class="app-cell" style="justify-content: center;"><span class="pill high">높음</span></div>
+      </div>
+      <div class="app-row">
+        <div class="app-cell"><strong>💰 청구 & 재무</strong></div>
+        <div class="app-cell"><code>BillingRecord</code>→<code>PaymentRecord</code>↔<code>BankTransaction</code> 대사. "이 거래처 미납 청구에 연결된 업무 기간, 담당자 자동 집계"</div>
+        <div class="app-cell" style="justify-content: center;"><span class="pill high">높음</span></div>
+      </div>
+      <div class="app-row">
+        <div class="app-cell"><strong>🌐 채널 계정 & 크리에이티브</strong></div>
+        <div class="app-cell"><code>ClientAccount</code>→<code>ChannelType</code>→<code>PublishJob</code>→<code>ContentAsset</code>→<code>CreativeAsset</code>. 채널별 게시 이력 & 성과 그래프</div>
+        <div class="app-cell" style="justify-content: center;"><span class="pill medium">중간</span></div>
+      </div>
+      <div class="app-row">
+        <div class="app-cell"><strong>👤 직원 & 휴가</strong></div>
+        <div class="app-cell"><code>User</code>→<code>LeavePolicy</code>→<code>LeaveRequest</code>→<code>CalendarEvent</code>. 부재 영향도: "이 마케터 휴가 기간 중 담당 거래처 업무 현황"</div>
+        <div class="app-cell" style="justify-content: center;"><span class="pill medium">중간</span></div>
+      </div>
+      <div class="app-row">
+        <div class="app-cell"><strong>📝 포털 요청/문의</strong></div>
+        <div class="app-cell"><code>ClientRequest</code>→<code>ClientComment</code>→<code>ClientAttachment</code>→<code>Report</code>. 요청 히스토리와 관련 보고서·파일 연결 맥락 탐색</div>
+        <div class="app-cell" style="justify-content: center;"><span class="pill medium">중간</span></div>
+      </div>
+      <div class="app-row">
+        <div class="app-cell"><strong>🤖 ERP 내부 AI 챗봇</strong></div>
+        <div class="app-cell">매뉴얼·규정·업무 프로세스를 Graph RAG로 구조화. "이 상황에서 결재 절차는?", "이 거래처 담당 마케터와 관련 업무 현황은?" 복합 질의</div>
+        <div class="app-cell" style="justify-content: center;"><span class="pill high">최우선</span></div>
+      </div>
+    </div>
+
+    <!-- 즉시 적용 가능한 유스케이스 -->
+    <h3 style="margin: 28px 0 14px;">🎯 즉시 적용 가능한 유스케이스 (실제 코드 기준)</h3>
+    <div class="usecase-grid">
+      <div class="usecase-card erp">
+        <div class="uc-header">
+          <div class="uc-icon">🤖</div>
+          <h3>마케팅 인사이트 AI</h3>
+        </div>
+        <p><code>Client</code> → <code>WorkItem</code> → <code>ContentAsset</code> → <code>KeywordResearch</code> → <code>Report.metrics</code> 전체 체인을 Graph RAG로 탐색. "A 거래처 블로그 업무의 지난 6개월 키워드 성과와 콘텐츠 연결 분석"</p>
+        <div class="impact">⚡ 마케터가 보고서 작성 전 AI가 관련 데이터 경로 자동 수집·요약</div>
+      </div>
+      <div class="usecase-card erp">
+        <div class="uc-header">
+          <div class="uc-icon">🔗</div>
+          <h3>업무 영향도 분석</h3>
+        </div>
+        <p><code>User(marketer)</code> 부재 시 → <code>AccessScope</code> → 담당 <code>Client</code> → 진행 중 <code>WorkItem</code> → 미완료 <code>ContentAsset</code> → 예정 <code>PublishJob</code> 연쇄 경로 자동 계산</p>
+        <div class="impact">⚡ 휴가/퇴사 시 담당 이관 체크리스트 자동 생성</div>
+      </div>
+      <div class="usecase-card erp">
+        <div class="uc-header">
+          <div class="uc-icon">💳</div>
+          <h3>청구-업무 자동 연결</h3>
+        </div>
+        <p><code>BillingRecord</code> 미납 발견 시 → 해당 <code>Client</code> → 해당 기간 <code>WorkItem</code> → 완료 여부 → 담당 마케터 경로를 AI가 자동 추적하여 "납부 독촉 + 업무 완료 확인" 컨텍스트 제공</p>
+        <div class="impact">⚡ 재무팀 수동 조회 없이 청구-업무 연결 정보 즉시 확인</div>
+      </div>
+      <div class="usecase-card erp">
+        <div class="uc-header">
+          <div class="uc-icon">🌐</div>
+          <h3>채널 성과 경로 추적</h3>
+        </div>
+        <p><code>ClientAccount(channel)</code> → <code>ChannelType</code> → <code>PublishJob</code> → <code>ContentAsset</code> → <code>CreativeAsset</code> 연결. "네이버 블로그 채널에 게시된 콘텐츠의 원본 업무, 키워드, 담당자 전체 경로"</p>
+        <div class="impact">⚡ 채널별 ROI 추적과 콘텐츠 재활용 기회 발굴</div>
+      </div>
+    </div>
+
+    <div class="callout info" style="margin-top: 8px;">
+      <span class="ci">🗂️</span>
+      <p><strong>현재 코드베이스와의 연결 포인트</strong>: <code>src/server/repositories/</code>의 각 repository 함수들이 현재 SQL 기반으로 개별 조회하는 것을 Graph RAG 노드/엣지로 전환하면 됩니다. 특히 <code>dashboard.ts</code>의 <code>fetchDashboardInput()</code>이 병렬로 여러 DB 조회를 하는 부분이 Graph RAG로 단일 그래프 탐색으로 대체할 최우선 후보입니다.</p>
+    </div>
+
+    <div class="callout tip" style="margin-top: 12px;">
+      <span class="ci">✅</span>
+      <p><strong>ERP 프로젝트 결론</strong>: venom_erp_v1에서 Graph RAG는 선택이 아닌 필수에 가깝습니다. 특히 <strong>"마케팅 인사이트 AI"</strong>와 <strong>"업무-청구 연결 자동화"</strong>는 현재 Prisma 스키마가 이미 이상적인 그래프 구조로 설계되어 있어, Neo4j 동기화만 추가하면 즉시 구현 가능합니다.</p>
+    </div>
+
+    <!-- ERP 적용 우선순위 로드맵 -->
+    <h3 style="margin: 32px 0 16px;">ERP 프로젝트 Graph RAG 적용 로드맵</h3>
+    <div class="roadmap">
+      <div class="rm-item">
+        <div class="rm-header">
+          <span class="rm-phase">Phase 1 · 즉시</span>
+          <span class="pill high" style="font-size: 10px;">지금 설계에 반영</span>
+        </div>
+        <h3>온톨로지 설계 — 현 Prisma 스키마 → Neo4j 노드/엣지 매핑</h3>
+        <p>기존 <code>prisma/schema.prisma</code>의 모델 관계를 Arrows.app으로 시각화. <code>Client</code>·<code>WorkItem</code>·<code>Report</code>·<code>BillingRecord</code>·<code>ContentAsset</code>·<code>User</code> 6개 핵심 노드를 우선 정의.</p>
+      </div>
+      <div class="rm-item">
+        <div class="rm-header">
+          <span class="rm-phase">Phase 2 · 단기</span>
+          <span class="pill high" style="font-size: 10px;">MVP 구현</span>
+        </div>
+        <h3>대시보드 인사이트 AI — <code>fetchDashboardInput()</code> Graph RAG 대체</h3>
+        <p>현재 <code>src/server/repositories/dashboard.ts</code>의 병렬 SQL 조회를 Neo4j 그래프 탐색으로 전환. 마케터별·거래처별 업무-성과-청구 연결 인사이트 자동 생성 MVP.</p>
+      </div>
+      <div class="rm-item">
+        <div class="rm-header">
+          <span class="rm-phase">Phase 3 · 중기</span>
+          <span class="pill medium" style="font-size: 10px;">에이전트 고도화</span>
+        </div>
+        <h3>LangGraph 기반 마케팅 인사이트 에이전트</h3>
+        <p>질의 분류 → Graph RAG 탐색(<code>KeywordResearch</code>+<code>ContentAsset</code>+<code>Report.metrics</code>) → 검증 → 보고서 초안 자동 생성 파이프라인. <code>src/server/marketing/</code> 모듈과 연동.</p>
+      </div>
+      <div class="rm-item">
+        <div class="rm-header">
+          <span class="rm-phase">Phase 4 · 장기</span>
+          <span class="pill maybe" style="font-size: 10px;">고도화</span>
+        </div>
+        <h3>ERP 트랜잭션 실시간 Neo4j 동기화</h3>
+        <p>Prisma 미들웨어 or CDC로 <code>WorkItem</code>·<code>BillingRecord</code>·<code>ContentAsset</code> 변경 시 Neo4j 자동 반영. 실시간 업무-성과-청구 그래프 기반 예측 알림.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ GEO SEO 프로젝트 ══ -->
+  <section id="geo">
+    <div class="sec-label geo"><span class="dot"></span>GEO SEO marketing analysis</div>
+    <h2>GEO SEO 프로젝트 — Graph RAG 적용 파트 분석</h2>
+    <p class="sec-desc">SEO 마케팅 분석 프로젝트는 벡터 RAG로도 상당 부분 커버되지만, 키워드-콘텐츠-경쟁사 간 <strong>관계 분석</strong>이 필요한 파트에서 Graph RAG가 차별화된 인사이트를 만들 수 있습니다.</p>
+
+    <!-- GEO SEO 모듈별 적합성 -->
+    <h3 style="margin-bottom: 14px;">기능별 Graph RAG 적합성</h3>
+    <div class="app-table">
+      <div class="app-row header">
+        <div class="app-cell">기능 파트</div>
+        <div class="app-cell">Graph RAG 활용 포인트</div>
+        <div class="app-cell" style="justify-content: center;">적합도</div>
+      </div>
+      <div class="app-row">
+        <div class="app-cell"><strong>🔑 키워드 군집 분석</strong></div>
+        <div class="app-cell">키워드 → 토픽 클러스터 → 검색 의도 → 경쟁도 연결. 관계형 키워드 맵 구성</div>
+        <div class="app-cell" style="justify-content: center;"><span class="pill high">높음</span></div>
+      </div>
+      <div class="app-row">
+        <div class="app-cell"><strong>🌍 GEO 타겟 분석</strong></div>
+        <div class="app-cell">지역 → 검색량 → 언어 → 경쟁사 → 로컬 키워드 연결망. 지역별 콘텐츠 전략 도출</div>
+        <div class="app-cell" style="justify-content: center;"><span class="pill high">높음</span></div>
+      </div>
+      <div class="app-row">
+        <div class="app-cell"><strong>🏆 경쟁사 분석</strong></div>
+        <div class="app-cell">경쟁사 → 타겟 키워드 → 콘텐츠 유형 → 백링크 도메인 연결. 차별화 기회 자동 발굴</div>
+        <div class="app-cell" style="justify-content: center;"><span class="pill high">높음</span></div>
+      </div>
+      <div class="app-row">
+        <div class="app-cell"><strong>📝 콘텐츠 연결 구조</strong></div>
+        <div class="app-cell">콘텐츠 → 관련 키워드 → 내부 링크 → 토픽 오소리티 그래프. SEO 사일로 구조 설계</div>
+        <div class="app-cell" style="justify-content: center;"><span class="pill medium">중간</span></div>
+      </div>
+      <div class="app-row">
+        <div class="app-cell"><strong>📈 트렌드 분석</strong></div>
+        <div class="app-cell">검색량 변화 → 시즌 패턴 → 관련 이벤트 연결. 단순 시계열 분석은 벡터 RAG로 충분</div>
+        <div class="app-cell" style="justify-content: center;"><span class="pill low">낮음</span></div>
+      </div>
+      <div class="app-row">
+        <div class="app-cell"><strong>📊 리포트 자동화</strong></div>
+        <div class="app-cell">분석 데이터 → 인사이트 생성은 기존 LLM+벡터 RAG로도 충분. Graph 없이도 가능</div>
+        <div class="app-cell" style="justify-content: center;"><span class="pill low">낮음</span></div>
+      </div>
+    </div>
+
+    <!-- GEO SEO 그래프 구조 -->
+    <h3 style="margin: 28px 0 14px;">GEO SEO 지식 그래프 구조 예시</h3>
+    <div class="graph-struct">
+      <h4 style="margin-bottom: 14px;">키워드 → 콘텐츠 연결 경로</h4>
+      <div class="node-flow">
+        <div class="gnode">메인 키워드</div><span class="garrow">→</span>
+        <div class="gnode">LSI 키워드</div><span class="garrow">→</span>
+        <div class="gnode">검색 의도</div><span class="garrow">→</span>
+        <div class="gnode">콘텐츠 유형</div><span class="garrow">→</span>
+        <div class="gnode">CTA 전략</div>
+      </div>
+      <div style="height: 12px;"></div>
+      <div class="node-flow">
+        <div class="gnode">지역 (GEO)</div><span class="garrow">→</span>
+        <div class="gnode">로컬 키워드</div><span class="garrow">→</span>
+        <div class="gnode">경쟁사</div><span class="garrow">→</span>
+        <div class="gnode">약점 키워드</div><span class="garrow">→</span>
+        <div class="gnode">공략 기회</div>
+      </div>
+      <div style="height: 12px;"></div>
+      <div class="node-flow">
+        <div class="gnode">콘텐츠 A</div><span class="garrow">→</span>
+        <div class="gnode">내부링크</div><span class="garrow">→</span>
+        <div class="gnode">콘텐츠 B</div><span class="garrow">→</span>
+        <div class="gnode">토픽 클러스터</div><span class="garrow">→</span>
+        <div class="gnode">도메인 권위</div>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <span class="ci">⚠️</span>
+      <p><strong>GEO SEO 프로젝트 판단</strong>: Graph RAG가 유용하지만, ERP 프로젝트보다 <strong>우선순위는 낮습니다.</strong> 먼저 벡터 RAG 기반으로 빠르게 MVP를 구축하고, 키워드 관계 분석 파트만 Graph RAG로 점진적으로 고도화하는 전략이 효율적입니다.</p>
+    </div>
+  </section>
+
+  <!-- ══ 최종 결정 매트릭스 ══ -->
+  <section id="decision">
+    <h2>최종 의사결정 매트릭스</h2>
+    <p class="sec-desc">두 프로젝트 중 어디에, 어떤 순서로 Graph RAG를 도입할지 우선순위를 정리합니다.</p>
+
+    <div class="decision-grid">
+      <div class="dec-card" style="border-top: 3px solid #00d4aa;">
+        <span class="dc-icon">🏗️</span>
+        <h3 style="color: #00d4aa;">venom_erp_v1 — 즉시 도입</h3>
+        <p style="font-size: 13px;">설계 단계라면 지금 반영해야 합니다. Prisma 스키마가 이미 그래프 구조이므로 Neo4j 동기화만 추가하면 됩니다.</p>
+        <ul>
+          <li>현 <code>schema.prisma</code>를 Arrows.app으로 시각화</li>
+          <li>Neo4j를 DB 스택에 추가 (Prisma 미들웨어 연동)</li>
+          <li><code>fetchDashboardInput()</code>을 Graph RAG로 1호 대체</li>
+          <li>마케팅 인사이트 AI를 <code>src/server/marketing/</code>에 통합</li>
+          <li>채널 성과 경로: <code>PublishJob→ContentAsset→Report</code> 연결</li>
+        </ul>
+      </div>
+      <div class="dec-card" style="border-top: 3px solid #ffd166;">
+        <span class="dc-icon">📊</span>
+        <h3 style="color: #ffd166;">GEO SEO — 단계적 도입</h3>
+        <p style="font-size: 13px;">벡터 RAG로 먼저 시작하고, 키워드 관계 분석 파트만 Graph RAG로 고도화합니다.</p>
+        <ul>
+          <li>1단계: 기존 벡터 RAG로 빠른 MVP</li>
+          <li>2단계: 키워드 토픽 클러스터 그래프화</li>
+          <li>3단계: 경쟁사 연결망 Graph RAG 분석</li>
+          <li>GEO별 콘텐츠 관계 그래프 설계</li>
+          <li>ERP 완료 후 여력 생기면 심화 적용</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 공통 적용 가능한 영상 내용 -->
+    <h3 style="margin: 32px 0 14px;">두 프로젝트 공통 — 영상에서 바로 가져갈 수 있는 것</h3>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; border-bottom: 1px solid var(--border);">
+        <div style="padding: 12px 16px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); border-right: 1px solid var(--border);">영상 내용</div>
+        <div style="padding: 12px 16px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #00d4aa; border-right: 1px solid var(--border);">ERP 적용</div>
+        <div style="padding: 12px 16px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #ffd166;">GEO SEO 적용</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; border-bottom: 1px solid var(--border);">
+        <div style="padding: 14px 16px; font-size: 13px; color: var(--text-muted); border-right: 1px solid var(--border);">Arrows.app 온톨로지 설계</div>
+        <div style="padding: 14px 16px; font-size: 13px; color: #cdd9e5; border-right: 1px solid var(--border);">✅ <code>schema.prisma</code> → Neo4j 노드/엣지 즉시 활용</div>
+        <div style="padding: 14px 16px; font-size: 13px; color: #cdd9e5;">✅ 키워드-콘텐츠 연결 구조 설계</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; border-bottom: 1px solid var(--border);">
+        <div style="padding: 14px 16px; font-size: 13px; color: var(--text-muted); border-right: 1px solid var(--border);">Neo4j GraphRAG Python Package</div>
+        <div style="padding: 14px 16px; font-size: 13px; color: #cdd9e5; border-right: 1px solid var(--border);">✅ ERP 업무/보고서 데이터 자동 변환</div>
+        <div style="padding: 14px 16px; font-size: 13px; color: var(--text-muted);">△ 대량 콘텐츠 분석 시 활용 고려</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; border-bottom: 1px solid var(--border);">
+        <div style="padding: 14px 16px; font-size: 13px; color: var(--text-muted); border-right: 1px solid var(--border);">LangGraph 에이전트 워크플로우</div>
+        <div style="padding: 14px 16px; font-size: 13px; color: #cdd9e5; border-right: 1px solid var(--border);">✅ 마케팅 인사이트 복합 질의 처리 (<code>server/marketing/</code>와 연동)</div>
+        <div style="padding: 14px 16px; font-size: 13px; color: #cdd9e5;">✅ SEO 분석 자동화 파이프라인</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr;">
+        <div style="padding: 14px 16px; font-size: 13px; color: var(--text-muted); border-right: 1px solid var(--border);">RAG Evaluation 주기적 평가</div>
+        <div style="padding: 14px 16px; font-size: 13px; color: #cdd9e5; border-right: 1px solid var(--border);">✅ ERP 도메인 정합성 필수 검증</div>
+        <div style="padding: 14px 16px; font-size: 13px; color: #cdd9e5;">✅ SEO 인사이트 정확도 검증</div>
+      </div>
+    </div>
+
+    <div class="callout info" style="margin-top: 28px;">
+      <span class="ci">💡</span>
+      <p><strong>최종 요약</strong>: 영상의 Graph RAG 내용은 <strong>venom_erp_v1에 전면 도입</strong>이 권장됩니다. 현재 <code>schema.prisma</code>의 관계 구조가 이미 이상적인 그래프 온톨로지이므로, Neo4j 동기화 레이어만 추가하면 됩니다. <strong>GEO SEO에는 키워드 관계 분석 파트만 선택 적용</strong>. 두 프로젝트 모두 LangGraph 에이전트 구조와 Evaluation 방법론은 공통으로 활용 가능합니다.</p>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <p>Graph RAG × 프로젝트 적용 가능성 분석 · venom_erp_v1 · GEO SEO marketing analysis · 작성일 2026-07-17</p>
+</footer>
+
+</body>
+</html>
