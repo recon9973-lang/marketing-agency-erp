@@ -9,6 +9,7 @@ import { buildBrief } from "@/server/geo-studio/cep/brief";
 import { briefToMarkdown, makeCep } from "@/server/geo-studio/cep/models";
 import { ClusterBubbleMap, type BubbleCep } from "@/components/geo-cep/ClusterBubbleMap";
 import { TierBadge } from "@/components/geo-common/TierBadge";
+import { Sparkline } from "@/components/geo-common/Sparkline";
 import { GptReviewPanel } from "@/components/geo-cep/GptReviewPanel";
 import { SerpTable } from "@/components/geo-cep/SerpTable";
 import { buildGptReview, type ReviewReport } from "@/server/geo-studio/cep/review";
@@ -79,6 +80,10 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
   const monthlyVol = ran ? await provider.monthlyVolume(category) : null;
   const volTier = provider.tierOf("monthlyVolume");
   const volFmt = new Intl.NumberFormat("ko-KR");
+  const trend = ran ? await provider.searchVolume(category, "m") : [];
+  const trendTier = provider.tierOf("searchVolume");
+  const trendLatest = trend.length ? Math.round(trend[trend.length - 1].value * 10) / 10 : null;
+  const trendDelta = trend.length >= 2 ? Math.round((trend[trend.length - 1].value - trend[0].value) * 10) / 10 : null;
 
   const input = "mt-1 w-full rounded-lg border border-line bg-card px-2.5 py-1.5 text-sm text-ink placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none";
 
@@ -154,6 +159,22 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
                   <div>
                     <p className="text-[11px] text-slate-500">경쟁도</p>
                     <p className="text-base font-semibold text-slate-600">{monthlyVol.competition}</p>
+                  </div>
+                )}
+                {trend.length >= 2 && (
+                  <div className="ml-auto flex items-center gap-3 border-l border-line pl-4">
+                    <div>
+                      <p className="flex items-center gap-1 text-[11px] text-slate-500">관심 추세 <TierBadge tier={trendTier} note={trendTier === "measured" ? "데이터랩" : "데모"} /></p>
+                      <p className="text-base font-semibold text-slate-700">
+                        {trendLatest}<span className="text-[11px] text-slate-400">/100</span>
+                        {trendDelta != null && (
+                          <span className={`ml-1 text-xs ${trendDelta >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                            {trendDelta >= 0 ? "▲" : "▼"}{Math.abs(trendDelta)}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <Sparkline points={trend} />
                   </div>
                 )}
               </div>

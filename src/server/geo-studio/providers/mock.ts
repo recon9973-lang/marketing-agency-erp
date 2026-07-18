@@ -25,7 +25,8 @@ export class MockProvider implements SearchDataPort {
   async searchVolume(keyword: string, period: "y" | "m" | "d"): Promise<VolumePoint[]> {
     const n = period === "y" ? 5 : period === "m" ? 12 : 30;
     const b = seeded(`vol|${keyword}|${period}`);
-    return Array.from({ length: n }, (_, i) => ({ period: `${period}${i + 1}`, value: 500 + b() * 20 }));
+    // 데이터랩과 동일하게 상대 지수 0~100(최근값이 아니라 구간 상대치).
+    return Array.from({ length: n }, (_, i) => ({ period: `${period}${i + 1}`, value: 30 + (b() % 71) }));
   }
 
   async monthlyVolume(keyword: string): Promise<MonthlyVolume> {
