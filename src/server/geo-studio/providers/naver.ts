@@ -1,12 +1,11 @@
 // GEO Studio · 네이버 실측 프로바이더 — Charter §3·§4 (P2).
-// 배포 ERP가 네이버 공식 오픈API를 직접 호출한다(이 세션의 MCP 아님).
-//   - 검색량: 데이터랩 검색어 트렌드  POST /v1/datalab/search        → 🟢 실측
-//   - SERP:   블로그 검색            GET  /v1/search/blog.json        → 🟢 실측
+// ⚠️ 중복 방지: 검색량(데이터랩)은 ERP 기존 연동 `integrations/naver-datalab`을 재사용한다.
+//   - 검색량: fetchKeywordTrends(기존) 재사용                         → 🟢 실측
+//   - SERP:   블로그 검색  GET /v1/search/blog.json (net-new, 동일 키) → 🟢 실측
 // 키(NAVER_CLIENT_ID/SECRET)가 없으면 NotConfiguredError → 리졸버가 목으로 폴백.
-// 응답 형태는 실제 호출로 확인한 스키마에 맞춤(ratio 시계열 / items[].title·link·description).
 import type { Demographics, ProviderField, SearchDataPort, SerpDoc, VolumePoint } from "./port";
+import { fetchKeywordTrends } from "@/server/integrations/naver-datalab";
 
-const DATALAB_URL = "https://openapi.naver.com/v1/datalab/search";
 const BLOG_URL = "https://openapi.naver.com/v1/search/blog.json";
 
 export class NotConfiguredError extends Error {
@@ -26,29 +25,6 @@ function clean(s: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .trim();
-}
-
-function pad(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-/** period → 데이터랩 startDate·timeUnit(현재 시점 기준). */
-function rangeFor(period: "y" | "m" | "d", now: Date): { startDate: string; endDate: string; timeUnit: "date" | "week" | "month" } {
-  const end = new Date(now);
-  const start = new Date(now);
-  if (period === "y") {
-    start.setFullYear(start.getFullYear() - 5);
-    return { startDate: fmt(start), endDate: fmt(end), timeUnit: "month" };
-  }
-  if (period === "m") {
-    start.setMonth(start.getMonth() - 12);
-    return { startDate: fmt(start), endDate: fmt(end), timeUnit: "month" };
-  }
-  start.setDate(start.getDate() - 30);
-  return { startDate: fmt(start), endDate: fmt(end), timeUnit: "date" };
-}
-function fmt(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 const MEASURED: ReadonlySet<ProviderField> = new Set<ProviderField>(["searchVolume", "serpTop"]);
@@ -84,18 +60,13 @@ export class NaverProvider implements SearchDataPort {
     };
   }
 
-  async searchVolume(keyword: string, period: "y" | "m" | "d"): Promise<VolumePoint[]> {
+  async searchVolume(keyword: string, _period: "y" | "m" | "d"): Promise<VolumePoint[]> {
     if (!this.isConfigured()) throw new NotConfiguredError("searchVolume");
-    const { startDate, endDate, timeUnit } = rangeFor(period, new Date());
-    const res = await fetch(DATALAB_URL, {
-      method: "POST",
-      headers: this.headers(),
-      body: JSON.stringify({ startDate, endDate, timeUnit, keywordGroups: [{ groupName: keyword, keywords: [keyword] }] })
-    });
-    if (!res.ok) throw new Error(`데이터랩 ${res.status}`);
-    const data = (await res.json()) as { results?: { data?: { period: string; ratio: number }[] }[] };
-    const series = data.results?.[0]?.data ?? [];
-    return series.map((d) => ({ period: d.period, value: d.ratio }));
+    // 기존 ERP 데이터랩 연동 재사용(최근 6개월 월간 트렌드). 중복 구현 없음.
+    const trends = await fetchKeywordTrends([keyword]);
+    const points = trends[0]?.points ?? [];
+    if (points.length === 0) throw new NotConfiguredError("searchVolume");
+    return points.map((p) => ({ period: p.period, value: p.ratio }));
   }
 
   async serpTop(keyword: string, limit = 10): Promise<SerpDoc[]> {

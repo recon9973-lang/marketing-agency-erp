@@ -3,6 +3,12 @@
 > 이 키를 넣으면 GEO Studio 화면의 검색량·SERP 배지가 🟡근사 → 🟢실측으로 **자동 전환**됩니다.
 > 키가 없으면 자동으로 목(mock)으로 폴백하므로, 넣기 전에도 화면은 정상 동작합니다.
 
+> **⚡ 이미 연동돼 있을 수 있음**: ERP `검색량 조회(/keywords)` 기능이 동일한
+> `NAVER_CLIENT_ID/SECRET`(데이터랩)·`NAVER_AD_*`(검색광고)를 씁니다. GEO Studio 어댑터는
+> 기존 `integrations/naver-datalab`을 **재사용**하므로, `/keywords`가 이미 실데이터로 나온다면
+> **키 추가 없이 GEO Studio도 바로 실측**입니다. 확인: `/keywords`에서 검색 시 '데모 추정'
+> 문구가 없고 실제 트렌드가 나오면 키가 이미 설정된 것.
+
 ## 1. 네이버 검색 API 키 발급 (무료)
 
 1. https://developers.naver.com/apps/#/register 접속 (네이버 로그인)
