@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { CalendarScheduler } from "@/components/calendar/CalendarScheduler";
 import { MonthCalendar, type GridEvent } from "@/components/calendar/MonthCalendar";
+import { WeekCalendar, type WeekEvent } from "@/components/calendar/WeekCalendar";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { calendarKindLabels, fetchCalendarEventsForUser, fetchTeamCalendarEvents, type CalendarListItem, type TeamCalendarItem } from "@/server/repositories/calendar";
 import { CalendarEventKind, CalendarProvider, ConnectionStatus, Role } from "@/domain/types";
@@ -17,6 +18,11 @@ const dayKeyFormatter = new Intl.DateTimeFormat("en-CA", {
 
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" });
 const timeFormatter = new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit" });
+const kstHmFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+function kstMinutes(d: Date): number {
+  const [h, m] = kstHmFormatter.format(d).split(":").map(Number);
+  return h * 60 + m;
+}
 
 // 일정 종류별 색상(가독성).
 const KIND_TONE: Record<CalendarEventKind, string> = {
@@ -122,11 +128,32 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     (eventsByDay[key] ??= []).push({ id: e.id, title: e.title, toneClass: KIND_TONE[e.kind], label: calendarKindLabels[e.kind] });
   }
 
+  // 주간 타임그리드용 시간 블록(KST 분).
+  const weekEvents: WeekEvent[] =
+    view === "week"
+      ? (isManager ? teamEvents : events).map((e) => {
+          const startMin = kstMinutes(e.startsAt);
+          const rawEnd = kstMinutes(e.endsAt);
+          return {
+            id: e.id,
+            dayKey: dayKeyFormatter.format(e.startsAt),
+            startMin,
+            endMin: rawEnd > startMin ? rawEnd : 24 * 60, // 자정 넘김·동시각은 일 끝으로 클램프
+            title: e.title,
+            toneClass: KIND_TONE[e.kind],
+            label: calendarKindLabels[e.kind],
+            timeLabel: `${kstHmFormatter.format(e.startsAt)}–${kstHmFormatter.format(e.endsAt)}`
+          };
+        })
+      : [];
+  const nowMin = kstMinutes(new Date());
+
   const groupedEvents = groupByDay(events);
   const teamByOwner = groupByOwner(teamEvents);
 
   // 네비/토글 링크(현재 뷰·오너 유지)
   const ownerSuffix = ownerFilter ? `&owner=${encodeURIComponent(ownerFilter)}` : "";
+  const todayHref = `?view=week${ownerSuffix}`;
   const viewQs = (v: string) => `?view=${v}${ownerSuffix}`;
   const ownerQs = (o: string) => `?view=${view}&${view === "week" ? `wk=${wkRef}` : `month=${monthPrefix}`}${o ? `&owner=${encodeURIComponent(o)}` : ""}`;
   const gridPrev = view === "week" ? `?view=week&wk=${shiftKey(weekStartKey, -7)}${ownerSuffix}` : `?view=month&month=${dateToKey(new Date(Date.UTC(gridYear, gridMonthIndex - 1, 1, 12))).slice(0, 7)}${ownerSuffix}`;
@@ -173,16 +200,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         ))}
       </div>
 
-      <MonthCalendar
-        year={gridYear}
-        monthIndex={gridMonthIndex}
-        weekKeys={view === "week" ? weekKeys : undefined}
-        eventsByDay={eventsByDay}
-        todayKey={todayKey}
-        prevHref={gridPrev}
-        nextHref={gridNext}
-        label={gridLabel}
-      />
+      {view === "week" ? (
+        <WeekCalendar weekDays={weekKeys} events={weekEvents} todayKey={todayKey} nowMin={nowMin} prevHref={gridPrev} nextHref={gridNext} todayHref={todayHref} label={gridLabel} />
+      ) : (
+        <MonthCalendar year={gridYear} monthIndex={gridMonthIndex} eventsByDay={eventsByDay} todayKey={todayKey} prevHref={gridPrev} nextHref={gridNext} label={gridLabel} />
+      )}
 
       <div className="space-y-3">
         <h3 className="text-base font-semibold text-ink">오늘 내 업무 배치 ({todayKey})</h3>
