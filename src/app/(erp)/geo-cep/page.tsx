@@ -7,6 +7,8 @@ import { getCurrentUser } from "@/server/session";
 import { discoverCeps } from "@/server/geo-studio/cep/finder";
 import { buildBrief } from "@/server/geo-studio/cep/brief";
 import { briefToMarkdown, makeCep } from "@/server/geo-studio/cep/models";
+import { ClusterBubbleMap, type BubbleCep } from "@/components/geo-cep/ClusterBubbleMap";
+import { TierBadge } from "@/components/geo-common/TierBadge";
 
 const AXES: [string, string][] = [
   ["situation_tag", "상황"],
@@ -117,8 +119,13 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
             ))}
           </div>
 
+          <ClusterBubbleMap ceps={report.ceps as unknown as BubbleCep[]} seedLabel={category} />
+
           <div className="overflow-x-auto rounded-2xl border border-line bg-card">
-            <p className="px-4 pt-4 text-sm font-bold text-ink">발굴된 CEP (우선순위순)</p>
+            <div className="flex items-center gap-2 px-4 pt-4">
+              <p className="text-sm font-bold text-ink">발굴된 CEP (우선순위순)</p>
+              <TierBadge tier="approx" note="목 파이프라인" />
+            </div>
             <table className="mt-2 w-full min-w-[720px] border-collapse text-left text-sm">
               <thead className="border-y border-line bg-surface text-xs font-semibold text-slate-500">
                 <tr>
