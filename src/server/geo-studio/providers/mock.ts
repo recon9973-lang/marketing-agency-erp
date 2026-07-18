@@ -2,7 +2,7 @@
 // 기존 모듈의 목 로직과 동일 계열(dev/데모/테스트 기본값). 네이버 실측은 naver.ts(P2).
 import { createHash } from "node:crypto";
 import { queryAi } from "../scanner/clients";
-import type { Demographics, ProviderField, SearchDataPort, SerpDoc, VolumePoint } from "./port";
+import type { Demographics, MonthlyVolume, ProviderField, SearchDataPort, SerpDoc, VolumePoint } from "./port";
 
 function seeded(s: string) {
   let buf = createHash("sha256").update(s).digest();
@@ -26,6 +26,13 @@ export class MockProvider implements SearchDataPort {
     const n = period === "y" ? 5 : period === "m" ? 12 : 30;
     const b = seeded(`vol|${keyword}|${period}`);
     return Array.from({ length: n }, (_, i) => ({ period: `${period}${i + 1}`, value: 500 + b() * 20 }));
+  }
+
+  async monthlyVolume(keyword: string): Promise<MonthlyVolume> {
+    const b = seeded(`mv|${keyword}`);
+    const total = 200 + ((b() << 8) | b()) % 48000;
+    const mobile = Math.round(total * (0.55 + (b() % 35) / 100));
+    return { pc: total - mobile, mobile, total, competition: ["낮음", "중간", "높음"][b() % 3], estimated: true };
   }
 
   async relatedKeywords(seed: string): Promise<string[]> {

@@ -53,3 +53,31 @@ Vercel → 프로젝트 → Settings → Environment Variables에 3개 추가:
 ## 5. 확인 방법
 
 키 등록·재배포 후 `/geo-cep`에서 검색 실행 → **상위 URL 분석** 표의 배지가 `🟢 실측 · 네이버 실측`으로 바뀌고, URL이 실제 네이버 블로그 링크로 나오면 성공.
+
+## 6. (선택) 절대 월간 검색수 — 네이버 검색광고 API
+
+데이터랩(위)은 **상대 트렌드(0~100)** 만 줍니다. **실제 월간 검색수(PC/모바일/합계)** 는
+별도의 **검색광고 키워드도구 API**(`api.searchad.naver.com/keywordstool`, HMAC 서명)에서
+나오며 자격증명이 3개 필요합니다.
+
+넣으면 **한 번에 실측 전환되는 곳**: `/keywords`(절대 검색수) · 컨설팅 리포트(거래처 키워드
+월 검색량, DB 저장·고객 문서) · 거래처 인사이트 · GEO Studio `/geo-cep` 월 검색량 카드.
+
+### 키 발급 (검색광고 계정 보유 시 5분)
+
+1. https://searchad.naver.com 로그인 → **광고시스템**
+2. **도구 → API 사용 관리**
+3. **네이버 검색광고 API 라이선스** 발급 → 3개 확인:
+   - 액세스 라이선스 → `NAVER_AD_API_KEY`
+   - 비밀키(Secret Key) → `NAVER_AD_SECRET`
+   - Customer ID(계정 ID) → `NAVER_AD_CUSTOMER_ID`
+
+### Vercel 환경변수 추가 → 재배포
+
+| Key | Value |
+|---|---|
+| `NAVER_AD_API_KEY` | 액세스 라이선스 |
+| `NAVER_AD_SECRET` | 비밀키 |
+| `NAVER_AD_CUSTOMER_ID` | Customer ID |
+
+확인: `/keywords`가 PC/모바일/합계 실제 숫자로, `/geo-cep` 월 검색량 카드가 🟢`실측·네이버 검색광고`로 승격.

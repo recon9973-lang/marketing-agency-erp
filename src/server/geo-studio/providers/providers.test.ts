@@ -80,4 +80,27 @@ describe("HybridProvider (네이버 미지원 필드 → 목 폴백)", () => {
   it("네이버 미지원 필드(연관어)는 목으로", async () => {
     expect((await hybrid.relatedKeywords("맥주효모")).length).toBeGreaterThan(0);
   });
+
+  it("AD키 없으면 절대 검색수도 목(추정)으로 폴백", async () => {
+    const mv = await hybrid.monthlyVolume("맥주효모");
+    expect(mv).not.toBeNull();
+    expect(mv!.total).toBeGreaterThan(0);
+    expect(mv!.estimated).toBe(true); // 목은 추정
+  });
+});
+
+describe("NaverProvider 검색광고(절대 검색수) 게이트", () => {
+  it("AD키 없으면 monthlyVolume 미지원·예외", async () => {
+    const naver = new NaverProvider({ NAVER_CLIENT_ID: "id", NAVER_CLIENT_SECRET: "sec" });
+    expect(naver.supports("monthlyVolume")).toBe(false);
+    expect(naver.tierOf("monthlyVolume")).toBe("approx");
+    await expect(naver.monthlyVolume("x")).rejects.toThrow(NotConfiguredError);
+  });
+
+  it("AD키 있으면 monthlyVolume measured·isConfiguredAny", () => {
+    const naver = new NaverProvider({ NAVER_AD_API_KEY: "k", NAVER_AD_SECRET: "s", NAVER_AD_CUSTOMER_ID: "c" });
+    expect(naver.supports("monthlyVolume")).toBe(true);
+    expect(naver.tierOf("monthlyVolume")).toBe("measured");
+    expect(naver.isConfiguredAny()).toBe(true);
+  });
 });

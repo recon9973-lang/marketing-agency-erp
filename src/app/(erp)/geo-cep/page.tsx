@@ -76,6 +76,9 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
   const provider = getProvider();
   const serpDocs = ran ? await provider.serpTop(category, 8) : [];
   const serpTier = provider.tierOf("serpTop");
+  const monthlyVol = ran ? await provider.monthlyVolume(category) : null;
+  const volTier = provider.tierOf("monthlyVolume");
+  const volFmt = new Intl.NumberFormat("ko-KR");
 
   const input = "mt-1 w-full rounded-lg border border-line bg-card px-2.5 py-1.5 text-sm text-ink placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none";
 
@@ -127,6 +130,35 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
               </div>
             ))}
           </div>
+
+          {monthlyVol && (
+            <div className="rounded-2xl border border-line bg-card p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <p className="text-sm font-bold text-ink">카테고리 월 검색량 — “{category}”</p>
+                <TierBadge tier={volTier} note={volTier === "measured" ? "네이버 검색광고" : "데모 추정"} />
+              </div>
+              <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
+                <div>
+                  <p className="text-[11px] text-slate-500">합계(월간)</p>
+                  <p className="text-2xl font-bold text-ink">{monthlyVol.total != null ? volFmt.format(monthlyVol.total) : "-"}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-slate-500">PC</p>
+                  <p className="text-base font-semibold text-slate-600">{monthlyVol.pc != null ? volFmt.format(monthlyVol.pc) : "-"}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-slate-500">모바일</p>
+                  <p className="text-base font-semibold text-slate-600">{monthlyVol.mobile != null ? volFmt.format(monthlyVol.mobile) : "-"}</p>
+                </div>
+                {monthlyVol.competition && (
+                  <div>
+                    <p className="text-[11px] text-slate-500">경쟁도</p>
+                    <p className="text-base font-semibold text-slate-600">{monthlyVol.competition}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <ClusterBubbleMap ceps={report.ceps as unknown as BubbleCep[]} seedLabel={category} />
 

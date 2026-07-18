@@ -28,7 +28,8 @@ export function getProvider(): SearchDataPort {
     return cached;
   }
   const naver = new NaverProvider();
-  cached = naver.isConfigured() ? new HybridProvider(naver, mock) : mock;
+  // 오픈API(데이터랩·검색) 또는 검색광고 중 하나라도 있으면 하이브리드.
+  cached = naver.isConfiguredAny() ? new HybridProvider(naver, mock) : mock;
   return cached;
 }
 

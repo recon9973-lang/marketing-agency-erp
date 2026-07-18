@@ -1,6 +1,6 @@
 // GEO Studio · 하이브리드 프로바이더 — Charter §3. 네이버 실측 우선, 실패/미지원 시 목 폴백.
 // 필드별로 최적 소스를 고른다: 검색량·SERP=네이버(🟢), 나머지=목(🟡근사).
-import type { Demographics, ProviderField, SearchDataPort, SerpDoc, VolumePoint } from "./port";
+import type { Demographics, MonthlyVolume, ProviderField, SearchDataPort, SerpDoc, VolumePoint } from "./port";
 import type { NaverProvider } from "./naver";
 import type { MockProvider } from "./mock";
 
@@ -23,6 +23,9 @@ export class HybridProvider implements SearchDataPort {
 
   searchVolume(keyword: string, period: "y" | "m" | "d"): Promise<VolumePoint[]> {
     return this.pick("searchVolume", () => this.naver.searchVolume(keyword, period), () => this.mock.searchVolume(keyword, period));
+  }
+  monthlyVolume(keyword: string): Promise<MonthlyVolume | null> {
+    return this.pick("monthlyVolume", () => this.naver.monthlyVolume(keyword), () => this.mock.monthlyVolume(keyword));
   }
   relatedKeywords(seed: string): Promise<string[]> {
     return this.pick("relatedKeywords", () => this.naver.relatedKeywords(seed), () => this.mock.relatedKeywords(seed));

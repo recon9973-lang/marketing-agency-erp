@@ -3,8 +3,9 @@
 //   - 검색량: fetchKeywordTrends(기존) 재사용                         → 🟢 실측
 //   - SERP:   블로그 검색  GET /v1/search/blog.json (net-new, 동일 키) → 🟢 실측
 // 키(NAVER_CLIENT_ID/SECRET)가 없으면 NotConfiguredError → 리졸버가 목으로 폴백.
-import type { Demographics, ProviderField, SearchDataPort, SerpDoc, VolumePoint } from "./port";
+import type { Demographics, MonthlyVolume, ProviderField, SearchDataPort, SerpDoc, VolumePoint } from "./port";
 import { fetchKeywordTrends } from "@/server/integrations/naver-datalab";
+import { fetchKeywordVolumes } from "@/server/integrations/naver-search";
 
 const BLOG_URL = "https://openapi.naver.com/v1/search/blog.json";
 
@@ -27,25 +28,35 @@ function clean(s: string): string {
     .trim();
 }
 
-const MEASURED: ReadonlySet<ProviderField> = new Set<ProviderField>(["searchVolume", "serpTop"]);
+// 오픈API(데이터랩·검색) 키로 지원하는 필드.
+const OPENAPI_FIELDS: ReadonlySet<ProviderField> = new Set<ProviderField>(["searchVolume", "serpTop"]);
 
 export class NaverProvider implements SearchDataPort {
   readonly id = "naver";
   private readonly clientId?: string;
   private readonly clientSecret?: string;
+  private readonly adConfigured: boolean;
 
   constructor(env: Record<string, string | undefined> = process.env) {
     this.clientId = env.NAVER_CLIENT_ID;
     this.clientSecret = env.NAVER_CLIENT_SECRET;
+    // 검색광고 API(절대 검색수)는 별도 자격증명.
+    this.adConfigured = Boolean(env.NAVER_AD_API_KEY && env.NAVER_AD_SECRET && env.NAVER_AD_CUSTOMER_ID);
   }
 
   isConfigured(): boolean {
     return Boolean(this.clientId && this.clientSecret);
   }
 
-  /** 이 프로바이더가 실측으로 지원하는 필드인지(키 있고 measured). */
+  /** 오픈API 또는 검색광고 중 하나라도 설정됐는지(리졸버가 Hybrid 구성 판단). */
+  isConfiguredAny(): boolean {
+    return this.isConfigured() || this.adConfigured;
+  }
+
+  /** 이 프로바이더가 실측으로 지원하는 필드인지(필드별 키 요건). */
   supports(field: ProviderField): boolean {
-    return this.isConfigured() && MEASURED.has(field);
+    if (field === "monthlyVolume") return this.adConfigured; // 검색광고 키
+    return this.isConfigured() && OPENAPI_FIELDS.has(field); // 오픈API 키
   }
 
   tierOf(field: ProviderField): "measured" | "ai" | "approx" {
@@ -82,6 +93,14 @@ export class NaverProvider implements SearchDataPort {
       snippet: clean(it.description),
       source: "blog"
     }));
+  }
+
+  async monthlyVolume(keyword: string): Promise<MonthlyVolume | null> {
+    if (!this.adConfigured) throw new NotConfiguredError("monthlyVolume");
+    // 기존 ERP 검색광고 연동 재사용(절대 월간 검색수). 중복 구현 없음.
+    const [v] = await fetchKeywordVolumes([keyword]);
+    if (!v || v.estimated) throw new NotConfiguredError("monthlyVolume"); // 추정치면 실측 아님 → 폴백
+    return { pc: v.pc, mobile: v.mobile, total: v.total, competition: v.competition, estimated: false };
   }
 
   // 네이버 검색 API로 직접 얻기 어려운 필드 — 하이브리드에서 목/AI로 폴백.
