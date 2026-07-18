@@ -31,6 +31,7 @@ export default async function GeoStudioPage({ searchParams }: { searchParams: Pr
   const budgetStr = one(sp.budget) ?? "";
   const keywords = csv(keywordsStr);
   const ran = Boolean(brand && category && keywords.length);
+  const reportQs = new URLSearchParams({ brand, category, keywords: keywordsStr, competitors: competitorsStr, budget: budgetStr }).toString();
 
   let r: PipelineResult | null = null;
   if (ran) {
@@ -176,9 +177,14 @@ export default async function GeoStudioPage({ searchParams }: { searchParams: Pr
                 ))}
               </div>
               <p className="mt-3 text-[11px] text-slate-500">기간: {m5.period} · 목표 AI 인용율 {r.goal.targetValue}% · 예산 {won(r.goal.budget)}</p>
-              <a href={`/geo-planner`} className="mt-3 inline-block rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">
-                캠페인 상세 · 태스크/캘린더 →
-              </a>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a href={`/geo-studio/report?${reportQs}`} className="inline-block rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">
+                  ⬇ 진단 리포트 내보내기 (.md)
+                </a>
+                <a href={`/geo-planner`} className="inline-block rounded-lg border border-emerald-300 bg-card px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">
+                  캠페인 상세 · 태스크/캘린더 →
+                </a>
+              </div>
             </div>
           </div>
 
