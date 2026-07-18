@@ -25,6 +25,7 @@ import {
   Rocket,
   Route,
   Satellite,
+  Workflow,
   Search,
   Megaphone,
   LineChart,
@@ -49,6 +50,7 @@ type ErpRoute =
   | "/clients"
   | "/insights"
   | "/geo"
+  | "/geo-studio"
   | "/geo-scan"
   | "/geo-cep"
   | "/geo-path"
@@ -144,6 +146,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       label: "GEO 모니터링",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Radar,
+      group: "기획·분석"
+    },
+    {
+      href: "/geo-studio",
+      label: "GEO Studio",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Workflow,
       group: "기획·분석"
     },
     {
