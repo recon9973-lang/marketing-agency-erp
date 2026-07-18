@@ -1,4 +1,10 @@
-// 목표 경로: src/server/jobs/keyword-rank.ts (+ 스케줄러/크론에서 호출)
+// 목표 경로: src/server/jobs/keyword-rank.ts
+//
+// ⚠️ 미배선 스캐폴드(dead scaffold, 2026-07 기준) — 어떤 크론/라우트/액션에서도 호출되지 않음.
+//    라이브 순위수집은 `src/server/marketing/` 파이프라인(guard-rank.ts + providers)이 담당한다.
+//    (marketing/research.ts 주석대로 이 파일을 수정하지 않고 별도 서비스로 대체.)
+//    삭제 대신 보존: KW_PROXY_URL 기반 월간 일괄수집 골격을 향후 재사용할 수 있음.
+//    배선 시 반드시 KW_PROXY_URL env를 integrations/status.ts 레지스트리에 등록할 것.
 //
 // 키워드 순위 자동수집(B). 거래처 계약 키워드의 네이버 검색 노출 순위를 수집해
 // 해당 월 Report.metrics(JSON)에 적재. 나머지 지표는 수기.

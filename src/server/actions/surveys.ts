@@ -194,7 +194,7 @@ async function loadSurveyForEdit(surveyId: string) {
   return survey;
 }
 
-export async function sendSurvey(input: unknown): Promise<ActionResult> {
+export async function sendSurvey(input: unknown): Promise<ActionResult<{ delivery: string }>> {
   return runAction(async () => {
     const user = await requireUser();
     const p = z.object({ id: z.string().min(1), sentVia: z.enum(["LINK", "KAKAO", "SMS", "EMAIL"]).optional() }).safeParse(input);
@@ -219,13 +219,15 @@ export async function sendSurvey(input: unknown): Promise<ActionResult> {
       }
     }
 
+    const delivery = deliveryNote ?? (via === "LINK" ? "링크 발송 표시됨 — 링크를 복사해 전달하세요" : "발송 처리됨");
     const meta = await requestMeta();
     await db.$transaction(async (tx) => {
       await tx.survey.update({ where: { id: p.data.id }, data: { status: "SENT", sentVia: via, sentAt: new Date() } });
-      await recordAudit(tx, { actorId: user.id, action: "survey.send", targetType: "Survey", targetId: p.data.id, afterState: { sentVia: via, delivery: deliveryNote ?? "링크" }, ...meta });
+      await recordAudit(tx, { actorId: user.id, action: "survey.send", targetType: "Survey", targetId: p.data.id, afterState: { sentVia: via, delivery }, ...meta });
     });
     revalidatePath(`/clients/${survey.clientId}`);
     if (survey.contractId) revalidatePath(`/contracts/${survey.contractId}`);
+    return { delivery };
   });
 }
 

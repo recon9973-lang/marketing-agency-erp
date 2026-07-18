@@ -23,12 +23,14 @@ type Survey = {
 const STATUS_LABEL: Record<string, string> = { DRAFT: "초안", SENT: "발송됨", COMPLETED: "응답완료" };
 const dateFmt = new Intl.DateTimeFormat("ko-KR", { dateStyle: "short", timeStyle: "short" });
 
-export function ContractSurveys({ contractId, surveys, canManage }: { contractId: string; surveys: Survey[]; canManage: boolean }) {
+export function ContractSurveys({ contractId, surveys, canManage, kakaoConfigured = false }: { contractId: string; surveys: Survey[]; canManage: boolean; kakaoConfigured?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  // 발송 결과(발송됨/미연동/실패)를 설문별로 표시 — 조용한 실패 방지.
+  const [delivery, setDelivery] = useState<{ id: string; note: string; ok: boolean } | null>(null);
 
   function generate(kind: "START" | "MONTHLY") {
     setError(null);
@@ -39,11 +41,18 @@ export function ContractSurveys({ contractId, surveys, canManage }: { contractId
     });
   }
 
-  function send(id: string) {
+  function send(id: string, via: "LINK" | "KAKAO") {
+    setError(null);
+    setDelivery(null);
     start(async () => {
-      const res = await sendSurvey({ id, sentVia: "LINK" });
+      const res = await sendSurvey({ id, sentVia: via });
       if (!res.ok) setError("발송 처리에 실패했습니다.");
-      else router.refresh();
+      else {
+        const note = res.data?.delivery ?? "발송 처리됨";
+        // 알림톡 실제 발송 성공만 ok=true, 그 외(미연동·실패·링크)는 안내(주의색).
+        setDelivery({ id, note, ok: note.includes("발송됨") });
+        router.refresh();
+      }
     });
   }
 
@@ -96,9 +105,14 @@ export function ContractSurveys({ contractId, surveys, canManage }: { contractId
                     <Copy className="h-3.5 w-3.5" /> {copied === s.publicToken ? "복사됨" : "링크"}
                   </button>
                   {canManage && s.status === "DRAFT" ? (
-                    <button type="button" onClick={() => send(s.id)} disabled={pending} className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-semibold text-brand-strong hover:bg-surface disabled:opacity-50">
-                      <Send className="h-3.5 w-3.5" /> 발송
-                    </button>
+                    <>
+                      <button type="button" onClick={() => send(s.id, "LINK")} disabled={pending} className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-semibold text-brand-strong hover:bg-surface disabled:opacity-50">
+                        <Send className="h-3.5 w-3.5" /> 발송
+                      </button>
+                      <button type="button" onClick={() => send(s.id, "KAKAO")} disabled={pending} title={kakaoConfigured ? "카카오 알림톡 발송" : "알림톡 미연동 — 클릭 시 링크 전달 안내"} className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-semibold text-amber-600 hover:bg-amber-50 disabled:opacity-50">
+                        <Send className="h-3.5 w-3.5" /> 알림톡{kakaoConfigured ? "" : "(미연동)"}
+                      </button>
+                    </>
                   ) : null}
                   {s.responses.length > 0 ? (
                     <button type="button" onClick={() => setOpenId(openId === s.id ? null : s.id)} className="rounded-md border border-line px-2 py-1 text-xs text-slate-600 hover:bg-surface">
@@ -110,6 +124,12 @@ export function ContractSurveys({ contractId, surveys, canManage }: { contractId
                   ) : null}
                 </div>
               </div>
+
+              {delivery?.id === s.id ? (
+                <p className={`mt-2 rounded-md px-2 py-1 text-xs ${delivery.ok ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                  {delivery.ok ? "✓ " : "ⓘ "}{delivery.note}
+                </p>
+              ) : null}
 
               {openId === s.id ? (
                 <div className="mt-3 space-y-3 border-t border-line pt-3">

@@ -6,6 +6,7 @@ import { listSurveysForContract } from "@/server/repositories/surveys";
 import { ContractDetailView } from "@/components/contracts/ContractDetailView";
 import { ContractProducts } from "@/components/contracts/ContractProducts";
 import { ContractSurveys } from "@/components/contracts/ContractSurveys";
+import { kakaoAlimtalkConfigured } from "@/server/integrations/kakao";
 import { getCurrentUser } from "@/server/session";
 
 export default async function ContractDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -33,7 +34,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
         options={productOptions}
         locked={contract.status === "SIGNED"}
       />
-      <ContractSurveys contractId={contract.id} surveys={surveys} canManage={canManageSurvey} />
+      <ContractSurveys contractId={contract.id} surveys={surveys} canManage={canManageSurvey} kakaoConfigured={kakaoAlimtalkConfigured()} />
     </div>
   );
 }
