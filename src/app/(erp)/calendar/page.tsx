@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { CalendarScheduler } from "@/components/calendar/CalendarScheduler";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
-import { calendarKindLabels, fetchCalendarEventsForUser, type CalendarListItem } from "@/server/repositories/calendar";
-import { CalendarProvider, ConnectionStatus } from "@/domain/types";
+import { calendarKindLabels, fetchCalendarEventsForUser, fetchTeamCalendarEvents, type CalendarListItem, type TeamCalendarItem } from "@/server/repositories/calendar";
+import { CalendarProvider, ConnectionStatus, Role } from "@/domain/types";
 import { db } from "@/server/db";
 import { getSchedulerDay } from "@/server/repositories/work";
 import { getCurrentUser } from "@/server/session";
@@ -25,16 +25,17 @@ function groupByDay(events: CalendarListItem[]) {
   }, {});
 }
 
+function groupByOwner(events: TeamCalendarItem[]) {
+  return events.reduce<Record<string, TeamCalendarItem[]>>((groups, event) => {
+    groups[event.ownerName] = [...(groups[event.ownerName] ?? []), event];
+    return groups;
+  }, {});
+}
+
 function providerLabel(provider: CalendarProvider) {
   if (provider === CalendarProvider.GOOGLE) return "Google";
   if (provider === CalendarProvider.NAVER) return "Naver";
   return "Internal";
-}
-
-function connectionCopy(status: ConnectionStatus) {
-  if (status === ConnectionStatus.CONNECTED) return "연결됨";
-  if (status === ConnectionStatus.ERROR) return "확인필요";
-  return "준비중";
 }
 
 function EventRow({ event }: { event: CalendarListItem }) {
@@ -62,13 +63,16 @@ export default async function CalendarPage() {
     redirect("/login");
   }
 
+  const isManager = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
   const todayKey = dayKeyFormatter.format(new Date());
-  const [events, schedulerItems, companySetting] = await Promise.all([
+  const [events, schedulerItems, companySetting, teamEvents] = await Promise.all([
     fetchCalendarEventsForUser(user),
     getSchedulerDay(user, user.id, new Date(`${todayKey}T00:00:00`)),
-    db.companySetting.findFirst({ select: { workloadDailyMinutes: true } })
+    db.companySetting.findFirst({ select: { workloadDailyMinutes: true } }),
+    isManager ? fetchTeamCalendarEvents(user) : Promise.resolve([] as TeamCalendarItem[])
   ]);
   const groupedEvents = groupByDay(events);
+  const teamByOwner = groupByOwner(teamEvents);
   const integrationCards = [
     { provider: CalendarProvider.GOOGLE, title: "Google Calendar", status: ConnectionStatus.DISCONNECTED },
     { provider: CalendarProvider.NAVER, title: "Naver Calendar", status: ConnectionStatus.DISCONNECTED }
@@ -91,10 +95,10 @@ export default async function CalendarPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-semibold text-ink">{card.title}</p>
-                <p className="mt-1 text-sm text-slate-500">OAuth 키 등록 후 양방향 동기화를 연결할 수 있습니다.</p>
+                <p className="mt-1 text-sm text-slate-500">사내 캘린더가 기본입니다. 외부 캘린더로 <b>내보내기</b>는 선택 기능으로 준비 중입니다.</p>
               </div>
               <span className="rounded-md border border-line bg-surface px-3 py-1 text-xs font-semibold text-slate-600">
-                {connectionCopy(card.status)}
+                선택 · 준비중
               </span>
             </div>
           </div>
@@ -109,6 +113,42 @@ export default async function CalendarPage() {
           capacityMinutes={companySetting?.workloadDailyMinutes ?? 480}
         />
       </div>
+
+      {isManager && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-ink">담당자별 팀 일정</h3>
+            <span className="text-xs text-slate-500">담당자 {Object.keys(teamByOwner).length}명 · 일정 {teamEvents.length}건</span>
+          </div>
+          {teamEvents.length > 0 ? (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {Object.entries(teamByOwner).map(([owner, ownerEvents]) => (
+                <div key={owner} className="rounded-2xl border border-line bg-white p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="flex items-center gap-2 font-semibold text-ink">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-xs font-bold text-brand">{owner.slice(0, 1)}</span>
+                      {owner}
+                    </p>
+                    <span className="text-xs text-slate-400">{ownerEvents.length}건</span>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {ownerEvents.slice(0, 6).map((event) => (
+                      <li key={event.id} className="flex items-center gap-2 text-sm">
+                        <span className="w-16 shrink-0 text-xs text-slate-400">{dateFormatter.format(event.startsAt).replace(/\s/g, "").slice(5)}</span>
+                        <span className="shrink-0 rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{calendarKindLabels[event.kind]}</span>
+                        <span className="truncate text-slate-700">{event.title}</span>
+                      </li>
+                    ))}
+                    {ownerEvents.length > 6 && <li className="text-[11px] text-slate-400">+{ownerEvents.length - 6}건 더</li>}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-md border border-line bg-white px-5 py-8 text-center text-sm text-slate-500">팀 일정이 없습니다.</p>
+          )}
+        </div>
+      )}
 
       <div className="rounded-md border border-line bg-white">
         {Object.keys(groupedEvents).length > 0 ? (

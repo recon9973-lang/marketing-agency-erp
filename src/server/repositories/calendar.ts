@@ -96,6 +96,46 @@ async function buildCalendarWhere(user: CurrentUser) {
   return buildAdminCalendarWhere(scopes);
 }
 
+export type TeamCalendarItem = CalendarListItem & { ownerName: string };
+
+/** 관리자 담당자별 팀 일정 — 이벤트 소유자를 workItem.owner·leaveRequest.requester·createdBy에서
+ *  파생(스키마 무변경). 스코프는 기존 buildCalendarWhere 재사용(SUPER_ADMIN=전체, ADMIN=범위). */
+export async function fetchTeamCalendarEvents(user: CurrentUser): Promise<TeamCalendarItem[]> {
+  if (user.role === Role.MARKETER) return []; // 담당자 본인은 개인 뷰만
+  const events = await db.calendarEvent.findMany({
+    where: await buildCalendarWhere(user),
+    orderBy: { startsAt: "asc" },
+    take: 200,
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      startsAt: true,
+      endsAt: true,
+      provider: true,
+      kind: true,
+      syncStatus: true,
+      client: { select: { name: true } },
+      workItem: { select: { owner: { select: { name: true } } } },
+      leaveRequest: { select: { requester: { select: { name: true } } } },
+      createdBy: { select: { name: true } }
+    }
+  });
+
+  return events.map((event) => ({
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    startsAt: event.startsAt,
+    endsAt: event.endsAt,
+    provider: event.provider,
+    kind: event.kind,
+    syncStatus: event.syncStatus,
+    clientName: event.client?.name ?? null,
+    ownerName: event.workItem?.owner?.name ?? event.leaveRequest?.requester?.name ?? event.createdBy?.name ?? "미배정"
+  }));
+}
+
 export async function fetchCalendarEventsForUser(user: CurrentUser): Promise<CalendarListItem[]> {
   const events = await db.calendarEvent.findMany({
     where: await buildCalendarWhere(user),
