@@ -30,23 +30,6 @@ function kindBadge(kind: CalendarEventKind) {
   return `rounded-md border px-2 py-0.5 text-[11px] font-semibold ${KIND_TONE[kind]}`;
 }
 
-/** 기간 필터: 오늘 기준 이번주(월~일)·이번달 범위. */
-function rangeBounds(range: string, now: Date): { start: Date; end: Date } | null {
-  if (range === "week") {
-    const d = new Date(now);
-    const dow = (d.getDay() + 6) % 7; // 월=0
-    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - dow);
-    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7);
-    return { start, end };
-  }
-  if (range === "month") {
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    return { start, end };
-  }
-  return null; // all
-}
-
 function groupByDay(events: CalendarListItem[]) {
   return events.reduce<Record<string, CalendarListItem[]>>((groups, event) => {
     const key = event.startsAt.toISOString().slice(0, 10);
@@ -95,7 +78,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
 
   const sp = await searchParams;
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-  const range = one(sp.range) ?? "all"; // all | week | month
+  const view = one(sp.view) === "week" ? "week" : "month"; // 뷰가 격자·목록을 함께 결정
   const ownerFilter = one(sp.owner) ?? "";
 
   const isManager = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
@@ -107,37 +90,48 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     isManager ? fetchTeamCalendarEvents(user) : Promise.resolve([] as TeamCalendarItem[])
   ]);
 
-  const bounds = rangeBounds(range, new Date());
-  const inRange = (d: Date) => !bounds || (d >= bounds.start && d < bounds.end);
-  const events = allEvents.filter((e) => inRange(e.startsAt));
-  const teamEvents = allTeamEvents.filter((e) => inRange(e.startsAt) && (!ownerFilter || e.ownerName === ownerFilter));
+  // KST 일자키 유틸(서버 TZ 무관 — UTC 정오 기준).
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const keyToDate = (k: string) => { const [y, m, d] = k.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d, 12)); };
+  const dateToKey = (dt: Date) => `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`;
+  const shiftKey = (k: string, days: number) => { const dt = keyToDate(k); dt.setUTCDate(dt.getUTCDate() + days); return dateToKey(dt); };
 
+  // 월간 기준월 / 주간 기준일
+  const monthMatch = /^(\d{4})-(\d{2})$/.exec(one(sp.month) ?? "");
+  const gridYear = monthMatch ? Number(monthMatch[1]) : Number(todayKey.slice(0, 4));
+  const gridMonthIndex = monthMatch ? Number(monthMatch[2]) - 1 : Number(todayKey.slice(5, 7)) - 1;
+  const monthPrefix = `${gridYear}-${pad(gridMonthIndex + 1)}`;
+  const wkRef = one(sp.wk) ?? todayKey;
+  const weekStartKey = shiftKey(wkRef, -keyToDate(wkRef).getUTCDay()); // 그 주 일요일
+  const weekKeys = Array.from({ length: 7 }, (_, i) => shiftKey(weekStartKey, i));
+
+  const inView = (key: string) => (view === "week" ? weekKeys.includes(key) : key.startsWith(monthPrefix));
+  const gridLabel =
+    (view === "week"
+      ? `${Number(weekKeys[0].slice(5, 7))}월 ${Number(weekKeys[0].slice(8, 10))}일~${Number(weekKeys[6].slice(8, 10))}일`
+      : `${gridYear}년 ${gridMonthIndex + 1}월`) + (isManager ? " · 팀 전체" : "") + (ownerFilter ? ` · ${ownerFilter}` : "");
+
+  // 뷰 기간으로 목록·팀뷰·격자를 함께 필터(일관).
+  const events = allEvents.filter((e) => inView(dayKeyFormatter.format(e.startsAt)));
+  const teamEvents = allTeamEvents.filter((e) => inView(dayKeyFormatter.format(e.startsAt)) && (!ownerFilter || e.ownerName === ownerFilter));
   const owners = [...new Set(allTeamEvents.map((e) => e.ownerName))].sort();
-  const rangeQs = (r: string) => `?range=${r}${ownerFilter ? `&owner=${encodeURIComponent(ownerFilter)}` : ""}`;
-  const ownerQs = (o: string) => `?range=${range}${o ? `&owner=${encodeURIComponent(o)}` : ""}`;
-  const RANGES: [string, string][] = [["all", "전체"], ["week", "이번주"], ["month", "이번달"]];
+
+  const eventsByDay: Record<string, GridEvent[]> = {};
+  for (const e of isManager ? teamEvents : events) {
+    const key = dayKeyFormatter.format(e.startsAt);
+    (eventsByDay[key] ??= []).push({ id: e.id, title: e.title, toneClass: KIND_TONE[e.kind], label: calendarKindLabels[e.kind] });
+  }
 
   const groupedEvents = groupByDay(events);
   const teamByOwner = groupByOwner(teamEvents);
 
-  // 월간 격자 달력 — ?month=YYYY-MM(기본 이번달). 관리자는 팀 전체, 그 외 본인 일정.
-  const monthMatch = /^(\d{4})-(\d{2})$/.exec(one(sp.month) ?? "");
-  const gridYear = monthMatch ? Number(monthMatch[1]) : Number(todayKey.slice(0, 4));
-  const gridMonthIndex = monthMatch ? Number(monthMatch[2]) - 1 : Number(todayKey.slice(5, 7)) - 1;
-  const monthPrefix = `${gridYear}-${String(gridMonthIndex + 1).padStart(2, "0")}`;
-  const gridSource = isManager ? allTeamEvents : allEvents;
-  const eventsByDay: Record<string, GridEvent[]> = {};
-  for (const e of gridSource) {
-    if (isManager && ownerFilter && (e as TeamCalendarItem).ownerName !== ownerFilter) continue;
-    const key = dayKeyFormatter.format(e.startsAt);
-    if (!key.startsWith(monthPrefix)) continue;
-    (eventsByDay[key] ??= []).push({ id: e.id, title: e.title, toneClass: KIND_TONE[e.kind], label: calendarKindLabels[e.kind] });
-  }
-  const monthNav = (delta: number) => {
-    const d = new Date(gridYear, gridMonthIndex + delta, 1);
-    const mp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    return `?month=${mp}${ownerFilter ? `&owner=${encodeURIComponent(ownerFilter)}` : ""}`;
-  };
+  // 네비/토글 링크(현재 뷰·오너 유지)
+  const ownerSuffix = ownerFilter ? `&owner=${encodeURIComponent(ownerFilter)}` : "";
+  const viewQs = (v: string) => `?view=${v}${ownerSuffix}`;
+  const ownerQs = (o: string) => `?view=${view}&${view === "week" ? `wk=${wkRef}` : `month=${monthPrefix}`}${o ? `&owner=${encodeURIComponent(o)}` : ""}`;
+  const gridPrev = view === "week" ? `?view=week&wk=${shiftKey(weekStartKey, -7)}${ownerSuffix}` : `?view=month&month=${dateToKey(new Date(Date.UTC(gridYear, gridMonthIndex - 1, 1, 12))).slice(0, 7)}${ownerSuffix}`;
+  const gridNext = view === "week" ? `?view=week&wk=${shiftKey(weekStartKey, 7)}${ownerSuffix}` : `?view=month&month=${dateToKey(new Date(Date.UTC(gridYear, gridMonthIndex + 1, 1, 12))).slice(0, 7)}${ownerSuffix}`;
+  const VIEWS: [string, string][] = [["week", "주간"], ["month", "월간"]];
   const integrationCards = [
     { provider: CalendarProvider.GOOGLE, title: "Google Calendar", status: ConnectionStatus.DISCONNECTED },
     { provider: CalendarProvider.NAVER, title: "Naver Calendar", status: ConnectionStatus.DISCONNECTED }
@@ -153,9 +147,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         />
         <div className="flex shrink-0 items-center gap-3">
           <div className="inline-flex rounded-lg border border-line bg-surface p-0.5">
-            {RANGES.map(([r, label]) => (
-              <a key={r} href={rangeQs(r)} className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${range === r ? "bg-card text-brand shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
-                {label}
+            {VIEWS.map(([v, lbl]) => (
+              <a key={v} href={viewQs(v)} className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${view === v ? "bg-card text-brand shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+                {lbl}
               </a>
             ))}
           </div>
@@ -182,11 +176,12 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       <MonthCalendar
         year={gridYear}
         monthIndex={gridMonthIndex}
+        weekKeys={view === "week" ? weekKeys : undefined}
         eventsByDay={eventsByDay}
         todayKey={todayKey}
-        prevHref={monthNav(-1)}
-        nextHref={monthNav(1)}
-        monthLabel={`${gridYear}년 ${gridMonthIndex + 1}월${isManager ? " · 팀 전체" : ""}${ownerFilter ? ` · ${ownerFilter}` : ""}`}
+        prevHref={gridPrev}
+        nextHref={gridNext}
+        label={gridLabel}
       />
 
       <div className="space-y-3">
