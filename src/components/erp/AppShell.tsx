@@ -23,6 +23,7 @@ import {
   MessageSquare,
   Radar,
   Rocket,
+  Route,
   Search,
   Megaphone,
   LineChart,
@@ -48,6 +49,7 @@ type ErpRoute =
   | "/insights"
   | "/geo"
   | "/geo-cep"
+  | "/geo-path"
   | "/geo-planner"
   | "/geo-content"
   | "/magazine"
@@ -147,6 +149,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       label: "CEP 파인더",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Compass,
+      group: "기획·분석"
+    },
+    {
+      href: "/geo-path",
+      label: "GEO 여정",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Route,
       group: "기획·분석"
     },
     {
