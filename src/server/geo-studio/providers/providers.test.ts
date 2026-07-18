@@ -87,6 +87,15 @@ describe("HybridProvider (네이버 미지원 필드 → 목 폴백)", () => {
     expect(mv!.total).toBeGreaterThan(0);
     expect(mv!.estimated).toBe(true); // 목은 추정
   });
+
+  it("effectiveTier 기록기: 미지원 필드는 실제 사용된 목 티어(approx)로 통지", async () => {
+    const recorded = new Map<string, string>();
+    const h = new HybridProvider(new NaverProvider({}), new MockProvider(), (f, t) => recorded.set(f, t));
+    await h.searchVolume("맥주효모", "m");
+    await h.monthlyVolume("맥주효모");
+    expect(recorded.get("searchVolume")).toBe("approx"); // 실측 미구성 → 목 폴백 정직 강등
+    expect(recorded.get("monthlyVolume")).toBe("approx");
+  });
 });
 
 describe("NaverProvider 검색광고(절대 검색수) 게이트", () => {

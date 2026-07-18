@@ -13,7 +13,7 @@ import { Sparkline } from "@/components/geo-common/Sparkline";
 import { GptReviewPanel } from "@/components/geo-cep/GptReviewPanel";
 import { SerpTable } from "@/components/geo-cep/SerpTable";
 import { buildGptReview, type ReviewReport } from "@/server/geo-studio/cep/review";
-import { getProvider } from "@/server/geo-studio/providers/resolver";
+import { getRequestProvider } from "@/server/geo-studio/providers/resolver";
 
 const AXES: [string, string][] = [
   ["situation_tag", "상황"],
@@ -74,14 +74,15 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
   }
 
   const review = report ? buildGptReview(report as unknown as ReviewReport, brand, category) : null;
-  const provider = getProvider();
+  const { provider, effectiveTier } = getRequestProvider();
   const serpDocs = ran ? await provider.serpTop(category, 8) : [];
-  const serpTier = provider.tierOf("serpTop");
   const monthlyVol = ran ? await provider.monthlyVolume(category) : null;
-  const volTier = provider.tierOf("monthlyVolume");
   const volFmt = new Intl.NumberFormat("ko-KR");
   const trend = ran ? await provider.searchVolume(category, "m") : [];
-  const trendTier = provider.tierOf("searchVolume");
+  // 배지는 데이터 호출 이후에 '실제 사용된' 티어로 결정 — 실측 실패로 목 폴백 시 정직하게 강등.
+  const serpTier = effectiveTier("serpTop");
+  const volTier = effectiveTier("monthlyVolume");
+  const trendTier = effectiveTier("searchVolume");
   const trendLatest = trend.length ? Math.round(trend[trend.length - 1].value * 10) / 10 : null;
   const trendDelta = trend.length >= 2 ? Math.round((trend[trend.length - 1].value - trend[0].value) * 10) / 10 : null;
 
