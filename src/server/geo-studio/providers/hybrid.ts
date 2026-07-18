@@ -16,8 +16,11 @@ export class HybridProvider implements SearchDataPort {
     if (!this.naver.supports(field)) return fallback();
     try {
       return await live();
-    } catch {
-      return fallback(); // 실측 실패 시 조용히 목 폴백(화면은 배지로 근사 표기).
+    } catch (err) {
+      // 실측 실패(쿼터·오류) → 목 폴백. 관측 가능하도록 경고 로그(무음 금지).
+      // TODO: 폴백 여부를 호출 결과에 실어 화면 배지를 '실측→추정치(폴백)'로 강등(후속).
+      console.warn(`[geo-studio] 실측 실패로 목 폴백: ${field} —`, err instanceof Error ? err.message : err);
+      return fallback();
     }
   }
 

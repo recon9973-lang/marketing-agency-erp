@@ -149,21 +149,23 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
     },
     {
       key: "googleCalendar",
-      label: "구글 캘린더",
+      label: "구글 캘린더 (준비중)",
       category: "캘린더",
-      configured: has("GOOGLE_CALENDAR_CLIENT_ID", "GOOGLE_CALENDAR_CLIENT_SECRET"),
+      // 동기화 코드 미구현 — env가 있어도 아직 동작하지 않으므로 항상 미연결로 정직 표시.
+      configured: false,
       envVars: ["GOOGLE_CALENDAR_CLIENT_ID", "GOOGLE_CALENDAR_CLIENT_SECRET"],
-      description: "일정 양방향 동기화",
+      description: "일정 양방향 동기화 (동기화 미구현 · 예정)",
       usedIn: "캘린더",
       fallback: "내부 캘린더만 사용"
     },
     {
       key: "naverCalendar",
-      label: "네이버 캘린더",
+      label: "네이버 캘린더 (준비중)",
       category: "캘린더",
-      configured: has("NAVER_CALENDAR_CLIENT_ID", "NAVER_CALENDAR_CLIENT_SECRET"),
+      // 동기화 코드 미구현 — 항상 미연결로 정직 표시.
+      configured: false,
       envVars: ["NAVER_CALENDAR_CLIENT_ID", "NAVER_CALENDAR_CLIENT_SECRET"],
-      description: "일정 양방향 동기화",
+      description: "일정 양방향 동기화 (동기화 미구현 · 예정)",
       usedIn: "캘린더",
       fallback: "내부 캘린더만 사용"
     },
