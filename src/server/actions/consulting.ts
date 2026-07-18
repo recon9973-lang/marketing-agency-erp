@@ -10,6 +10,7 @@ import { assertCanAccessClient } from "@/domain/access-control";
 import { db } from "@/server/db";
 import { generateConsulting, isAiConfigured } from "@/server/ai/claude";
 import { fetchKeywordVolumes } from "@/server/integrations/naver-search";
+import { fetchKeywordTrends } from "@/server/integrations/naver-datalab";
 import { getDefaultOrgId } from "@/server/org";
 import {
   getAdminScopes,
@@ -56,11 +57,24 @@ export async function runConsulting(input: unknown): Promise<ActionResult<{ id: 
     } catch {
       /* 검색량 조회 실패는 무시하고 진행 */
     }
-    // 리포트에 저장할 키워드에 검색량 부착.
+    // 네이버 데이터랩으로 검색 트렌드(0~100) 보강. 데이터랩은 요청당 5키워드 → 청크 처리(상위 25개).
+    const trendMap = new Map<string, number | null>();
+    try {
+      const kws = result.coreKeywords.map((k) => k.keyword);
+      for (let i = 0; i < Math.min(kws.length, 25); i += 5) {
+        const trends = await fetchKeywordTrends(kws.slice(i, i + 5));
+        for (const t of trends) trendMap.set(t.keyword, t.latestRatio);
+      }
+    } catch {
+      /* 트렌드 조회 실패는 무시하고 진행 */
+    }
+
+    // 리포트에 저장할 키워드에 검색량·트렌드 부착.
     const enrichedKeywords = result.coreKeywords.map((k) => ({
       ...k,
       searchVolume: volMap.get(k.keyword)?.total ?? null,
-      estimated: volMap.get(k.keyword)?.estimated ?? true
+      estimated: volMap.get(k.keyword)?.estimated ?? true,
+      trendRatio: trendMap.get(k.keyword) ?? null
     }));
 
     const meta = await requestMeta();
@@ -89,7 +103,7 @@ export async function runConsulting(input: unknown): Promise<ActionResult<{ id: 
         if (existing.has(k.keyword)) continue;
         existing.add(k.keyword);
         await tx.keyword.create({
-          data: { clientId: d.clientId, keyword: k.keyword, intent: k.intent || null, priority: k.priority, channel: k.channel, searchVolume: k.searchVolume, orgId }
+          data: { clientId: d.clientId, keyword: k.keyword, intent: k.intent || null, priority: k.priority, channel: k.channel, searchVolume: k.searchVolume, trendRatio: k.trendRatio, orgId }
         });
       }
       await recordAudit(tx, {

@@ -18,6 +18,21 @@ function shortDate(iso: string): string {
   return `${Number(iso.slice(5, 7))}.${Number(iso.slice(8, 10))}`;
 }
 
+// 검색 트렌드 지수(네이버 데이터랩, 0~100 상대값) — 미니 게이지 바 + 지수. 미연결 시 "-".
+function TrendCell({ ratio }: { ratio: number | null }) {
+  if (ratio == null) return <span className="text-slate-300">–</span>;
+  const pct = Math.max(0, Math.min(100, ratio));
+  const tone = pct >= 66 ? "bg-emerald-500" : pct >= 33 ? "bg-amber-500" : "bg-slate-400";
+  return (
+    <span className="inline-flex items-center justify-end gap-1.5" title={`데이터랩 검색 트렌드 지수 ${pct} / 100 (기간 내 최고=100)`}>
+      <span className="h-1.5 w-12 overflow-hidden rounded-full bg-line/70">
+        <span className={`block h-full rounded-full ${tone}`} style={{ width: `${pct}%` }} />
+      </span>
+      <b className="tabular-nums text-slate-600">{pct}</b>
+    </span>
+  );
+}
+
 /** 여러 채널 시계열을 하나의 축에 그리는 라인 차트. 값이 없으면 null 반환(빈 상태 처리는 호출부). */
 function MultiLineChart({ series, unit }: { series: ChannelSeries[]; unit: string }) {
   const dates = [...new Set(series.flatMap((s) => s.points.map((p) => p.date)))].sort();
@@ -274,7 +289,8 @@ export function InsightsView({
                       <tr className="text-[11px] uppercase tracking-wide text-slate-400">
                         <th className="pb-2 pr-3 text-left font-semibold">키워드</th>
                         <th className="px-2 pb-2 text-left font-semibold">채널</th>
-                        <th className="pb-2 pl-2 text-right font-semibold">월 검색량</th>
+                        <th className="px-2 pb-2 text-right font-semibold">월 검색량</th>
+                        <th className="pb-2 pl-2 text-right font-semibold">검색 트렌드</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -282,11 +298,13 @@ export function InsightsView({
                         <tr key={k.id} className="border-t border-line">
                           <td className="py-2.5 pr-3 font-semibold text-ink">{k.keyword}</td>
                           <td className="px-2 py-2.5 text-slate-500">{CHANNEL_LABEL[k.channel] ?? k.channel}</td>
-                          <td className="py-2.5 pl-2 text-right tabular-nums text-slate-600">{k.searchVolume != null ? won.format(k.searchVolume) : "-"}</td>
+                          <td className="px-2 py-2.5 text-right tabular-nums text-slate-600">{k.searchVolume != null ? won.format(k.searchVolume) : "-"}</td>
+                          <td className="py-2.5 pl-2 text-right"><TrendCell ratio={k.trendRatio} /></td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                  <p className="mt-2 text-[11px] leading-relaxed text-slate-400">월 검색량 = 네이버 검색광고 <b className="text-slate-500">절대 조회수</b> · 검색 트렌드 = 데이터랩 <b className="text-slate-500">상대 지수(0~100)</b>. 서로 다른 척도입니다.</p>
                 </div>
               ) : (
                 <p className="rounded-xl border border-dashed border-line bg-surface/40 px-4 py-8 text-center text-sm text-slate-400">등록된 핵심 키워드가 없습니다.</p>

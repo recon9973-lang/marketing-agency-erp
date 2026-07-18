@@ -10,7 +10,7 @@ import { runConsulting } from "@/server/actions/consulting";
 import { QuotePanel } from "@/components/clients/QuotePanel";
 import { printDocument, escapeHtml } from "@/lib/print-doc";
 
-type KeywordRow = { keyword: string; intent: string; priority: number; channel: string; searchVolume?: number | null; estimated?: boolean };
+type KeywordRow = { keyword: string; intent: string; priority: number; channel: string; searchVolume?: number | null; estimated?: boolean; trendRatio?: number | null };
 const volFmt = new Intl.NumberFormat("ko-KR");
 type Report = {
   id: string;
@@ -123,7 +123,7 @@ export function ConsultingPanel({
             <div className="overflow-x-auto rounded-lg border border-line">
               <table className="w-full min-w-[480px] text-sm">
                 <thead><tr className="border-b border-line bg-surface/40 text-left text-xs text-slate-500">
-                  <th className="px-3 py-2">키워드</th><th className="px-3 py-2">의도</th><th className="px-3 py-2">채널</th><th className="px-3 py-2 text-right">월 검색량</th><th className="px-3 py-2 text-center">우선</th>
+                  <th className="px-3 py-2">키워드</th><th className="px-3 py-2">의도</th><th className="px-3 py-2">채널</th><th className="px-3 py-2 text-right">월 검색량</th><th className="px-3 py-2 text-right">트렌드</th><th className="px-3 py-2 text-center">우선</th>
                 </tr></thead>
                 <tbody>
                   {report.keywords.map((k, i) => (
@@ -134,6 +134,11 @@ export function ConsultingPanel({
                       <td className="px-3 py-1.5 text-right text-slate-600">
                         {k.searchVolume != null ? (
                           <span>{volFmt.format(k.searchVolume)}{k.estimated ? <span className="ml-0.5 text-[10px] text-slate-400">추정</span> : null}</span>
+                        ) : <span className="text-slate-300">-</span>}
+                      </td>
+                      <td className="px-3 py-1.5 text-right text-slate-600">
+                        {k.trendRatio != null ? (
+                          <span className="tabular-nums" title="데이터랩 검색 트렌드 지수(0~100, 기간 내 최고=100)">{Math.round(k.trendRatio)}<span className="ml-0.5 text-[10px] text-slate-400">지수</span></span>
                         ) : <span className="text-slate-300">-</span>}
                       </td>
                       <td className="px-3 py-1.5 text-center text-slate-600">{k.priority}</td>

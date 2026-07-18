@@ -23,7 +23,7 @@ export async function listInsightClients(user: CurrentUser): Promise<InsightClie
 export type SeriesPoint = { date: string; value: number };
 export type ChannelSeries = { channel: string; label: string; total: number; latest: number; points: SeriesPoint[] };
 export type RankSeries = { keyword: string; latest: number | null; delta: number | null; points: { date: string; rank: number }[] };
-export type KeywordRow = { id: string; keyword: string; channel: string; intent: string | null; searchVolume: number | null; priority: number };
+export type KeywordRow = { id: string; keyword: string; channel: string; intent: string | null; searchVolume: number | null; trendRatio: number | null; priority: number };
 
 export type InsightKpis = {
   placeVisitors: number;
@@ -124,7 +124,7 @@ export async function getClientInsight(
       .findMany({
         where: { clientId: client.id },
         orderBy: [{ priority: "asc" }, { searchVolume: "desc" }],
-        select: { id: true, keyword: true, channel: true, intent: true, searchVolume: true, priority: true }
+        select: { id: true, keyword: true, channel: true, intent: true, searchVolume: true, trendRatio: true, priority: true }
       })
       .catch(() => [])
   ]);
@@ -160,6 +160,7 @@ export async function getClientInsight(
       channel: k.channel,
       intent: k.intent,
       searchVolume: k.searchVolume,
+      trendRatio: k.trendRatio,
       priority: k.priority
     };
     if (core.length < 8 && (k.priority <= 2 || (k.searchVolume ?? 0) >= 1000)) core.push(row);
