@@ -9,6 +9,10 @@ import { buildBrief } from "@/server/geo-studio/cep/brief";
 import { briefToMarkdown, makeCep } from "@/server/geo-studio/cep/models";
 import { ClusterBubbleMap, type BubbleCep } from "@/components/geo-cep/ClusterBubbleMap";
 import { TierBadge } from "@/components/geo-common/TierBadge";
+import { GptReviewPanel } from "@/components/geo-cep/GptReviewPanel";
+import { SerpTable } from "@/components/geo-cep/SerpTable";
+import { buildGptReview, type ReviewReport } from "@/server/geo-studio/cep/review";
+import { getProvider } from "@/server/geo-studio/providers/resolver";
 
 const AXES: [string, string][] = [
   ["situation_tag", "상황"],
@@ -68,6 +72,11 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
     );
   }
 
+  const review = report ? buildGptReview(report as unknown as ReviewReport, brand, category) : null;
+  const provider = getProvider();
+  const serpDocs = ran ? await provider.serpTop(category, 8) : [];
+  const serpTier = provider.tierOf("serpTop");
+
   const input = "mt-1 w-full rounded-lg border border-line bg-card px-2.5 py-1.5 text-sm text-ink placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none";
 
   return (
@@ -121,6 +130,8 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
 
           <ClusterBubbleMap ceps={report.ceps as unknown as BubbleCep[]} seedLabel={category} />
 
+          {review && <GptReviewPanel review={review} seedLabel={category} />}
+
           <div className="overflow-x-auto rounded-2xl border border-line bg-card">
             <div className="flex items-center gap-2 px-4 pt-4">
               <p className="text-sm font-bold text-ink">발굴된 CEP (우선순위순)</p>
@@ -165,6 +176,8 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
               </tbody>
             </table>
           </div>
+
+          <SerpTable docs={serpDocs} tier={serpTier} keyword={category} />
 
           <div className="grid gap-3 lg:grid-cols-2">
             <div className="rounded-2xl border border-line bg-card p-4">
