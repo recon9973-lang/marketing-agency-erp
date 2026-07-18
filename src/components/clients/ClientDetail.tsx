@@ -39,7 +39,8 @@ export function ClientDetail({
   canManage,
   industries,
   marketers,
-  exposure
+  exposure,
+  rankConnected = false
 }: {
   client: {
     id: string;
@@ -102,6 +103,7 @@ export function ClientDetail({
   industries: IndustryNode[];
   marketers: Marketer[];
   exposure: GuardKeyword[];
+  rankConnected?: boolean;
 }) {
   const isHospital = client.businessType === "HOSPITAL";
   const tabs = [
@@ -233,7 +235,7 @@ export function ClientDetail({
       )}
 
       {tab === "월보장" && (
-        <ExposureTracker clientId={client.id} keywords={exposure} canManage={canManage} />
+        <ExposureTracker clientId={client.id} keywords={exposure} canManage={canManage} rankConnected={rankConnected} />
       )}
 
       {tab === "업무" && (

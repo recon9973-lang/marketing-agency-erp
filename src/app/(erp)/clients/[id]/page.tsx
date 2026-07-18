@@ -10,6 +10,7 @@ import { getLatestConsulting } from "@/server/repositories/consulting";
 import { listQuotes } from "@/server/repositories/quotes";
 import { listContentPlans } from "@/server/repositories/content-plans";
 import { getExposureTracker } from "@/server/repositories/exposure";
+import { isIntegrationConfigured } from "@/server/integrations/status";
 import { isAiConfigured } from "@/server/ai/claude";
 import { getIndustryTree } from "@/server/repositories/masters";
 import { listActiveMembers, listComments } from "@/server/repositories/collab";
@@ -88,6 +89,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         industries={industries}
         marketers={marketers}
         exposure={exposure}
+        rankConnected={isIntegrationConfigured("naverResearch")}
       />
       <GoogleIntegrationPanel
         clientId={id}

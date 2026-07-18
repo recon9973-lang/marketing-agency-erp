@@ -9,6 +9,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveGuardKeyword, type SaveGuardKeywordInput } from "@/server/actions/exposure";
+import { ConnectionBadge } from "@/components/ui/ConnectionBadge";
 
 type Latest = { channel: string; rank: number | null; checkedOn: string };
 export type GuardKeyword = {
@@ -66,10 +67,12 @@ export function ExposureTracker({
   clientId,
   keywords,
   canManage,
+  rankConnected = false,
 }: {
   clientId: string;
   keywords: GuardKeyword[];
   canManage: boolean;
+  rankConnected?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -123,8 +126,12 @@ export function ExposureTracker({
       {/* 트래커 */}
       <div className="rounded-2xl border border-line bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-ink">
+          <h3 className="flex items-center gap-2 text-sm font-bold text-ink">
             월보장 노출 트래커 <span className="text-slate-400">({guaranteed.length})</span>
+            <ConnectionBadge
+              state={rankConnected ? "connected" : "unconnected"}
+              hint={rankConnected ? "네이버 검색 실측·매일 감시" : "순위 수집 미연동"}
+            />
           </h3>
           {canManage && !form ? (
             <button onClick={openNew} className="rounded-md bg-brand px-3 py-2 text-xs font-semibold text-white">

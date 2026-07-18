@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { InsightsView } from "@/components/insights/InsightsView";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { getClientInsight, listInsightClients } from "@/server/repositories/insights";
+import { naverDatalabConfigured } from "@/server/integrations/naver-datalab";
+import { isIntegrationConfigured } from "@/server/integrations/status";
 import { getCurrentUser } from "@/server/session";
 
 export default async function InsightsPage({
@@ -26,7 +28,12 @@ export default async function InsightsPage({
         title="거래처 인사이트"
         description="담당 병원의 채널별 방문자·노출, 검색 순위, 핵심·연관 키워드를 한 화면에서 봅니다."
       />
-      <InsightsView clients={clients} selectedId={selectedId} insight={insight} />
+      <InsightsView
+        clients={clients}
+        selectedId={selectedId}
+        insight={insight}
+        searchData={{ datalab: naverDatalabConfigured(), searchAd: isIntegrationConfigured("naverSearchAd") }}
+      />
     </section>
   );
 }

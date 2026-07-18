@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { Activity, BarChart3, Eye, Search, TrendingUp, Users } from "lucide-react";
 import type { ChannelSeries, ClientInsight, InsightClient, RankSeries } from "@/server/repositories/insights";
+import { ConnectionBadge } from "@/components/ui/ConnectionBadge";
 
 // 거래처 마케팅 인사이트 화면 — 병원 선택 탭 + 채널 방문자/노출 추이 + 검색 순위 추적 + 키워드.
 // 모든 차트는 서버 렌더 SVG(클라이언트 JS 없음). 그래프 끝은 R값 없이(직선 캡).
@@ -156,11 +157,13 @@ type Kpi = { label: string; value: string; sub: string; icon: typeof Users; tone
 export function InsightsView({
   clients,
   selectedId,
-  insight
+  insight,
+  searchData
 }: {
   clients: InsightClient[];
   selectedId: string | null;
   insight: ClientInsight | null;
+  searchData?: { datalab: boolean; searchAd: boolean };
 }) {
   if (clients.length === 0) {
     return (
@@ -281,7 +284,18 @@ export function InsightsView({
           {/* 핵심 키워드 표 + 연관 키워드 */}
           <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="rounded-2xl border border-line bg-white p-5">
-              <p className="mb-2 flex items-center gap-1.5 text-sm font-bold text-ink"><Search className="h-4 w-4 text-amber-500" /> 핵심 키워드 성과</p>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="flex items-center gap-1.5 text-sm font-bold text-ink"><Search className="h-4 w-4 text-amber-500" /> 핵심 키워드 성과</p>
+                {searchData ? (
+                  searchData.searchAd ? (
+                    <ConnectionBadge state="connected" hint="검색광고+데이터랩 실측" />
+                  ) : searchData.datalab ? (
+                    <ConnectionBadge state="connected" label="트렌드 연결됨" hint="검색량은 추정" />
+                  ) : (
+                    <ConnectionBadge state="demo" hint="네이버 미연동·추정치" />
+                  )
+                ) : null}
+              </div>
               {insight.coreKeywords.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[360px] text-sm">
