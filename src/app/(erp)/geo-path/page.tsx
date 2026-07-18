@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { getCurrentUser } from "@/server/session";
 import { analyzeJourney, type JourneyReport } from "@/server/geo-studio/path/analyzer";
+import { JourneyGraph, type RawNode } from "@/components/geo-path/JourneyGraph";
 
 const csv = (s?: string) => (s ?? "").split(",").map((x) => x.trim()).filter(Boolean);
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -62,6 +63,9 @@ export default async function GeoPathPage({ searchParams }: { searchParams: Prom
               </div>
             ))}
           </div>
+
+          {/* 검색 경로 그래프(SVG) */}
+          <JourneyGraph tree={report.tree as unknown as RawNode} primaryPath={report.top_paths[0] ?? []} brand={brand} />
 
           {/* 갭 경로 */}
           <div className="overflow-x-auto rounded-2xl border border-line bg-card">
