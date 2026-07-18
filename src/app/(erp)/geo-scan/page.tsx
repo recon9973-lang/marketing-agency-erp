@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { getCurrentUser } from "@/server/session";
 import { scan } from "@/server/geo-studio/scanner/scanner";
 import { todayIso } from "@/server/geo-studio/py-compat";
+import { ConnectionBadge } from "@/components/ui/ConnectionBadge";
 
 const csv = (s?: string) => (s ?? "").split(",").map((x) => x.trim()).filter(Boolean);
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -49,6 +50,12 @@ export default async function GeoScanPage({ searchParams }: { searchParams: Prom
         title="GEO 스캐너"
         description="4대 AI(ChatGPT·Gemini·Claude·Perplexity)가 답변에서 우리 브랜드를 얼마나 인용하는지 측정합니다. 키워드 1개당 3변형(정보·비교·질문형) × 4 AI로 질의하고, 언급률·AI별 성적·경쟁사 점유·인용 문맥을 산출합니다."
       />
+
+      {/* 데이터 연결 상태 배너 — 이 화면은 아직 실제 4-AI 미연결(시뮬레이션) */}
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800">
+        <ConnectionBadge state="demo" hint="4-AI 실측 미연결" />
+        <span>아래 수치는 <b>데모(시뮬레이션)</b>입니다. 실제 AI 인용 측정은 <a href="/geo" className="font-semibold underline">GEO 모니터링</a>(실 엔진 연동)에서 확인하세요. 이 화면의 라이브 연결은 예정입니다.</span>
+      </div>
 
       {/* 입력 폼(GET) */}
       <form method="get" className="rounded-2xl border border-line bg-card p-4">

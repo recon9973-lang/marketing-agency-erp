@@ -3,7 +3,7 @@
  * 규칙: "환경 변수에 자격증명을 넣으면 켜진다." 실서버 이관 시 같은 env만 채우면 됨.
  * 이 파일이 각 연동이 현재 환경에서 설정됐는지 한곳에서 보고한다(읽기 전용).
  */
-export type IntegrationCategory = "코어" | "AI" | "메시지·메일" | "데이터·광고" | "결제" | "캘린더";
+export type IntegrationCategory = "코어" | "AI" | "메시지·메일" | "데이터·광고" | "제작·발행" | "결제" | "캘린더";
 
 export type IntegrationStatus = {
   key: string;
@@ -124,7 +124,7 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       configured: has("NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET"),
       envVars: ["NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET"],
       description: "키워드 검색어 트렌드",
-      usedIn: "키워드·성과 분석",
+      usedIn: "키워드·성과 분석 · GEO Studio(CEP)",
       fallback: "데모 추정치"
     },
     {
@@ -134,7 +134,7 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       configured: has("NAVER_AD_API_KEY", "NAVER_AD_SECRET", "NAVER_AD_CUSTOMER_ID"),
       envVars: ["NAVER_AD_API_KEY", "NAVER_AD_SECRET", "NAVER_AD_CUSTOMER_ID"],
       description: "키워드 월간 검색수",
-      usedIn: "검색량 조회",
+      usedIn: "검색량 조회 · 컨설팅·인사이트 · GEO Studio(CEP)",
       fallback: "데이터랩/데모로 대체"
     },
     {
@@ -166,6 +166,76 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       description: "일정 양방향 동기화",
       usedIn: "캘린더",
       fallback: "내부 캘린더만 사용"
+    },
+    {
+      key: "wordpress",
+      label: "워드프레스 (발행)",
+      category: "제작·발행",
+      configured: has("WORDPRESS_SITE_URL", "WORDPRESS_USER", "WORDPRESS_APP_PASSWORD"),
+      envVars: ["WORDPRESS_SITE_URL", "WORDPRESS_USER", "WORDPRESS_APP_PASSWORD"],
+      description: "콘텐츠·매거진을 워드프레스로 발행/예약",
+      usedIn: "콘텐츠 플랜 · 매거진 발행",
+      fallback: "발행 없이 초안만 저장"
+    },
+    {
+      key: "makeWebhook",
+      label: "Make 웹훅 (멀티채널 발행)",
+      category: "제작·발행",
+      configured: has("MAKE_WEBHOOK_URL"),
+      envVars: ["MAKE_WEBHOOK_URL"],
+      description: "블로그·인스타·플레이스 자동 발행 오케스트레이션",
+      usedIn: "마케팅 발행",
+      fallback: "수동 발행"
+    },
+    {
+      key: "seoGenerator",
+      label: "SEO 콘텐츠 생성기",
+      category: "제작·발행",
+      configured: has("SEO_GENERATOR_URL"),
+      envVars: ["SEO_GENERATOR_URL"],
+      description: "외부 SEO 원고 생성 파이프라인",
+      usedIn: "콘텐츠 파이프라인",
+      fallback: "내부 생성으로 대체"
+    },
+    {
+      key: "higgsfield",
+      label: "Higgsfield (이미지·영상)",
+      category: "제작·발행",
+      configured: has("HIGGSFIELD_API_URL", "HIGGSFIELD_API_KEY"),
+      envVars: ["HIGGSFIELD_API_URL", "HIGGSFIELD_API_KEY"],
+      description: "크리에이티브 이미지/영상·바이럴 예측",
+      usedIn: "마케팅 스튜디오",
+      fallback: "미연결 시 기능 숨김"
+    },
+    {
+      key: "canva",
+      label: "Canva Connect (디자인)",
+      category: "제작·발행",
+      configured: has("CANVA_ACCESS_TOKEN"),
+      envVars: ["CANVA_ACCESS_TOKEN"],
+      description: "브랜드 템플릿 기반 디자인 생성",
+      usedIn: "디자인 스튜디오",
+      fallback: "미연결 시 기능 숨김"
+    },
+    {
+      key: "naverResearch",
+      label: "네이버 리서치 (연관어·노출순위)",
+      category: "데이터·광고",
+      configured: has("NAVER_SEARCH_CLIENT_ID", "NAVER_SEARCH_CLIENT_SECRET"),
+      envVars: ["NAVER_SEARCH_CLIENT_ID", "NAVER_SEARCH_CLIENT_SECRET"],
+      description: "연관 키워드·검색 노출 순위 수집(데이터랩 키와 별개 자격증명)",
+      usedIn: "거래처 노출 추적 · 키워드 리서치",
+      fallback: "수집 없음(미노출 표시)"
+    },
+    {
+      key: "s3Storage",
+      label: "에셋 저장소 (S3 호환)",
+      category: "코어",
+      configured: has("STUDIO_S3_BUCKET", "STUDIO_S3_ACCESS_KEY_ID", "STUDIO_S3_SECRET_ACCESS_KEY"),
+      envVars: ["STUDIO_S3_BUCKET", "STUDIO_S3_ACCESS_KEY_ID", "STUDIO_S3_SECRET_ACCESS_KEY"],
+      description: "스튜디오 이미지·파일 업로드 저장",
+      usedIn: "이미지·자료 스튜디오",
+      fallback: "미연결 시 업로드 비활성"
     }
   ];
 }
