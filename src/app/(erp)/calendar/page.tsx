@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { CalendarScheduler } from "@/components/calendar/CalendarScheduler";
+import { MonthCalendar, type GridEvent } from "@/components/calendar/MonthCalendar";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { calendarKindLabels, fetchCalendarEventsForUser, fetchTeamCalendarEvents, type CalendarListItem, type TeamCalendarItem } from "@/server/repositories/calendar";
 import { CalendarEventKind, CalendarProvider, ConnectionStatus, Role } from "@/domain/types";
@@ -118,6 +119,25 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
 
   const groupedEvents = groupByDay(events);
   const teamByOwner = groupByOwner(teamEvents);
+
+  // 월간 격자 달력 — ?month=YYYY-MM(기본 이번달). 관리자는 팀 전체, 그 외 본인 일정.
+  const monthMatch = /^(\d{4})-(\d{2})$/.exec(one(sp.month) ?? "");
+  const gridYear = monthMatch ? Number(monthMatch[1]) : Number(todayKey.slice(0, 4));
+  const gridMonthIndex = monthMatch ? Number(monthMatch[2]) - 1 : Number(todayKey.slice(5, 7)) - 1;
+  const monthPrefix = `${gridYear}-${String(gridMonthIndex + 1).padStart(2, "0")}`;
+  const gridSource = isManager ? allTeamEvents : allEvents;
+  const eventsByDay: Record<string, GridEvent[]> = {};
+  for (const e of gridSource) {
+    if (isManager && ownerFilter && (e as TeamCalendarItem).ownerName !== ownerFilter) continue;
+    const key = dayKeyFormatter.format(e.startsAt);
+    if (!key.startsWith(monthPrefix)) continue;
+    (eventsByDay[key] ??= []).push({ id: e.id, title: e.title, toneClass: KIND_TONE[e.kind], label: calendarKindLabels[e.kind] });
+  }
+  const monthNav = (delta: number) => {
+    const d = new Date(gridYear, gridMonthIndex + delta, 1);
+    const mp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    return `?month=${mp}${ownerFilter ? `&owner=${encodeURIComponent(ownerFilter)}` : ""}`;
+  };
   const integrationCards = [
     { provider: CalendarProvider.GOOGLE, title: "Google Calendar", status: ConnectionStatus.DISCONNECTED },
     { provider: CalendarProvider.NAVER, title: "Naver Calendar", status: ConnectionStatus.DISCONNECTED }
@@ -158,6 +178,16 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           </div>
         ))}
       </div>
+
+      <MonthCalendar
+        year={gridYear}
+        monthIndex={gridMonthIndex}
+        eventsByDay={eventsByDay}
+        todayKey={todayKey}
+        prevHref={monthNav(-1)}
+        nextHref={monthNav(1)}
+        monthLabel={`${gridYear}년 ${gridMonthIndex + 1}월${isManager ? " · 팀 전체" : ""}${ownerFilter ? ` · ${ownerFilter}` : ""}`}
+      />
 
       <div className="space-y-3">
         <h3 className="text-base font-semibold text-ink">오늘 내 업무 배치 ({todayKey})</h3>
