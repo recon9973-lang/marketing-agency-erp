@@ -14,6 +14,8 @@ import { GptReviewPanel } from "@/components/geo-cep/GptReviewPanel";
 import { SerpTable } from "@/components/geo-cep/SerpTable";
 import { buildGptReview, type ReviewReport } from "@/server/geo-studio/cep/review";
 import { getRequestProvider } from "@/server/geo-studio/providers/resolver";
+import { buildBrandTrendIndex } from "@/server/geo-studio/trend/brand-index";
+import { BrandTrendPanel } from "@/components/geo-path/BrandTrendPanel";
 
 const AXES: [string, string][] = [
   ["situation_tag", "상황"],
@@ -80,6 +82,10 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
   const volFmt = new Intl.NumberFormat("ko-KR");
   const trend = ran ? await provider.searchVolume(category, "m") : [];
   // 배지는 데이터 호출 이후에 '실제 사용된' 티어로 결정 — 실측 실패로 목 폴백 시 정직하게 강등.
+  // P3 — 브랜드·카테고리·경쟁사 검색지수 시계열 비교(데이터랩). searchVolume 포트 재사용.
+  const brandTrend = ran
+    ? await buildBrandTrendIndex(provider, { brand, category, competitors: csv(competitorsStr) })
+    : null;
   const serpTier = effectiveTier("serpTop");
   const volTier = effectiveTier("monthlyVolume");
   const trendTier = effectiveTier("searchVolume");
@@ -181,6 +187,8 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
               </div>
             </div>
           )}
+
+          {brandTrend && <BrandTrendPanel data={brandTrend} tier={trendTier} />}
 
           <ClusterBubbleMap ceps={report.ceps as unknown as BubbleCep[]} seedLabel={category} />
 
