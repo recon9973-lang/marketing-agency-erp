@@ -1,0 +1,307 @@
+{
+  "queries": {
+    "keywords": [
+      "강남 한의원",
+      "AI"
+    ],
+    "variations": [
+      {
+        "keyword": "강남 한의원",
+        "variation": "정보형",
+        "text": "강남 한의원 추천해줘"
+      },
+      {
+        "keyword": "강남 한의원",
+        "variation": "비교형",
+        "text": "강남 한의원 중 어디가 가장 좋아?"
+      },
+      {
+        "keyword": "강남 한의원",
+        "variation": "질문형",
+        "text": "강남 한의원 어디가 좋은지 이유와 함께 알려줘"
+      },
+      {
+        "keyword": "AI",
+        "variation": "정보형",
+        "text": "AI 추천해줘"
+      },
+      {
+        "keyword": "AI",
+        "variation": "비교형",
+        "text": "AI 중 어디가 가장 좋아?"
+      },
+      {
+        "keyword": "AI",
+        "variation": "질문형",
+        "text": "AI 어디가 좋은지 이유와 함께 알려줘"
+      }
+    ],
+    "prompts": {
+      "정보형": {
+        "chatgpt": "강남 한의원 추천해줘 추천할 만한 서비스/브랜드를 알려줘.",
+        "gemini": "강남 한의원 추천해줘 검색 결과를 기반으로 브랜드를 추천해줘.",
+        "claude": "강남 한의원 추천해줘 신뢰할 수 있는 한국 브랜드/서비스를 알려줘.",
+        "perplexity": "강남 한의원 추천해줘 최신 정보 기반으로 알려줘."
+      },
+      "비교형": {
+        "chatgpt": "강남 한의원 중 어디가 가장 좋아? 추천할 만한 서비스/브랜드를 알려줘.",
+        "gemini": "강남 한의원 중 어디가 가장 좋아? 검색 결과를 기반으로 브랜드를 추천해줘.",
+        "claude": "강남 한의원 중 어디가 가장 좋아? 신뢰할 수 있는 한국 브랜드/서비스를 알려줘.",
+        "perplexity": "강남 한의원 중 어디가 가장 좋아? 최신 정보 기반으로 알려줘."
+      },
+      "질문형": {
+        "chatgpt": "강남 한의원 어디가 좋은지 이유와 함께 알려줘 추천할 만한 서비스/브랜드를 알려줘.",
+        "gemini": "강남 한의원 어디가 좋은지 이유와 함께 알려줘 검색 결과를 기반으로 브랜드를 추천해줘.",
+        "claude": "강남 한의원 어디가 좋은지 이유와 함께 알려줘 신뢰할 수 있는 한국 브랜드/서비스를 알려줘.",
+        "perplexity": "강남 한의원 어디가 좋은지 이유와 함께 알려줘 최신 정보 기반으로 알려줘."
+      }
+    }
+  },
+  "detect": [
+    {
+      "text": "문의하신 내용에 대해 다음 곳들을 추천드립니다.\n1. 베놈한의원 — 해당 분야에서 후기와 평판이 좋은 편입니다.\n2. A한의원 — 해당 분야에서 후기와 평판이 좋은 편입니다.\n3. 베놈한의원 재방문 후기도 많습니다.\n방문 전 진료 시간과 예약 여부를 확인하시기 바랍니다.",
+      "brand": "베놈한의원",
+      "window": 2,
+      "result": {
+        "mentioned": true,
+        "count": 2,
+        "contexts": [
+          "문의하신 내용에 대해 다음 곳들을 추천드립니다. 1. 베놈한의원 — 해당 분야에서 후기와 평판이 좋은 편입니다. 2. A한의원 — 해당 분야에서 후기와 평판이 좋은 편입니다.",
+          "A한의원 — 해당 분야에서 후기와 평판이 좋은 편입니다. 3. 베놈한의원 재방문 후기도 많습니다. 방문 전 진료 시간과 예약 여부를 확인하시기 바랍니다."
+        ]
+      }
+    },
+    {
+      "text": "문의하신 내용에 대해 다음 곳들을 추천드립니다.\n1. 베놈한의원 — 해당 분야에서 후기와 평판이 좋은 편입니다.\n2. A한의원 — 해당 분야에서 후기와 평판이 좋은 편입니다.\n3. 베놈한의원 재방문 후기도 많습니다.\n방문 전 진료 시간과 예약 여부를 확인하시기 바랍니다.",
+      "brand": "A한의원",
+      "window": 1,
+      "result": {
+        "mentioned": true,
+        "count": 1,
+        "contexts": [
+          "2. A한의원 — 해당 분야에서 후기와 평판이 좋은 편입니다. 3."
+        ]
+      }
+    },
+    {
+      "text": "문의하신 내용에 대해 다음 곳들을 추천드립니다.\n1. 베놈한의원 — 해당 분야에서 후기와 평판이 좋은 편입니다.\n2. A한의원 — 해당 분야에서 후기와 평판이 좋은 편입니다.\n3. 베놈한의원 재방문 후기도 많습니다.\n방문 전 진료 시간과 예약 여부를 확인하시기 바랍니다.",
+      "brand": "없는브랜드",
+      "window": 2,
+      "result": {
+        "mentioned": false,
+        "count": 0,
+        "contexts": []
+      }
+    },
+    {
+      "text": "Use AI today. AIR is different. ai matters.",
+      "brand": "AI",
+      "window": 2,
+      "result": {
+        "mentioned": true,
+        "count": 2,
+        "contexts": [
+          "Use AI today. AIR is different. ai matters."
+        ]
+      }
+    },
+    {
+      "text": "베놈 마케팅은 좋다. 베놈마케팅도 같은 곳.",
+      "brand": "베놈 마케팅",
+      "window": 1,
+      "result": {
+        "mentioned": true,
+        "count": 2,
+        "contexts": [
+          "베놈 마케팅은 좋다. 베놈마케팅도 같은 곳."
+        ]
+      }
+    },
+    {
+      "text": "",
+      "brand": "베놈",
+      "window": 2,
+      "result": {
+        "mentioned": false,
+        "count": 0,
+        "contexts": []
+      }
+    }
+  ],
+  "normalize": {
+    "NFKC 소문자  공백": "nfkc 소문자 공백",
+    "  Ａ Ｂ  Ｃ ": "a b c"
+  },
+  "split_sentences": [
+    "문의하신 내용에 대해 다음 곳들을 추천드립니다.",
+    "1.",
+    "베놈한의원 — 해당 분야에서 후기와 평판이 좋은 편입니다.",
+    "2.",
+    "A한의원 — 해당 분야에서 후기와 평판이 좋은 편입니다.",
+    "3.",
+    "베놈한의원 재방문 후기도 많습니다.",
+    "방문 전 진료 시간과 예약 여부를 확인하시기 바랍니다."
+  ],
+  "aggregate": {
+    "input": [
+      {
+        "platform": "chatgpt",
+        "keyword": "강남 한의원",
+        "variation": "정보형",
+        "prompt": "chatgpt:강남 한의원:정보형",
+        "response_text": "resp",
+        "mentioned": true,
+        "mention_count": 2,
+        "contexts": [
+          "ctx-a"
+        ],
+        "response_ms": 420,
+        "mocked": true,
+        "error": null,
+        "competitor_hits": {
+          "경쟁A": true,
+          "경쟁B": false
+        }
+      },
+      {
+        "platform": "chatgpt",
+        "keyword": "강남 한의원",
+        "variation": "비교형",
+        "prompt": "chatgpt:강남 한의원:비교형",
+        "response_text": "resp",
+        "mentioned": false,
+        "mention_count": 0,
+        "contexts": [],
+        "response_ms": 500,
+        "mocked": true,
+        "error": null,
+        "competitor_hits": {
+          "경쟁A": false,
+          "경쟁B": true
+        }
+      },
+      {
+        "platform": "gemini",
+        "keyword": "강남 한의원",
+        "variation": "정보형",
+        "prompt": "gemini:강남 한의원:정보형",
+        "response_text": "resp",
+        "mentioned": true,
+        "mention_count": 1,
+        "contexts": [
+          "ctx-b"
+        ],
+        "response_ms": 610,
+        "mocked": true,
+        "error": null,
+        "competitor_hits": {
+          "경쟁A": true,
+          "경쟁B": true
+        }
+      },
+      {
+        "platform": "gemini",
+        "keyword": "AI 마케팅",
+        "variation": "정보형",
+        "prompt": "gemini:AI 마케팅:정보형",
+        "response_text": "resp",
+        "mentioned": false,
+        "mention_count": 0,
+        "contexts": [],
+        "response_ms": 700,
+        "mocked": true,
+        "error": "TimeoutError: x",
+        "competitor_hits": {}
+      },
+      {
+        "platform": "claude",
+        "keyword": "AI 마케팅",
+        "variation": "질문형",
+        "prompt": "claude:AI 마케팅:질문형",
+        "response_text": "resp",
+        "mentioned": true,
+        "mention_count": 1,
+        "contexts": [
+          "ctx-c",
+          "ctx-d"
+        ],
+        "response_ms": 300,
+        "mocked": true,
+        "error": null,
+        "competitor_hits": {
+          "경쟁A": false,
+          "경쟁B": false
+        }
+      }
+    ],
+    "output": {
+      "brand": "베놈한의원",
+      "overall_mention_rate": 75.0,
+      "total_queries": 5,
+      "by_ai": {
+        "chatgpt": {
+          "rate": 50.0,
+          "mentioned": 1,
+          "total": 2,
+          "errors": 0,
+          "avg_response_ms": 460,
+          "mocked": true,
+          "contexts": [
+            "ctx-a"
+          ]
+        },
+        "gemini": {
+          "rate": 100.0,
+          "mentioned": 1,
+          "total": 1,
+          "errors": 1,
+          "avg_response_ms": 655,
+          "mocked": true,
+          "contexts": [
+            "ctx-b"
+          ]
+        },
+        "claude": {
+          "rate": 100.0,
+          "mentioned": 1,
+          "total": 1,
+          "errors": 0,
+          "avg_response_ms": 300,
+          "mocked": true,
+          "contexts": [
+            "ctx-c",
+            "ctx-d"
+          ]
+        }
+      },
+      "by_keyword": {
+        "강남 한의원": 66.7,
+        "AI 마케팅": 100.0
+      },
+      "competitors": [
+        {
+          "name": "경쟁A",
+          "overall_rate": 50.0,
+          "by_ai": {
+            "chatgpt": 50.0,
+            "gemini": 100.0,
+            "claude": 0.0
+          }
+        },
+        {
+          "name": "경쟁B",
+          "overall_rate": 50.0,
+          "by_ai": {
+            "chatgpt": 50.0,
+            "gemini": 100.0,
+            "claude": 0.0
+          }
+        }
+      ]
+    },
+    "rates": {
+      "mention_rate_all": 75.0,
+      "mention_rate_empty": 0.0
+    }
+  }
+}
