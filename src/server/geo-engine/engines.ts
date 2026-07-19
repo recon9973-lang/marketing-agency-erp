@@ -106,15 +106,18 @@ const gemini: EngineAdapter = {
   configured: () => Boolean(process.env.GOOGLE_AI_API_KEY),
   async ask(question) {
     const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
-    const res = await post(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GOOGLE_AI_API_KEY}`,
-      {},
-      {
-        contents: [{ parts: [{ text: question }] }],
-        tools: [{ google_search: {} }]
-      }
-    );
-    if (!res.ok) throw new Error(`GEMINI_${res.status}`);
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GOOGLE_AI_API_KEY}`;
+    const body = { contents: [{ parts: [{ text: question }] }] };
+    // 1차: 검색 그라운딩(google_search) 포함. 일부 키/모델은 이 도구를 거부(400/404)하므로
+    // 실패하면 도구 없이 재시도해 최소한 답변 텍스트는 확보한다(언급 탐지엔 텍스트가 핵심).
+    let res = await post(url, {}, { ...body, tools: [{ google_search: {} }] });
+    if (!res.ok) {
+      res = await post(url, {}, body);
+    }
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`GEMINI_${res.status}${detail ? `: ${detail.slice(0, 160)}` : ""}`);
+    }
     const data = (await res.json()) as {
       candidates?: Array<{
         content?: { parts?: Array<{ text?: string }> };
