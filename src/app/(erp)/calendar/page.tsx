@@ -190,7 +190,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       </div>
 
       {/* 자체 캘린더 · 일정 추가(C4) — 접이식. 관리자는 담당자 지정. */}
-      <CalendarEventForm members={members} canAssignOthers={isManager} selfId={user.id} defaultDate={defaultDate} />
+      <CalendarEventForm members={members} canAssignOthers={isManager} selfId={user.id} selfName={user.name} defaultDate={defaultDate} />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {integrationCards.map((card) => (
