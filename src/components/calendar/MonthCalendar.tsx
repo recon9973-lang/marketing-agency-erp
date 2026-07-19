@@ -2,7 +2,7 @@
 // 데이터/색상 결합을 피하려 이벤트는 미리 {id,title,toneClass,label}로 매핑해 받는다.
 // (주간 뷰는 WeekCalendar가 담당)
 
-export type GridEvent = { id: string; title: string; toneClass: string; label: string };
+export type GridEvent = { id: string; title: string; toneClass: string; label: string; href?: string };
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -51,9 +51,13 @@ export function MonthCalendar({
               <>
                 <div className={`mb-1 text-right text-xs font-medium ${cell.dow === 0 ? "text-rose-500" : cell.dow === 6 ? "text-sky-500" : "text-slate-500"} ${cell.key === todayKey ? "font-bold text-brand" : ""}`}>{cell.dayNum}</div>
                 <div className="space-y-0.5">
-                  {(eventsByDay[cell.key] ?? []).slice(0, 3).map((e) => (
-                    <div key={e.id} className={`truncate rounded border px-1 py-0.5 text-[10px] font-medium ${e.toneClass}`} title={`${e.label} · ${e.title}`}>{e.title}</div>
-                  ))}
+                  {(eventsByDay[cell.key] ?? []).slice(0, 3).map((e) =>
+                    e.href ? (
+                      <a key={e.id} href={e.href} className={`block truncate rounded border px-1 py-0.5 text-[10px] font-medium hover:brightness-95 ${e.toneClass}`} title={`${e.label} · ${e.title} — 클릭하면 아래에서 수정`}>{e.title}</a>
+                    ) : (
+                      <div key={e.id} className={`truncate rounded border px-1 py-0.5 text-[10px] font-medium ${e.toneClass}`} title={`${e.label} · ${e.title}`}>{e.title}</div>
+                    )
+                  )}
                   {(eventsByDay[cell.key] ?? []).length > 3 && <div className="pl-1 text-[10px] text-slate-400">+{(eventsByDay[cell.key] ?? []).length - 3}건</div>}
                 </div>
               </>

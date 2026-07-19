@@ -39,8 +39,8 @@ function kindBadge(kind: CalendarEventKind) {
   return `rounded-md border px-2 py-0.5 text-[11px] font-semibold ${KIND_TONE[kind]}`;
 }
 
-function groupByDay(events: CalendarListItem[]) {
-  return events.reduce<Record<string, CalendarListItem[]>>((groups, event) => {
+function groupByDay<T extends CalendarListItem>(events: T[]) {
+  return events.reduce<Record<string, T[]>>((groups, event) => {
     const key = event.startsAt.toISOString().slice(0, 10);
     groups[key] = [...(groups[key] ?? []), event];
     return groups;
@@ -108,7 +108,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const eventsByDay: Record<string, GridEvent[]> = {};
   for (const e of isManager ? teamEvents : events) {
     const key = dayKeyFormatter.format(e.startsAt);
-    (eventsByDay[key] ??= []).push({ id: e.id, title: e.title, toneClass: KIND_TONE[e.kind], label: calendarKindLabels[e.kind] });
+    (eventsByDay[key] ??= []).push({ id: e.id, title: e.title, toneClass: KIND_TONE[e.kind], label: calendarKindLabels[e.kind], href: `#event-${e.id}` });
   }
 
   // 주간 타임그리드용 시간 블록(KST 분).
@@ -125,13 +125,15 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             title: e.title,
             toneClass: KIND_TONE[e.kind],
             label: calendarKindLabels[e.kind],
-            timeLabel: `${kstHmFormatter.format(e.startsAt)}–${kstHmFormatter.format(e.endsAt)}`
+            timeLabel: `${kstHmFormatter.format(e.startsAt)}–${kstHmFormatter.format(e.endsAt)}`,
+            href: `#event-${e.id}`
           };
         })
       : [];
   const nowMin = kstMinutes(new Date());
 
-  const groupedEvents = groupByDay(events);
+  // 하단 목록은 격자와 같은 소스로 — 격자 이벤트 클릭(#event-id) 시 하단 편집 행으로 1:1 스크롤.
+  const groupedEvents = groupByDay(isManager ? teamEvents : events);
   const teamByOwner = groupByOwner(teamEvents);
 
   // 네비/토글 링크(현재 뷰·오너 유지)
@@ -266,6 +268,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                     toneClass={kindBadge(event.kind)}
                     title={event.title}
                     subtitle={event.clientName ?? event.description ?? "사내 일정"}
+                    owner={"ownerName" in event ? (event as TeamCalendarItem).ownerName : undefined}
                     editable={event.editable}
                     initial={{
                       id: event.id,

@@ -2,7 +2,7 @@
 // 겹치는 일정은 나란히(lane) 분할, 현재시각 표시선, 주말 음영, 빈 주 안내까지 처리.
 // 이벤트는 페이지에서 KST 분(startMin/endMin) + 색상으로 선매핑해 받는다.
 
-export type WeekEvent = { id: string; dayKey: string; startMin: number; endMin: number; title: string; toneClass: string; label: string; timeLabel: string };
+export type WeekEvent = { id: string; dayKey: string; startMin: number; endMin: number; title: string; toneClass: string; label: string; timeLabel: string; href?: string };
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const HOUR_H = 44; // 시간당 픽셀
@@ -115,15 +115,21 @@ export function WeekCalendar({
                 const t = Math.max(0, top(e.startMin));
                 const h = Math.max(20, top(e.endMin) - top(e.startMin));
                 const w = 100 / e.lanes;
-                return (
-                  <div
-                    key={e.id}
-                    className={`absolute overflow-hidden rounded border px-1 py-0.5 text-[10px] leading-tight ${e.toneClass}`}
-                    style={{ top: t, height: h, left: `calc(${e.lane * w}% + 1px)`, width: `calc(${w}% - 2px)` }}
-                    title={`${e.label} · ${e.timeLabel} · ${e.title}`}
-                  >
+                const cls = `absolute overflow-hidden rounded border px-1 py-0.5 text-[10px] leading-tight ${e.toneClass}`;
+                const style = { top: t, height: h, left: `calc(${e.lane * w}% + 1px)`, width: `calc(${w}% - 2px)` };
+                const inner = (
+                  <>
                     <span className="block truncate font-semibold">{e.title}</span>
                     {h >= 34 && <span className="block truncate opacity-70">{e.timeLabel}</span>}
+                  </>
+                );
+                return e.href ? (
+                  <a key={e.id} href={e.href} className={`${cls} hover:brightness-95`} style={style} title={`${e.label} · ${e.timeLabel} · ${e.title} — 클릭하면 아래에서 수정`}>
+                    {inner}
+                  </a>
+                ) : (
+                  <div key={e.id} className={cls} style={style} title={`${e.label} · ${e.timeLabel} · ${e.title}`}>
+                    {inner}
                   </div>
                 );
               })}

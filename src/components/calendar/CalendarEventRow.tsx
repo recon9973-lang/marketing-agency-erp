@@ -16,6 +16,7 @@ export function CalendarEventRow({
   toneClass,
   title,
   subtitle,
+  owner,
   editable,
   initial,
   members,
@@ -29,6 +30,7 @@ export function CalendarEventRow({
   toneClass: string;
   title: string;
   subtitle: string;
+  owner?: string;
   editable: boolean;
   initial: EventInitial;
   members: Member[];
@@ -57,7 +59,7 @@ export function CalendarEventRow({
 
   if (editing) {
     return (
-      <li className="border-t border-line py-3">
+      <li id={`event-${initial.id}`} className="scroll-mt-24 border-t border-line py-3">
         <CalendarEventForm
           mode="edit"
           initial={initial}
@@ -73,12 +75,13 @@ export function CalendarEventRow({
   }
 
   return (
-    <li className="grid grid-cols-1 gap-3 border-t border-line py-4 md:grid-cols-[9rem_1fr_auto] md:items-center">
+    <li id={`event-${initial.id}`} className="grid scroll-mt-24 grid-cols-1 gap-3 rounded-lg border-t border-line py-4 target:bg-brand/5 target:ring-2 target:ring-brand/30 md:grid-cols-[9rem_1fr_auto] md:items-center">
       <div className="text-sm text-slate-500">{timeLabel}</div>
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <span className={toneClass}>{kindLabel}</span>
           <p className="font-medium text-ink">{title}</p>
+          {owner ? <span className="rounded-full bg-surface px-1.5 py-0.5 text-[10px] text-slate-500">{owner}</span> : null}
         </div>
         <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
         {error ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
