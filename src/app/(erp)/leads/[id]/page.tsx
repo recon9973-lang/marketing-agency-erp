@@ -11,6 +11,9 @@ import { LeadAuditPanel } from "@/components/leads/LeadAuditPanel";
 import { LeadEditForm } from "@/components/leads/LeadEditForm";
 import { LeadQuotesPanel } from "@/components/leads/LeadQuotesPanel";
 import { ConvertLeadButton } from "@/components/leads/ConvertLeadButton";
+import { LeadConsultingPanel } from "@/components/leads/LeadConsultingPanel";
+import { getLeadConsulting } from "@/server/repositories/consulting";
+import { isAiConfigured } from "@/server/ai/claude";
 import { leadStatusLabels } from "@/domain/sales/lead-stages";
 import { Role } from "@/domain/types";
 import { NON_GUARANTEE_DISCLAIMER } from "@/server/compliance/medical-law";
@@ -38,10 +41,12 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const lead = await getLead(user, id);
   if (!lead) notFound();
 
-  const [quotes, marketers] = await Promise.all([
+  const [quotes, marketers, consultingReport] = await Promise.all([
     listLeadQuotes(lead.id),
-    db.user.findMany({ where: { role: Role.MARKETER, status: "ACTIVE" }, select: { id: true, name: true } }).catch(() => [])
+    db.user.findMany({ where: { role: Role.MARKETER, status: "ACTIVE" }, select: { id: true, name: true } }).catch(() => []),
+    getLeadConsulting(lead.id).catch(() => null)
   ]);
+  const canRunConsulting = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN || lead.assigneeId === user.id;
 
   const statusLabel = leadStatusLabels[lead.status as keyof typeof leadStatusLabels] ?? lead.status;
   const canConvert = lead.status === "PROPOSAL" && !lead.clientId;
@@ -159,6 +164,20 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           {showQuotes && <LeadQuotesPanel leadId={lead.id} quotes={quotes} disclaimer={NON_GUARANTEE_DISCLAIMER} />}
         </div>
       </div>
+
+      {/* 컨설팅 보고서 (계약 전 제안용 · 전환 시 거래처 승계) */}
+      <LeadConsultingPanel
+        leadId={lead.id}
+        aiConfigured={isAiConfigured()}
+        canRun={canRunConsulting}
+        defaults={{
+          hospitalName: lead.hospitalName,
+          address: lead.region ?? "",
+          departments: lead.department ?? "",
+          competitors: ""
+        }}
+        report={consultingReport}
+      />
 
       {/* 리드 수정·삭제 */}
       <LeadEditForm lead={lead} marketers={marketers} canDelete={canDelete} />

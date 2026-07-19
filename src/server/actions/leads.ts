@@ -403,6 +403,11 @@ export async function convertLeadToClient(input: unknown): Promise<ActionResult<
             where: { leadId: existing.id, clientId: null },
             data: { clientId: client.id }
           });
+          // 리드 단계 컨설팅 보고서를 거래처로 승계 — 계약 前 산출물이 전환 후 이어짐(재입력 0)
+          await tx.consultingReport.updateMany({
+            where: { leadId: existing.id, clientId: null },
+            data: { clientId: client.id }
+          });
           await recordAudit(tx, {
             actorId: user.id,
             action: "lead.convert",

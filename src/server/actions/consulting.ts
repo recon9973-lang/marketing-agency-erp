@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { assertCanAccessClient } from "@/domain/access-control";
+import { Role } from "@/domain/types";
 import { db } from "@/server/db";
 import { generateConsulting, isAiConfigured } from "@/server/ai/claude";
 import { fetchKeywordVolumes } from "@/server/integrations/naver-search";
@@ -21,13 +22,17 @@ import {
   type ActionResult
 } from "@/server/actions/_helpers";
 
-const schema = z.object({
-  clientId: z.string().min(1),
-  hospitalName: z.string().trim().min(1).max(120),
-  address: z.string().trim().max(200).optional().nullable(),
-  departments: z.string().trim().max(200).optional().nullable(),
-  competitors: z.string().trim().max(300).optional().nullable()
-});
+const schema = z
+  .object({
+    // 대상: 거래처(clientId) 또는 리드(leadId) — 계약 前 리드 단계서도 생성 가능(하나는 필수).
+    clientId: z.string().min(1).optional().nullable(),
+    leadId: z.string().min(1).optional().nullable(),
+    hospitalName: z.string().trim().min(1).max(120),
+    address: z.string().trim().max(200).optional().nullable(),
+    departments: z.string().trim().max(200).optional().nullable(),
+    competitors: z.string().trim().max(300).optional().nullable()
+  })
+  .refine((d) => Boolean(d.clientId) || Boolean(d.leadId), { message: "TARGET_REQUIRED" });
 
 export async function runConsulting(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
@@ -37,10 +42,19 @@ export async function runConsulting(input: unknown): Promise<ActionResult<{ id: 
     if (!p.success) throw new Error("VALIDATION");
     const d = p.data;
 
-    const client = await db.client.findUnique({ where: { id: d.clientId }, select: { assignedMarketerId: true } });
-    if (!client) throw new Error("NOT_FOUND");
-    const scopes = await getAdminScopes(user);
-    assertCanAccessClient(user, d.clientId, scopes, client.assignedMarketerId);
+    // 접근 제어 — 거래처면 스코프, 리드면 배정 기준.
+    if (d.clientId) {
+      const client = await db.client.findUnique({ where: { id: d.clientId }, select: { assignedMarketerId: true } });
+      if (!client) throw new Error("NOT_FOUND");
+      const scopes = await getAdminScopes(user);
+      assertCanAccessClient(user, d.clientId, scopes, client.assignedMarketerId);
+    } else {
+      const lead = await db.lead.findUnique({ where: { id: d.leadId! }, select: { assigneeId: true } });
+      if (!lead) throw new Error("NOT_FOUND");
+      if (user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && lead.assigneeId && lead.assigneeId !== user.id) {
+        throw new Error("FORBIDDEN");
+      }
+    }
 
     const result = await generateConsulting({
       hospitalName: d.hospitalName,
@@ -83,7 +97,8 @@ export async function runConsulting(input: unknown): Promise<ActionResult<{ id: 
     const saved = await db.$transaction(async (tx) => {
       const report = await tx.consultingReport.create({
         data: {
-          clientId: d.clientId,
+          clientId: d.clientId ?? null,
+          leadId: d.leadId ?? null,
           authorId: user.id,
           hospitalName: d.hospitalName,
           address: d.address || null,
@@ -96,16 +111,19 @@ export async function runConsulting(input: unknown): Promise<ActionResult<{ id: 
           orgId
         }
       });
-      // 산출 키워드를 Keyword 테이블에도 저장(중복 방지: 기존 동일 키워드 스킵).
-      const existing = new Set(
-        (await tx.keyword.findMany({ where: { clientId: d.clientId }, select: { keyword: true } })).map((k) => k.keyword)
-      );
-      for (const k of enrichedKeywords) {
-        if (existing.has(k.keyword)) continue;
-        existing.add(k.keyword);
-        await tx.keyword.create({
-          data: { clientId: d.clientId, keyword: k.keyword, intent: k.intent || null, priority: k.priority, channel: k.channel, searchVolume: k.searchVolume, trendRatio: k.trendRatio, orgId }
-        });
+      // 산출 키워드를 Keyword 테이블에도 저장 — 거래처가 있을 때만(리드 단계엔 client 없음 → 전환 후).
+      // 키워드는 리포트 JSON에 이미 보존되므로, 전환 시 승계된 리포트에서 필요 시 재활용.
+      if (d.clientId) {
+        const existing = new Set(
+          (await tx.keyword.findMany({ where: { clientId: d.clientId }, select: { keyword: true } })).map((k) => k.keyword)
+        );
+        for (const k of enrichedKeywords) {
+          if (existing.has(k.keyword)) continue;
+          existing.add(k.keyword);
+          await tx.keyword.create({
+            data: { clientId: d.clientId, keyword: k.keyword, intent: k.intent || null, priority: k.priority, channel: k.channel, searchVolume: k.searchVolume, trendRatio: k.trendRatio, orgId }
+          });
+        }
       }
       await recordAudit(tx, {
         actorId: user.id,
@@ -118,7 +136,8 @@ export async function runConsulting(input: unknown): Promise<ActionResult<{ id: 
       return report;
     });
 
-    revalidatePath(`/clients/${d.clientId}`);
+    if (d.clientId) revalidatePath(`/clients/${d.clientId}`);
+    else revalidatePath(`/leads/${d.leadId}`);
     return { id: saved.id };
   });
 }

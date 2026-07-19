@@ -964,7 +964,9 @@ model ExposureSnapshot {
 /// 컨설팅 리포트 — 신규 병원 영업 산출물. 병원명·주소 → 키워드·경쟁·상권 분석(AI).
 model ConsultingReport {
   id             String   @id @default(cuid())
-  clientId       String
+  // 계약 前(리드) 생성 가능 — clientId nullable, leadId로 리드에 붙었다가 전환 시 clientId로 승계.
+  clientId       String?
+  leadId         String?
   authorId       String
   hospitalName   String
   address        String?
@@ -977,10 +979,12 @@ model ConsultingReport {
   orgId          String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  client         Client   @relation(fields: [clientId], references: [id])
+  client         Client?  @relation(fields: [clientId], references: [id])
+  lead           Lead?    @relation(fields: [leadId], references: [id])
   author         User     @relation("ConsultingAuthor", fields: [authorId], references: [id])
 
   @@index([clientId])
+  @@index([leadId])
   @@index([authorId])
   @@index([orgId])
 }
@@ -1512,6 +1516,7 @@ model Lead {
   assignee           User?     @relation("LeadAssignee", fields: [assigneeId], references: [id])
   client             Client?   @relation(fields: [clientId], references: [id])
   quotes             Quote[]
+  consultingReports  ConsultingReport[]
 
   @@index([status, nextActionAt])
   @@index([assigneeId])
