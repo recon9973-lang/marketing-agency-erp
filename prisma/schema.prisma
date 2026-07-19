@@ -258,6 +258,10 @@ model Client {
   region             String? // 지역(예: 서울 강남구) — GEO 질문 생성·로컬 채널에 자동 사용
   serviceNotes       String?
   active             Boolean           @default(true)
+  // 라이프사이클 단계(계약 이후 5~8단계 백본). domain/sales/client-stages.ts의 유니온과 매핑.
+  // ONBOARDING|KEYWORD|GEO|CONTENT|LIVE|PAUSED|CHURNED — Lead.status와 동일하게 String 관리.
+  stage              String            @default("ONBOARDING")
+  stageUpdatedAt     DateTime?
   assignedMarketerId String?
   industryCategoryId String?
   industryCustom     String? // 업종 "기타" 수기 입력
@@ -296,6 +300,7 @@ model Client {
   @@index([assignedMarketerId])
   @@index([industryCategoryId])
   @@index([orgId])
+  @@index([stage])
 }
 
 model ClientAccount {

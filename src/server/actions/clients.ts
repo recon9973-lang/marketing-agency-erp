@@ -9,6 +9,12 @@ import { z } from "zod";
 
 import { Role, ClientAccountPlatform, BusinessType } from "@/domain/types";
 import { assertCanAccessClient } from "@/domain/access-control";
+import {
+  CLIENT_STAGES,
+  canTransitionClientStage,
+  clientStageLabels,
+  toClientStage
+} from "@/domain/sales/client-stages";
 import { db } from "@/server/db";
 import { encryptSecret } from "@/server/crypto";
 import { getDefaultOrgId } from "@/server/org";
@@ -232,6 +238,58 @@ export async function reassignMarketer(input: unknown): Promise<ActionResult> {
     revalidatePath("/clients");
     revalidatePath(`/clients/${clientId}`);
     revalidatePath("/work");
+  });
+}
+
+const stageSchema = z.object({
+  clientId: z.string().min(1),
+  toStage: z.enum(CLIENT_STAGES)
+});
+
+/**
+ * 거래처 라이프사이클 단계 전환(파이프라인 백본).
+ * 담당자·관리자만, 접근 스코프 내에서. 상태머신(client-stages.ts) 규칙 위반은 거부.
+ */
+export async function transitionClientStage(input: unknown): Promise<ActionResult<{ stage: string }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const parsed = stageSchema.safeParse(input);
+    if (!parsed.success) throw new Error("VALIDATION");
+    const { clientId, toStage } = parsed.data;
+
+    const before = await db.client.findUnique({
+      where: { id: clientId },
+      select: { id: true, stage: true, assignedMarketerId: true }
+    });
+    if (!before) throw new Error("NOT_FOUND");
+
+    const scopes = await getAdminScopes(user);
+    assertCanAccessClient(user, clientId, scopes, before.assignedMarketerId);
+
+    const from = toClientStage(before.stage);
+    if (from === toStage) return { stage: from }; // 동일 단계 재설정은 무해 no-op
+    if (!canTransitionClientStage(from, toStage)) throw new Error("ILLEGAL_TRANSITION");
+
+    const meta = await requestMeta();
+    await db.$transaction(async (tx) => {
+      await tx.client.update({
+        where: { id: clientId },
+        data: { stage: toStage, stageUpdatedAt: new Date() }
+      });
+      await recordAudit(tx, {
+        actorId: user.id,
+        action: "client.stage.transition",
+        targetType: "Client",
+        targetId: clientId,
+        beforeState: { stage: from, label: clientStageLabels[from] },
+        afterState: { stage: toStage, label: clientStageLabels[toStage] },
+        ...meta
+      });
+    });
+
+    revalidatePath("/clients");
+    revalidatePath(`/clients/${clientId}`);
+    return { stage: toStage };
   });
 }
 

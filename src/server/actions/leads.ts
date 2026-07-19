@@ -380,7 +380,10 @@ export async function convertLeadToClient(input: unknown): Promise<ActionResult<
               contactEmail: existing.contactEmail,
               contactPhone: existing.contactPhone,
               serviceNotes: notes || null,
-              assignedMarketerId: existing.assigneeId
+              assignedMarketerId: existing.assigneeId,
+              // 파이프라인 백본 — 계약 전환 = 5단계(배정·착수)로 라이프사이클 시작.
+              stage: "ONBOARDING",
+              stageUpdatedAt: new Date()
             }
           });
           // 병원 프로필 — 진료과 복사(기준데이터의 시작점)

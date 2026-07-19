@@ -6,6 +6,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { clientStageLabels, toClientStage, type ClientStage } from "@/domain/sales/client-stages";
 
 type Row = {
   id: string;
@@ -15,8 +16,20 @@ type Row = {
   industryColor: string | null;
   assignedMarketerName: string | null;
   active: boolean;
+  stage?: string;
   latestWorkStatus?: string | null;
   outstanding?: boolean;
+};
+
+// 단계별 뱃지 색 — 진행할수록 진하게, 중지·해지는 회색/붉은 기.
+const STAGE_TONE: Record<ClientStage, string> = {
+  ONBOARDING: "border-sky-200 bg-sky-50 text-sky-700",
+  KEYWORD: "border-indigo-200 bg-indigo-50 text-indigo-700",
+  GEO: "border-violet-200 bg-violet-50 text-violet-700",
+  CONTENT: "border-amber-200 bg-amber-50 text-amber-700",
+  LIVE: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  PAUSED: "border-slate-200 bg-slate-50 text-slate-500",
+  CHURNED: "border-rose-200 bg-rose-50 text-rose-600"
 };
 
 const columns: DataTableColumn<Row>[] = [
@@ -50,6 +63,14 @@ const columns: DataTableColumn<Row>[] = [
     key: "owner",
     header: "담당자",
     render: (r) => r.assignedMarketerName ?? <span className="text-slate-300">미배정</span>
+  },
+  {
+    key: "stage",
+    header: "단계",
+    render: (r) => {
+      const s = toClientStage(r.stage);
+      return <span className={`inline-flex rounded-md border px-2 py-0.5 text-xs font-semibold ${STAGE_TONE[s]}`}>{clientStageLabels[s]}</span>;
+    }
   },
   {
     key: "status",

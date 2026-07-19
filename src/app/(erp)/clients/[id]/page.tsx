@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { ClientDetail } from "@/components/clients/ClientDetail";
+import { ClientStageBar } from "@/components/clients/ClientStageBar";
 import { GoogleIntegrationPanel } from "@/components/clients/GoogleIntegrationPanel";
 import { isGoogleConfigured } from "@/server/integrations/google";
 import { CommentThread } from "@/components/collab/CommentThread";
@@ -75,6 +76,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   return (
     <div className="space-y-6">
       <a href="/clients" className="text-sm font-semibold text-brand-strong hover:underline">← 거래처 목록</a>
+      <ClientStageBar clientId={id} stage={detail.client.stage} canManage={canManage} />
       <ClientDetail
         client={detail.client}
         channels={detail.channels}
