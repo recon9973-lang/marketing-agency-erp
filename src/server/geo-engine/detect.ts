@@ -13,6 +13,7 @@ export type DetectResult = {
   appeared: boolean;
   cited: boolean;
   competitorsMentioned: string[];
+  position: number | null; // 답변 내 우리 등장 순위(1=경쟁사보다 먼저 언급). 이름 미등장 시 null.
 };
 
 /** 한국어 병원명 매칭용 정규화 — 공백 제거·소문자화. */
@@ -49,6 +50,17 @@ export function detectAnswer(text: string, citations: string[], target: DetectTa
     .map((c) => c.trim())
     .filter((c) => c.length >= 2 && normText.includes(norm(c)));
 
+  // 등장 순위(citation_position) — 우리 이름의 첫 등장 위치를 경쟁사 대비로 순위화(자동 캡처).
+  // 근거: What Gets Cited — 위치가 인용 확률의 top driver. 이름 미등장 시 null(순서 불명).
+  let position: number | null = null;
+  const ourIdx = appearedInText ? normText.indexOf(cleanName) : -1;
+  if (ourIdx >= 0) {
+    const earlier = (target.competitors ?? [])
+      .map((c) => normText.indexOf(norm(c.trim())))
+      .filter((i) => i >= 0 && i < ourIdx).length;
+    position = 1 + earlier;
+  }
+
   // 공식 URL이 인용됐다면 병원이 노출된 것으로 간주(이름 미표기 케이스 보정)
-  return { appeared: appearedInText || cited, cited, competitorsMentioned };
+  return { appeared: appearedInText || cited, cited, competitorsMentioned, position };
 }

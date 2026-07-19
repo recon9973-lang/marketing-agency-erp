@@ -87,7 +87,10 @@ export async function runGeoWatch(clientId?: string, now = new Date()): Promise<
               appeared: verdict.appeared,
               cited: verdict.cited,
               competitorsMentioned: verdict.competitorsMentioned,
+              rank: verdict.position, // 자동: 답변 내 등장 순위
+              citationPosition: verdict.cited ? verdict.position : null, // 인용 시 위치
               snippet: answer.text.slice(0, SNIPPET_MAX) || null,
+              // 충실성(claimSupported)·답변비중(answerShare)은 자동 판정 불가 → 수동 검수 대상(null 유지)
               memo: AUTO_MEMO
             }
           });

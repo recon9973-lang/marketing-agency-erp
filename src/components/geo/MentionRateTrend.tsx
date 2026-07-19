@@ -1,6 +1,6 @@
 // B1 — 전체 언급률 일별 추이(북극성 그래프). 인라인 SVG(외부 차트 라이브러리 미사용).
 // 데이터: getMentionRateSeries(GeoAnswerRecord 파생). "0을 박제"한 기준선 + 목표선 표기.
-import type { MentionRatePoint } from "@/server/geo-studio/citation";
+import { mentionRateCI, type MentionRatePoint } from "@/server/geo-studio/citation";
 
 export function MentionRateTrend({ points, target = 25 }: { points: MentionRatePoint[]; target?: number }) {
   if (points.length < 2) {
@@ -29,6 +29,12 @@ export function MentionRateTrend({ points, target = 25 }: { points: MentionRateP
   const linePts = points.map((p, i) => `${X(i)},${Y(p.rate)}`).join(" ");
   const areaPath =
     `M ${X(0)} ${Y(0)} L ` + points.map((p, i) => `${X(i)} ${Y(p.rate)}`).join(" L ") + ` L ${X(n - 1)} ${Y(0)} Z`;
+
+  // 신뢰구간(Wilson 95%) 밴드 — "단일값이 아니라 분포로"(문헌). 표본 적을수록 넓다.
+  const ci = points.map((p) => mentionRateCI(p.mentioned, p.total));
+  const bandTop = points.map((_, i) => `${X(i)} ${Y(Math.min(ymax, ci[i].high * 100))}`);
+  const bandBot = points.map((_, i) => `${X(i)} ${Y(ci[i].low * 100)}`);
+  const bandPath = `M ${bandTop.join(" L ")} L ${[...bandBot].reverse().join(" L ")} Z`;
 
   const gridVals = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(ymax * f));
   const lastRate = points[n - 1].rate;
@@ -71,8 +77,9 @@ export function MentionRateTrend({ points, target = 25 }: { points: MentionRateP
         <text x={W - pr} y={Y(target) - 4} textAnchor="end" fontSize={9} fontWeight={700} fill="#a8481a" fontFamily="ui-monospace, monospace">
           목표 {target}%
         </text>
-        {/* 면적 + 라인 */}
+        {/* 면적 + 신뢰구간 밴드 + 라인 */}
         <path d={areaPath} fill="url(#mrtFill)" />
+        <path d={bandPath} fill="#d9662e" fillOpacity={0.14} />
         <polyline points={linePts} fill="none" stroke="#d9662e" strokeWidth={2.4} strokeLinejoin="round" strokeLinecap="round" />
         {/* 기준선(첫 관측) 마킹 */}
         <circle cx={X(0)} cy={Y(firstRate)} r={4} fill="#fff" stroke="#d9662e" strokeWidth={2} />
@@ -88,7 +95,7 @@ export function MentionRateTrend({ points, target = 25 }: { points: MentionRateP
           </text>
         ))}
       </svg>
-      <p className="mt-1 text-[11px] text-slate-400">측정 시점 스냅샷 · 언급 셀 {points[n - 1].mentioned}/{points[n - 1].total} · 변동 가능</p>
+      <p className="mt-1 text-[11px] text-slate-400">측정 시점 스냅샷 · 언급 셀 {points[n - 1].mentioned}/{points[n - 1].total} · 음영=95% 신뢰구간(표본 적을수록 넓음, ≥7회 권장)</p>
     </div>
   );
 }

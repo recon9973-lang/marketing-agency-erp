@@ -367,6 +367,11 @@ const recordSchema = z.object({
   appeared: z.boolean(),
   cited: z.boolean().default(false),
   competitorsMentioned: z.array(z.string().trim().min(1).max(100)).max(20).default([]),
+  // GEO 논문 근거 측정층(수동 캡처) — 자동으론 판정 불가한 항목 포함.
+  rank: z.coerce.number().int().min(1).max(50).optional().nullable(), // 답변 내 등장 순위
+  claimSupported: z.boolean().optional().nullable(), // 충실 인용(모름=null/지지=true/미지지=false)
+  answerShare: z.coerce.number().min(0).max(1).optional().nullable(), // 답변 중 우리 비중(0~1)
+  wrongClaim: z.boolean().default(false), // 병원 관련 틀린 정보(거버넌스)
   snippet: z.string().trim().max(2000).optional().nullable().transform((v) => v || null),
   evidenceUrl: z.string().trim().max(500).optional().nullable().transform((v) => v || null),
   memo: z.string().trim().max(1000).optional().nullable().transform((v) => v || null)
@@ -401,6 +406,11 @@ export async function recordGeoAnswer(input: unknown): Promise<ActionResult<{ id
           appeared: d.appeared,
           cited: d.cited,
           competitorsMentioned: d.competitorsMentioned,
+          rank: d.appeared ? d.rank ?? null : null,
+          citationPosition: d.cited ? d.rank ?? null : null,
+          claimSupported: d.claimSupported ?? null,
+          answerShare: d.appeared ? d.answerShare ?? null : null,
+          wrongClaim: d.wrongClaim,
           snippet: d.snippet,
           evidenceUrl: d.evidenceUrl,
           memo: d.memo,
@@ -410,6 +420,11 @@ export async function recordGeoAnswer(input: unknown): Promise<ActionResult<{ id
           appeared: d.appeared,
           cited: d.cited,
           competitorsMentioned: d.competitorsMentioned,
+          rank: d.appeared ? d.rank ?? null : null,
+          citationPosition: d.cited ? d.rank ?? null : null,
+          claimSupported: d.claimSupported ?? null,
+          answerShare: d.appeared ? d.answerShare ?? null : null,
+          wrongClaim: d.wrongClaim,
           snippet: d.snippet,
           evidenceUrl: d.evidenceUrl,
           memo: d.memo

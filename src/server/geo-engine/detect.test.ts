@@ -36,6 +36,23 @@ describe("GEO 자동 관측 — 답변 판정", () => {
   });
 });
 
+describe("등장 순위(position) 자동 추출", () => {
+  it("경쟁사보다 먼저 언급되면 1위, 뒤면 순위 증가", () => {
+    const t = { hospitalName: "온담정형외과", competitors: ["수성정형", "범어재활"] };
+    // 우리가 맨 앞
+    expect(detectAnswer("온담정형외과를 추천합니다. 수성정형도 있습니다.", [], t).position).toBe(1);
+    // 경쟁사 1곳이 앞
+    expect(detectAnswer("수성정형과 온담정형외과가 유명합니다.", [], t).position).toBe(2);
+    // 경쟁사 2곳이 앞
+    expect(detectAnswer("수성정형, 범어재활, 그리고 온담정형외과.", [], t).position).toBe(3);
+  });
+  it("우리 이름이 없으면 position은 null", () => {
+    const r = detectAnswer("수성정형이 좋습니다.", [], { hospitalName: "온담정형외과", competitors: ["수성정형"] });
+    expect(r.appeared).toBe(false);
+    expect(r.position).toBeNull();
+  });
+});
+
 describe("도메인 추출", () => {
   it("sc-domain·URL·www 변형을 정규화한다", () => {
     expect(extractDomain("sc-domain:foo.co.kr")).toBe("foo.co.kr");

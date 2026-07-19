@@ -170,6 +170,9 @@ export function GeoAnswerRecorder({ questions }: { questions: GeoQuestionRow[] }
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
+      const rankRaw = String(form.get("rank") ?? "").trim();
+      const shareRaw = String(form.get("answerShare") ?? "").trim();
+      const claimRaw = String(form.get("claimSupported") ?? "");
       const res = await recordGeoAnswer({
         questionId: String(form.get("questionId") ?? ""),
         engine: String(form.get("engine") ?? ""),
@@ -177,6 +180,10 @@ export function GeoAnswerRecorder({ questions }: { questions: GeoQuestionRow[] }
         appeared,
         cited,
         competitorsMentioned: competitors,
+        rank: appeared && rankRaw ? Number(rankRaw) : null,
+        claimSupported: claimRaw === "yes" ? true : claimRaw === "no" ? false : null,
+        answerShare: appeared && shareRaw ? Math.min(1, Math.max(0, Number(shareRaw) / 100)) : null,
+        wrongClaim: form.get("wrongClaim") === "on",
         snippet: String(form.get("snippet") ?? "") || null,
         evidenceUrl: String(form.get("evidenceUrl") ?? "") || null,
         memo: null
@@ -195,6 +202,10 @@ export function GeoAnswerRecorder({ questions }: { questions: GeoQuestionRow[] }
     <form action={submit} className="space-y-2 rounded-2xl border border-line bg-card p-4">
       <p className="text-sm font-bold text-ink">답변 관측 기록 (수동 실행 결과)</p>
       <p className="text-[11px] text-slate-400">직접 AI에 질문해 본 결과를 남깁니다 — 자동 관측이 켜져 있으면 보조 용도입니다.</p>
+      <p className="rounded-lg border border-line bg-surface/60 px-2.5 py-1.5 text-[11px] leading-relaxed text-slate-500">
+        📊 <b>신뢰도 팁</b>: 같은 질문·엔진을 <b>7회 이상</b> 반복해 결과가 흔들리는지 보세요(LLM 답변은 실행마다 다름).
+        <b>충실 인용·틀린 정보</b>는 자동으로 판정되지 않아 <b>사람이 직접 확인</b>합니다 — 인용 페이지가 실제로 그 내용을 담고 있는지 검수하세요.
+      </p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <label className="text-xs font-medium text-slate-600">
           질문
@@ -237,6 +248,29 @@ export function GeoAnswerRecorder({ questions }: { questions: GeoQuestionRow[] }
         <label className="flex items-center gap-1.5">
           <input type="checkbox" checked={cited} onChange={(e) => setCited(e.target.checked)} disabled={!appeared} />
           공식 URL 인용
+        </label>
+        <label className="flex items-center gap-1.5 text-rose-600">
+          <input type="checkbox" name="wrongClaim" />
+          틀린 정보 있음
+        </label>
+      </div>
+      {/* 논문 근거 측정층 — 출현 시에만 활성(충실성은 항상). 자동 판정 불가 항목 수동 캡처. */}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <label className="text-xs font-medium text-slate-600">
+          등장 순위 <span className="font-normal text-slate-400">(1=최상단)</span>
+          <input name="rank" type="number" min={1} max={50} disabled={!appeared} className={`mt-1 ${inputCls}`} placeholder="예: 1" />
+        </label>
+        <label className="text-xs font-medium text-slate-600">
+          답변 비중 % <span className="font-normal text-slate-400">(흡수도)</span>
+          <input name="answerShare" type="number" min={0} max={100} disabled={!appeared} className={`mt-1 ${inputCls}`} placeholder="예: 30" />
+        </label>
+        <label className="text-xs font-medium text-slate-600">
+          충실 인용 <span className="font-normal text-slate-400">(근거 지지)</span>
+          <select name="claimSupported" defaultValue="" className={`mt-1 ${inputCls}`}>
+            <option value="">모름/미확인</option>
+            <option value="yes">지지함 (정확)</option>
+            <option value="no">미지지 (부정확)</option>
+          </select>
         </label>
       </div>
       <label className="block text-xs font-medium text-slate-600">
