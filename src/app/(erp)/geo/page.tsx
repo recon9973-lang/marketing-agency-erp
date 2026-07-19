@@ -19,7 +19,8 @@ import { ScorePair } from "@/components/geo/ScorePair";
 import { EngineRadar } from "@/components/geo/EngineRadar";
 import { MentionStanding } from "@/components/geo/MentionStanding";
 import { QuestionMentionTrend } from "@/components/geo/QuestionMentionTrend";
-import { GeoWorkflowSteps } from "@/components/geo/GeoWorkflowSteps";
+import { GeoPhaseProgress } from "@/components/geo/GeoPhaseProgress";
+import { GeoToolLinks } from "@/components/geo/GeoToolLinks";
 import { GeoLlmsTxt } from "@/components/geo/GeoLlmsTxt";
 import { configuredEngines } from "@/server/geo-engine/engines";
 import { buildLlmsTxt, llmsInputFromClient } from "@/server/geo-engine/llms-txt";
@@ -104,6 +105,21 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
   }).length;
   const seoScore = guardedSeries.length ? Math.round((guardHeld / guardedSeries.length) * 100) : null;
 
+  // G4 — GEO 6단계(P0~P5) 완료 신호를 실제 데이터로 판정.
+  const hasBaseline = rows.some((r) => Object.keys(r.cells).length > 0);
+  const hasTechnical = publishedPages.length > 0 || rows.some((r) => Boolean(r.targetPageUrl));
+  const hasContent = rows.some((r) => Boolean(r.answerPlanId));
+  const hasAuthority = summary.citedCount > 0;
+  const isMonitoring = mentionSeries.length >= 2;
+  const geoPhases = [
+    { code: "P0", label: "온보딩", sub: "자산·질문 수집", done: Boolean(selectedId) },
+    { code: "P1", label: "진단·기준선", sub: "AI 노출 0 박제", done: hasBaseline },
+    { code: "P2", label: "테크니컬", sub: "구조화·저자·색인", done: hasTechnical },
+    { code: "P3", label: "콘텐츠 엔진", sub: "답변 페이지 생성", done: hasContent },
+    { code: "P4", label: "인용·권위", sub: "공식 URL 인용", done: hasAuthority },
+    { code: "P5", label: "모니터링", sub: "추이·월간 리포트", done: isMonitoring }
+  ];
+
   // 진료과 기본값: 업종(진료과목) 마스터 → 병원프로필 진료과 첫 항목 순으로 채움
   const defaultDepartment =
     selectedClient?.industryCategory?.name ??
@@ -169,7 +185,8 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
             ))}
           </div>
 
-          <GeoWorkflowSteps />
+          <GeoPhaseProgress phases={geoPhases} />
+          {selectedId && <GeoToolLinks clientId={selectedId} />}
 
           {/* KPI 타일 */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
