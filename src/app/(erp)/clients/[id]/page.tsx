@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { ClientDetail } from "@/components/clients/ClientDetail";
 import { ClientStageBar } from "@/components/clients/ClientStageBar";
+import { ClientJourney } from "@/components/clients/ClientJourney";
+import { getClientJourney } from "@/server/repositories/journey";
 import { GoogleIntegrationPanel } from "@/components/clients/GoogleIntegrationPanel";
 import { isGoogleConfigured } from "@/server/integrations/google";
 import { CommentThread } from "@/components/collab/CommentThread";
@@ -40,7 +42,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
     detail.client.businessType === "HOSPITAL" ? getHospitalProfile(id) : Promise.resolve(null),
     getLatestConsulting(id)
   ]);
-  const [quotes, contentPlans, googleConnection, exposure] = await Promise.all([
+  const [quotes, contentPlans, googleConnection, exposure, journey] = await Promise.all([
     listQuotes(id),
     listContentPlans(id),
     db.channelConnection
@@ -49,7 +51,8 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         select: { status: true, gscSiteUrl: true, ga4PropertyId: true, lastSyncAt: true, lastError: true }
       })
       .catch(() => null),
-    getExposureTracker(id)
+    getExposureTracker(id),
+    getClientJourney(id).catch(() => [])
   ]);
 
   const consulting = {
@@ -77,6 +80,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
     <div className="space-y-6">
       <a href="/clients" className="text-sm font-semibold text-brand-strong hover:underline">← 거래처 목록</a>
       <ClientStageBar clientId={id} stage={detail.client.stage} canManage={canManage} />
+      <ClientJourney events={journey} />
       <ClientDetail
         client={detail.client}
         channels={detail.channels}
