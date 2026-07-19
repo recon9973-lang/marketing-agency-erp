@@ -91,10 +91,13 @@ const ALTERNATIVE_TEMPLATE = { template: "{competitor} 말고 {region} {departme
  * - opts.hospitalName/competitors 주면 측정 특화(브랜드·추천·대안) 질의를 priority 1로 추가.
  *   → 브랜드 가시성 측정의 핵심 질의를 최우선 관측 대상으로.
  */
+// 확정 키워드 → GEO 질의 인계(carry-forward). 컨설팅·월보장 키워드를 자연어 발견 질의로 감싼다.
+const KEYWORD_QUERY_TEMPLATE = "{keyword} 잘하는 곳 추천해줘";
+
 export function buildGeoQuestionCandidates(
   department: string,
   region: string,
-  opts?: { hospitalName?: string | null; competitors?: string[] }
+  opts?: { hospitalName?: string | null; competitors?: string[]; keywords?: string[] }
 ): GeoQuestionCandidate[] {
   const dept = department.trim() || "병원";
   const reg = region.trim() || "우리 지역";
@@ -117,6 +120,14 @@ export function buildGeoQuestionCandidates(
     const brand = (opts.hospitalName ?? "").replace(/^\[[^\]]*\]\s*/, "").trim();
     if (brand) for (const b of BRAND_TEMPLATES) out.push({ question: fill(b.template), priority: b.priority, type: "브랜드형" });
     if ((opts.competitors?.[0] ?? "").trim()) out.push({ question: fill(ALTERNATIVE_TEMPLATE.template), priority: ALTERNATIVE_TEMPLATE.priority, type: "대안형" });
+    // 확정 키워드 인계 — 상위 키워드를 발견 질의로(중복·너무 짧은 것 제외).
+    const seenKw = new Set<string>();
+    for (const kw of opts.keywords ?? []) {
+      const k = kw.trim();
+      if (k.length < 2 || seenKw.has(k)) continue;
+      seenKw.add(k);
+      out.push({ question: KEYWORD_QUERY_TEMPLATE.replaceAll("{keyword}", k), priority: 1, type: "추천형" });
+    }
   }
 
   return out;

@@ -49,14 +49,22 @@ export async function generateGeoCandidates(input: unknown): Promise<ActionResul
     const d = p.data;
     await assertClient(user, d.clientId);
 
-    // 측정 특화 질의(브랜드·대안)를 위해 병원명·경쟁사 로드(이중 입력 제거).
+    // 측정 특화 질의(브랜드·대안·키워드)를 위해 병원명·경쟁사·확정 키워드 로드(이중 입력 제거).
     const client = await db.client.findUnique({
       where: { id: d.clientId },
       select: { name: true, hospitalProfile: { select: { competitorHospitals: true } } }
     });
     const competitors =
       client?.hospitalProfile?.competitorHospitals?.split(/[,\n]/).map((s) => s.trim()).filter(Boolean) ?? [];
-    const candidates = buildGeoQuestionCandidates(d.department, d.region, { hospitalName: client?.name ?? null, competitors });
+    // 확정 키워드 인계 — 월보장 우선, 이후 우선순위. 상위 6개를 발견 질의로.
+    const kwRows = await db.keyword.findMany({
+      where: { clientId: d.clientId },
+      orderBy: [{ isGuaranteed: "desc" }, { priority: "asc" }, { createdAt: "asc" }],
+      take: 6,
+      select: { keyword: true }
+    });
+    const keywords = kwRows.map((k) => k.keyword);
+    const candidates = buildGeoQuestionCandidates(d.department, d.region, { hospitalName: client?.name ?? null, competitors, keywords });
     const existing = await db.geoQuestion.findMany({
       where: { clientId: d.clientId },
       select: { question: true }

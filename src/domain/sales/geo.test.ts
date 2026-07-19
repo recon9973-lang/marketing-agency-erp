@@ -47,6 +47,18 @@ describe("GEO 질문 후보 생성 (기획서 §5-7 질문 20개 + 업무매뉴�
     expect(c.every((x) => !x.question.includes("{"))).toBe(true); // 플레이스홀더 잔여 없음
   });
 
+  it("확정 키워드는 발견 질의로 인계(중복·단문 제외)", () => {
+    const c = buildGeoQuestionCandidates("정형외과", "수성구", {
+      keywords: ["수성구 도수치료", "교통사고 재활", "수성구 도수치료", "x"]
+    });
+    const kwQ = c.filter((x) => x.type === "추천형" && x.question.includes("잘하는 곳 추천"));
+    expect(kwQ.some((x) => x.question.includes("수성구 도수치료"))).toBe(true);
+    expect(kwQ.some((x) => x.question.includes("교통사고 재활"))).toBe(true);
+    // 중복 1건만, 단문("x") 제외
+    expect(kwQ.filter((x) => x.question.includes("수성구 도수치료"))).toHaveLength(1);
+    expect(kwQ.some((x) => x.question.includes("x 잘하는"))).toBe(false);
+  });
+
   it("병원명 [데모] 접두는 제거, 경쟁사 없으면 대안형 미생성", () => {
     const c = buildGeoQuestionCandidates("치과", "강남", { hospitalName: "[데모] 굿플란트치과", competitors: [] });
     expect(c.some((x) => x.type === "브랜드형" && x.question.includes("굿플란트치과") && !x.question.includes("[데모]"))).toBe(true);
