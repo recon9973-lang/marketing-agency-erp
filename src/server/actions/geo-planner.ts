@@ -10,7 +10,7 @@ import { getDefaultOrgId } from "@/server/org";
 import { db } from "@/server/db";
 import { buildCampaign, campaignSummary } from "@/server/geo-studio/campaign";
 import { kpiProgressRows, kpiToRow } from "@/server/geo-studio/kpi";
-import { calendarView, upcomingDeadlines } from "@/server/geo-studio/calendar";
+import { calendarView, upcomingDeadlines, suggestPublishTiming } from "@/server/geo-studio/calendar";
 import { renderReport } from "@/server/geo-studio/report";
 import { taskToRow, GOAL_TYPES, type CurrentState, type GeoGoal } from "@/server/geo-studio/models";
 
@@ -38,6 +38,7 @@ export type GeoPlanResult = {
   tasks: Array<Record<string, unknown>>;
   calendar: Record<string, Array<Record<string, unknown>>>;
   upcoming: Array<Record<string, unknown>>;
+  publishTiming: Array<{ title: string; dueDate: string; recommendedDate: string; weekday: string; recommendedTime: string; reason: string }>;
   report: string;
 };
 
@@ -62,6 +63,28 @@ function computePlan(d: z.infer<typeof planSchema>): GeoPlanResult {
   const campaign = buildCampaign(d.name, goal, current, d.industry, { team, priorityCepCount: d.priorityCepCount });
   const summary = campaignSummary(campaign, current);
 
+  // 마감 임박 태스크에 AI 인덱싱 최적 게시 시점 제안을 부착(중복 날짜 제거, 상위 10건).
+  const upcomingTasks = upcomingDeadlines(campaign.tasks, 7, campaign.startDate);
+  const seenTiming = new Set<string>();
+  const publishTiming = upcomingTasks
+    .filter((t) => {
+      if (seenTiming.has(t.dueDate)) return false;
+      seenTiming.add(t.dueDate);
+      return true;
+    })
+    .slice(0, 10)
+    .map((t) => {
+      const s = suggestPublishTiming(t.dueDate);
+      return {
+        title: t.title,
+        dueDate: t.dueDate,
+        recommendedDate: s.recommended_date,
+        weekday: s.weekday,
+        recommendedTime: s.recommended_time,
+        reason: s.reason
+      };
+    });
+
   return {
     campaign: {
       name: campaign.name,
@@ -73,7 +96,8 @@ function computePlan(d: z.infer<typeof planSchema>): GeoPlanResult {
     kpi: kpiProgressRows(goal, current).map(kpiToRow),
     tasks: campaign.tasks.map(taskToRow),
     calendar: calendarView(campaign.tasks),
-    upcoming: upcomingDeadlines(campaign.tasks, 7, campaign.startDate).map(taskToRow),
+    upcoming: upcomingTasks.map(taskToRow),
+    publishTiming,
     report: renderReport(summary as never, current)
   };
 }

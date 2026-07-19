@@ -293,6 +293,25 @@ export function GeoPlannerForm() {
             </div>
           </div>
 
+          {/* 최적 게시 시점 제안 — AI 크롤러 인덱싱 활동이 활발한 요일·시간 */}
+          {res.publishTiming.length > 0 && (
+            <div className="rounded-2xl border border-line bg-card p-4">
+              <p className="mb-1 text-sm font-bold text-ink">최적 게시 시점 제안</p>
+              <p className="mb-3 text-xs text-slate-500">마감 임박 콘텐츠는 AI 크롤러 인덱싱이 활발한 요일·시간에 맞춰 게시하면 인용 노출에 유리합니다.</p>
+              <div className="space-y-2">
+                {res.publishTiming.map((t, i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line pb-2 text-xs last:border-0">
+                    <span className="min-w-0 flex-1 truncate font-medium text-slate-700">{t.title}</span>
+                    <span className="text-slate-400">마감 {t.dueDate}</span>
+                    <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
+                      추천: {t.recommendedDate}{t.weekday ? ` (${t.weekday})` : ""} {t.recommendedTime}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 경영진 리포트 */}
           <div className="rounded-2xl border border-line bg-card p-4">
             <button type="button" onClick={() => setShowReport((s) => !s)} className="text-sm font-bold text-ink">
