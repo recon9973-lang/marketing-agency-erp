@@ -56,6 +56,17 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       fallback: "미설정 시 일일 배치가 401로 미실행(자동 데이터 갱신 멈춤)"
     },
     {
+      key: "bootstrapLockdown",
+      label: "부트스트랩 백도어 차단 (운영 보안)",
+      category: "코어",
+      // 보안 항목 — "차단됨"이 정상. 운영에선 반드시 켜야 한다.
+      configured: /^(1|true|yes|on)$/i.test(process.env.DISABLE_BOOTSTRAP_ADMIN ?? ""),
+      envVars: ["DISABLE_BOOTSTRAP_ADMIN"],
+      description: "초기 설치용 공용 관리자(admin@venom.app) 로그인 차단",
+      usedIn: "로그인 보안",
+      fallback: "미설정 시 공용 부트스트랩 계정으로 로그인 가능 — 운영 전환 시 반드시 DISABLE_BOOTSTRAP_ADMIN=true"
+    },
+    {
       key: "claudeAi",
       label: "Claude AI (콘텐츠 생성)",
       category: "AI",

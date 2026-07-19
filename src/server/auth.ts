@@ -61,6 +61,11 @@ const BOOTSTRAP_EMAIL = "admin@venom.app";
 const BOOTSTRAP_HASH =
   "scrypt$6d2561332f18d574604d1c9447dc0c3a$fad8ab94953d4c59ba91f1167078a0885904b819d4c00228415c54cbabbbb8bb4fed3603fa23988fd636f40ba1285b92d3a6b5e6b933b1c677667223ad059515";
 
+/** 운영 전환 스위치 — DISABLE_BOOTSTRAP_ADMIN 이 truthy면 공용 부트스트랩 계정을 완전 차단. */
+export function isBootstrapDisabled(): boolean {
+  return /^(1|true|yes|on)$/i.test(process.env.DISABLE_BOOTSTRAP_ADMIN ?? "");
+}
+
 async function upsertAdminUser(email: string) {
   const user = await db.user.upsert({
     where: { email },
@@ -89,8 +94,9 @@ async function authorizeAdmin(rawEmail: unknown, rawPassword: unknown) {
   const password = normalizeCredential(String(rawPassword ?? ""));
   if (!email || !password) return null;
 
-  // (1) 부트스트랩 계정 — env와 무관하게 항상 허용.
-  if (secureEquals(email, BOOTSTRAP_EMAIL) && verifyPassword(password, BOOTSTRAP_HASH)) {
+  // (1) 부트스트랩 계정 — env와 무관하게 항상 허용(초기 설치·잠금 방지용).
+  //     ⚠️ 운영 전환 시 DISABLE_BOOTSTRAP_ADMIN=true 로 공용 백도어를 차단한다.
+  if (!isBootstrapDisabled() && secureEquals(email, BOOTSTRAP_EMAIL) && verifyPassword(password, BOOTSTRAP_HASH)) {
     return upsertAdminUser(BOOTSTRAP_EMAIL);
   }
 
