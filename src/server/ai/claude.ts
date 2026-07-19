@@ -95,6 +95,37 @@ export async function generateMarketingContent(input: GenerateInput): Promise<st
   return text;
 }
 
+/**
+ * GEO(생성형 엔진 최적화) 관점 콘텐츠 재작성 — AI 답변에 인용되기 쉽게.
+ * 핵심을 앞에(BLUF), 근거·수치 명시, 질문-답변형 구조, 과장/의료광고 위반 회피.
+ * 키가 없으면 AI_NOT_CONFIGURED(상위에서 규칙 재작성으로 폴백).
+ */
+export async function geoRewrite(content: string, keyword: string): Promise<string> {
+  if (!isAiConfigured()) throw new Error("AI_NOT_CONFIGURED");
+  const client = new Anthropic();
+  const system =
+    "당신은 GEO(Generative Engine Optimization) 전문 에디터입니다. " +
+    "주어진 글을 ChatGPT·Perplexity·Gemini 등 AI 답변에 '인용되기 쉬운' 형태로 재작성합니다. " +
+    "원칙: (1) 결론을 첫 문단에(BLUF), (2) 근거·수치·출처를 문장 안에 명시, " +
+    "(3) 핵심 질문에 직접 답하는 문단 구성, (4) 모호어 제거·사실 위주, " +
+    "(5) 과장·허위·의료광고 위반 표현 금지. 결과 본문만 한국어 마크다운으로 출력하고 해설은 넣지 않습니다.";
+  const user = `# 대상 키워드: ${keyword || "(미지정)"}\n\n## 원문\n${content.slice(0, 12000)}`;
+  const stream = client.messages.stream({
+    model: AI_MODEL,
+    max_tokens: 4000,
+    system,
+    messages: [{ role: "user", content: user }]
+  });
+  const message = await stream.finalMessage();
+  const text = message.content
+    .filter((block): block is Anthropic.TextBlock => block.type === "text")
+    .map((block) => block.text)
+    .join("\n")
+    .trim();
+  if (!text) throw new Error("AI_EMPTY");
+  return text;
+}
+
 /** 응답에서 JSON 객체만 안전하게 추출(코드펜스/설명 섞여도). */
 /** Claude 텍스트 응답에서 JSON 객체를 추출·파싱. 코드펜스/서문 섞여도 첫 {~마지막 }.
  *  모든 AI 기능(컨설팅·블로그·키워드·콘텐츠·GEO·매거진)의 단일 파싱 관문. */

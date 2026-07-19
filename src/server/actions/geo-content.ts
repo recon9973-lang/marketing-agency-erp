@@ -12,6 +12,7 @@ import { analyzeGeo } from "@/server/geo-studio/content/analyze";
 import { generateFaq } from "@/server/geo-studio/content/faq";
 import { auditEeat } from "@/server/geo-studio/content/eeat";
 import { ruleRewrite } from "@/server/geo-studio/content/bluf";
+import { geoRewrite, isAiConfigured } from "@/server/ai/claude";
 import type { GeoScore, EeatReport, FaqItem } from "@/server/geo-studio/content/models";
 
 export type ContentAnalysis = {
@@ -23,6 +24,7 @@ export type ContentAnalysis = {
   faqItems?: FaqItem[];
   jsonLd?: string;
   rewrite?: string;
+  rewriteTier?: "ai" | "rule"; // ai=Claude 실측 재작성, rule=규칙 폴백
 };
 
 /** useActionState용 — (prevState, formData) → 분석 결과. 네이티브 폼 POST(안정적). */
@@ -36,9 +38,19 @@ export async function analyzeContentAction(_prev: ContentAnalysis | null, formDa
     const score = analyzeGeo(content, keyword);
     const eeat = auditEeat(content);
     const faq = generateFaq(content, keyword, 5);
-    const rewrite = ruleRewrite(content, keyword);
+    // 실측 우선 — Claude 키가 있으면 실제 GEO 재작성, 실패/미연결이면 규칙 재작성.
+    let rewrite = ruleRewrite(content, keyword);
+    let rewriteTier: "ai" | "rule" = "rule";
+    if (isAiConfigured()) {
+      try {
+        rewrite = await geoRewrite(content, keyword);
+        rewriteTier = "ai";
+      } catch {
+        rewriteTier = "rule"; // Claude 실패 → 규칙 폴백(정직 표기)
+      }
+    }
     const contentPreview = content.trim().slice(0, 200);
-    return { keyword, contentPreview, score, eeat, faqItems: faq.items, jsonLd: faq.jsonLd, rewrite };
+    return { keyword, contentPreview, score, eeat, faqItems: faq.items, jsonLd: faq.jsonLd, rewrite, rewriteTier };
   } catch {
     return { error: "분석 중 오류가 발생했습니다." };
   }
