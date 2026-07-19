@@ -8,7 +8,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveGuardKeyword, type SaveGuardKeywordInput } from "@/server/actions/exposure";
+import { saveGuardKeyword, refreshClientRanks, type SaveGuardKeywordInput } from "@/server/actions/exposure";
 import { ConnectionBadge } from "@/components/ui/ConnectionBadge";
 
 type Latest = { channel: string; rank: number | null; checkedOn: string };
@@ -78,6 +78,7 @@ export function ExposureTracker({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
+  const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
 
   const guaranteed = keywords.filter((k) => k.isGuaranteed);
   const others = keywords.filter((k) => !k.isGuaranteed);
@@ -121,6 +122,19 @@ export function ExposureTracker({
     });
   }
 
+  function refreshRanks() {
+    setRefreshMsg(null);
+    start(async () => {
+      const res = await refreshClientRanks(clientId);
+      if (!res.ok) {
+        setRefreshMsg(res.error === "FORBIDDEN" ? "권한이 없습니다." : "순위 조회에 실패했습니다.");
+        return;
+      }
+      setRefreshMsg(`${res.measured}건 순위 갱신 완료`);
+      router.refresh();
+    });
+  }
+
   return (
     <div className="space-y-5">
       {/* 트래커 */}
@@ -133,11 +147,19 @@ export function ExposureTracker({
               hint={rankConnected ? "네이버 검색 실측·매일 감시" : "순위 수집 미연동"}
             />
           </h3>
-          {canManage && !form ? (
-            <button onClick={openNew} className="rounded-md bg-brand px-3 py-2 text-xs font-semibold text-white">
-              + 월보장 키워드
-            </button>
-          ) : null}
+          <div className="flex items-center gap-1.5">
+            {refreshMsg ? <span className="text-xs font-medium text-emerald-600">{refreshMsg}</span> : null}
+            {rankConnected && guaranteed.length > 0 ? (
+              <button onClick={refreshRanks} disabled={pending} title="네이버 검색에서 지금 순위를 조회해 갱신" className="rounded-md border border-line px-3 py-2 text-xs font-semibold text-brand-strong hover:bg-surface disabled:opacity-50">
+                {pending ? "조회 중…" : "지금 순위 확인"}
+              </button>
+            ) : null}
+            {canManage && !form ? (
+              <button onClick={openNew} className="rounded-md bg-brand px-3 py-2 text-xs font-semibold text-white">
+                + 월보장 키워드
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {guaranteed.length === 0 ? (

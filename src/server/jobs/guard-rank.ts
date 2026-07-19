@@ -181,3 +181,49 @@ export async function runGuardRankWatch(now = new Date()): Promise<GuardRankResu
 
   return result;
 }
+
+export type ClientRankResult = { scanned: number; measured: number; skipped: number };
+
+/** 한 거래처의 월보장 키워드 순위를 즉시 수집(수동 "지금 확인"). 알림 없이 스냅샷만 갱신.
+ *  크론(runGuardRankWatch)과 동일한 rankCheck·upsert 로직을 재사용. */
+export async function collectRanksForClient(clientId: string, now = new Date()): Promise<ClientRankResult> {
+  const todayStart = dayStart(now);
+  const result: ClientRankResult = { scanned: 0, measured: 0, skipped: 0 };
+
+  const keywords = await db.keyword.findMany({
+    where: { clientId, isGuaranteed: true },
+    select: {
+      id: true,
+      keyword: true,
+      guardChannel: true,
+      guardTarget: true,
+      orgId: true,
+      client: { select: { name: true, accounts: { select: { externalUrl: true, handle: true, isPrimary: true } } } },
+    },
+    take: 100,
+  });
+  result.scanned = keywords.length;
+
+  for (const kw of keywords) {
+    const target = resolveTarget(kw);
+    if (!target) {
+      result.skipped++;
+      continue;
+    }
+    const channel = normChannel(kw.guardChannel);
+    const res = await naverResearch.rankCheck({ keywords: [kw.keyword], target, channel });
+    if (!res.ok) {
+      result.skipped++;
+      continue;
+    }
+    const rank = res.data[0]?.rank ?? null;
+    result.measured++;
+    await db.exposureSnapshot.upsert({
+      where: { keywordId_channel_checkedOn: { keywordId: kw.id, channel, checkedOn: todayStart } },
+      create: { keywordId: kw.id, channel, checkedOn: todayStart, rank, source: "naver", orgId: kw.orgId },
+      update: { rank, source: "naver" },
+    });
+  }
+
+  return result;
+}

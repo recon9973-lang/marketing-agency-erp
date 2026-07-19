@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { Role } from "@/domain/types";
 import { db } from "@/server/db";
 import { requireUser } from "@/server/actions/_helpers";
+import { collectRanksForClient } from "@/server/jobs/guard-rank";
 
 export type SaveGuardKeywordInput = {
   clientId: string;
@@ -23,6 +24,25 @@ export type SaveGuardKeywordInput = {
 export type SaveGuardKeywordResult = { ok: true } | { ok: false; error: string };
 
 const CHANNELS = ["blog", "web", "local"];
+
+export type RefreshRanksResult = { ok: true; measured: number; scanned: number } | { ok: false; error: string };
+
+/** "지금 순위 확인" — 한 거래처의 월보장 키워드 순위를 즉시 수집(크론 대기 없이). */
+export async function refreshClientRanks(clientId: string): Promise<RefreshRanksResult> {
+  try {
+    const user = await requireUser();
+    const client = await db.client.findUnique({ where: { id: clientId }, select: { id: true, assignedMarketerId: true } });
+    if (!client) return { ok: false, error: "NOT_FOUND" };
+    const allowed = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN || client.assignedMarketerId === user.id;
+    if (!allowed) return { ok: false, error: "FORBIDDEN" };
+
+    const r = await collectRanksForClient(clientId);
+    revalidatePath(`/clients/${clientId}`);
+    return { ok: true, measured: r.measured, scanned: r.scanned };
+  } catch {
+    return { ok: false, error: "FAILED" };
+  }
+}
 
 export async function saveGuardKeyword(input: SaveGuardKeywordInput): Promise<SaveGuardKeywordResult> {
   try {
