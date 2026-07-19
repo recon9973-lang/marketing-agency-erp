@@ -3,6 +3,7 @@
 // 서버 컴포넌트: GET 폼 → searchParams로 runPipeline 실행·렌더(클라이언트 액션 없음).
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { ConnectionBadge } from "@/components/ui/ConnectionBadge";
 import { getCurrentUser } from "@/server/session";
 import { runPipeline, type PipelineResult } from "@/server/geo-studio/pipeline";
 
@@ -56,6 +57,12 @@ export default async function GeoStudioPage({ searchParams }: { searchParams: Pr
         title="GEO Studio"
         description="AI 검색 최적화 5단계(스캔→CEP 발굴→콘텐츠→여정→캠페인)를 한 번에 실행합니다. 각 단계의 실제 산출물이 다음 단계 입력으로 연결되어, 브랜드 진단부터 실행 캠페인 계획까지 이어집니다."
       />
+
+      {/* 데이터 연결 상태 — 통합 파이프라인(M1~M5)은 결정적 목/시뮬. 실측 GEO는 /geo */}
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800">
+        <ConnectionBadge state="demo" hint="M1~M5 시뮬 파이프라인" />
+        <span>5단계 산출물은 <b>데모(시뮬레이션)</b>입니다(결과 미저장). 실제 AI 인용 측정은 <a href="/geo" className="font-semibold underline">GEO 모니터링</a>, 검색량·트렌드 실측은 <a href="/geo-cep" className="font-semibold underline">CEP 파인더</a>에서 확인하세요.</span>
+      </div>
 
       {/* 파이프라인 흐름 */}
       <div className="flex flex-wrap items-stretch gap-2 rounded-2xl border border-line bg-card p-4">
