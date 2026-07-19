@@ -54,8 +54,9 @@ export async function runConsulting(input: unknown): Promise<ActionResult<{ id: 
     try {
       const vols = await fetchKeywordVolumes(result.coreKeywords.map((k) => k.keyword).slice(0, 100));
       for (const v of vols) volMap.set(v.keyword, { total: v.total, estimated: v.estimated });
-    } catch {
-      /* 검색량 조회 실패는 무시하고 진행 */
+    } catch (e) {
+      // 실패는 진행을 막지 않되 무음 금지 — 관측 가능하게 경고(키 있어도 429/401이면 여기로).
+      console.warn("[consulting] 검색량 조회 실패 → 추정치로 진행:", e instanceof Error ? e.message : e);
     }
     // 네이버 데이터랩으로 검색 트렌드(0~100) 보강. 데이터랩은 요청당 5키워드 → 청크 처리(상위 25개).
     const trendMap = new Map<string, number | null>();
@@ -65,8 +66,8 @@ export async function runConsulting(input: unknown): Promise<ActionResult<{ id: 
         const trends = await fetchKeywordTrends(kws.slice(i, i + 5));
         for (const t of trends) trendMap.set(t.keyword, t.latestRatio);
       }
-    } catch {
-      /* 트렌드 조회 실패는 무시하고 진행 */
+    } catch (e) {
+      console.warn("[consulting] 트렌드 조회 실패 → 무시하고 진행:", e instanceof Error ? e.message : e);
     }
 
     // 리포트에 저장할 키워드에 검색량·트렌드 부착.

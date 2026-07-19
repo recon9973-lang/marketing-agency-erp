@@ -46,6 +46,16 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       fallback: "미설정 시 로그인 폼 비활성"
     },
     {
+      key: "dailyAutomation",
+      label: "일일 자동화 (크론)",
+      category: "코어",
+      configured: has("CRON_SECRET"),
+      envVars: ["CRON_SECRET"],
+      description: "매일 순위감시·채널동기화·매거진초안·GEO관측 자동 실행",
+      usedIn: "월보장 트래커·거래처 인사이트·매거진·GEO 모니터링",
+      fallback: "미설정 시 일일 배치가 401로 미실행(자동 데이터 갱신 멈춤)"
+    },
+    {
       key: "claudeAi",
       label: "Claude AI (콘텐츠 생성)",
       category: "AI",

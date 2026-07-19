@@ -115,17 +115,19 @@ export const naverResearch: ResearchProvider = {
       try {
         const url = `${SEARCH_BASE}/${endpoint}.json?query=${encodeURIComponent(kw)}&display=30`;
         const res = await fetch(url, { headers: authHeaders(c), cache: "no-store" });
-        if (!res.ok) {
-          out.push({ keyword: kw, rank: null, checkedAt });
-          continue;
-        }
+        // API 오류(인증·쿼터·서버)는 "미노출"이 아니라 조회실패 → provFail로 즉시 반환.
+        // (호출부 guard-rank가 !res.ok면 skip하여 허위 이탈 알림·null 스냅샷을 막는다.)
+        if (res.status === 401 || res.status === 403) return provFail("UNAUTHORIZED", "네이버 인증 실패");
+        if (res.status === 429) return provFail("RATE_LIMITED", "네이버 호출 한도 초과");
+        if (!res.ok) return provFail("UPSTREAM_ERROR", `search/${endpoint} ${res.status}`);
         const json = (await res.json()) as { items?: { title?: string; link?: string }[] };
         const idx = (json.items ?? []).findIndex(
           (it) => (it.link ?? "").includes(input.target) || (it.title ?? "").includes(input.target),
         );
+        // 200 정상 응답인데 결과 30건 안에 없음 = 진짜 미노출(rank:null 정당).
         out.push({ keyword: kw, rank: idx >= 0 ? idx + 1 : null, checkedAt });
-      } catch {
-        out.push({ keyword: kw, rank: null, checkedAt });
+      } catch (e) {
+        return provFail("UPSTREAM_ERROR", "순위 조회 실패", e);
       }
     }
     return provOk(out, { source: "naver-search" });
