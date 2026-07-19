@@ -4,9 +4,10 @@
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { getCurrentUser } from "@/server/session";
-import { scan } from "@/server/geo-studio/scanner/scanner";
+import { scan, scanLive, anyPlatformLive } from "@/server/geo-studio/scanner/scanner";
 import { todayIso } from "@/server/geo-studio/py-compat";
 import { ConnectionBadge } from "@/components/ui/ConnectionBadge";
+import { TierBadge } from "@/components/geo-common/TierBadge";
 
 const csv = (s?: string) => (s ?? "").split(",").map((x) => x.trim()).filter(Boolean);
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -27,15 +28,22 @@ export default async function GeoScanPage({ searchParams }: { searchParams: Prom
   const keywords = csv(keywordsStr);
   const ran = Boolean(brand && keywords.length);
 
+  // 실측 우선 — 연결된 엔진이 있으면 실제 AI 호출(scanLive), 없으면 목(scan).
+  const live = anyPlatformLive();
+  type ScanReport = {
+    brand: string;
+    overall_mention_rate: number;
+    total_queries: number;
+    by_ai: Record<string, ByAi>;
+    by_keyword: Record<string, number>;
+    competitors: Competitor[];
+    mocked?: boolean;
+    live?: boolean;
+  };
   const report = ran
-    ? (scan(brand, keywords, csv(competitorsStr), undefined, 3, todayIso()) as unknown as {
-        brand: string;
-        overall_mention_rate: number;
-        total_queries: number;
-        by_ai: Record<string, ByAi>;
-        by_keyword: Record<string, number>;
-        competitors: Competitor[];
-      })
+    ? ((live
+        ? await scanLive(brand, keywords, csv(competitorsStr), undefined, 3, todayIso())
+        : scan(brand, keywords, csv(competitorsStr), undefined, 3, todayIso())) as unknown as ScanReport)
     : null;
 
   const input = "mt-1 w-full rounded-lg border border-line bg-card px-2.5 py-1.5 text-sm text-ink placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none";
@@ -51,20 +59,27 @@ export default async function GeoScanPage({ searchParams }: { searchParams: Prom
         description="4대 AI(ChatGPT·Gemini·Claude·Perplexity)가 답변에서 우리 브랜드를 얼마나 인용하는지 측정합니다. 키워드 1개당 3변형(정보·비교·질문형) × 4 AI로 질의하고, 언급률·AI별 성적·경쟁사 점유·인용 문맥을 산출합니다."
       />
 
-      {/* 데이터 연결 상태 배너 — 이 화면은 아직 실제 4-AI 미연결(시뮬레이션) */}
-      <div className="rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800">
-        <div className="flex flex-wrap items-center gap-2">
-          <ConnectionBadge state="demo" hint="4-AI 실측 미연결" />
-          <span>아래 수치는 <b>데모(시뮬레이션)</b>입니다. 실제 AI 인용 측정은 <a href="/geo" className="font-semibold underline">GEO 모니터링</a>(실 엔진 연동)에서 확인하세요.</span>
+      {/* 데이터 연결 상태 — 연결된 엔진이 있으면 실측, 없으면 데모(정직 표기) */}
+      {live ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-800">
+          <TierBadge tier="measured" note="실측 연결됨" />
+          <span>연결된 AI 엔진으로 <b>실제 인용을 측정</b>합니다. 미연결 엔진은 자동으로 제외됩니다. <a href="/integrations" className="font-semibold underline">연결 상태 →</a></span>
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-amber-200 pt-2 text-xs">
-          <span className="text-amber-700">실측 연결(하나만 있어도 켜짐):</span>
-          <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] text-amber-900">OPENAI_API_KEY</code>
-          <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] text-amber-900">PERPLEXITY_API_KEY</code>
-          <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] text-amber-900">GOOGLE_AI_API_KEY</code>
-          <a href="/integrations" className="ml-1 font-semibold text-amber-900 underline">연결 상태 →</a>
+      ) : (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800">
+          <div className="flex flex-wrap items-center gap-2">
+            <ConnectionBadge state="demo" hint="4-AI 실측 미연결" />
+            <span>아래 수치는 <b>데모(시뮬레이션)</b>입니다. 실제 AI 인용 측정은 <a href="/geo" className="font-semibold underline">GEO 모니터링</a>(실 엔진 연동)에서 확인하세요.</span>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-amber-200 pt-2 text-xs">
+            <span className="text-amber-700">실측 연결(하나만 있어도 켜짐):</span>
+            <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] text-amber-900">OPENAI_API_KEY</code>
+            <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] text-amber-900">PERPLEXITY_API_KEY</code>
+            <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] text-amber-900">GOOGLE_AI_API_KEY</code>
+            <a href="/integrations" className="ml-1 font-semibold text-amber-900 underline">연결 상태 →</a>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 입력 폼(GET) */}
       <form method="get" className="rounded-2xl border border-line bg-card p-4">
@@ -84,7 +99,7 @@ export default async function GeoScanPage({ searchParams }: { searchParams: Prom
           <button type="submit" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
             🛰️ 스캔 실행
           </button>
-          <span className="text-[11px] text-slate-400">키워드 × 3변형 × 4 AI 질의 → 언급 감지·집계 (현재 목 파이프라인)</span>
+          <span className="text-[11px] text-slate-400">키워드 × 3변형 × 4 AI 질의 → 언급 감지·집계 {live ? "(실측 — 연결된 엔진 호출)" : "(데모 — 엔진 미연결)"}</span>
         </div>
       </form>
 

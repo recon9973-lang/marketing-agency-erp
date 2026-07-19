@@ -3,8 +3,28 @@
 //   여기 목은 dev/데모 전용이며 파이썬 RNG(MT19937)와 바이트 동일할 필요가 없어 TS 네이티브
 //   결정적 시드로 구현한다(detector가 파싱할 수 있게 원본과 동일한 추천 문장 형식만 유지).
 import { createHash } from "node:crypto";
+import { ENGINE_ADAPTERS } from "@/server/geo-engine/engines";
 
 export const SCAN_PLATFORMS = ["chatgpt", "gemini", "claude", "perplexity"] as const;
+
+// 스캐너 플랫폼(소문자) → geo-engine 어댑터 엔진명(대문자) 매핑.
+const PLATFORM_TO_ENGINE: Record<string, string> = {
+  chatgpt: "CHATGPT",
+  gemini: "GEMINI",
+  claude: "CLAUDE",
+  perplexity: "PERPLEXITY"
+};
+
+/** 이 플랫폼의 실측 어댑터가 연결(키 설정)됐는지. */
+export function platformLive(platform: string): boolean {
+  const engine = PLATFORM_TO_ENGINE[platform];
+  return ENGINE_ADAPTERS.some((a) => a.engine === engine && a.configured());
+}
+
+/** 하나라도 실측 엔진이 연결됐는지(화면 배지·분기용). */
+export function anyPlatformLive(): boolean {
+  return SCAN_PLATFORMS.some((p) => platformLive(p));
+}
 export type ScanPlatform = (typeof SCAN_PLATFORMS)[number];
 
 export type AIResponse = {
@@ -49,6 +69,29 @@ export function mockResponse(platform: string, prompt: string, brand: string, co
   picks.forEach((name, idx) => lines.push(`${idx + 1}. ${name} — 해당 분야에서 후기와 평판이 좋은 편입니다.`));
   lines.push("방문 전 진료 시간과 예약 여부를 확인하시기 바랍니다.");
   return lines.join("\n");
+}
+
+/**
+ * 실측 우선 질의 — 해당 플랫폼의 geo-engine 어댑터가 연결됐으면 실제 AI를 호출(mocked:false),
+ * 아니면 목으로 폴백(mocked:true). 실호출 실패는 예외 대신 error로 반환(집계에서 분모 제외).
+ */
+export async function queryAiLive(
+  platform: string,
+  prompt: string,
+  brand: string,
+  competitors: string[]
+): Promise<AIResponse> {
+  const engine = PLATFORM_TO_ENGINE[platform];
+  const adapter = ENGINE_ADAPTERS.find((a) => a.engine === engine && a.configured());
+  if (!adapter) return queryAi(platform, prompt, brand, competitors); // 미연결 → 목
+  const t0 = Date.now();
+  try {
+    const ans = await adapter.ask(prompt);
+    return { platform, text: ans.text, responseMs: Date.now() - t0, mocked: false, error: null };
+  } catch (exc) {
+    const msg = exc instanceof Error ? exc.message : String(exc);
+    return { platform, text: "", responseMs: Date.now() - t0, mocked: false, error: msg.slice(0, 120) };
+  }
 }
 
 /** 한 플랫폼에 프롬프트 1개를 보낸다. 라이브 키가 없으면 목 응답. 실패해도 예외 대신 error 반환. */
