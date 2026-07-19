@@ -82,13 +82,22 @@ model GeoCitationScore {
 
 ---
 
-## 3. GEO 측정 규약 (현실성·비용)
+## 3. GEO 측정 규약 (현실성·비용 · GEO 문헌 근거)
+> 근거: GEO 문헌 검토(`geo-literature-review.md`) — Schulte "Don't Measure Once", Xu et al.(AI Overviews), Vishwakarma "What Gets Cited", Puerto "C-SEO Bench", GEO Survey. 실무 매뉴얼(`geo-practical-manual.md`)과 정합.
+
 - **엔진 셋(가변):** 키가 있는 엔진만 실행 — ChatGPT(+Web) · Gemini(+Web) · Claude(+Web) · Perplexity · (선택 Grok · Google AI Overview · Naver AI). `configuredEngines()` 기준. **없는 엔진은 분모에서 제외**(정직).
-- **반복·다수결:** 질문당 기본 3회 → 과반 등장 시 `appeared=true`. 원시 3회 로그 보존. 변동성 완화.
-- **매칭:** 병원명·별칭(자사 브랜드 + "다른 표기" 목록) 부분일치 → `appeared`. 공식 URL 포함 시 `cited`. (GPTO의 "자사 브랜드/제품 + 다른 표기" 개념 채택.)
-- **경쟁사:** 답변 등장 브랜드 상위 N을 `competitorsMentioned`에 저장 → 언급현황표·경쟁맵.
-- **비용 가드:** 12거래처 × 20질문 × N엔진 × 3회 = 상당량 → **주기(주1)·질문 우선순위(priority)·엔진 셋**으로 상한. 실행 전 예상 콜 수 표시.
-- **약관:** 공식 API만. 자동 브라우저 스크래핑 배제(기존 원칙). 수동 관측은 캡처(evidenceUrl) 증빙.
+- **반복 ≥7회(문헌 갱신):** 단일 실행은 통계적으로 불신 — 생성 자체가 확률적. 질문×엔진당 **하루 ≥7회**(표준오차<0.10), 출처 커버리지엔 ≥8회. `RECOMMENDED_RUNS=7`. **원시 N회 보존**, 요약은 `majorityAppeared`가 아니라 **비율+신뢰구간(`mentionRateCI`, Wilson 95%)**으로 — "단일값이 아니라 분포로".
+- **측정 구성 분리(binary 탈피):** 노출(`appeared`) / 인용(`cited`) / **충실 인용(`claimSupported`)** / **위치(`citationPosition`)** / **답변 비중(`answerShare`)** / **오류(`wrongClaim`)**를 각각 기록. Xu et al.: AI Overviews 인용 문장의 **11%가 근거 페이지에 미지지** → `cited=true`가 곧 정확은 아님(의료 리스크 핵심). What Gets Cited: **위치가 top driver**. Citation Absorption: 인용 여부보다 **흡수도(비중)**가 실영향.
+- **매칭:** 병원명·별칭(자사 브랜드 + "다른 표기" 목록) 부분일치 → `appeared`. 공식 URL 포함 시 `cited`.
+- **경쟁사:** 답변 등장 브랜드 상위 N을 `competitorsMentioned`에 저장 → 언급현황표·경쟁맵. What Gets Cited는 본질적으로 경쟁 프레임.
+- **출처 오버랩 분리:** AI 인용 ≠ 오가닉 순위. Xu et al.: AIO 인용 도메인 **~30%가 동반 오가닉 1페이지 밖** → SEO 순위를 GEO 대용으로 쓰지 않는다(트랙 분리 근거 강화).
+- **비용 가드:** 12거래처 × 20질문 × N엔진 × **7회** = 대량 → **주기(주1)·질문 우선순위·엔진 셋·표본 캡**으로 상한. 실행 전 예상 콜 수·비용 표시.
+- **약관:** 공식 API만. 자동 브라우저 스크래핑 배제. 수동 관측은 캡처(evidenceUrl) 증빙.
+
+### 3.1 거버넌스 — "리라이트는 보장이 아니라 가설" (문헌 강한 경고)
+- **자동 인용-리라이트를 확정 승리 기능으로 출시 금지.** C-SEO Bench: 다중 행위자 환경서 대다수 무효·일부는 **역효과**. SAGEO Arena: 본문만 최적화 시 **검색 노출 -9~16%·최종 인용 -6%**(리트리벌 단계에서 오히려 손해). → 리라이트 제안은 **A/B 가설**로 표기하고 **리트리벌 단계 순위와 함께** 관측.
+- **의료법 이중 게이트:** 근거 없는 최상급·조작 수치 삽입형 제안은 **차단**(§56·정직성). 인용률만 좇아 오류 답변 노출을 키우지 않는다 — 노출과 충실성을 **함께** 추적.
+- **정직 보고:** 저표본 추정은 신뢰구간·"provisional"로 표시. 단일 실행을 "인용됨"으로 단정 금지.
 
 ---
 

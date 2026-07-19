@@ -20,13 +20,36 @@ export type CitationAgg = {
 };
 
 /**
- * 측정 반복 다수결 — 같은 질문×엔진을 N회 호출한 출현 관측을 하나로 접는다.
+ * 권장 반복 횟수 — GEO 문헌(Schulte "Don't Measure Once", Sielinski) 기준.
+ * 브랜드 노출 표준오차<0.10을 위해 질문×엔진당 하루 ≥7회, 출처 커버리지엔 ≥8회. 단일 실행은 통계적으로 불신.
+ */
+export const RECOMMENDED_RUNS = 7;
+
+/**
+ * 측정 반복 다수결 — 같은 질문×엔진을 N회 호출한 출현 관측을 하나로 접는다(요약 표시용).
  * LLM 답변은 실행마다 변하므로 과반 등장 시에만 appeared=true(정직·보수적: 동수는 false).
+ * ⚠ 문헌 권고: 다수결로 접기 전에 원시 N회를 보존하고, 표시는 비율+신뢰구간(mentionRateCI)으로.
  */
 export function majorityAppeared(observations: boolean[]): boolean {
   if (observations.length === 0) return false;
   const yes = observations.filter(Boolean).length;
   return yes > observations.length / 2;
+}
+
+/**
+ * 언급률 신뢰구간(Wilson 95%) — "단일 측정값이 아니라 분포로" 원칙 구현.
+ * 반복·표본이 적을수록 넓은 구간 → 저신뢰 추정을 정직하게 표시. success/total(0~1) 반환.
+ */
+export function mentionRateCI(success: number, total: number): { rate: number; low: number; high: number } {
+  if (total <= 0) return { rate: 0, low: 0, high: 0 };
+  const z = 1.96;
+  const p = success / total;
+  const denom = 1 + (z * z) / total;
+  const center = p + (z * z) / (2 * total);
+  const margin = z * Math.sqrt((p * (1 - p)) / total + (z * z) / (4 * total * total));
+  const low = Math.max(0, (center - margin) / denom);
+  const high = Math.min(1, (center + margin) / denom);
+  return { rate: p, low, high };
 }
 
 /** 한 실행(run)의 엔진별 관측 → 언급률·평균순위·엔진분포 집계. 엔진 중복 시 첫 값 유지(호출부가 최신 전달). */

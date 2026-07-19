@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aggregateRun, dailyMentionSeries, majorityAppeared, type DatedCell, type EngineObservation } from "./citation";
+import { aggregateRun, dailyMentionSeries, majorityAppeared, mentionRateCI, RECOMMENDED_RUNS, type DatedCell, type EngineObservation } from "./citation";
 
 describe("citation · majorityAppeared(반복 다수결)", () => {
   it("과반 등장이면 true, 동수/미달이면 false(보수적)", () => {
@@ -9,6 +9,25 @@ describe("citation · majorityAppeared(반복 다수결)", () => {
     expect(majorityAppeared([true, true])).toBe(true);
     expect(majorityAppeared([])).toBe(false);
     expect(majorityAppeared([true])).toBe(true);
+  });
+});
+
+describe("citation · mentionRateCI(신뢰구간·분포)", () => {
+  it("권장 반복은 ≥7(문헌 근거)", () => {
+    expect(RECOMMENDED_RUNS).toBeGreaterThanOrEqual(7);
+  });
+  it("표본이 적으면 넓고, 많으면 좁아진다", () => {
+    const few = mentionRateCI(1, 2); // 50% n=2
+    const many = mentionRateCI(50, 100); // 50% n=100
+    expect(few.rate).toBeCloseTo(0.5);
+    expect(many.rate).toBeCloseTo(0.5);
+    expect(few.high - few.low).toBeGreaterThan(many.high - many.low); // 저표본 = 넓은 구간
+  });
+  it("total 0이면 0, 경계 클램프(0~1)", () => {
+    expect(mentionRateCI(0, 0)).toEqual({ rate: 0, low: 0, high: 0 });
+    const all = mentionRateCI(5, 5);
+    expect(all.high).toBeLessThanOrEqual(1);
+    expect(all.low).toBeGreaterThanOrEqual(0);
   });
 });
 

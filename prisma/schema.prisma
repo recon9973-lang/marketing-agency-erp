@@ -1555,6 +1555,12 @@ model GeoAnswerRecord {
   appeared             Boolean     @default(false) // 병원 언급 여부
   cited                Boolean     @default(false) // 공식 URL 인용 여부
   rank                 Int? // 답변 내 우리 병원 등장 순위(1=최상단, null=미언급/미측정) — 평균순위 집계용
+  // ── GEO 논문 근거 측정층(모두 additive·nullable, 캡처는 점진 도입) ──
+  // 근거: Xu/Venkit(충실성), What Gets Cited(위치), Citation Absorption(비중) — GEO 문헌 검토 2026-07
+  claimSupported       Boolean? // 인용 페이지가 실제로 답변 문장을 뒷받침하는가(충실성). 의료 리스크 관리 핵심
+  citationPosition     Int? // 답변 내 우리 인용 위치(1=최상단) — 인용 확률의 top driver
+  answerShare          Float? // 답변 중 우리 정보 비중(0~1) — 인용 여부보다 흡수도가 실영향
+  wrongClaim           Boolean  @default(false) // 엔진이 병원에 대해 틀린 정보를 말함(거버넌스·정직성)
   competitorsMentioned Json? // 언급된 경쟁사 이름 배열
   snippet              String? // 답변 발췌
   evidenceUrl          String? // 캡처/증빙 링크
