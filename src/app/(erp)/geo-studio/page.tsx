@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ConnectionBadge } from "@/components/ui/ConnectionBadge";
 import { getCurrentUser } from "@/server/session";
-import { runPipeline, type PipelineResult } from "@/server/geo-studio/pipeline";
+import { runPipelineLive, type PipelineResult } from "@/server/geo-studio/pipeline";
 
 const csv = (s?: string) => (s ?? "").split(",").map((x) => x.trim()).filter(Boolean);
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -36,7 +36,8 @@ export default async function GeoStudioPage({ searchParams }: { searchParams: Pr
 
   let r: PipelineResult | null = null;
   if (ran) {
-    r = runPipeline({
+    // 실측 우선 — 연결된 키가 있으면 M1(스캔)·M2(CEP)를 실측 실행.
+    r = await runPipelineLive({
       brand,
       category,
       keywords,
@@ -44,6 +45,9 @@ export default async function GeoStudioPage({ searchParams }: { searchParams: Pr
       budget: Number(budgetStr) || undefined
     });
   }
+  const m1Live = r?.dataTier?.m1 === "measured";
+  const m2Live = r?.dataTier?.m2 === "measured";
+  const anyLive = m1Live || m2Live;
 
   const input = "mt-1 w-full rounded-lg border border-line bg-card px-2.5 py-1.5 text-sm text-ink placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none";
   const m5 = r?.stages.m5 as
@@ -58,11 +62,21 @@ export default async function GeoStudioPage({ searchParams }: { searchParams: Pr
         description="AI 검색 최적화 5단계(스캔→CEP 발굴→콘텐츠→여정→캠페인)를 한 번에 실행합니다. 각 단계의 실제 산출물이 다음 단계 입력으로 연결되어, 브랜드 진단부터 실행 캠페인 계획까지 이어집니다."
       />
 
-      {/* 데이터 연결 상태 — 통합 파이프라인(M1~M5)은 결정적 목/시뮬. 실측 GEO는 /geo */}
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800">
-        <ConnectionBadge state="demo" hint="M1~M5 시뮬 파이프라인" />
-        <span>5단계 산출물은 <b>데모(시뮬레이션)</b>입니다(결과 미저장). 실제 AI 인용 측정은 <a href="/geo" className="font-semibold underline">GEO 모니터링</a>, 검색량·트렌드 실측은 <a href="/geo-cep" className="font-semibold underline">CEP 파인더</a>에서 확인하세요.</span>
-      </div>
+      {/* 데이터 연결 상태 — M1(스캔)·M2(CEP)는 연결 시 실측, M3~M5는 규칙 계산 */}
+      {anyLive ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-800">
+          <ConnectionBadge state="connected" hint="일부 단계 실측" />
+          <span>
+            M1 인용 스캔 <b>{m1Live ? "실측" : "데모"}</b> · M2 CEP <b>{m2Live ? "실측" : "데모"}</b> · M3~M5는 규칙 계산.
+            미연결 단계는 <a href="/integrations" className="font-semibold underline">키 연결</a> 시 실측 전환됩니다.
+          </span>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800">
+          <ConnectionBadge state="demo" hint="M1~M5 시뮬 파이프라인" />
+          <span>5단계 산출물은 <b>데모(시뮬레이션)</b>입니다. 실제 AI 인용 측정은 <a href="/geo" className="font-semibold underline">GEO 모니터링</a>, 실측 전환은 <a href="/integrations" className="font-semibold underline">키 연결</a> 후 가능합니다.</span>
+        </div>
+      )}
 
       {/* 파이프라인 흐름 */}
       <div className="flex flex-wrap items-stretch gap-2 rounded-2xl border border-line bg-card p-4">
