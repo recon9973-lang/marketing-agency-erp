@@ -12,6 +12,7 @@ import { z } from "zod";
 import { buildGeoQuestionCandidates, isGeoEngine } from "@/domain/sales/geo";
 import { runGeoWatch } from "@/server/geo-engine/runner";
 import { createAnswerPagePlan } from "@/server/geo-engine/answer-page";
+import { recomputeCitationScores } from "@/server/repositories/citation-score";
 import { assertCanAccessClient } from "@/domain/access-control";
 import { db } from "@/server/db";
 import { getDefaultOrgId } from "@/server/org";
@@ -309,6 +310,8 @@ export async function runGeoWatchNow(input: unknown): Promise<ActionResult<{ ask
     await assertClient(user, p.data.clientId);
 
     const r = await runGeoWatch(p.data.clientId);
+    // GEO 언급률 스냅샷 재계산(리포트·대시보드 캐시) — 실패해도 관측은 성공 처리.
+    await recomputeCitationScores(p.data.clientId).catch(() => {});
     const meta = await requestMeta();
     await db.auditLog.create({
       data: {
@@ -427,6 +430,8 @@ export async function recordGeoAnswer(input: unknown): Promise<ActionResult<{ id
       return rec;
     });
 
+    // 언급률 스냅샷 재계산(best-effort) — 그래프·리포트 캐시 최신화.
+    await recomputeCitationScores(question.clientId).catch(() => {});
     revalidatePath("/geo");
     return { id: saved.id };
   });

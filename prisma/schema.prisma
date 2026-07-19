@@ -1554,6 +1554,7 @@ model GeoAnswerRecord {
   checkedOn            DateTime    @db.Date
   appeared             Boolean     @default(false) // 병원 언급 여부
   cited                Boolean     @default(false) // 공식 URL 인용 여부
+  rank                 Int? // 답변 내 우리 병원 등장 순위(1=최상단, null=미언급/미측정) — 평균순위 집계용
   competitorsMentioned Json? // 언급된 경쟁사 이름 배열
   snippet              String? // 답변 발췌
   evidenceUrl          String? // 캡처/증빙 링크
@@ -1567,6 +1568,28 @@ model GeoAnswerRecord {
   @@unique([questionId, engine, checkedOn])
   @@index([questionId, checkedOn])
   @@index([createdById])
+}
+
+/// GEO 언급률 시계열 스냅샷(GEO 모듈 설계 §2.2) — 관측 실행일(runAt)마다 거래처 전체 집계 저장.
+/// 원천은 GeoAnswerRecord. 이 표는 일별 추이 그래프·월간 리포트·대시보드 조회 최적화용(캐시성).
+/// questionId=null = 거래처 전체 집계. 재계산은 [clientId, questionId, runAt] 기준 멱등 upsert.
+model GeoCitationScore {
+  id              String   @id @default(cuid())
+  clientId        String
+  questionId      String? // null = 거래처 전체
+  runAt           DateTime @db.Date // 관측 실행일(일별 그래놀)
+  totalModels     Int // 관측 대상 엔진 수(분모)
+  mentionedModels Int // 언급된 엔진 수(분자)
+  mentionRate     Float // mentioned/total (0~1)
+  avgRank         Float? // 언급 시 평균 등장 순위
+  citedModels     Int      @default(0) // 공식 URL 인용 엔진 수
+  byEngine        Json? // {engine:{mentioned,cited,rank}} — 레이더·엔진표용
+  orgId           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([clientId, questionId, runAt])
+  @@index([clientId, runAt])
 }
 
 /// 디자인 스튜디오 프로젝트 — 카드뉴스/SNS/썸네일 등 캔버스 디자인.

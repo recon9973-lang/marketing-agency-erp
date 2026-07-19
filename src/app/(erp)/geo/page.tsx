@@ -13,6 +13,8 @@ import { GeoChannelGuide } from "@/components/geo/GeoChannelGuide";
 import { GeoTabs } from "@/components/geo/GeoTabs";
 import { GeoTrendBars } from "@/components/geo/GeoTrendBars";
 import { SovChart } from "@/components/geo/SovChart";
+import { MentionRateTrend } from "@/components/geo/MentionRateTrend";
+import { GuardedRankTrend } from "@/components/geo/GuardedRankTrend";
 import { GeoWorkflowSteps } from "@/components/geo/GeoWorkflowSteps";
 import { GeoLlmsTxt } from "@/components/geo/GeoLlmsTxt";
 import { configuredEngines } from "@/server/geo-engine/engines";
@@ -20,6 +22,7 @@ import { buildLlmsTxt, llmsInputFromClient } from "@/server/geo-engine/llms-txt"
 import { GEO_DISCLAIMER } from "@/domain/sales/geo";
 import { db } from "@/server/db";
 import { computeGeoSov, geoMonthlyTrend, listGeoMatrix, listPublishedPages, summarizeGeoMatrix } from "@/server/repositories/geo";
+import { getMentionRateSeries, getGuardedRankSeries } from "@/server/repositories/citation-score";
 import { listInsightClients } from "@/server/repositories/insights";
 import { getCurrentUser } from "@/server/session";
 
@@ -57,7 +60,7 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
   const clients = await listInsightClients(user);
   const selectedId = clientParam && clients.some((c) => c.id === clientParam) ? clientParam : clients[0]?.id ?? null;
   const selectedName = clients.find((c) => c.id === selectedId)?.name ?? "";
-  const [rows, trend, selectedClient, publishedPages] = selectedId
+  const [rows, trend, selectedClient, publishedPages, mentionSeries, guardedSeries] = selectedId
     ? await Promise.all([
         listGeoMatrix(selectedId),
         geoMonthlyTrend(selectedId),
@@ -72,9 +75,11 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
             }
           })
           .catch(() => null),
-        listPublishedPages(selectedId).catch(() => [])
+        listPublishedPages(selectedId).catch(() => []),
+        getMentionRateSeries(selectedId).catch(() => []), // B1 전체 언급률 일별
+        getGuardedRankSeries(selectedId).catch(() => []) // C1 월보장 순위 일별
       ])
-    : [[], [], null, []];
+    : [[], [], null, [], [], []];
   const summary = summarizeGeoMatrix(rows);
   const sov = computeGeoSov(rows); // 경쟁사 대비 SOV(파생·저장 없음)
 
@@ -178,6 +183,34 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
               ]}
             >
               <>
+                {/* 언급률·순위 추이 — GEO(성과) / SEO(토대) 연결·분리 (GEO 모듈 설계 §1·§4 B1·C1) */}
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-line bg-card p-4">
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className="rounded-md bg-brand-soft px-2 py-0.5 text-[10px] font-bold text-brand-strong">GEO 트랙</span>
+                      <h3 className="text-sm font-bold text-ink">전체 언급률 추이</h3>
+                      <span className="text-[10px] font-bold text-brand">★ 북극성</span>
+                    </div>
+                    <p className="mb-3 text-[11px] text-slate-500">AI 답변이 우리 병원을 인용하는 비율 · 주 1회 관측 · 목표 25%</p>
+                    <MentionRateTrend points={mentionSeries} />
+                  </div>
+                  <div className="rounded-2xl border border-line bg-card p-4">
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className="rounded-md bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700">SEO 트랙</span>
+                      <h3 className="text-sm font-bold text-ink">월보장 순위 추이</h3>
+                    </div>
+                    <p className="mb-3 text-[11px] text-slate-500">네이버 검색 순위(계약 약속) · 매일 자동 축적 · GEO의 토대</p>
+                    {guardedSeries.length > 0 ? (
+                      <GuardedRankTrend series={guardedSeries[0]} />
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-line bg-surface/50 px-4 py-8 text-center text-sm text-slate-500">
+                        월보장 키워드를 등록하면 순위 추이가 표시됩니다.
+                        <span className="mt-1 block text-xs text-slate-400">거래처 상세 · 키워드에서 &ldquo;순위 보장&rdquo; 설정</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <GeoAutoWatch
                   clientId={selectedId}
                   configuredEngines={configuredEngines().map((e) => e.engine)}
