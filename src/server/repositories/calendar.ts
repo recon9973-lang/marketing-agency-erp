@@ -62,6 +62,10 @@ function buildAdminCalendarWhere(scopes: AdminScope[]) {
     clauses.push({ leaveRequest: { is: { requesterId: { in: marketerIds } } } });
     clauses.push({ workItem: { is: { ownerId: { in: marketerIds } } } });
     clauses.push({ client: { is: { assignedMarketerId: { in: marketerIds } } } });
+    clauses.push({ assigneeId: { in: marketerIds } });
+  }
+  if (allMarketers) {
+    clauses.push({ assigneeId: { not: null } });
   }
 
   return clauses.length > 0 ? { OR: clauses } : { id: { in: [] } };
@@ -76,6 +80,7 @@ async function buildCalendarWhere(user: CurrentUser) {
     return {
       OR: [
         { createdById: user.id },
+        { assigneeId: user.id },
         { workItem: { is: { ownerId: user.id } } },
         { client: { is: { assignedMarketerId: user.id } } },
         { leaveRequest: { is: { requesterId: user.id } } }
@@ -116,6 +121,7 @@ export async function fetchTeamCalendarEvents(user: CurrentUser): Promise<TeamCa
       kind: true,
       syncStatus: true,
       client: { select: { name: true } },
+      assignee: { select: { name: true } },
       workItem: { select: { owner: { select: { name: true } } } },
       leaveRequest: { select: { requester: { select: { name: true } } } },
       createdBy: { select: { name: true } }
@@ -132,7 +138,8 @@ export async function fetchTeamCalendarEvents(user: CurrentUser): Promise<TeamCa
     kind: event.kind,
     syncStatus: event.syncStatus,
     clientName: event.client?.name ?? null,
-    ownerName: event.workItem?.owner?.name ?? event.leaveRequest?.requester?.name ?? event.createdBy?.name ?? "미배정"
+    // 직접 배정(assignee) 우선 → 업무 담당자 → 연차 신청자 → 생성자 순으로 파생.
+    ownerName: event.assignee?.name ?? event.workItem?.owner?.name ?? event.leaveRequest?.requester?.name ?? event.createdBy?.name ?? "미배정"
   }));
 }
 

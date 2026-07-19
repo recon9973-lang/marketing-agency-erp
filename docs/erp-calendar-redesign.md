@@ -27,9 +27,16 @@
 |---|---|---|
 | **C1** | 관리자 전체뷰 — 담당자별 그룹 카드(`/calendar`), 소유자 파생 | ✅ 구현(무스키마) |
 | **C2** | 외부 캘린더 카드 → "선택·내보내기 준비중"으로 강등 | ✅ |
-| C3 | 담당자별 필터·주간/월간 뷰·색상 | ⏳ |
-| C4 | `assigneeId` 직접 지정(독립 이벤트) | ⏳ schema 조율 |
+| C3 | 담당자별 필터·주간/월간 뷰·색상 | ✅ |
+| C4 | `assigneeId` 직접 지정 + **일정 추가 폼**(독립 이벤트 생성·배정·삭제 액션) | ✅ (additive schema) |
 | C5 | (선택) 구글 캘린더 **내보내기**(기존 OAuth 재사용) | ⏳ opt-in |
+
+### C4 구현 메모
+- `CalendarEvent.assigneeId`(nullable) + `@@index` 추가 — **additive**, `prisma db push`로 배포 시 자동 적용.
+- 소유자 파생 순서: **assignee** → workItem.owner → leaveRequest.requester → createdBy → "미배정".
+- 스코프: MARKETER는 본인 일정만(assigneeId=self), 관리자는 AccessScope 내 담당자 지정(`canAccessMarketer`).
+- 액션: `createCalendarEvent`(KST→UTC, 권한검증), `deleteCalendarEvent`(시스템 이벤트=업무·연차·리포트 연결은 삭제 불가).
+- UI: `/calendar` 상단 접이식 "일정 추가" 폼. 관리자만 담당자 드롭다운 노출.
 
 ## 4. 권한
 

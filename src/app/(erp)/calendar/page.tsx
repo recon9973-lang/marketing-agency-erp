@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { CalendarScheduler } from "@/components/calendar/CalendarScheduler";
 import { MonthCalendar, type GridEvent } from "@/components/calendar/MonthCalendar";
 import { WeekCalendar, type WeekEvent } from "@/components/calendar/WeekCalendar";
+import { CalendarEventForm } from "@/components/calendar/CalendarEventForm";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { listActiveMembers } from "@/server/repositories/collab";
 import { calendarKindLabels, fetchCalendarEventsForUser, fetchTeamCalendarEvents, type CalendarListItem, type TeamCalendarItem } from "@/server/repositories/calendar";
 import { CalendarEventKind, CalendarProvider, ConnectionStatus, Role } from "@/domain/types";
 import { db } from "@/server/db";
@@ -89,11 +91,12 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
 
   const isManager = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
   const todayKey = dayKeyFormatter.format(new Date());
-  const [allEvents, schedulerItems, companySetting, allTeamEvents] = await Promise.all([
+  const [allEvents, schedulerItems, companySetting, allTeamEvents, members] = await Promise.all([
     fetchCalendarEventsForUser(user),
     getSchedulerDay(user, user.id, new Date(`${todayKey}T00:00:00`)),
     db.companySetting.findFirst({ select: { workloadDailyMinutes: true } }),
-    isManager ? fetchTeamCalendarEvents(user) : Promise.resolve([] as TeamCalendarItem[])
+    isManager ? fetchTeamCalendarEvents(user) : Promise.resolve([] as TeamCalendarItem[]),
+    isManager ? listActiveMembers() : Promise.resolve([] as { id: string; name: string }[])
   ]);
 
   // KST 일자키 유틸(서버 TZ 무관 — UTC 정오 기준).
@@ -121,6 +124,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const events = allEvents.filter((e) => inView(dayKeyFormatter.format(e.startsAt)));
   const teamEvents = allTeamEvents.filter((e) => inView(dayKeyFormatter.format(e.startsAt)) && (!ownerFilter || e.ownerName === ownerFilter));
   const owners = [...new Set(allTeamEvents.map((e) => e.ownerName))].sort();
+  // 일정 추가 폼 기본 날짜 — 현재 뷰에 오늘이 포함되면 오늘, 아니면 뷰 시작일.
+  const defaultDate = view === "week" ? (weekKeys.includes(todayKey) ? todayKey : weekKeys[0]) : todayKey.startsWith(monthPrefix) ? todayKey : `${monthPrefix}-01`;
 
   const eventsByDay: Record<string, GridEvent[]> = {};
   for (const e of isManager ? teamEvents : events) {
@@ -183,6 +188,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           <div className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-slate-600">일정 {events.length}건</div>
         </div>
       </div>
+
+      {/* 자체 캘린더 · 일정 추가(C4) — 접이식. 관리자는 담당자 지정. */}
+      <CalendarEventForm members={members} canAssignOthers={isManager} selfId={user.id} defaultDate={defaultDate} />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {integrationCards.map((card) => (

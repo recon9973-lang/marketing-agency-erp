@@ -179,6 +179,7 @@ model User {
   ownedWorkItems          WorkItem[]      @relation("WorkOwner")
   createdWorkItems        WorkItem[]      @relation("WorkCreator")
   createdEvents           CalendarEvent[] @relation("EventCreator")
+  assignedEvents          CalendarEvent[] @relation("EventAssignee")
   billingsIssued          BillingRecord[] @relation("BillingIssuer")
   paymentsRecorded        PaymentRecord[] @relation("PaymentRecorder")
   expensesSubmitted       ExpenseRecord[] @relation("ExpenseSubmitter")
@@ -404,6 +405,7 @@ model CalendarEvent {
   leaveRequestId     String?           @unique
   reportId           String?
   createdById        String?
+  assigneeId         String?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   client             Client?           @relation(fields: [clientId], references: [id])
@@ -411,12 +413,14 @@ model CalendarEvent {
   leaveRequest       LeaveRequest?     @relation("LeaveRequestEvent", fields: [leaveRequestId], references: [id])
   report             Report?           @relation(fields: [reportId], references: [id])
   createdBy          User?             @relation("EventCreator", fields: [createdById], references: [id])
+  assignee           User?             @relation("EventAssignee", fields: [assigneeId], references: [id])
 
   @@index([startsAt, endsAt])
   @@index([clientId])
   @@index([workItemId])
   @@index([reportId])
   @@index([createdById])
+  @@index([assigneeId])
 }
 
 model BillingRecord {
