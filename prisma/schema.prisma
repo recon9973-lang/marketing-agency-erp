@@ -1604,6 +1604,30 @@ model GeoCitationScore {
   @@index([clientId, runAt])
 }
 
+// GEO 학습 모델 버전 — 쌓인 실험 장부(개입→인용률)를 학습해 전략 가중치를 산출.
+// 버전 넘버링(org 단위 1,2,3…), 공지로 제안→적용, 넘버/기간별 다운그레이드(롤백).
+// 학습 원칙: 정답 신호는 실측(GeoCitationScore/GeoIntervention.lift)만. 투명 가중치(설명가능).
+model GeoModelVersion {
+  id           String    @id @default(cuid())
+  version      Int // org 단위 순번(1,2,3…)
+  orgId        String?
+  status       String    @default("PROPOSED") // PROPOSED | ACTIVE | SUPERSEDED | ROLLED_BACK
+  summary      String // 무엇이 바뀌었나(한 줄)
+  weights      Json // 학습된 전략 가중치({kind:{avgLift,upRate,weight}} 등)
+  diff         Json? // 직전 활성 버전 대비 변경점(가중치 증감)
+  basisCount   Int       @default(0) // 학습에 쓰인 결과측정 개입 수(표본)
+  noticeId     String? // 연결된 공지 id(제안 게시)
+  proposedById String?
+  appliedById  String?
+  appliedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([orgId, version])
+  @@index([status])
+  @@index([orgId, createdAt])
+}
+
 // GEO 실험 장부(학습 A단계) — "개입 → 인용률 변화"를 근거로 기록.
 // 개입 시점의 인용률(baselineRate)을 스냅샷하고, 이후 측정치로 상승폭(lift)을 계산한다.
 // 학습의 정답 신호는 반드시 실측(GeoCitationScore.mentionRate)에만 붙인다(목업 아님).
