@@ -182,6 +182,7 @@ model User {
   assignedEvents          CalendarEvent[] @relation("EventAssignee")
   trendSnapshots          TrendSnapshot[] @relation("TrendSnapshotCapturer")
   geoCampaignPlans        GeoCampaignPlan[] @relation("GeoCampaignPlanAuthor")
+  geoContentDiagnoses     GeoContentDiagnosis[] @relation("GeoContentDiagnosisAuthor")
   billingsIssued          BillingRecord[] @relation("BillingIssuer")
   paymentsRecorded        PaymentRecord[] @relation("PaymentRecorder")
   expensesSubmitted       ExpenseRecord[] @relation("ExpenseSubmitter")
@@ -458,6 +459,23 @@ model GeoCampaignPlan {
   createdById String?
   createdAt   DateTime @default(now())
   createdBy   User?    @relation("GeoCampaignPlanAuthor", fields: [createdById], references: [id])
+
+  @@index([createdById, createdAt])
+  @@index([orgId])
+}
+
+// GEO Studio M3 — 저장된 콘텐츠 GEO 진단(점수·재작성안 보관, 개선 추적용).
+model GeoContentDiagnosis {
+  id             String   @id @default(cuid())
+  orgId          String?
+  keyword        String
+  contentPreview String // 진단 콘텐츠 앞부분(목록 라벨)
+  scoreTotal     Int // GEO 종합 점수
+  rewrite        String // BLUF 재작성안
+  result         Json // ContentAnalysis 전체
+  createdById    String?
+  createdAt      DateTime @default(now())
+  createdBy      User?    @relation("GeoContentDiagnosisAuthor", fields: [createdById], references: [id])
 
   @@index([createdById, createdAt])
   @@index([orgId])

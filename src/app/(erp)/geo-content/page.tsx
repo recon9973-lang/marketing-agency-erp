@@ -4,11 +4,15 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ConnectionBadge } from "@/components/ui/ConnectionBadge";
 import { GeoContentForm } from "@/components/geo-content/GeoContentForm";
+import { SavedContentDiagnoses } from "@/components/geo-content/SavedContentDiagnoses";
+import { listContentDiagnoses } from "@/server/repositories/geo-content-diagnosis";
 import { getCurrentUser } from "@/server/session";
 
 export default async function GeoContentPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+
+  const saved = await listContentDiagnoses(user);
 
   return (
     <section className="space-y-4">
@@ -25,6 +29,11 @@ export default async function GeoContentPage() {
       </div>
 
       <GeoContentForm />
+
+      <section className="rounded-2xl border border-line bg-card p-4">
+        <p className="mb-2 text-sm font-bold text-ink">저장된 진단 <span className="text-slate-400">({saved.length})</span></p>
+        <SavedContentDiagnoses items={saved.map((d) => ({ ...d, createdAt: d.createdAt.toISOString() }))} />
+      </section>
     </section>
   );
 }

@@ -57,7 +57,7 @@
   - **D-1** `/finance` 역할 가드 누락(마케터가 URL 직접진입 시 재무 열람) → finance layout에 MARKETER 리다이렉트.
   - **D-2** 마케터 파이프라인 종착(/reports 검수 차단) → `/insights`로 변경 + "발행은 관리자" 명시.
   - **D-3** deniedFeatures가 액션 계층 미검증 → `assertFeature` 헬퍼로 finance/contracts/leads/leave 전 액션 재검증(심층 방어).
-- **후속 조치**: geo-planner 산출물 영속화 ✅ — `GeoCampaignPlan`(additive) + "계획 저장"·저장목록(리포트 열람·삭제). (geo-content/path는 여전히 비영속 — 필요 시 동일 패턴 적용.)
+- **후속 조치**: GEO 산출물 영속화 ✅ — geo-planner(`GeoCampaignPlan`) + geo-content(`GeoContentDiagnosis`) 저장·재열람·삭제. (geo-path 여정 트리는 탐색용 시뮬이라 비영속 유지.)
 - **미조치(정보)**: ai/claude·ai/image 테스트 부재, middleware 중앙 역할가드 부재(구조 — 현재 layout/action 분산 방어로 커버).
 
 ## 검증 한계

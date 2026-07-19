@@ -1,8 +1,9 @@
 // GEO Studio · M3 콘텐츠 빌더 화면 — useActionState + 네이티브 폼(안정적) → 분석 결과.
 "use client";
 
-import { useActionState } from "react";
-import { analyzeContentAction, type ContentAnalysis } from "@/server/actions/geo-content";
+import { useActionState, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { analyzeContentAction, saveContentDiagnosis, type ContentAnalysis } from "@/server/actions/geo-content";
 
 const SAMPLE =
   "안녕하세요, 오늘은 아메리카노에 대해 알아보겠습니다. 아메리카노는 에스프레소에 물을 더한 커피입니다. 원두 종류에 따라 맛이 달라집니다.";
@@ -38,6 +39,27 @@ function Bar({ label, value }: { label: string; value: number }) {
 
 export function GeoContentForm() {
   const [state, formAction, pending] = useActionState(analyzeContentAction, null);
+  const router = useRouter();
+  const [saving, startSave] = useTransition();
+  const [saved, setSaved] = useState(false);
+
+  function save() {
+    if (!state?.score) return;
+    setSaved(false);
+    startSave(async () => {
+      const out = await saveContentDiagnosis({
+        keyword: state.keyword ?? null,
+        contentPreview: state.contentPreview ?? null,
+        scoreTotal: state.score!.total,
+        rewrite: state.rewrite ?? null,
+        result: state
+      });
+      if (out.ok) {
+        setSaved(true);
+        router.refresh(); // 하단 저장목록 갱신
+      }
+    });
+  }
 
   return (
     <div className="space-y-4">
@@ -71,6 +93,14 @@ export function GeoContentForm() {
 
       {state?.score && (
         <div className="space-y-4">
+          {/* 저장 — 진단(점수·재작성안) 영속화 */}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {saved ? <span className="text-xs font-semibold text-emerald-600">✓ 저장됨 · 아래 목록에서 재열람</span> : null}
+            <button type="button" onClick={save} disabled={saving} className="rounded-lg border border-brand px-3 py-1.5 text-xs font-semibold text-brand-strong hover:bg-brand-soft disabled:opacity-50">
+              {saving ? "저장 중…" : "진단 저장"}
+            </button>
+          </div>
+
           <div className="grid gap-3 lg:grid-cols-3">
             <div className="rounded-2xl border border-line bg-card p-4 lg:col-span-1">
               <p className="text-[11px] text-slate-500">종합 GEO 점수</p>
