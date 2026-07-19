@@ -112,7 +112,7 @@ interface SearchDataPort {
 | **P1** | UI 재현: 클러스터 버블맵 SVG · GPT리뷰 탭 · 페르소나 패널 · URL분석 표 | 무충돌 | 스크린샷 검증 |
 | **P2** | `naver.ts` 실측 연동(검색량·연관어·SERP) + 티어 배지 | 무충돌 | 실측 응답 캐싱·폴백 확인 |
 | **P3a** | 브랜드검색지수·시계열·과거비교 **라이브**(데이터랩 6개월, `buildBrandTrendIndex`) | 무스키마 ✅ | brand-index 6 tests·`/geo-cep` 패널 |
-| **P3b** | 시계열 **스냅샷 저장**(장기추세·작년 동월비) | **schema 필요→조율** | 별도 승인 후 |
+| **P3b** | 시계열 **스냅샷 저장**(TrendSnapshot, 이력·직전대비) | additive schema ✅ | snapshot 3 tests·`/geo-cep` 이력 |
 
 각 단계: 단위/골든 테스트 · `tsc` 0 · 스크린샷 · schema 무변경 확인 · 이 문서 갱신.
 

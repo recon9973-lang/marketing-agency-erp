@@ -16,6 +16,9 @@ import { buildGptReview, type ReviewReport } from "@/server/geo-studio/cep/revie
 import { getRequestProvider } from "@/server/geo-studio/providers/resolver";
 import { buildBrandTrendIndex } from "@/server/geo-studio/trend/brand-index";
 import { BrandTrendPanel } from "@/components/geo-path/BrandTrendPanel";
+import { saveTrendSnapshot } from "@/server/actions/trend-snapshot";
+import { listBrandSnapshots } from "@/server/repositories/trend-snapshot";
+import { summarizeHistory } from "@/server/geo-studio/trend/snapshot";
 
 const AXES: [string, string][] = [
   ["situation_tag", "상황"],
@@ -86,6 +89,10 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
   const brandTrend = ran
     ? await buildBrandTrendIndex(provider, { brand, category, competitors: csv(competitorsStr) })
     : null;
+  // P3b — 저장된 검색지수 스냅샷 이력(브랜드 키워드). 최신순 → 표시용 재정렬.
+  const snapshotRows = ran ? await listBrandSnapshots(brand, category) : [];
+  const history = summarizeHistory(snapshotRows.map((s) => ({ capturedAt: s.capturedAt, latestRatio: s.latestRatio }))).reverse();
+  const snapFmt = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", dateStyle: "short", timeStyle: "short" });
   const serpTier = effectiveTier("serpTop");
   const volTier = effectiveTier("monthlyVolume");
   const trendTier = effectiveTier("searchVolume");
@@ -189,6 +196,51 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
           )}
 
           {brandTrend && <BrandTrendPanel data={brandTrend} tier={trendTier} />}
+
+          {brandTrend?.hasData && (
+            <section className="rounded-2xl border border-line bg-card p-4">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-bold text-ink">검색지수 스냅샷 이력 <span className="text-slate-400">({history.length})</span></p>
+                <form action={saveTrendSnapshot}>
+                  <input type="hidden" name="brand" value={brand} />
+                  <input type="hidden" name="category" value={category} />
+                  <input type="hidden" name="competitors" value={competitorsStr} />
+                  <button type="submit" className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-brand-strong hover:bg-surface">현재 결과 저장</button>
+                </form>
+              </div>
+              {history.length ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[360px] text-sm">
+                    <thead>
+                      <tr className="text-[11px] uppercase tracking-wide text-slate-400">
+                        <th className="pb-2 pr-3 text-left font-semibold">저장 시각</th>
+                        <th className="px-2 pb-2 text-right font-semibold">브랜드 지수</th>
+                        <th className="pb-2 pl-2 text-right font-semibold">직전 저장 대비</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {history.map((h, i) => (
+                        <tr key={i} className="border-t border-line">
+                          <td className="py-2 pr-3 text-slate-600">{snapFmt.format(h.capturedAt)}</td>
+                          <td className="px-2 py-2 text-right tabular-nums font-semibold text-slate-700">{h.ratio ?? "–"}</td>
+                          <td className="py-2 pl-2 text-right">
+                            {h.deltaVsPrev == null ? (
+                              <span className="text-slate-300">–</span>
+                            ) : (
+                              <span className={`tabular-nums ${h.deltaVsPrev >= 0 ? "text-emerald-600" : "text-rose-500"}`}>{h.deltaVsPrev >= 0 ? "▲" : "▼"}{Math.abs(h.deltaVsPrev)}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="rounded-xl border border-dashed border-line bg-surface/40 px-4 py-6 text-center text-sm text-slate-400">저장된 스냅샷이 없습니다. <b>현재 결과 저장</b>으로 이력을 시작하세요.</p>
+              )}
+              <p className="mt-2 text-[11px] leading-relaxed text-slate-400">데이터랩 상대지수는 조회 시점 6개월 기준으로 재정규화됩니다 — 스냅샷 이력은 <b>방향성 참고</b>용입니다. 절대 비교는 검색광고(절대 검색수) 연동 시 제공됩니다.</p>
+            </section>
+          )}
 
           <ClusterBubbleMap ceps={report.ceps as unknown as BubbleCep[]} seedLabel={category} />
 

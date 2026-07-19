@@ -180,6 +180,7 @@ model User {
   createdWorkItems        WorkItem[]      @relation("WorkCreator")
   createdEvents           CalendarEvent[] @relation("EventCreator")
   assignedEvents          CalendarEvent[] @relation("EventAssignee")
+  trendSnapshots          TrendSnapshot[] @relation("TrendSnapshotCapturer")
   billingsIssued          BillingRecord[] @relation("BillingIssuer")
   paymentsRecorded        PaymentRecord[] @relation("PaymentRecorder")
   expensesSubmitted       ExpenseRecord[] @relation("ExpenseSubmitter")
@@ -421,6 +422,25 @@ model CalendarEvent {
   @@index([reportId])
   @@index([createdById])
   @@index([assigneeId])
+}
+
+// GEO Studio P3b — 브랜드 검색지수 시계열 스냅샷. 데이터랩은 6개월 롤링이라
+// 저장해두지 않으면 과거 대비가 불가 → 조회 시점의 지수 이력을 남긴다(방향성 추적용).
+model TrendSnapshot {
+  id           String   @id @default(cuid())
+  orgId        String?
+  brand        String
+  category     String
+  keyword      String
+  role         String // brand | category | competitor
+  latestRatio  Float? // 조회 시점 최근 지수(0~100 상대)
+  points       Json // {period,value}[] — 조회 시점 6개월 시계열
+  capturedById String?
+  capturedAt   DateTime @default(now())
+  capturedBy   User?    @relation("TrendSnapshotCapturer", fields: [capturedById], references: [id])
+
+  @@index([brand, category, capturedAt])
+  @@index([orgId])
 }
 
 model BillingRecord {

@@ -55,7 +55,7 @@ AD    ─→ │   Provider: mock | naver | hybrid  (resolver가 선택)        
 | **S4** | `/keywords` → "키워드 리서치"(검색량+트렌드 동시) 재편 + 이름 정직화 | 🟡 기존 화면 |
 | **S5** | 흩어진 직접 호출(consulting/keywords)을 `SearchDataPort`로 이관 | 🟡 리팩터 |
 | **S6a** | 브랜드 검색지수 = 시계열 **라이브** 비교(브랜드·카테고리·경쟁사, 과거비교) | 🟢 무스키마(데이터랩 실시간) ✅ |
-| **S6b** | 시계열 **스냅샷 저장**(과거 대비·장기추세) | 🔴 schema 조율(후속) |
+| **S6b** | 시계열 **스냅샷 저장**(TrendSnapshot·조회 시점 지수 이력) | ✅ additive schema |
 
 - 🟢 = 즉시(무충돌). 🟡 = 기존 ERP 공유 → additive·소규모로 신중히. 🔴 = 스키마 조율.
 - 모든 단계: 티어 배지 필수, `schema.prisma` 변경 금지(S6b 제외), 테스트·스크린샷 검증.
