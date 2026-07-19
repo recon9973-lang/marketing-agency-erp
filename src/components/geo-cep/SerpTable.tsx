@@ -26,8 +26,18 @@ export function SerpTable({ docs, tier, keyword }: { docs: SerpDoc[]; tier: Data
             <tr key={d.rank} className="border-t border-line align-top">
               <td className="px-4 py-2 font-semibold text-slate-400">{d.rank}</td>
               <td className="px-2 py-2">
-                <p className="font-medium text-ink">{d.title}</p>
-                <p className="truncate text-[11px] text-emerald-700">{d.url}</p>
+                {d.url && /^https?:\/\//.test(d.url) ? (
+                  <a href={d.url} target="_blank" rel="noopener noreferrer" className="font-medium text-ink underline decoration-transparent hover:decoration-emerald-500">
+                    {d.title} <span aria-hidden className="text-[10px] text-slate-400">↗</span>
+                  </a>
+                ) : (
+                  <p className="font-medium text-ink">{d.title}</p>
+                )}
+                {d.url && /^https?:\/\//.test(d.url) ? (
+                  <a href={d.url} target="_blank" rel="noopener noreferrer" className="block truncate text-[11px] text-emerald-700 hover:underline">{d.url}</a>
+                ) : (
+                  <p className="truncate text-[11px] text-slate-400">{d.url || "URL 없음"}</p>
+                )}
                 {d.snippet ? <p className="mt-0.5 text-[11px] text-slate-500">{d.snippet}</p> : null}
               </td>
               <td className="px-2 py-2 text-[11px] text-slate-400">{d.source}</td>

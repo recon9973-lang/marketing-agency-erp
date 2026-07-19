@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { getCurrentUser } from "@/server/session";
 import { discoverCeps } from "@/server/geo-studio/cep/finder";
 import { discoverCepsLive, cepRealConfigured } from "@/server/geo-studio/cep/live-finder";
+import { SnapshotSaveForm } from "@/components/geo-cep/SnapshotSaveForm";
+import { InfoTip } from "@/components/geo-common/InfoTip";
 import { buildBrief } from "@/server/geo-studio/cep/brief";
 import { briefToMarkdown, makeCep } from "@/server/geo-studio/cep/models";
 import { ClusterBubbleMap, type BubbleCep } from "@/components/geo-cep/ClusterBubbleMap";
@@ -17,7 +19,6 @@ import { buildGptReview, type ReviewReport } from "@/server/geo-studio/cep/revie
 import { getRequestProvider } from "@/server/geo-studio/providers/resolver";
 import { buildBrandTrendIndex } from "@/server/geo-studio/trend/brand-index";
 import { BrandTrendPanel } from "@/components/geo-path/BrandTrendPanel";
-import { saveTrendSnapshot } from "@/server/actions/trend-snapshot";
 import { listBrandSnapshots } from "@/server/repositories/trend-snapshot";
 import { summarizeHistory } from "@/server/geo-studio/trend/snapshot";
 
@@ -218,7 +219,9 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
                 {trend.length >= 2 && (
                   <div className="ml-auto flex items-center gap-3 border-l border-line pl-4">
                     <div>
-                      <p className="flex items-center gap-1 text-[11px] text-slate-500">관심 추세 <TierBadge tier={trendTier} note={trendTier === "measured" ? "데이터랩" : "데모"} /></p>
+                      <p className="flex items-center gap-1 text-[11px] text-slate-500">관심 추세
+                        <InfoTip label="관심 추세(검색지수)">네이버 데이터랩의 <b>상대 검색지수</b>입니다. 최근 6개월 중 가장 많이 검색된 시점을 100으로 놓고 환산한 값(0~100)이라 <b>절대 검색량이 아닌 방향성</b>입니다. 오른쪽 ▲▼는 구간 첫 값 대비 최신 값의 변화폭.</InfoTip>
+                        <TierBadge tier={trendTier} note={trendTier === "measured" ? "데이터랩" : "데모"} /></p>
                       <p className="text-base font-semibold text-slate-700">
                         {trendLatest}<span className="text-[11px] text-slate-400">/100</span>
                         {trendDelta != null && (
@@ -241,12 +244,7 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
             <section className="rounded-2xl border border-line bg-card p-4">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-bold text-ink">검색지수 스냅샷 이력 <span className="text-slate-400">({history.length})</span></p>
-                <form action={saveTrendSnapshot}>
-                  <input type="hidden" name="brand" value={brand} />
-                  <input type="hidden" name="category" value={category} />
-                  <input type="hidden" name="competitors" value={competitorsStr} />
-                  <button type="submit" className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-brand-strong hover:bg-surface">현재 결과 저장</button>
-                </form>
+                <SnapshotSaveForm brand={brand} category={category} competitors={competitorsStr} />
               </div>
               {history.length ? (
                 <div className="overflow-x-auto">
@@ -335,23 +333,37 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
 
           <div className="grid gap-3 lg:grid-cols-2">
             <div className="rounded-2xl border border-line bg-card p-4">
-              <p className="mb-3 text-sm font-bold text-ink">CEP 점유율</p>
-              <div className="space-y-2">
-                {Object.entries(report.cep_share).map(([name, pct]) => (
-                  <div key={name}>
-                    <div className="flex justify-between text-xs text-slate-600">
-                      <span>{name === "_brand" ? "자사" : name}</span>
-                      <span className="text-slate-400">{pct}%</span>
+              <p className="mb-3 flex items-center gap-1 text-sm font-bold text-ink">
+                CEP 점유율
+                <InfoTip label="CEP 점유율">각 CEP(검색 상황)에서 <b>자사 vs 경쟁사</b> 중 누가 AI 답변에 더 많이 언급되는지의 비율입니다. 자사 점유가 낮은 CEP가 공략 대상이죠.</InfoTip>
+              </p>
+              {Object.keys(report.cep_share).length > 0 ? (
+                <div className="space-y-2">
+                  {Object.entries(report.cep_share).map(([name, pct]) => (
+                    <div key={name}>
+                      <div className="flex justify-between text-xs text-slate-600">
+                        <span>{name === "_brand" ? "자사" : name}</span>
+                        <span className="text-slate-400">{pct}%</span>
+                      </div>
+                      <div className="mt-1 h-2 rounded-full bg-surface">
+                        <div className={`h-2 rounded-full ${name === "_brand" ? "bg-emerald-500" : "bg-slate-400"}`} style={{ width: `${Math.min(100, pct)}%` }} />
+                      </div>
                     </div>
-                    <div className="mt-1 h-2 rounded-full bg-surface">
-                      <div className={`h-2 rounded-full ${name === "_brand" ? "bg-emerald-500" : "bg-slate-400"}`} style={{ width: `${Math.min(100, pct)}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-xl border border-dashed border-line bg-surface/40 px-3 py-4 text-center text-[11px] leading-relaxed text-slate-400">
+                  점유율은 <b>자사·경쟁사가 AI 답변에 얼마나 언급되는지</b>로 계산합니다.<br />
+                  실측 CEP(연관키워드) 모드에는 AI 언급 데이터가 없어 비어 있습니다 —<br />
+                  <a href="/geo-scan" className="text-emerald-600 underline">GEO 스캐너</a>로 AI 인용을 측정하면 채워집니다.
+                </p>
+              )}
             </div>
             <div className="rounded-2xl border border-line bg-card p-4">
-              <p className="mb-2 text-sm font-bold text-ink">🎯 화이트스페이스 CEP (선점 기회)</p>
+              <p className="mb-2 flex items-center gap-1 text-sm font-bold text-ink">
+                🎯 화이트스페이스 CEP (선점 기회)
+                <InfoTip label="화이트스페이스">자사도 경쟁사도 아직 선점하지 못한 CEP입니다. 콘텐츠를 먼저 만들면 <b>낮은 경쟁으로 AI 답변을 선점</b>할 수 있는 기회 영역이죠.</InfoTip>
+              </p>
               {report.whitespace_ceps.length ? (
                 <ul className="space-y-1">
                   {report.whitespace_ceps.slice(0, 12).map((t, i) => (
@@ -359,7 +371,7 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-slate-400">화이트스페이스 CEP 없음</p>
+                <p className="text-xs text-slate-400">{cepTier === "measured" ? "AI 스캔(경쟁 언급) 연동 시 산출됩니다." : "화이트스페이스 CEP 없음"}</p>
               )}
             </div>
           </div>
@@ -367,6 +379,10 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
           {briefMd && (
             <details className="rounded-2xl border border-line bg-card p-4">
               <summary className="cursor-pointer text-sm font-bold text-ink">최우선 CEP → 콘텐츠 브리프 (M3 입력)</summary>
+              <p className="mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] leading-relaxed text-sky-800">
+                <b>용도:</b> 점수 1위 CEP를 바탕으로 만든 <b>콘텐츠 작성 지시서(브리프)</b>입니다.
+                이 내용을 <a href="/geo-content" className="font-semibold underline">GEO 콘텐츠 빌더(M3)</a>에 넣으면 AI 답변에 인용되기 좋은 글로 작성·재작성됩니다.
+              </p>
               <pre className="mt-3 max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-xl border border-line bg-surface p-3 text-[12px] leading-relaxed text-slate-700">
                 {briefMd}
               </pre>

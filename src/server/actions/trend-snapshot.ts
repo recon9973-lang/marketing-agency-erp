@@ -11,17 +11,19 @@ import { db } from "@/server/db";
 
 const csv = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 
-export async function saveTrendSnapshot(formData: FormData): Promise<void> {
+export type SnapshotSaveState = { ok: boolean; message: string } | null;
+
+async function doSave(formData: FormData): Promise<SnapshotSaveState> {
   const user = await getCurrentUser();
-  if (!user) return;
+  if (!user) return { ok: false, message: "로그인이 필요합니다." };
 
   const brand = String(formData.get("brand") ?? "").trim();
   const category = String(formData.get("category") ?? "").trim();
-  if (!brand || !category) return;
+  if (!brand || !category) return { ok: false, message: "브랜드·카테고리를 먼저 조회하세요." };
   const competitors = csv(String(formData.get("competitors") ?? ""));
 
   const trend = await buildBrandTrendIndex(getProvider(), { brand, category, competitors });
-  if (!trend.hasData) return;
+  if (!trend.hasData) return { ok: false, message: "저장할 검색지수가 없습니다 — 데이터랩(네이버) 미연결이거나 데이터가 없습니다." };
 
   const orgId = await getDefaultOrgId();
   await db.trendSnapshot.createMany({
@@ -36,6 +38,20 @@ export async function saveTrendSnapshot(formData: FormData): Promise<void> {
       capturedById: user.id
     }))
   });
-
   revalidatePath("/geo-cep");
+  return { ok: true, message: `스냅샷 ${trend.series.length}건 저장됨 — 아래 이력에 반영됩니다.` };
+}
+
+/** 기존 void 폼 액션(호환 유지). */
+export async function saveTrendSnapshot(formData: FormData): Promise<void> {
+  await doSave(formData);
+}
+
+/** useActionState용 — 저장 결과(성공/실패 + 메시지)를 반환해 화면에 피드백. */
+export async function saveTrendSnapshotState(_prev: SnapshotSaveState, formData: FormData): Promise<SnapshotSaveState> {
+  try {
+    return await doSave(formData);
+  } catch {
+    return { ok: false, message: "저장 중 오류가 발생했습니다." };
+  }
 }
