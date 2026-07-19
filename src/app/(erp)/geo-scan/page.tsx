@@ -52,9 +52,18 @@ export default async function GeoScanPage({ searchParams }: { searchParams: Prom
       />
 
       {/* 데이터 연결 상태 배너 — 이 화면은 아직 실제 4-AI 미연결(시뮬레이션) */}
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800">
-        <ConnectionBadge state="demo" hint="4-AI 실측 미연결" />
-        <span>아래 수치는 <b>데모(시뮬레이션)</b>입니다. 실제 AI 인용 측정은 <a href="/geo" className="font-semibold underline">GEO 모니터링</a>(실 엔진 연동)에서 확인하세요. 이 화면의 라이브 연결은 예정입니다.</span>
+      <div className="rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800">
+        <div className="flex flex-wrap items-center gap-2">
+          <ConnectionBadge state="demo" hint="4-AI 실측 미연결" />
+          <span>아래 수치는 <b>데모(시뮬레이션)</b>입니다. 실제 AI 인용 측정은 <a href="/geo" className="font-semibold underline">GEO 모니터링</a>(실 엔진 연동)에서 확인하세요.</span>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-amber-200 pt-2 text-xs">
+          <span className="text-amber-700">실측 연결(하나만 있어도 켜짐):</span>
+          <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] text-amber-900">OPENAI_API_KEY</code>
+          <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] text-amber-900">PERPLEXITY_API_KEY</code>
+          <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] text-amber-900">GOOGLE_AI_API_KEY</code>
+          <a href="/integrations" className="ml-1 font-semibold text-amber-900 underline">연결 상태 →</a>
+        </div>
       </div>
 
       {/* 입력 폼(GET) */}

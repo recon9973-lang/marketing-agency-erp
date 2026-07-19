@@ -32,9 +32,19 @@ export default async function GeoPathPage({ searchParams }: { searchParams: Prom
       />
 
       {/* 데이터 연결 상태 — 여정 트리는 시뮬레이션 알고리즘(4-AI 실측 미연결) */}
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800">
-        <ConnectionBadge state="demo" hint="4-AI 실측 미연결" />
-        <span>여정 트리·갭 경로는 <b>데모(시뮬레이션)</b>입니다. 실제 AI 인용 측정은 <a href="/geo" className="font-semibold underline">GEO 모니터링</a>에서 확인하세요. 검색량·트렌드 백데이터는 <a href="/geo-cep" className="font-semibold underline">CEP 파인더</a>가 데이터랩 실측을 씁니다.</span>
+      <div className="rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800">
+        <div className="flex flex-wrap items-center gap-2">
+          <ConnectionBadge state="demo" hint="4-AI 실측 미연결" />
+          <span>여정 트리·갭 경로는 <b>데모(시뮬레이션)</b>입니다. 실제 AI 인용 측정은 <a href="/geo" className="font-semibold underline">GEO 모니터링</a>에서 확인하세요. 검색량·트렌드 백데이터는 <a href="/geo-cep" className="font-semibold underline">CEP 파인더</a>가 데이터랩 실측을 씁니다.</span>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-amber-200 pt-2 text-xs">
+          <span className="text-amber-700">실측 연결:</span>
+          <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] text-amber-900">NAVER_AD_API_KEY</code>
+          <span className="text-amber-600">(연관어 여정 근사)</span>
+          <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] text-amber-900">PERPLEXITY_API_KEY</code>
+          <span className="text-amber-600">(실측 AI 인용)</span>
+          <a href="/integrations" className="ml-1 font-semibold text-amber-900 underline">연결 상태 →</a>
+        </div>
       </div>
 
       <form method="get" className="rounded-2xl border border-line bg-card p-4">
@@ -58,6 +68,9 @@ export default async function GeoPathPage({ searchParams }: { searchParams: Prom
 
       {report && (
         <div className="space-y-4">
+          <p className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-100/70 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> 아래 수치는 데모(시뮬레이션) — 실측 아님
+          </p>
           <div className="grid grid-cols-3 gap-3">
             {[
               { label: "여정 노드", value: report.total_nodes },
