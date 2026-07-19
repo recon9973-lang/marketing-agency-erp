@@ -21,6 +21,9 @@ import { MentionStanding } from "@/components/geo/MentionStanding";
 import { QuestionMentionTrend } from "@/components/geo/QuestionMentionTrend";
 import { GeoPhaseProgress } from "@/components/geo/GeoPhaseProgress";
 import { GeoToolLinks } from "@/components/geo/GeoToolLinks";
+import { GeoOpportunity } from "@/components/geo/GeoOpportunity";
+import { GeoMonthlyReport } from "@/components/geo/GeoMonthlyReport";
+import { opportunityScore, strategyDirections } from "@/server/geo-studio/opportunity";
 import { GeoLlmsTxt } from "@/components/geo/GeoLlmsTxt";
 import { configuredEngines } from "@/server/geo-engine/engines";
 import { buildLlmsTxt, llmsInputFromClient } from "@/server/geo-engine/llms-txt";
@@ -119,6 +122,31 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
     { code: "P4", label: "인용·권위", sub: "공식 URL 인용", done: hasAuthority },
     { code: "P5", label: "모니터링", sub: "추이·월간 리포트", done: isMonitoring }
   ];
+
+  // G5 — 기회점수·전략(규칙 기반)·월간 리포트 데이터
+  const citationRate = summary.monitoredCount > 0 ? Math.round((summary.citedCount / summary.monitoredCount) * 100) : 0;
+  const oppScore = opportunityScore({ mentionRate: geoScore, citationRate, publishedPages: publishedPages.length, hasContent });
+  const weakEngines = engineRadar.engines.filter((e) => e.now < 20).map((e) => e.engine);
+  const usRow = standing.find((r) => r.isUs);
+  const competitorAhead = standing.find((r) => !r.isUs && usRow && r.rate >= usRow.rate)?.name ?? null;
+  const strategies = strategyDirections({
+    mentionRate: geoScore,
+    citationRate,
+    monitoredCount: summary.monitoredCount,
+    hasContent,
+    publishedPages: publishedPages.length,
+    weakEngines,
+    competitorAhead
+  });
+  const reportData = {
+    mentionStart: mentionSeries[0]?.rate ?? null,
+    mentionNow: mentionSeries.length ? mentionSeries[mentionSeries.length - 1].rate : null,
+    citedCount: summary.citedCount,
+    monitoredCount: summary.monitoredCount,
+    guardHeld,
+    guardTotal: guardedSeries.length,
+    publishedCount: publishedPages.length
+  };
 
   // 진료과 기본값: 업종(진료과목) 마스터 → 병원프로필 진료과 첫 항목 순으로 채움
   const defaultDepartment =
@@ -293,6 +321,12 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
                   <p className="mb-3 text-[11px] text-slate-500">각 측정질문의 AI 언급률 변화(질문당 한 선)</p>
                   <QuestionMentionTrend data={questionSeries} />
                 </div>
+
+                {/* B7 기회점수 + B10 전략 방향성 */}
+                <GeoOpportunity score={oppScore} strategies={strategies} />
+
+                {/* 월간 리포트 요약 */}
+                <GeoMonthlyReport data={reportData} clientName={selectedName} />
 
                 <SovChart sov={sov} />
                 <GeoTrendBars trend={trend} />
