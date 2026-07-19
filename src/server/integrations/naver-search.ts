@@ -62,6 +62,53 @@ function sign(timestamp: string, method: string, path: string, secret: string): 
   return crypto.createHmac("sha256", secret).update(`${timestamp}.${method}.${path}`).digest("base64");
 }
 
+export type RelatedKeyword = {
+  keyword: string;
+  pc: number | null;
+  mobile: number | null;
+  total: number | null;
+  competition: string | null;
+};
+
+/**
+ * 시드 키워드의 연관키워드 + 절대 월간 검색수를 실측 조회한다(검색광고 keywordstool).
+ * 리스닝마인드식 키워드 확장의 뿌리 — CEP·검색여정 군집의 실측 시드가 된다.
+ * 미연동 시 빈 배열(연관어 문자열을 지어내지 않는다 — 정직성 원칙). total 내림차순 정렬.
+ */
+export async function fetchRelatedKeywords(seed: string, limit = 100): Promise<RelatedKeyword[]> {
+  const hint = seed.trim();
+  if (!hint) return [];
+  if (!naverSearchConfigured()) return []; // 미연동 → 데모 표기는 호출부(가짜 키워드 생성 금지)
+
+  const apiKey = process.env.NAVER_AD_API_KEY as string;
+  const secret = process.env.NAVER_AD_SECRET as string;
+  const customerId = process.env.NAVER_AD_CUSTOMER_ID as string;
+  const timestamp = String(Date.now());
+  const signature = sign(timestamp, "GET", KEYWORDS_PATH, secret);
+  const url = `${API_BASE}${KEYWORDS_PATH}?hintKeywords=${encodeURIComponent(hint)}&showDetail=1`;
+
+  const response = await fetch(url, {
+    headers: { "X-Timestamp": timestamp, "X-API-KEY": apiKey, "X-Customer": customerId, "X-Signature": signature }
+  });
+  if (!response.ok) throw new Error(`네이버 검색광고 API 오류 (${response.status})`);
+
+  const json = (await response.json()) as { keywordList?: Array<Record<string, unknown>> };
+  const list = Array.isArray(json.keywordList) ? json.keywordList : [];
+
+  return list
+    .map((row) => {
+      const keyword = String(row.relKeyword ?? "").trim();
+      const pc = toCount(row.monthlyPcQcCnt);
+      const mobile = toCount(row.monthlyMobileQcCnt);
+      const total = pc == null && mobile == null ? null : (pc ?? 0) + (mobile ?? 0);
+      const compRaw = typeof row.compIdx === "string" ? row.compIdx : null;
+      return { keyword, pc, mobile, total, competition: compRaw ? COMP_LABEL[compRaw] ?? compRaw : null };
+    })
+    .filter((r) => r.keyword.length > 0)
+    .sort((a, b) => (b.total ?? 0) - (a.total ?? 0))
+    .slice(0, limit);
+}
+
 const COMP_LABEL: Record<string, string> = { 낮음: "낮음", 중간: "중간", 높음: "높음" };
 
 /**

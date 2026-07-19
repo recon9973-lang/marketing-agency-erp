@@ -50,6 +50,26 @@
 
 ---
 
+## 3-B. 실측 API 확정 스펙 (연구 결과 — 출처 검증)
+
+| 데이터 | 판정 | 실제 스펙 |
+|--------|------|-----------|
+| **네이버 검색광고 RelKwdStat** | 🟢 **무료·실측** | `GET api.searchad.naver.com/keywordstool?hintKeywords=…&showDetail=1`, HMAC-SHA256. 연관키워드 ~1000개 + **절대 월간 PC/모바일 검색수** 반환. `< 10`은 문자열. 레이트리밋 비공개(429 주의). **CEP·여정 시드의 핵심 무료 소스** |
+| 네이버 데이터랩 | 🟢 무료·상대치 | 트렌드 0~100 지수(절대치 아님), 1000콜/일 |
+| 네이버 검색 오픈API | 🟢 무료 | 블로그/뉴스/웹/지역 상위 URL, 100/콜·25k/일 |
+| 자동완성·연관검색어 | ⚪ 스크래핑만 | 공식 API 없음 → 데모 표기 |
+| Perplexity Sonar | 🟢 유료 | `search_results[]`+`citations[]` URL 반환 |
+| OpenAI web_search | 🟢 유료 | `url_citation` 주석, $10/1k |
+| Claude web search | 🟢 유료 | `web_search_result_location`, $10/1k |
+| Gemini grounding | 🟢 유료 | URI가 리다이렉트 스텁 → 해석 필요 |
+| 구글 AI Overview | 🟢 유료(SerpApi) | 공식 API 없음, ~$150/월·15k |
+| 네이버 Cue:/AI브리핑 | 🔵 수동 | API/파서 없음 확인 |
+| OpenAI 임베딩 | 🟢 저렴 | small $0.02/1M(1536d), 한국어 OK. BGE-m3/Upstage A/B 후보 |
+| **리스닝마인드 클릭스트림** | 🟢 **유료 제휴** | Ascent Korea가 **데이터 API + MCP 제공**(월 15억 검색). "이전/이후 검색" 실측은 제휴로 가능(가격 비공개) |
+
+**실무 KPI(2025 컨센서스, 실측 가능)**: 언급률·인용률·SoV(경쟁 대비 점유)·답변 내 위치·AI 추천 유입(GA4).
+**과장(측정 어려움)**: 단일 "AI 순위" 숫자, 매출 귀인(제로클릭). → 이런 건 데모/추정 표기.
+
 ## 4. 실측 전환 로드맵 (우선순위 — real-first)
 
 1. **정직성 레이어 먼저** — 모든 GEO 지표에 4-tier 배지. 목업 화면(`/geo-scan`·`/geo-cep`·`/geo-path`)을

@@ -5,7 +5,7 @@
 // 키(NAVER_CLIENT_ID/SECRET)가 없으면 NotConfiguredError → 리졸버가 목으로 폴백.
 import type { Demographics, MonthlyVolume, ProviderField, SearchDataPort, SerpDoc, VolumePoint } from "./port";
 import { fetchKeywordTrends } from "@/server/integrations/naver-datalab";
-import { fetchKeywordVolumes } from "@/server/integrations/naver-search";
+import { fetchKeywordVolumes, fetchRelatedKeywords } from "@/server/integrations/naver-search";
 
 const BLOG_URL = "https://openapi.naver.com/v1/search/blog.json";
 
@@ -55,7 +55,8 @@ export class NaverProvider implements SearchDataPort {
 
   /** 이 프로바이더가 실측으로 지원하는 필드인지(필드별 키 요건). */
   supports(field: ProviderField): boolean {
-    if (field === "monthlyVolume") return this.adConfigured; // 검색광고 키
+    // 검색광고 키로 지원: 절대 검색수 + 연관키워드(keywordstool 동일 엔드포인트).
+    if (field === "monthlyVolume" || field === "relatedKeywords") return this.adConfigured;
     return this.isConfigured() && OPENAPI_FIELDS.has(field); // 오픈API 키
   }
 
@@ -103,9 +104,13 @@ export class NaverProvider implements SearchDataPort {
     return { pc: v.pc, mobile: v.mobile, total: v.total, competition: v.competition, estimated: false };
   }
 
-  // 네이버 검색 API로 직접 얻기 어려운 필드 — 하이브리드에서 목/AI로 폴백.
-  async relatedKeywords(_seed: string): Promise<string[]> {
-    throw new NotConfiguredError("relatedKeywords");
+  /** 연관키워드 실측 — 검색광고 keywordstool(절대 검색수 동반). 총검색량 내림차순. */
+  async relatedKeywords(seed: string): Promise<string[]> {
+    if (!this.adConfigured) throw new NotConfiguredError("relatedKeywords");
+    const rows = await fetchRelatedKeywords(seed, 100);
+    const words = rows.map((r) => r.keyword).filter((w) => w && w !== seed);
+    if (words.length === 0) throw new NotConfiguredError("relatedKeywords"); // 빈 응답 → 폴백
+    return words;
   }
   async demographics(_keyword: string): Promise<Demographics | null> {
     throw new NotConfiguredError("demographics");
