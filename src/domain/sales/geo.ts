@@ -39,7 +39,7 @@ export const GEO_DISCLAIMER =
 // 질문 후보 템플릿 — {region} {department} 치환. 업무 매뉴얼(05) GEO 질문 SOP 준수:
 // 병원명 홍보 질문이 아니라 환자의 진료 선택 기준·위험·회복·비용·방문 전 확인사항 중심.
 // 5유형(정의형/판단형/비교형/위험형/지역형) × 4개 = 20개. AI 생성이 아닌 정적 템플릿(패널 결정 #8).
-export type GeoQuestionType = "정의형" | "판단형" | "비교형" | "위험형" | "지역형";
+export type GeoQuestionType = "정의형" | "판단형" | "비교형" | "위험형" | "지역형" | "브랜드형" | "추천형" | "대안형";
 
 const QUESTION_TEMPLATES: Array<{ type: GeoQuestionType; template: string; priority: number }> = [
   // 정의형 — 진료/시술 기본 설명 페이지로 연결
@@ -71,16 +71,53 @@ const QUESTION_TEMPLATES: Array<{ type: GeoQuestionType; template: string; prior
 
 export type GeoQuestionCandidate = { question: string; priority: number; type: GeoQuestionType };
 
+// 측정 특화 질의(GEO 실무 매뉴얼 §1 taxonomy: 브랜드·카테고리(추천)·대안).
+// 콘텐츠용 20문과 별개로 "AI가 우리 브랜드를 뜨는가"를 직접 측정 — priority 1(최우선 관측).
+// 근거: What Gets Cited(경쟁 GEO)·매뉴얼 — 브랜드/추천/대안 질의가 브랜드 가시성 측정의 핵심.
+const DISCOVERY_TEMPLATES: Array<{ template: string; priority: number }> = [
+  { template: "{region}에서 {department} 잘하는 병원 추천해줘", priority: 1 }, // 카테고리 발견(브랜드 무관)
+  { template: "{region} {department} 어디가 좋아요?", priority: 1 },
+  { template: "{department} 유명한 {region} 병원은 어디인가요?", priority: 2 }
+];
+const BRAND_TEMPLATES: Array<{ template: string; priority: number }> = [
+  { template: "{hospitalName} 후기와 평판은 어떤가요?", priority: 1 }, // 브랜드 질의
+  { template: "{region} {department} 중 {hospitalName}는 어떤 병원인가요?", priority: 1 }
+];
+const ALTERNATIVE_TEMPLATE = { template: "{competitor} 말고 {region} {department} 다른 곳 추천해줘", priority: 2 }; // 대안 질의
+
 /**
- * 진료과·지역 기반 질문 후보 20개 생성(정적 템플릿 치환).
- * 지역형은 우선순위 1~2(로컬 의도), 판단·위험형 2, 정의·비교형 3.
+ * 진료과·지역 기반 질문 후보 생성(정적 템플릿 치환).
+ * - 기본 20문: 환자 진료선택 중심(콘텐츠 시드).
+ * - opts.hospitalName/competitors 주면 측정 특화(브랜드·추천·대안) 질의를 priority 1로 추가.
+ *   → 브랜드 가시성 측정의 핵심 질의를 최우선 관측 대상으로.
  */
-export function buildGeoQuestionCandidates(department: string, region: string): GeoQuestionCandidate[] {
+export function buildGeoQuestionCandidates(
+  department: string,
+  region: string,
+  opts?: { hospitalName?: string | null; competitors?: string[] }
+): GeoQuestionCandidate[] {
   const dept = department.trim() || "병원";
   const reg = region.trim() || "우리 지역";
-  return QUESTION_TEMPLATES.map(({ type, template, priority }) => ({
-    question: template.replaceAll("{department}", dept).replaceAll("{region}", reg),
+  const fill = (t: string) =>
+    t
+      .replaceAll("{department}", dept)
+      .replaceAll("{region}", reg)
+      .replaceAll("{hospitalName}", (opts?.hospitalName ?? "").replace(/^\[[^\]]*\]\s*/, "").trim())
+      .replaceAll("{competitor}", (opts?.competitors?.[0] ?? "").trim());
+
+  const out: GeoQuestionCandidate[] = QUESTION_TEMPLATES.map(({ type, template, priority }) => ({
+    question: fill(template),
     priority,
     type
   }));
+
+  // 측정 특화 질의는 거래처 컨텍스트(opts)가 있을 때만 추가(2-인자 기본 호출은 콘텐츠 20문 유지).
+  if (opts) {
+    for (const d of DISCOVERY_TEMPLATES) out.push({ question: fill(d.template), priority: d.priority, type: "추천형" });
+    const brand = (opts.hospitalName ?? "").replace(/^\[[^\]]*\]\s*/, "").trim();
+    if (brand) for (const b of BRAND_TEMPLATES) out.push({ question: fill(b.template), priority: b.priority, type: "브랜드형" });
+    if ((opts.competitors?.[0] ?? "").trim()) out.push({ question: fill(ALTERNATIVE_TEMPLATE.template), priority: ALTERNATIVE_TEMPLATE.priority, type: "대안형" });
+  }
+
+  return out;
 }

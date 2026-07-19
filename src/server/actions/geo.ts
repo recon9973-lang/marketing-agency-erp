@@ -49,7 +49,14 @@ export async function generateGeoCandidates(input: unknown): Promise<ActionResul
     const d = p.data;
     await assertClient(user, d.clientId);
 
-    const candidates = buildGeoQuestionCandidates(d.department, d.region);
+    // 측정 특화 질의(브랜드·대안)를 위해 병원명·경쟁사 로드(이중 입력 제거).
+    const client = await db.client.findUnique({
+      where: { id: d.clientId },
+      select: { name: true, hospitalProfile: { select: { competitorHospitals: true } } }
+    });
+    const competitors =
+      client?.hospitalProfile?.competitorHospitals?.split(/[,\n]/).map((s) => s.trim()).filter(Boolean) ?? [];
+    const candidates = buildGeoQuestionCandidates(d.department, d.region, { hospitalName: client?.name ?? null, competitors });
     const existing = await db.geoQuestion.findMany({
       where: { clientId: d.clientId },
       select: { question: true }
@@ -93,7 +100,7 @@ const addQuestionSchema = z.object({
   clientId: z.string().min(1),
   question: z.string().trim().min(5).max(300),
   department: z.string().trim().max(100).optional().nullable(),
-  qtype: z.enum(["정의형", "판단형", "비교형", "위험형", "지역형"]).optional().nullable(),
+  qtype: z.enum(["정의형", "판단형", "비교형", "위험형", "지역형", "브랜드형", "추천형", "대안형"]).optional().nullable(),
   targetPageUrl: z.string().trim().max(500).optional().nullable(),
   priority: z.coerce.number().int().min(1).max(5).default(3)
 });

@@ -85,7 +85,7 @@ export function GeoQuestionAdder({ clientId }: { clientId: string }) {
       const res = await addGeoQuestion({
         clientId,
         question: String(form.get("question") ?? ""),
-        qtype: (String(form.get("qtype") ?? "") || null) as "정의형" | "판단형" | "비교형" | "위험형" | "지역형" | null,
+        qtype: (String(form.get("qtype") ?? "") || null) as "정의형" | "판단형" | "비교형" | "위험형" | "지역형" | "브랜드형" | "추천형" | "대안형" | null,
         targetPageUrl: String(form.get("targetPageUrl") ?? "") || null,
         priority: Number(form.get("priority") ?? 3)
       });
@@ -118,6 +118,9 @@ export function GeoQuestionAdder({ clientId }: { clientId: string }) {
                 <option value="비교형">비교형</option>
                 <option value="위험형">위험형</option>
                 <option value="지역형">지역형</option>
+                <option value="추천형">추천형(측정)</option>
+                <option value="브랜드형">브랜드형(측정)</option>
+                <option value="대안형">대안형(측정)</option>
               </select>
             </label>
             <label className="text-xs font-medium text-slate-600">
