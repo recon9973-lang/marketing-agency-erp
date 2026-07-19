@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ConnectionBadge } from "@/components/ui/ConnectionBadge";
 import { getCurrentUser } from "@/server/session";
-import { analyzeJourney, type JourneyReport } from "@/server/geo-studio/path/analyzer";
+import { analyzeJourney, analyzeJourneyLive, type JourneyReport } from "@/server/geo-studio/path/analyzer";
 import { JourneyGraph, type RawNode } from "@/components/geo-path/JourneyGraph";
 
 const csv = (s?: string) => (s ?? "").split(",").map((x) => x.trim()).filter(Boolean);
@@ -19,7 +19,18 @@ export default async function GeoPathPage({ searchParams }: { searchParams: Prom
   const seed = one(sp.seed) ?? "";
   const competitorsStr = one(sp.competitors) ?? "";
   const ran = Boolean(brand && seed);
-  const report: JourneyReport | null = ran ? analyzeJourney(brand, seed, { competitors: csv(competitorsStr) }) : null;
+  // 실측 근사 우선 — 검색광고 연관키워드로 확장 트리. 미연결이면 목 폴백.
+  let report: JourneyReport | null = null;
+  let journeyLive = false;
+  if (ran) {
+    const live = await analyzeJourneyLive(brand, seed);
+    if (live) {
+      report = live;
+      journeyLive = true;
+    } else {
+      report = analyzeJourney(brand, seed, { competitors: csv(competitorsStr) });
+    }
+  }
 
   const input = "mt-1 w-full rounded-lg border border-line bg-card px-2.5 py-1.5 text-sm text-ink placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none";
 
@@ -32,20 +43,25 @@ export default async function GeoPathPage({ searchParams }: { searchParams: Prom
       />
 
       {/* 데이터 연결 상태 — 여정 트리는 시뮬레이션 알고리즘(4-AI 실측 미연결) */}
-      <div className="rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800">
-        <div className="flex flex-wrap items-center gap-2">
-          <ConnectionBadge state="demo" hint="4-AI 실측 미연결" />
-          <span>여정 트리·갭 경로는 <b>데모(시뮬레이션)</b>입니다. 실제 AI 인용 측정은 <a href="/geo" className="font-semibold underline">GEO 모니터링</a>에서 확인하세요. 검색량·트렌드 백데이터는 <a href="/geo-cep" className="font-semibold underline">CEP 파인더</a>가 데이터랩 실측을 씁니다.</span>
+      {journeyLive ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-800">
+          <ConnectionBadge state="connected" hint="연관키워드 실측" />
+          <span>여정 트리는 <b>네이버 연관키워드 확장(실측 근사)</b>입니다 — 실제 검색 확장 경로. 단, AI 답변 클릭스트림이 아니며 노드 언급은 키워드에 브랜드명 포함 여부로 판정합니다.</span>
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-amber-200 pt-2 text-xs">
-          <span className="text-amber-700">실측 연결:</span>
-          <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] text-amber-900">NAVER_AD_API_KEY</code>
-          <span className="text-amber-600">(연관어 여정 근사)</span>
-          <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] text-amber-900">PERPLEXITY_API_KEY</code>
-          <span className="text-amber-600">(실측 AI 인용)</span>
-          <a href="/integrations" className="ml-1 font-semibold text-amber-900 underline">연결 상태 →</a>
+      ) : (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800">
+          <div className="flex flex-wrap items-center gap-2">
+            <ConnectionBadge state="demo" hint="여정 실측 미연결" />
+            <span>여정 트리·갭 경로는 <b>데모(시뮬레이션)</b>입니다. 실제 AI 인용 측정은 <a href="/geo" className="font-semibold underline">GEO 모니터링</a>에서 확인하세요.</span>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-amber-200 pt-2 text-xs">
+            <span className="text-amber-700">실측 연결:</span>
+            <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] text-amber-900">NAVER_AD_API_KEY</code>
+            <span className="text-amber-600">→ 연관키워드 확장 여정(실측 근사)</span>
+            <a href="/integrations" className="ml-1 font-semibold text-amber-900 underline">연결 상태 →</a>
+          </div>
         </div>
-      </div>
+      )}
 
       <form method="get" className="rounded-2xl border border-line bg-card p-4">
         <p className="mb-3 text-sm font-bold text-ink">여정 탐색 입력</p>
@@ -68,9 +84,15 @@ export default async function GeoPathPage({ searchParams }: { searchParams: Prom
 
       {report && (
         <div className="space-y-4">
-          <p className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-100/70 px-2 py-0.5 text-[11px] font-bold text-amber-800">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> 아래 수치는 데모(시뮬레이션) — 실측 아님
-          </p>
+          {journeyLive ? (
+            <p className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-100/70 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> 연관키워드 실측 근사 · 언급률=키워드에 브랜드명 포함 비율
+            </p>
+          ) : (
+            <p className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-100/70 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> 아래 수치는 데모(시뮬레이션) — 실측 아님
+            </p>
+          )}
           <div className="grid grid-cols-3 gap-3">
             {[
               { label: "여정 노드", value: report.total_nodes },
