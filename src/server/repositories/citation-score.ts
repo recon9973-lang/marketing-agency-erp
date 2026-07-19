@@ -112,3 +112,147 @@ export async function getGuardedRankSeries(clientId: string, days = 90): Promise
     return { keyword: k.keyword, channel, targetRank: k.targetRank, points };
   });
 }
+
+// ── G3 시각화 데이터 ───────────────────────────────────────────────
+
+export type EngineRadar = {
+  engines: { engine: string; before: number; now: number }[]; // 0~100
+  beforeDate: string | null;
+  nowDate: string | null;
+};
+
+/** B2 데이터 — 엔진별 언급률(첫 관측일 vs 최신 관측일). 엔진×일자 셀 비율로 산출. */
+export async function getEngineRadar(clientId: string, days = 180): Promise<EngineRadar> {
+  const since = new Date();
+  since.setUTCDate(since.getUTCDate() - days);
+  const records = await db.geoAnswerRecord.findMany({
+    where: { question: { clientId }, checkedOn: { gte: since } },
+    select: { engine: true, appeared: true, checkedOn: true }
+  });
+  if (records.length === 0) return { engines: [], beforeDate: null, nowDate: null };
+
+  const dates = [...new Set(records.map((r) => r.checkedOn.toISOString().slice(0, 10)))].sort();
+  const beforeDate = dates[0];
+  const nowDate = dates[dates.length - 1];
+  const engineSet = [...new Set(records.map((r) => r.engine))];
+
+  function rateOn(date: string, engine: string): number {
+    const cells = records.filter((r) => r.engine === engine && r.checkedOn.toISOString().slice(0, 10) === date);
+    if (cells.length === 0) return 0;
+    return Math.round((cells.filter((c) => c.appeared).length / cells.length) * 100);
+  }
+
+  const engines = engineSet.map((engine) => ({
+    engine,
+    before: rateOn(beforeDate, engine),
+    now: rateOn(nowDate, engine)
+  }));
+  return { engines, beforeDate, nowDate };
+}
+
+export type StandingRow = { name: string; rate: number; models: number; avgRank: number | null; isUs: boolean };
+
+/**
+ * B4 데이터 — 언급 현황(우리 + 경쟁사 랭킹). 질문×엔진 최신 셀 기준.
+ * 우리: 언급 셀 비율·언급 엔진수·평균순위. 경쟁사: 언급 셀 비율·엔진수(순위 데이터 없음 → null).
+ */
+export async function getMentionStanding(clientId: string, usName: string, days = 180): Promise<StandingRow[]> {
+  const since = new Date();
+  since.setUTCDate(since.getUTCDate() - days);
+  const records = await db.geoAnswerRecord.findMany({
+    where: { question: { clientId }, checkedOn: { gte: since } },
+    orderBy: { checkedOn: "desc" },
+    select: { questionId: true, engine: true, appeared: true, rank: true, competitorsMentioned: true, checkedOn: true }
+  });
+  if (records.length === 0) return [];
+
+  // 질문×엔진 최신 셀만(desc 정렬 → 첫 건).
+  const seen = new Set<string>();
+  const cells = records.filter((r) => {
+    const key = `${r.questionId}|${r.engine}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const total = cells.length;
+  if (total === 0) return [];
+
+  // 우리
+  const usCells = cells.filter((c) => c.appeared);
+  const usModels = new Set(usCells.map((c) => c.engine));
+  const usRanks = usCells.map((c) => c.rank).filter((r): r is number => typeof r === "number");
+  const us: StandingRow = {
+    name: usName || "우리 병원",
+    rate: Math.round((usCells.length / total) * 100),
+    models: usModels.size,
+    avgRank: usRanks.length ? Math.round((usRanks.reduce((a, b) => a + b, 0) / usRanks.length) * 10) / 10 : null,
+    isUs: true
+  };
+
+  // 경쟁사 집계
+  const comp = new Map<string, { cells: number; engines: Set<string> }>();
+  for (const c of cells) {
+    const names = Array.isArray(c.competitorsMentioned) ? (c.competitorsMentioned as unknown[]) : [];
+    for (const raw of names) {
+      const name = String(raw).trim();
+      if (!name) continue;
+      const slot = comp.get(name) ?? { cells: 0, engines: new Set<string>() };
+      slot.cells += 1;
+      slot.engines.add(c.engine);
+      comp.set(name, slot);
+    }
+  }
+  const competitors: StandingRow[] = [...comp.entries()]
+    .map(([name, s]) => ({ name, rate: Math.round((s.cells / total) * 100), models: s.engines.size, avgRank: null, isUs: false }))
+    .sort((a, b) => b.rate - a.rate)
+    .slice(0, 8);
+
+  return [us, ...competitors].sort((a, b) => b.rate - a.rate);
+}
+
+export type QuestionMentionSeries = {
+  dates: string[]; // 공통 x축(관측일)
+  questions: { label: string; points: (number | null)[] }[]; // 질문별 언급률(%) 시계열
+};
+
+/** B3 데이터 — 질문별 언급률 추이(멀티라인). 상위 우선순위 질문 최대 6개. */
+export async function getQuestionMentionSeries(clientId: string, days = 180, maxQuestions = 6): Promise<QuestionMentionSeries> {
+  const since = new Date();
+  since.setUTCDate(since.getUTCDate() - days);
+  const questions = await db.geoQuestion.findMany({
+    where: { clientId, status: { not: "RETIRED" } },
+    orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+    take: maxQuestions,
+    select: {
+      question: true,
+      answerRecords: {
+        where: { checkedOn: { gte: since } },
+        select: { engine: true, appeared: true, checkedOn: true }
+      }
+    }
+  });
+
+  const allDates = new Set<string>();
+  const perQ = questions.map((q) => {
+    const byDate = new Map<string, { total: number; mentioned: number }>();
+    for (const r of q.answerRecords) {
+      const d = r.checkedOn.toISOString().slice(0, 10);
+      allDates.add(d);
+      const slot = byDate.get(d) ?? { total: 0, mentioned: 0 };
+      slot.total += 1;
+      if (r.appeared) slot.mentioned += 1;
+      byDate.set(d, slot);
+    }
+    return { label: q.question, byDate };
+  });
+
+  const dates = [...allDates].sort();
+  const questionsOut = perQ.map((q) => ({
+    label: q.label,
+    points: dates.map((d) => {
+      const s = q.byDate.get(d);
+      return s && s.total > 0 ? Math.round((s.mentioned / s.total) * 100) : null;
+    })
+  }));
+  return { dates, questions: questionsOut };
+}

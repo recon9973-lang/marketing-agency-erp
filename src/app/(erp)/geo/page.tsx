@@ -15,6 +15,10 @@ import { GeoTrendBars } from "@/components/geo/GeoTrendBars";
 import { SovChart } from "@/components/geo/SovChart";
 import { MentionRateTrend } from "@/components/geo/MentionRateTrend";
 import { GuardedRankTrend } from "@/components/geo/GuardedRankTrend";
+import { ScorePair } from "@/components/geo/ScorePair";
+import { EngineRadar } from "@/components/geo/EngineRadar";
+import { MentionStanding } from "@/components/geo/MentionStanding";
+import { QuestionMentionTrend } from "@/components/geo/QuestionMentionTrend";
 import { GeoWorkflowSteps } from "@/components/geo/GeoWorkflowSteps";
 import { GeoLlmsTxt } from "@/components/geo/GeoLlmsTxt";
 import { configuredEngines } from "@/server/geo-engine/engines";
@@ -22,7 +26,13 @@ import { buildLlmsTxt, llmsInputFromClient } from "@/server/geo-engine/llms-txt"
 import { GEO_DISCLAIMER } from "@/domain/sales/geo";
 import { db } from "@/server/db";
 import { computeGeoSov, geoMonthlyTrend, listGeoMatrix, listPublishedPages, summarizeGeoMatrix } from "@/server/repositories/geo";
-import { getMentionRateSeries, getGuardedRankSeries } from "@/server/repositories/citation-score";
+import {
+  getMentionRateSeries,
+  getGuardedRankSeries,
+  getEngineRadar,
+  getMentionStanding,
+  getQuestionMentionSeries
+} from "@/server/repositories/citation-score";
 import { listInsightClients } from "@/server/repositories/insights";
 import { getCurrentUser } from "@/server/session";
 
@@ -60,7 +70,7 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
   const clients = await listInsightClients(user);
   const selectedId = clientParam && clients.some((c) => c.id === clientParam) ? clientParam : clients[0]?.id ?? null;
   const selectedName = clients.find((c) => c.id === selectedId)?.name ?? "";
-  const [rows, trend, selectedClient, publishedPages, mentionSeries, guardedSeries] = selectedId
+  const [rows, trend, selectedClient, publishedPages, mentionSeries, guardedSeries, engineRadar, standing, questionSeries] = selectedId
     ? await Promise.all([
         listGeoMatrix(selectedId),
         geoMonthlyTrend(selectedId),
@@ -77,11 +87,22 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
           .catch(() => null),
         listPublishedPages(selectedId).catch(() => []),
         getMentionRateSeries(selectedId).catch(() => []), // B1 전체 언급률 일별
-        getGuardedRankSeries(selectedId).catch(() => []) // C1 월보장 순위 일별
+        getGuardedRankSeries(selectedId).catch(() => []), // C1 월보장 순위 일별
+        getEngineRadar(selectedId).catch(() => ({ engines: [], beforeDate: null, nowDate: null })), // B2
+        getMentionStanding(selectedId, selectedName).catch(() => []), // B4
+        getQuestionMentionSeries(selectedId).catch(() => ({ dates: [], questions: [] })) // B3
       ])
-    : [[], [], null, [], [], []];
+    : [[], [], null, [], [], [], { engines: [], beforeDate: null, nowDate: null }, [], { dates: [], questions: [] }];
   const summary = summarizeGeoMatrix(rows);
   const sov = computeGeoSov(rows); // 경쟁사 대비 SOV(파생·저장 없음)
+
+  // A1 점수 — GEO=최신 언급률(성과), SEO=월보장 유지율(토대, 보장 키워드 없으면 null)
+  const geoScore = mentionSeries.length ? mentionSeries[mentionSeries.length - 1].rate : 0;
+  const guardHeld = guardedSeries.filter((s) => {
+    const last = [...s.points].reverse().find((p) => p.rank != null);
+    return last && s.targetRank != null && (last.rank as number) <= s.targetRank;
+  }).length;
+  const seoScore = guardedSeries.length ? Math.round((guardHeld / guardedSeries.length) * 100) : null;
 
   // 진료과 기본값: 업종(진료과목) 마스터 → 병원프로필 진료과 첫 항목 순으로 채움
   const defaultDepartment =
@@ -183,6 +204,14 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
               ]}
             >
               <>
+                {/* A1 — GEO/SEO 듀얼 점수(연결·분리) */}
+                <ScorePair
+                  geoScore={geoScore}
+                  seoScore={seoScore}
+                  geoNote={`AI 답변 언급률 ${geoScore}% · ${summary.appearedCount}/${summary.monitoredCount} 질문 출현`}
+                  seoNote={seoScore === null ? "월보장 키워드 미등록" : `월보장 ${guardHeld}/${guardedSeries.length}건 순위 유지`}
+                />
+
                 {/* 언급률·순위 추이 — GEO(성과) / SEO(토대) 연결·분리 (GEO 모듈 설계 §1·§4 B1·C1) */}
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                   <div className="rounded-2xl border border-line bg-card p-4">
@@ -217,6 +246,37 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
                   monitorableCount={rows.filter((r) => r.status === "APPROVED" || r.status === "MONITORING").length}
                 />
                 <GeoMatrix clientId={selectedId} rows={rows} />
+
+                {/* B2 레이더 + B4 언급현황 */}
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-line bg-card p-4">
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className="rounded-md bg-brand-soft px-2 py-0.5 text-[10px] font-bold text-brand-strong">B2</span>
+                      <h3 className="text-sm font-bold text-ink">AI 모델별 언급률</h3>
+                    </div>
+                    <p className="mb-3 text-[11px] text-slate-500">엔진별 분포 · 첫 관측 대비 현재</p>
+                    <EngineRadar data={engineRadar} />
+                  </div>
+                  <div className="rounded-2xl border border-line bg-card p-4">
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className="rounded-md bg-brand-soft px-2 py-0.5 text-[10px] font-bold text-brand-strong">B4</span>
+                      <h3 className="text-sm font-bold text-ink">언급 현황 (우리 vs 경쟁사)</h3>
+                    </div>
+                    <p className="mb-3 text-[11px] text-slate-500">질문×엔진 최신 관측 기준 랭킹</p>
+                    <MentionStanding rows={standing} />
+                  </div>
+                </div>
+
+                {/* B3 질문별 언급률 추이 */}
+                <div className="rounded-2xl border border-line bg-card p-4">
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="rounded-md bg-brand-soft px-2 py-0.5 text-[10px] font-bold text-brand-strong">B3</span>
+                    <h3 className="text-sm font-bold text-ink">질문별 언급률 추이</h3>
+                  </div>
+                  <p className="mb-3 text-[11px] text-slate-500">각 측정질문의 AI 언급률 변화(질문당 한 선)</p>
+                  <QuestionMentionTrend data={questionSeries} />
+                </div>
+
                 <SovChart sov={sov} />
                 <GeoTrendBars trend={trend} />
               </>
