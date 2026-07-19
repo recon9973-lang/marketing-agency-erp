@@ -295,6 +295,7 @@ model Client {
   channelMetrics    ChannelMetric[]
   leads             Lead[]
   geoQuestions      GeoQuestion[]
+  geoInterventions  GeoIntervention[]
   channelConnections ChannelConnection[]
 
   @@index([assignedMarketerId])
@@ -1601,6 +1602,29 @@ model GeoCitationScore {
 
   @@unique([clientId, questionId, runAt])
   @@index([clientId, runAt])
+}
+
+// GEO 실험 장부(학습 A단계) — "개입 → 인용률 변화"를 근거로 기록.
+// 개입 시점의 인용률(baselineRate)을 스냅샷하고, 이후 측정치로 상승폭(lift)을 계산한다.
+// 학습의 정답 신호는 반드시 실측(GeoCitationScore.mentionRate)에만 붙인다(목업 아님).
+model GeoIntervention {
+  id           String    @id @default(cuid())
+  clientId     String
+  kind         String // CONTENT_PUBLISH | CONTENT_REWRITE | KEYWORD_ADD | GEO_QUESTION | MANUAL
+  title        String // 무엇을 했나(예: "발행: 강남 임플란트 후기")
+  detail       String? // 메모·상세
+  refType      String? // 연결 엔티티 유형(ContentPlan/Keyword 등, 선택)
+  refId        String? // 연결 엔티티 id(선택)
+  occurredAt   DateTime // 개입 발생 시각
+  baselineRate Float? // 개입 직전 최근 인용률(0~1, 기록 시 스냅샷)
+  createdById  String?
+  orgId        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  client       Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, occurredAt])
+  @@index([orgId])
 }
 
 /// 디자인 스튜디오 프로젝트 — 카드뉴스/SNS/썸네일 등 캔버스 디자인.
