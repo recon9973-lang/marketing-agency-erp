@@ -12,6 +12,7 @@ import { canAccessMarketer } from "@/domain/access-control";
 import { Role } from "@/domain/types";
 import { db } from "@/server/db";
 import { kstToUtc } from "@/server/actions/calendar-event-util";
+import { parseIcs } from "@/server/calendar/ics";
 import {
   getAdminScopes,
   recordAudit,
@@ -149,6 +150,92 @@ export async function updateCalendarEvent(input: unknown): Promise<ActionResult<
 
     revalidatePath("/calendar");
     return { id: event.id };
+  });
+}
+
+// .ics 가져오기 — 외부 캘린더(구글·애플·아웃룩·네이버) 파일을 내 일정으로 편입.
+// 파일은 클라이언트가 텍스트로 읽어 넘긴다(FormData 미사용 — 폼 규약 일치).
+// 편입된 일정은 INTERNAL로 저장되어 수정·삭제·재-내보내기 모두 가능하며,
+// UID(externalEventId)로 dedup → 같은 파일 재업로드 시 중복 없이 갱신(멱등).
+const IMPORT_MAX = 500; // 1회 최대 편입 건수(초과분은 잘라내고 보고).
+
+const importSchema = z.object({
+  icsText: z.string().min(1).max(3_000_000), // ~3MB 상한(대용량 캘린더 방어)
+  kind: z.enum(KINDS).default("INTERNAL_INSTRUCTION")
+});
+
+export async function importCalendarIcs(
+  input: unknown
+): Promise<ActionResult<{ imported: number; updated: number; skipped: number; total: number; truncated: number }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const p = importSchema.safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+
+    const parsed = parseIcs(p.data.icsText);
+    if (!parsed.length) throw new Error("NO_EVENTS");
+    const truncated = Math.max(0, parsed.length - IMPORT_MAX);
+    const batch = parsed.slice(0, IMPORT_MAX);
+
+    let imported = 0;
+    let updated = 0;
+    let skipped = 0;
+    for (const ev of batch) {
+      if (Number.isNaN(ev.startsAt.getTime()) || Number.isNaN(ev.endsAt.getTime())) {
+        skipped++;
+        continue;
+      }
+      const title = ev.title.slice(0, 200);
+      // 종일 여부·장소를 메모 앞에 부기(원본 정보 보존).
+      const noteParts = [ev.description, ev.location ? `장소: ${ev.location}` : null, ev.allDay ? "(종일)" : null].filter(Boolean);
+      const description = noteParts.length ? noteParts.join("\n").slice(0, 2000) : null;
+      const externalEventId = ev.uid ? `ics:${ev.uid}` : null;
+
+      // dedup: 같은 UID를 내가 이전에 편입했으면 갱신, 아니면 신규.
+      const existing = externalEventId
+        ? await db.calendarEvent.findFirst({
+            where: { externalEventId, createdById: user.id, provider: "INTERNAL" },
+            select: { id: true }
+          })
+        : null;
+
+      if (existing) {
+        await db.calendarEvent.update({
+          where: { id: existing.id },
+          data: { title, description, startsAt: ev.startsAt, endsAt: ev.endsAt, kind: p.data.kind }
+        });
+        updated++;
+      } else {
+        await db.calendarEvent.create({
+          data: {
+            title,
+            description,
+            startsAt: ev.startsAt,
+            endsAt: ev.endsAt,
+            provider: "INTERNAL",
+            kind: p.data.kind,
+            createdById: user.id,
+            assigneeId: user.id,
+            externalEventId,
+            syncStatus: "DISCONNECTED"
+          }
+        });
+        imported++;
+      }
+    }
+
+    const meta = await requestMeta();
+    await recordAudit(db, {
+      actorId: user.id,
+      action: "calendar.ics.import",
+      targetType: "CalendarEvent",
+      targetId: user.id,
+      afterState: { imported, updated, skipped, total: parsed.length },
+      ...meta
+    });
+
+    revalidatePath("/calendar");
+    return { imported, updated, skipped, total: parsed.length, truncated };
   });
 }
 

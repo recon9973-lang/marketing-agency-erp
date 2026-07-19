@@ -3,6 +3,7 @@ import { CalendarScheduler } from "@/components/calendar/CalendarScheduler";
 import { MonthCalendar, type GridEvent } from "@/components/calendar/MonthCalendar";
 import { WeekCalendar, type WeekEvent } from "@/components/calendar/WeekCalendar";
 import { CalendarEventForm } from "@/components/calendar/CalendarEventForm";
+import { CalendarIcsImport } from "@/components/calendar/CalendarIcsImport";
 import { CalendarEventRow } from "@/components/calendar/CalendarEventRow";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { listActiveMembers } from "@/server/repositories/collab";
@@ -177,7 +178,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       </div>
 
       {/* 자체 캘린더 · 일정 추가(C4) — 접이식. 관리자는 담당자 지정. */}
-      <CalendarEventForm members={members} canAssignOthers={isManager} selfId={user.id} selfName={user.name} defaultDate={defaultDate} />
+      <div className="flex flex-wrap items-center gap-2">
+        <CalendarEventForm members={members} canAssignOthers={isManager} selfId={user.id} selfName={user.name} defaultDate={defaultDate} />
+        <CalendarIcsImport />
+      </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {integrationCards.map((card) => (
@@ -185,7 +189,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-semibold text-ink">{card.title}</p>
-                <p className="mt-1 text-sm text-slate-500">사내 캘린더가 기본입니다. 지금은 위 <b>내보내기(.ics)</b>로 {card.title}에 가져오기/구독할 수 있고, 실시간 양방향 연동은 준비 중입니다.</p>
+                <p className="mt-1 text-sm text-slate-500">사내 캘린더가 기본입니다. 위 <b>내보내기(.ics)</b>로 {card.title}에 보내고, {card.title}에서 내보낸 파일을 <b>가져오기(.ics)</b>로 편입할 수 있습니다. 실시간 양방향 자동 동기화는 준비 중입니다.</p>
               </div>
               <span className="rounded-md border border-line bg-surface px-3 py-1 text-xs font-semibold text-slate-600">
                 선택 · 준비중
