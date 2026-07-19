@@ -96,7 +96,9 @@ export async function generateMarketingContent(input: GenerateInput): Promise<st
 }
 
 /** 응답에서 JSON 객체만 안전하게 추출(코드펜스/설명 섞여도). */
-function extractJson<T>(text: string): T {
+/** Claude 텍스트 응답에서 JSON 객체를 추출·파싱. 코드펜스/서문 섞여도 첫 {~마지막 }.
+ *  모든 AI 기능(컨설팅·블로그·키워드·콘텐츠·GEO·매거진)의 단일 파싱 관문. */
+export function extractJson<T>(text: string): T {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const raw = fenced ? fenced[1] : text;
   const start = raw.indexOf("{");
