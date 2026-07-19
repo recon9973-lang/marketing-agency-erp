@@ -18,6 +18,24 @@ const KIND_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 const field = "mt-1 w-full rounded-md border border-line bg-card px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand";
+// 날짜/시간 박스 아무 곳이나 클릭하면 네이티브 피커 열기(아이콘 클릭 강제 해제). 커서도 포인터.
+const pickerField = `${field} cursor-pointer`;
+function openPicker(e: React.MouseEvent<HTMLInputElement>) {
+  const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
+  try {
+    el.showPicker?.();
+  } catch {
+    /* 미지원 브라우저는 기본 동작 유지 */
+  }
+}
+
+// "HH:mm" + 60분(24시 넘으면 23:59로 클램프 — 같은 날짜 이벤트).
+function addOneHour(t: string): string {
+  const [h, m] = t.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return t;
+  const total = Math.min(h * 60 + m + 60, 23 * 60 + 59);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
 
 export function CalendarEventForm({
   members,
@@ -47,15 +65,27 @@ export function CalendarEventForm({
   const [date, setDate] = useState(defaultDate);
   const [startTime, setStartTime] = useState("10:00");
   const [endTime, setEndTime] = useState("11:00");
+  const [endManual, setEndManual] = useState(false); // 사용자가 종료를 직접 바꿨는지
   const [kind, setKind] = useState("TASK");
   const [assigneeId, setAssigneeId] = useState(selfId); // 로그인 계정 자동 선택
   const [description, setDescription] = useState("");
+
+  // 시작 시각 변경 시 종료를 +1시간으로 자동 세팅(사용자가 종료를 직접 조정했다면 유지).
+  function onStartChange(v: string) {
+    setStartTime(v);
+    if (!endManual) setEndTime(addOneHour(v));
+  }
+  function onEndChange(v: string) {
+    setEndTime(v);
+    setEndManual(true);
+  }
 
   function reset() {
     setTitle("");
     setDate(defaultDate);
     setStartTime("10:00");
     setEndTime("11:00");
+    setEndManual(false);
     setKind("TASK");
     setAssigneeId(selfId);
     setDescription("");
@@ -141,13 +171,13 @@ export function CalendarEventForm({
           </div>
         )}
         <label className="block text-xs font-medium text-slate-600">날짜
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={field} />
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} onClick={openPicker} className={pickerField} />
         </label>
         <label className="block text-xs font-medium text-slate-600">시작
-          <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className={field} />
+          <input type="time" value={startTime} onChange={(e) => onStartChange(e.target.value)} onClick={openPicker} className={pickerField} />
         </label>
-        <label className="block text-xs font-medium text-slate-600">종료
-          <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className={field} />
+        <label className="block text-xs font-medium text-slate-600">종료 <span className="font-normal text-slate-400">(자동 +1시간)</span>
+          <input type="time" value={endTime} onChange={(e) => onEndChange(e.target.value)} onClick={openPicker} className={pickerField} />
         </label>
         <label className="block text-xs font-medium text-slate-600 sm:col-span-2 lg:col-span-4">메모(선택)
           <input value={description} onChange={(e) => setDescription(e.target.value)} className={field} placeholder="상세 내용" />
