@@ -55,6 +55,7 @@ type ErpRoute =
   | "/geo-cep"
   | "/geo-path"
   | "/geo-planner"
+  | "/geo-learning"
   | "/geo-content"
   | "/magazine"
   | "/contracts"
@@ -181,6 +182,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       label: "GEO 캠페인",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Rocket,
+      group: "기획·분석"
+    },
+    {
+      href: "/geo-learning",
+      label: "GEO 학습",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN],
+      icon: Sparkles,
       group: "기획·분석"
     },
     {

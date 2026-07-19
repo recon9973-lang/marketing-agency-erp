@@ -2,7 +2,7 @@
 // baseline은 기록 시 스냅샷(그때의 진실), outcome은 읽을 때 실측 시계열에서 동적 계산
 // (새 측정이 쌓이면 자동 갱신). 정답 신호는 GeoCitationScore.mentionRate(실측)만 사용.
 import { db } from "@/server/db";
-import { computeLift, summarizeByKind, type Lift } from "@/domain/geo/intervention";
+import { computeLift, summarizeByKind, type KindSummary, type Lift } from "@/domain/geo/intervention";
 
 // 개입 후 이 일수가 지난 첫 측정치를 결과로 본다(즉시 반영되지 않으므로 관측 지연 반영).
 const OUTCOME_LAG_DAYS = 7;
@@ -79,4 +79,38 @@ export async function getInterventionLedger(clientId: string): Promise<Intervent
     resolved,
     pending: rows.length - resolved
   };
+}
+
+/**
+ * 전 거래처 개입의 종류별 효과 요약 — 학습 입력(풀링). 표본이 작은 거래처별 과적합 방지.
+ * 각 개입의 결과는 그 거래처의 실측 인용률 시계열에서 계산(정답 신호는 실측만).
+ */
+export async function getGlobalKindSummary(orgId?: string | null): Promise<KindSummary[]> {
+  const [items, scores] = await Promise.all([
+    db.geoIntervention.findMany({
+      where: orgId ? { orgId } : {},
+      orderBy: { occurredAt: "asc" },
+      select: { clientId: true, kind: true, occurredAt: true, baselineRate: true }
+    }),
+    db.geoCitationScore.findMany({
+      where: { questionId: null, ...(orgId ? { orgId } : {}) },
+      orderBy: { runAt: "asc" },
+      select: { clientId: true, runAt: true, mentionRate: true }
+    })
+  ]);
+
+  const byClient = new Map<string, { runAt: Date; mentionRate: number }[]>();
+  for (const s of scores) {
+    const arr = byClient.get(s.clientId) ?? [];
+    arr.push({ runAt: s.runAt, mentionRate: s.mentionRate });
+    byClient.set(s.clientId, arr);
+  }
+
+  const rows = items.map((it) => {
+    const series = byClient.get(it.clientId) ?? [];
+    const lagDate = new Date(it.occurredAt.getTime() + OUTCOME_LAG_DAYS * DAY_MS);
+    const after = series.find((s) => s.runAt >= lagDate) ?? series.find((s) => s.runAt > it.occurredAt) ?? null;
+    return { kind: it.kind, lift: computeLift(it.baselineRate, after?.mentionRate ?? null) };
+  });
+  return summarizeByKind(rows);
 }
