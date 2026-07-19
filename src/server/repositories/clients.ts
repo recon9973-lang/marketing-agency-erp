@@ -131,7 +131,7 @@ export async function listClientsForUser(user: CurrentUser) {
     where,
     orderBy: [{ active: "desc" }, { name: "asc" }],
     select: {
-      id: true, name: true, code: true, active: true, stage: true, assignedMarketerId: true,
+      id: true, name: true, code: true, active: true, stage: true, stageUpdatedAt: true, createdAt: true, assignedMarketerId: true,
       industryCategory: { select: { name: true, colorTag: true, parent: { select: { name: true, colorTag: true } } } },
       assignedMarketer: { select: { name: true } },
       billingRecords: { where: { status: { in: ["UNPAID", "PARTIALLY_PAID", "OVERDUE"] } }, select: { id: true }, take: 1 }
@@ -143,6 +143,8 @@ export async function listClientsForUser(user: CurrentUser) {
     code: c.code,
     active: c.active,
     stage: c.stage,
+    // 현재 단계 진입 시각(SLA 기준). 전이 기록이 없으면 거래처 생성 시각으로 폴백.
+    stageSince: (c.stageUpdatedAt ?? c.createdAt).toISOString(),
     // 하위(진료과)면 그 이름/색, 아니면 대분류
     industryName: c.industryCategory?.name ?? c.industryCategory?.parent?.name ?? null,
     industryColor: c.industryCategory?.colorTag ?? c.industryCategory?.parent?.colorTag ?? null,
@@ -190,6 +192,8 @@ export async function getClientDetail(user: CurrentUser, clientId: string) {
       code: true,
       active: true,
       stage: true,
+      stageUpdatedAt: true,
+      createdAt: true,
       businessType: true,
       portalToken: true,
       assignedMarketerId: true,
@@ -245,6 +249,8 @@ export async function getClientDetail(user: CurrentUser, clientId: string) {
       code: client.code,
       active: client.active,
       stage: client.stage,
+      stageUpdatedAt: client.stageUpdatedAt,
+      createdAt: client.createdAt,
       businessType: client.businessType,
       portalToken: client.portalToken,
       industryName: client.industryCategory?.name ?? client.industryCategory?.parent?.name ?? null,

@@ -3,7 +3,7 @@ import { ClientDetail } from "@/components/clients/ClientDetail";
 import { ClientStageBar } from "@/components/clients/ClientStageBar";
 import { ClientJourney } from "@/components/clients/ClientJourney";
 import { getClientJourney } from "@/server/repositories/journey";
-import { suggestNextStage, toClientStage } from "@/domain/sales/client-stages";
+import { computeStageSla, suggestNextStage, toClientStage } from "@/domain/sales/client-stages";
 import { GoogleIntegrationPanel } from "@/components/clients/GoogleIntegrationPanel";
 import { isGoogleConfigured } from "@/server/integrations/google";
 import { CommentThread } from "@/components/collab/CommentThread";
@@ -64,6 +64,12 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
     hasPublished: journey.some((e) => e.stage === 8)
   };
   const suggestedStage = suggestNextStage(toClientStage(detail.client.stage), stageSignals);
+  // Phase 5 — 현재 단계 SLA(진입 후 경과일 대비 목표일). 전이 기록 없으면 생성 시각 기준.
+  const stageSla = computeStageSla(
+    toClientStage(detail.client.stage),
+    detail.client.stageUpdatedAt ?? detail.client.createdAt,
+    new Date()
+  );
 
   const consulting = {
     aiConfigured: isAiConfigured(),
@@ -89,7 +95,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   return (
     <div className="space-y-6">
       <a href="/clients" className="text-sm font-semibold text-brand-strong hover:underline">← 거래처 목록</a>
-      <ClientStageBar clientId={id} stage={detail.client.stage} canManage={canManage} suggested={suggestedStage} />
+      <ClientStageBar clientId={id} stage={detail.client.stage} canManage={canManage} suggested={suggestedStage} sla={stageSla} />
       <ClientJourney events={journey} />
       <ClientDetail
         client={detail.client}

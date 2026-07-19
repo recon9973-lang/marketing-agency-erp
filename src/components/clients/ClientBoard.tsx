@@ -2,7 +2,7 @@
 // 리드 보드(LeadBoard)의 거래처 버전 — "지금 어느 단계에 몇 곳"을 한눈에.
 import Link from "next/link";
 import type { Route } from "next";
-import { ACTIVE_CLIENT_STAGES, clientStageLabels, toClientStage } from "@/domain/sales/client-stages";
+import { ACTIVE_CLIENT_STAGES, clientStageLabels, computeStageSla, toClientStage } from "@/domain/sales/client-stages";
 
 type Row = {
   id: string;
@@ -10,6 +10,7 @@ type Row = {
   code: string;
   active: boolean;
   stage?: string;
+  stageSince?: string; // 현재 단계 진입 시각(ISO) — SLA 계산용
   industryName: string | null;
   industryColor: string | null;
   assignedMarketerName: string | null;
@@ -25,6 +26,7 @@ const STAGE_ACCENT: Record<string, string> = {
 };
 
 export function ClientBoard({ rows }: { rows: Row[] }) {
+  const now = new Date();
   const active = rows.filter((r) => r.active);
   const byStage = new Map<string, Row[]>();
   for (const s of ACTIVE_CLIENT_STAGES) byStage.set(s, []);
@@ -35,8 +37,19 @@ export function ClientBoard({ rows }: { rows: Row[] }) {
     else parked.push(r);
   }
 
+  // Phase 5 — 단계 SLA 초과(지연) 거래처 집계. 상단 요약에 노출.
+  const breachCount = active.reduce((n, r) => {
+    const sla = computeStageSla(toClientStage(r.stage), r.stageSince ? new Date(r.stageSince) : null, now);
+    return n + (sla.status === "breach" ? 1 : 0);
+  }, 0);
+
   return (
     <div>
+      {breachCount > 0 ? (
+        <p className="mb-3 inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-600">
+          ⚠ SLA 지연 {breachCount}곳 — 단계별 목표일을 넘겼습니다. 우선 처리하세요.
+        </p>
+      ) : null}
       <div className="overflow-x-auto pb-2">
         <div className="flex min-w-[840px] gap-3">
           {ACTIVE_CLIENT_STAGES.map((stage) => {
@@ -51,7 +64,9 @@ export function ClientBoard({ rows }: { rows: Row[] }) {
                   {items.length === 0 ? (
                     <p className="rounded-xl border border-dashed border-line bg-surface/40 px-3 py-6 text-center text-[11px] text-slate-400">없음</p>
                   ) : (
-                    items.map((r) => (
+                    items.map((r) => {
+                      const sla = computeStageSla(stage, r.stageSince ? new Date(r.stageSince) : null, now);
+                      return (
                       <Link
                         key={r.id}
                         href={`/clients/${r.id}` as Route}
@@ -66,10 +81,20 @@ export function ClientBoard({ rows }: { rows: Row[] }) {
                             </span>
                           ) : null}
                           {r.outstanding ? <span className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-600">미수금</span> : null}
+                          {sla.status === "breach" ? (
+                            <span className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-600" title={`목표 ${sla.limitDays}일 · ${sla.overdueDays}일 초과`}>
+                              지연 {sla.daysInStage}일
+                            </span>
+                          ) : sla.status === "warn" ? (
+                            <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600" title={`목표 ${sla.limitDays}일 · 마감 임박`}>
+                              임박 {sla.daysInStage}일
+                            </span>
+                          ) : null}
                         </div>
                         <p className="mt-1.5 text-[11px] text-slate-500">{r.assignedMarketerName ?? "미배정"}</p>
                       </Link>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>

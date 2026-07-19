@@ -13,7 +13,8 @@ import {
   clientStageDescriptions,
   clientStageLabels,
   toClientStage,
-  type ClientStage
+  type ClientStage,
+  type StageSla
 } from "@/domain/sales/client-stages";
 
 const STAGE_STEP_LABEL: Record<string, string> = {
@@ -28,12 +29,14 @@ export function ClientStageBar({
   clientId,
   stage,
   canManage,
-  suggested
+  suggested,
+  sla
 }: {
   clientId: string;
   stage: string;
   canManage: boolean;
   suggested?: ClientStage | null;
+  sla?: StageSla | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -58,9 +61,20 @@ export function ClientStageBar({
     <div className="rounded-2xl border border-line bg-card p-4">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm font-bold text-ink">업무 진행 단계</p>
-        <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${isInactive ? "border-slate-200 bg-slate-50 text-slate-500" : "border-brand/30 bg-brand/10 text-brand"}`}>
-          현재: {clientStageLabels[current]}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {/* Phase 5 — 현재 단계 SLA(경과일 대비 목표일). 초과 시 지연 배지. */}
+          {sla && sla.limitDays != null && sla.status !== "ok" ? (
+            <span
+              className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${sla.status === "breach" ? "border-rose-200 bg-rose-50 text-rose-600" : "border-amber-200 bg-amber-50 text-amber-600"}`}
+              title={`목표 ${sla.limitDays}일 · 경과 ${sla.daysInStage}일`}
+            >
+              {sla.status === "breach" ? `지연 ${sla.daysInStage}일(목표 ${sla.limitDays}일)` : `마감 임박 ${sla.daysInStage}/${sla.limitDays}일`}
+            </span>
+          ) : null}
+          <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${isInactive ? "border-slate-200 bg-slate-50 text-slate-500" : "border-brand/30 bg-brand/10 text-brand"}`}>
+            현재: {clientStageLabels[current]}
+          </span>
+        </div>
       </div>
 
       {/* 활성 5단계 스테퍼 */}

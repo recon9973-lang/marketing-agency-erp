@@ -111,3 +111,42 @@ export function suggestNextStage(stage: ClientStage, s: StageSignals): ClientSta
       return null; // LIVE·PAUSED·CHURNED는 자동 제안 없음
   }
 }
+
+// ── Phase 5: 단계별 SLA(경과일 기준 지연 감지) ──
+// 사장님 원칙: 계약 후 온보딩은 3일 내 킥오프. 단계별 목표 소요일을 넘기면 경고/지연 표시.
+// 운영·중지·해지는 SLA 없음(상시 상태). 값 null = SLA 미적용.
+export const STAGE_SLA_DAYS: Record<ClientStage, number | null> = {
+  ONBOARDING: 3, // 배정 후 3일 내 킥오프·기준자료 착수
+  KEYWORD: 7, // 키워드 수집·확정 1주
+  GEO: 7, // 초기 GEO 관측 1주
+  CONTENT: 14, // 첫 콘텐츠 배치 2주
+  LIVE: null,
+  PAUSED: null,
+  CHURNED: null
+};
+
+export type SlaStatus = "ok" | "warn" | "breach";
+
+export type StageSla = {
+  daysInStage: number; // 현재 단계 진입 후 경과일(내림)
+  limitDays: number | null; // 단계 SLA(없으면 null)
+  status: SlaStatus; // ok=여유, warn=마감임박(마지막 하루), breach=지연
+  overdueDays: number; // breach일 때 초과일(그 외 0)
+};
+
+const DAY_MS = 86_400_000;
+
+/**
+ * 현재 단계 진입 시각(since) 기준 경과일 → SLA 상태.
+ * since 없으면(레거시·미기록) 지연으로 몰지 않도록 now를 넘겨 0일 처리.
+ * 경계: breach = 경과일 ≥ 한도, warn = 마감 하루 전(경과일 = 한도-1).
+ */
+export function computeStageSla(stage: ClientStage, since: Date | null | undefined, now: Date): StageSla {
+  const limit = STAGE_SLA_DAYS[stage];
+  const base = since ?? now;
+  const daysInStage = Math.max(0, Math.floor((now.getTime() - base.getTime()) / DAY_MS));
+  if (limit == null) return { daysInStage, limitDays: null, status: "ok", overdueDays: 0 };
+  if (daysInStage >= limit) return { daysInStage, limitDays: limit, status: "breach", overdueDays: daysInStage - limit };
+  if (daysInStage >= limit - 1) return { daysInStage, limitDays: limit, status: "warn", overdueDays: 0 };
+  return { daysInStage, limitDays: limit, status: "ok", overdueDays: 0 };
+}

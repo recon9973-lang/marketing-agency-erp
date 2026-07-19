@@ -5,6 +5,7 @@ import {
   canTransitionClientStage,
   clientStageLabels,
   clientStageProgress,
+  computeStageSla,
   isClientStage,
   suggestNextStage,
   toClientStage,
@@ -63,6 +64,36 @@ describe("client-stages · suggestNextStage(자동 전환 제안)", () => {
     expect(suggestNextStage("KEYWORD", { ...none, hasKeywords: true })).toBeNull(); // GEO 신호 없음
     expect(suggestNextStage("LIVE", { hasKeywords: true, hasGeoMonitoring: true, hasContentPlan: true, hasPublished: true })).toBeNull();
     expect(suggestNextStage("PAUSED", none)).toBeNull();
+  });
+});
+
+describe("client-stages · computeStageSla(단계 SLA)", () => {
+  const now = new Date("2026-07-19T00:00:00Z");
+  const daysAgo = (n: number) => new Date(now.getTime() - n * 86_400_000);
+
+  it("온보딩 3일: 0~1일 여유, 2일 임박, 3일↑ 지연", () => {
+    expect(computeStageSla("ONBOARDING", daysAgo(0), now).status).toBe("ok");
+    expect(computeStageSla("ONBOARDING", daysAgo(1), now).status).toBe("ok");
+    expect(computeStageSla("ONBOARDING", daysAgo(2), now).status).toBe("warn");
+    const over = computeStageSla("ONBOARDING", daysAgo(5), now);
+    expect(over.status).toBe("breach");
+    expect(over.daysInStage).toBe(5);
+    expect(over.overdueDays).toBe(2); // 5 - 3
+  });
+  it("운영·중지·해지는 SLA 없음(항상 ok, limit null)", () => {
+    for (const s of ["LIVE", "PAUSED", "CHURNED"] as const) {
+      const sla = computeStageSla(s, daysAgo(100), now);
+      expect(sla.limitDays).toBeNull();
+      expect(sla.status).toBe("ok");
+    }
+  });
+  it("since 없으면 지연으로 몰지 않고 0일 처리", () => {
+    const sla = computeStageSla("ONBOARDING", null, now);
+    expect(sla.daysInStage).toBe(0);
+    expect(sla.status).toBe("ok");
+  });
+  it("미래 시각(음수 경과)도 0으로 방어", () => {
+    expect(computeStageSla("KEYWORD", daysAgo(-3), now).daysInStage).toBe(0);
   });
 });
 
