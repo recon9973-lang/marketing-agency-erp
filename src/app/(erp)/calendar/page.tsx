@@ -163,6 +163,13 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
               </a>
             ))}
           </div>
+          <a
+            href="/calendar/export"
+            className="rounded-lg border border-line bg-surface px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-card hover:text-brand"
+            title="내 일정을 .ics 파일로 내보내 구글·애플·아웃룩에서 구독/가져오기"
+          >
+            내보내기 (.ics)
+          </a>
           <div className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-slate-600">일정 {events.length}건</div>
         </div>
       </div>
@@ -176,7 +183,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-semibold text-ink">{card.title}</p>
-                <p className="mt-1 text-sm text-slate-500">사내 캘린더가 기본입니다. 외부 캘린더로 <b>내보내기</b>는 선택 기능으로 준비 중입니다.</p>
+                <p className="mt-1 text-sm text-slate-500">사내 캘린더가 기본입니다. 지금은 위 <b>내보내기(.ics)</b>로 {card.title}에 가져오기/구독할 수 있고, 실시간 양방향 연동은 준비 중입니다.</p>
               </div>
               <span className="rounded-md border border-line bg-surface px-3 py-1 text-xs font-semibold text-slate-600">
                 선택 · 준비중

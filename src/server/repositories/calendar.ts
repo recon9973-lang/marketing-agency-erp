@@ -158,6 +158,22 @@ export async function fetchTeamCalendarEvents(user: CurrentUser): Promise<TeamCa
   }));
 }
 
+export type IcsExportEvent = { id: string; title: string; description: string | null; startsAt: Date; endsAt: Date };
+
+/** .ics 내보내기용 — 스코프 내 이벤트를 [now-30d, now+180d] 범위로. 최대 500건. */
+export async function fetchCalendarEventsForExport(user: CurrentUser, now: Date): Promise<IcsExportEvent[]> {
+  const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const to = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000);
+  const scope = await buildCalendarWhere(user);
+  const events = await db.calendarEvent.findMany({
+    where: { AND: [scope, { startsAt: { gte: from, lte: to } }] },
+    orderBy: { startsAt: "asc" },
+    take: 500,
+    select: { id: true, title: true, description: true, startsAt: true, endsAt: true }
+  });
+  return events;
+}
+
 export async function fetchCalendarEventsForUser(user: CurrentUser): Promise<CalendarListItem[]> {
   const events = await db.calendarEvent.findMany({
     where: await buildCalendarWhere(user),
