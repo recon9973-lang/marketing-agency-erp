@@ -1,6 +1,8 @@
 // scripts/migrate-nas-to-erp.test.ts
 import { describe, it, expect } from "vitest";
 import { WorkCategory, WorkStatus } from "@prisma/client";
+// 암호화 경로 테스트용 — 결정적 32바이트 키(hex 64). 실제 배포 키와 무관.
+process.env.CREDENTIAL_ENC_KEY = process.env.CREDENTIAL_ENC_KEY || "0123456789abcdef".repeat(4);
 import { nasId, resolveUser, mapClient, mapAccount, mapChecklistItem, mapMemo, type MigrateOptions } from "./migrate-nas-to-erp";
 
 const opts: MigrateOptions = {
