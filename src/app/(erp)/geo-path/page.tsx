@@ -2,6 +2,7 @@
 // 시드 질문 → AI 답변 여정 트리 탐색 → 브랜드 미언급 갭 경로·Top 경로(현재 목 파이프라인).
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { ConnectionBadge } from "@/components/ui/ConnectionBadge";
 import { getCurrentUser } from "@/server/session";
 import { analyzeJourney, type JourneyReport } from "@/server/geo-studio/path/analyzer";
 import { JourneyGraph, type RawNode } from "@/components/geo-path/JourneyGraph";
@@ -29,6 +30,12 @@ export default async function GeoPathPage({ searchParams }: { searchParams: Prom
         title="GEO 여정 분석 (Path Analyzer)"
         description="소비자가 4대 AI 답변 속에서 어떤 질문을 거쳐 브랜드에 도달하는지 여정 트리로 분석하고, 브랜드 미언급 갭 경로를 상류·허브 우선순위로 도출합니다."
       />
+
+      {/* 데이터 연결 상태 — 여정 트리는 시뮬레이션 알고리즘(4-AI 실측 미연결) */}
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800">
+        <ConnectionBadge state="demo" hint="4-AI 실측 미연결" />
+        <span>여정 트리·갭 경로는 <b>데모(시뮬레이션)</b>입니다. 실제 AI 인용 측정은 <a href="/geo" className="font-semibold underline">GEO 모니터링</a>에서 확인하세요. 검색량·트렌드 백데이터는 <a href="/geo-cep" className="font-semibold underline">CEP 파인더</a>가 데이터랩 실측을 씁니다.</span>
+      </div>
 
       <form method="get" className="rounded-2xl border border-line bg-card p-4">
         <p className="mb-3 text-sm font-bold text-ink">여정 탐색 입력</p>
