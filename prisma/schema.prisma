@@ -181,6 +181,7 @@ model User {
   createdEvents           CalendarEvent[] @relation("EventCreator")
   assignedEvents          CalendarEvent[] @relation("EventAssignee")
   trendSnapshots          TrendSnapshot[] @relation("TrendSnapshotCapturer")
+  geoCampaignPlans        GeoCampaignPlan[] @relation("GeoCampaignPlanAuthor")
   billingsIssued          BillingRecord[] @relation("BillingIssuer")
   paymentsRecorded        PaymentRecord[] @relation("PaymentRecorder")
   expensesSubmitted       ExpenseRecord[] @relation("ExpenseSubmitter")
@@ -440,6 +441,25 @@ model TrendSnapshot {
   capturedBy   User?    @relation("TrendSnapshotCapturer", fields: [capturedById], references: [id])
 
   @@index([brand, category, capturedAt])
+  @@index([orgId])
+}
+
+// GEO Studio M5 — 저장된 캠페인 계획(플래너 산출물 영속화). 추정 모델 산출이지만
+// 마케터가 만든 계획을 보관·재열람하도록 저장(새로고침 소실 방지).
+model GeoCampaignPlan {
+  id          String   @id @default(cuid())
+  orgId       String?
+  name        String
+  industry    String
+  goalType    String
+  budget      Int
+  result      Json // GeoPlanResult
+  report      String // 경영진 리포트(마크다운)
+  createdById String?
+  createdAt   DateTime @default(now())
+  createdBy   User?    @relation("GeoCampaignPlanAuthor", fields: [createdById], references: [id])
+
+  @@index([createdById, createdAt])
   @@index([orgId])
 }
 

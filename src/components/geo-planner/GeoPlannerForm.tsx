@@ -2,7 +2,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { planGeoCampaign, type GeoPlanResult } from "@/server/actions/geo-planner";
+import { useRouter } from "next/navigation";
+import { planGeoCampaign, saveGeoCampaignPlan, type GeoPlanResult } from "@/server/actions/geo-planner";
 
 const GOAL_LABELS: Record<string, string> = {
   citation_rate: "AI 인용율",
@@ -82,30 +83,48 @@ export function GeoPlannerForm() {
   const [err, setErr] = useState<string | null>(null);
   const [res, setRes] = useState<GeoPlanResult | null>(null);
   const [showReport, setShowReport] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const router = useRouter();
 
   const set = <K extends keyof typeof DEFAULTS>(k: K, v: (typeof DEFAULTS)[K]) => setF((s) => ({ ...s, [k]: v }));
 
+  // 계산·저장이 공유하는 입력 페이로드.
+  const payload = () => ({
+    name: f.name,
+    industry: f.industry,
+    goalType: f.goalType,
+    targetValue: f.targetValue,
+    deadlineDays: f.deadlineDays,
+    budget: f.budget,
+    teamSize: f.teamSize,
+    priorityCepCount: f.priorityCepCount,
+    team: f.team.split(",").map((s) => s.trim()).filter(Boolean),
+    citationRate: f.citationRate,
+    cepCoverage: f.cepCoverage,
+    taScore: f.taScore,
+    totalCeps: f.totalCeps,
+    coveredCeps: f.coveredCeps
+  });
+
   function submit() {
     setErr(null);
+    setSaved(false);
     start(async () => {
-      const out = await planGeoCampaign({
-        name: f.name,
-        industry: f.industry,
-        goalType: f.goalType,
-        targetValue: f.targetValue,
-        deadlineDays: f.deadlineDays,
-        budget: f.budget,
-        teamSize: f.teamSize,
-        priorityCepCount: f.priorityCepCount,
-        team: f.team.split(",").map((s) => s.trim()).filter(Boolean),
-        citationRate: f.citationRate,
-        cepCoverage: f.cepCoverage,
-        taScore: f.taScore,
-        totalCeps: f.totalCeps,
-        coveredCeps: f.coveredCeps
-      });
+      const out = await planGeoCampaign(payload());
       if (!out.ok) setErr(out.error ?? "계획 생성 실패");
       else setRes(out.data ?? null);
+    });
+  }
+
+  function save() {
+    setErr(null);
+    start(async () => {
+      const out = await saveGeoCampaignPlan(payload());
+      if (!out.ok) setErr(out.error ?? "계획 저장 실패");
+      else {
+        setSaved(true);
+        router.refresh(); // 하단 저장목록 갱신
+      }
     });
   }
 
@@ -171,6 +190,14 @@ export function GeoPlannerForm() {
       {/* 결과 */}
       {res && summary && (
         <div className="space-y-4">
+          {/* 저장 — 계획 산출물 영속화(새로고침 소실 방지) */}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {saved ? <span className="text-xs font-semibold text-emerald-600">✓ 저장됨 · 아래 목록에서 재열람</span> : null}
+            <button type="button" onClick={save} disabled={pending} className="rounded-lg border border-brand px-3 py-1.5 text-xs font-semibold text-brand-strong hover:bg-brand-soft disabled:opacity-50">
+              {pending ? "저장 중…" : "계획 저장"}
+            </button>
+          </div>
+
           {/* 핵심 지표 카드 */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {[

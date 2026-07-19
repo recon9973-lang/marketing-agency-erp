@@ -1,10 +1,13 @@
-// GEO Studio · M5 채널 플래너 — 서버 액션(계산 전용, DB 미저장).
-// 이식된 순수 로직(src/server/geo-studio)을 화면에서 쓰도록 노출. 저장/영속화는 후속(Prisma 배선).
+// GEO Studio · M5 채널 플래너 — 서버 액션. 계산 + (선택)저장.
+// 이식된 순수 로직(src/server/geo-studio)을 화면에서 쓰도록 노출. 저장은 GeoCampaignPlan.
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireUser, runAction, type ActionResult } from "@/server/actions/_helpers";
+import { getDefaultOrgId } from "@/server/org";
+import { db } from "@/server/db";
 import { buildCampaign, campaignSummary } from "@/server/geo-studio/campaign";
 import { kpiProgressRows, kpiToRow } from "@/server/geo-studio/kpi";
 import { calendarView, upcomingDeadlines } from "@/server/geo-studio/calendar";
@@ -38,49 +41,90 @@ export type GeoPlanResult = {
   report: string;
 };
 
+/** 검증된 입력 → GeoPlanResult 계산(순수, 재사용). */
+function computePlan(d: z.infer<typeof planSchema>): GeoPlanResult {
+  const goal: GeoGoal = {
+    goalType: d.goalType,
+    targetValue: d.targetValue,
+    deadlineDays: d.deadlineDays,
+    budget: d.budget,
+    teamSize: d.teamSize
+  };
+  const current: CurrentState = {
+    citationRate: d.citationRate,
+    cepCoverage: d.cepCoverage,
+    taScore: d.taScore,
+    totalCeps: d.totalCeps,
+    coveredCeps: d.coveredCeps
+  };
+
+  const team = d.team && d.team.length ? d.team : undefined;
+  const campaign = buildCampaign(d.name, goal, current, d.industry, { team, priorityCepCount: d.priorityCepCount });
+  const summary = campaignSummary(campaign, current);
+
+  return {
+    campaign: {
+      name: campaign.name,
+      startDate: campaign.startDate,
+      endDate: campaign.endDate,
+      taskCount: campaign.tasks.length
+    },
+    summary: summary as Record<string, unknown>,
+    kpi: kpiProgressRows(goal, current).map(kpiToRow),
+    tasks: campaign.tasks.map(taskToRow),
+    calendar: calendarView(campaign.tasks),
+    upcoming: upcomingDeadlines(campaign.tasks, 7, campaign.startDate).map(taskToRow),
+    report: renderReport(summary as never, current)
+  };
+}
+
 /** 입력(목표·현재상태·업종·예산) → GEO 캠페인 계획을 계산해 반환. DB 저장 없음. */
 export async function planGeoCampaign(input: unknown): Promise<ActionResult<GeoPlanResult>> {
   return runAction(async () => {
     await requireUser();
     const p = planSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
+    return computePlan(p.data);
+  });
+}
+
+/** 계획을 계산 후 GeoCampaignPlan으로 저장. 목록 재열람용. */
+export async function saveGeoCampaignPlan(input: unknown): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const p = planSchema.safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
     const d = p.data;
+    const result = computePlan(d);
+    const orgId = await getDefaultOrgId();
 
-    const goal: GeoGoal = {
-      goalType: d.goalType,
-      targetValue: d.targetValue,
-      deadlineDays: d.deadlineDays,
-      budget: d.budget,
-      teamSize: d.teamSize
-    };
-    const current: CurrentState = {
-      citationRate: d.citationRate,
-      cepCoverage: d.cepCoverage,
-      taScore: d.taScore,
-      totalCeps: d.totalCeps,
-      coveredCeps: d.coveredCeps
-    };
-
-    const team = d.team && d.team.length ? d.team : undefined;
-    const campaign = buildCampaign(d.name, goal, current, d.industry, {
-      team,
-      priorityCepCount: d.priorityCepCount
+    const saved = await db.geoCampaignPlan.create({
+      data: {
+        orgId,
+        name: d.name,
+        industry: d.industry,
+        goalType: d.goalType,
+        budget: d.budget,
+        result: result as unknown as object,
+        report: result.report,
+        createdById: user.id
+      }
     });
-    const summary = campaignSummary(campaign, current);
+    revalidatePath("/geo-planner");
+    return { id: saved.id };
+  });
+}
 
-    return {
-      campaign: {
-        name: campaign.name,
-        startDate: campaign.startDate,
-        endDate: campaign.endDate,
-        taskCount: campaign.tasks.length
-      },
-      summary: summary as Record<string, unknown>,
-      kpi: kpiProgressRows(goal, current).map(kpiToRow),
-      tasks: campaign.tasks.map(taskToRow),
-      calendar: calendarView(campaign.tasks),
-      upcoming: upcomingDeadlines(campaign.tasks, 7, campaign.startDate).map(taskToRow),
-      report: renderReport(summary as never, current)
-    };
+/** 저장된 계획 삭제(작성자 본인만). */
+export async function deleteGeoCampaignPlan(input: unknown): Promise<ActionResult> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const p = z.object({ id: z.string().min(1) }).safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    const plan = await db.geoCampaignPlan.findUnique({ where: { id: p.data.id }, select: { createdById: true } });
+    if (!plan) throw new Error("NOT_FOUND");
+    if (plan.createdById !== user.id) throw new Error("FORBIDDEN");
+    await db.geoCampaignPlan.delete({ where: { id: p.data.id } });
+    revalidatePath("/geo-planner");
   });
 }
