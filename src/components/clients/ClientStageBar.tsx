@@ -4,7 +4,7 @@
 // 활성 5단계를 스테퍼로 보여주고, 담당자·관리자는 허용된 전이만 버튼으로 이동.
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Pause, XCircle, ArrowRight, RotateCcw } from "lucide-react";
+import { Pause, XCircle, ArrowRight, RotateCcw, Sparkles } from "lucide-react";
 import { transitionClientStage } from "@/server/actions/clients";
 import {
   ACTIVE_CLIENT_STAGES,
@@ -27,11 +27,13 @@ const STAGE_STEP_LABEL: Record<string, string> = {
 export function ClientStageBar({
   clientId,
   stage,
-  canManage
+  canManage,
+  suggested
 }: {
   clientId: string;
   stage: string;
   canManage: boolean;
+  suggested?: ClientStage | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -94,6 +96,22 @@ export function ClientStageBar({
       </div>
 
       <p className="mt-3 text-xs text-slate-500">{clientStageDescriptions[current]}</p>
+
+      {/* Phase 4 — 자동 전환 제안(데이터 조건 충족 시). 사람이 확인해 이동. */}
+      {suggested && suggested !== current && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-brand/30 bg-brand/5 px-3 py-2">
+          <Sparkles className="h-4 w-4 shrink-0 text-brand" />
+          <span className="text-xs text-slate-700">
+            <b className="text-brand-strong">{clientStageLabels[suggested]}</b> 단계 조건이 충족됐습니다. 다음 단계로 이동할까요?
+          </span>
+          {canManage && (
+            <button type="button" onClick={() => move(suggested)} disabled={pending}
+              className="ml-auto inline-flex items-center gap-1 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-strong disabled:opacity-50">
+              {clientStageLabels[suggested]}로 이동 <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
 
       {canManage && (
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">

@@ -6,7 +6,9 @@ import {
   clientStageLabels,
   clientStageProgress,
   isClientStage,
-  toClientStage
+  suggestNextStage,
+  toClientStage,
+  type StageSignals
 } from "./client-stages";
 
 describe("client-stages · 상태 정의", () => {
@@ -43,6 +45,24 @@ describe("client-stages · 전이 규칙", () => {
     expect(canTransitionClientStage("PAUSED", "GEO")).toBe(true);
     expect(canTransitionClientStage("CHURNED", "ONBOARDING")).toBe(true);
     expect(canTransitionClientStage("CHURNED", "LIVE")).toBe(false);
+  });
+});
+
+describe("client-stages · suggestNextStage(자동 전환 제안)", () => {
+  const none: StageSignals = { hasKeywords: false, hasGeoMonitoring: false, hasContentPlan: false, hasPublished: false };
+  it("신호 충족 시 다음 단계 제안, 유효한 전진만", () => {
+    expect(suggestNextStage("ONBOARDING", { ...none, hasKeywords: true })).toBe("KEYWORD");
+    expect(suggestNextStage("KEYWORD", { ...none, hasGeoMonitoring: true })).toBe("GEO");
+    expect(suggestNextStage("GEO", { ...none, hasContentPlan: true })).toBe("CONTENT");
+    expect(suggestNextStage("CONTENT", { ...none, hasPublished: true })).toBe("LIVE");
+    // 제안은 항상 유효한 전이
+    expect(canTransitionClientStage("ONBOARDING", "KEYWORD")).toBe(true);
+  });
+  it("신호 없으면 제안 없음, 운영·중지·해지는 제안 없음", () => {
+    expect(suggestNextStage("ONBOARDING", none)).toBeNull();
+    expect(suggestNextStage("KEYWORD", { ...none, hasKeywords: true })).toBeNull(); // GEO 신호 없음
+    expect(suggestNextStage("LIVE", { hasKeywords: true, hasGeoMonitoring: true, hasContentPlan: true, hasPublished: true })).toBeNull();
+    expect(suggestNextStage("PAUSED", none)).toBeNull();
   });
 });
 

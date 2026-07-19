@@ -3,6 +3,7 @@ import { ClientDetail } from "@/components/clients/ClientDetail";
 import { ClientStageBar } from "@/components/clients/ClientStageBar";
 import { ClientJourney } from "@/components/clients/ClientJourney";
 import { getClientJourney } from "@/server/repositories/journey";
+import { suggestNextStage, toClientStage } from "@/domain/sales/client-stages";
 import { GoogleIntegrationPanel } from "@/components/clients/GoogleIntegrationPanel";
 import { isGoogleConfigured } from "@/server/integrations/google";
 import { CommentThread } from "@/components/collab/CommentThread";
@@ -55,6 +56,15 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
     getClientJourney(id).catch(() => [])
   ]);
 
+  // Phase 4 — 데이터 신호로 다음 단계를 "제안"(사람 확인 후 이동). journey는 8단계 마일스톤.
+  const stageSignals = {
+    hasKeywords: journey.some((e) => e.stage === 6),
+    hasGeoMonitoring: journey.some((e) => e.stage === 7),
+    hasContentPlan: contentPlans.length > 0,
+    hasPublished: journey.some((e) => e.stage === 8)
+  };
+  const suggestedStage = suggestNextStage(toClientStage(detail.client.stage), stageSignals);
+
   const consulting = {
     aiConfigured: isAiConfigured(),
     defaults: {
@@ -79,7 +89,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   return (
     <div className="space-y-6">
       <a href="/clients" className="text-sm font-semibold text-brand-strong hover:underline">← 거래처 목록</a>
-      <ClientStageBar clientId={id} stage={detail.client.stage} canManage={canManage} />
+      <ClientStageBar clientId={id} stage={detail.client.stage} canManage={canManage} suggested={suggestedStage} />
       <ClientJourney events={journey} />
       <ClientDetail
         client={detail.client}

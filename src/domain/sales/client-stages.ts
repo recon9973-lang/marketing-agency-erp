@@ -83,3 +83,31 @@ export function clientStageProgress(stage: ClientStage): number {
   if (idx < 0) return 0;
   return Math.round((idx / (ACTIVE_CLIENT_STAGES.length - 1)) * 100);
 }
+
+// ── Phase 4: 이벤트 기반 단계 자동 전환(제안) ──
+// 데이터가 다음 단계 조건을 충족하면 전진을 "제안"한다(자동 이동 아님 — 사람 승인형 원칙).
+export type StageSignals = {
+  hasKeywords: boolean; // 키워드 등록됨 → 6단계 착수
+  hasGeoMonitoring: boolean; // GEO 질문/관측 있음 → 7단계
+  hasContentPlan: boolean; // 콘텐츠 기획 있음 → 8단계
+  hasPublished: boolean; // 콘텐츠 발행됨 → 운영
+};
+
+/**
+ * 현재 단계 + 신호 → 제안할 다음 단계(없으면 null).
+ * 각 제안은 상태머신상 유효한 전진(canTransitionClientStage 보장). 활성 단계에서만 제안.
+ */
+export function suggestNextStage(stage: ClientStage, s: StageSignals): ClientStage | null {
+  switch (stage) {
+    case "ONBOARDING":
+      return s.hasKeywords ? "KEYWORD" : null;
+    case "KEYWORD":
+      return s.hasGeoMonitoring ? "GEO" : null;
+    case "GEO":
+      return s.hasContentPlan ? "CONTENT" : null;
+    case "CONTENT":
+      return s.hasPublished ? "LIVE" : null;
+    default:
+      return null; // LIVE·PAUSED·CHURNED는 자동 제안 없음
+  }
+}
