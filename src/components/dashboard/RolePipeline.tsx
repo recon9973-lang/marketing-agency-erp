@@ -52,7 +52,7 @@ function stagesFor(role: Role, s: DashboardSummary, riskCount: number): Stage[] 
     { title: "제작", desc: "원고·이미지·카드뉴스", href: "/image-studio" as Route, tone: "violet" },
     { title: "의료법 검수", desc: "자동 검수·위험 수정", href: "/compliance" as Route, tone: "rose", metric: { label: "위험", value: String(riskCount) } },
     { title: "컨펌 요청", desc: "거래처 포털 컨펌", href: "/approvals" as Route, tone: "green", metric: { label: "대기", value: String(s.reviewNeededWorkCount) } },
-    { title: "게시·성과", desc: "순위·방문자 추적", href: "/reports" as Route, tone: "amber", metric: { label: "오늘", value: String(s.todayWorkCount) } }
+    { title: "게시·성과", desc: "순위·방문자 추적(발행은 관리자)", href: "/insights" as Route, tone: "amber", metric: { label: "오늘", value: String(s.todayWorkCount) } }
   ];
 }
 

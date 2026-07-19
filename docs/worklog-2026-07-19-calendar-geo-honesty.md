@@ -47,6 +47,18 @@
 - **구글 캘린더 실시간 양방향** — opt-in, 기존 OAuth 재사용.
 - **검색광고(NAVER_AD_*)** 키 추가 시 절대 월간 검색수 실측 활성화(현재 데이터랩만).
 
+## 전수 감사 (엔진·모듈 + 역할 워크플로우) 결과 및 조치
+
+병렬 조사로 전 모듈/엔진 상태 + 역할별 워크플로우 정합성 감사. 발견·조치:
+- **엔진**: 실측(geo-engine·ai/claude·네이버 프로바이더·marketing/research+guard-rank 크론), 목/시뮬(geo-studio M1~M5), 규칙(compliance·geo-content). 실측 GEO는 `/geo`뿐, `/geo-*studio`는 목.
+- **역할**: 3종(SUPER_ADMIN·ADMIN·MARKETER). 고객은 역할 아님 → 토큰 공개페이지(portal/sign/survey/pay). 서버 스코프·assertCanAccessClient 일관, 권한상승 방지 견고.
+- **수정 완료**:
+  - `/geo-studio` 정직 배너 누락 → 추가(GEO 5화면 배지 완비).
+  - **D-1** `/finance` 역할 가드 누락(마케터가 URL 직접진입 시 재무 열람) → finance layout에 MARKETER 리다이렉트.
+  - **D-2** 마케터 파이프라인 종착(/reports 검수 차단) → `/insights`로 변경 + "발행은 관리자" 명시.
+  - **D-3** deniedFeatures가 액션 계층 미검증 → `assertFeature` 헬퍼로 finance/contracts/leads/leave 전 액션 재검증(심층 방어).
+- **미조치(정보/후속)**: 비영속 GEO 산출물(저장 안 함), ai/claude·ai/image 테스트 부재, middleware 중앙 역할가드 부재(구조).
+
 ## 검증 한계
 샌드박스가 Neon DB·프로덕션(프록시 403)에 도달 불가 → DB 의존 화면 라이브 스크린샷 불가.
 정합성은 `tsc` 0 + vitest(225 통과) + 클라/서버 경계 확인으로 검증. 실동작은 배포 환경에서 위 체크리스트로 확인.

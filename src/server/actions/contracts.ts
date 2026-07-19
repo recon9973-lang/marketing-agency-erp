@@ -21,6 +21,7 @@ import {
   getAdminScopes,
   recordAudit,
   requestMeta,
+  assertFeature,
   requireUser,
   runAction,
   type ActionResult
@@ -128,6 +129,7 @@ function resolveBody(args: { body?: string | null; details?: ContractDetails | n
 export async function createContract(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "contracts");
     const p = createSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const d = p.data;
@@ -190,6 +192,7 @@ const updateSchema = z.object({
 export async function updateContract(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "contracts");
     const p = updateSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const d = p.data;
@@ -311,6 +314,7 @@ function parseDefaultTasks(
 export async function signContract(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "contracts");
     const p = signSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const d = p.data;
@@ -425,6 +429,7 @@ async function generateWorkItems(
 export async function createSignLink(input: unknown): Promise<ActionResult<{ token: string }>> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "contracts");
     const p = z.object({ id: z.string().min(1), regenerate: z.boolean().optional() }).safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const existing = await db.contract.findUnique({ where: { id: p.data.id }, include: { client: { select: { assignedMarketerId: true } } } });
@@ -487,6 +492,7 @@ export async function signContractByToken(input: unknown): Promise<ActionResult>
 export async function deleteContract(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "contracts");
     const p = z.object({ id: z.string().min(1) }).safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const existing = await db.contract.findUnique({ where: { id: p.data.id } });

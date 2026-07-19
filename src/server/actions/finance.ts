@@ -15,6 +15,7 @@ import {
   getAdminScopes,
   recordAudit,
   requestMeta,
+  assertFeature,
   requireUser,
   runAction,
   type ActionResult
@@ -41,6 +42,7 @@ const billingSchema = z.object({
 export async function createBilling(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "finance");
     const p = billingSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const d = p.data;
@@ -87,6 +89,7 @@ const paymentSchema = z.object({
 export async function recordPayment(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "finance");
     const p = paymentSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const d = p.data;
@@ -139,6 +142,7 @@ const importSchema = z.object({
 export async function importBankTransactions(input: unknown): Promise<ActionResult<{ count: number }>> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "finance");
     if (user.role === Role.MARKETER) throw new Error("FORBIDDEN");
     const p = importSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
@@ -170,6 +174,7 @@ export async function importBankTransactions(input: unknown): Promise<ActionResu
 export async function suggestBankMatches(): Promise<ActionResult<Array<{ bankTxId: string; billingId: string; score: number }>>> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "finance");
     if (user.role === Role.MARKETER) throw new Error("FORBIDDEN");
 
     const [txs, bills] = await Promise.all([
@@ -200,6 +205,7 @@ export async function suggestBankMatches(): Promise<ActionResult<Array<{ bankTxI
 export async function confirmBankMatch(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "finance");
     if (user.role === Role.MARKETER) throw new Error("FORBIDDEN");
     const p = z.object({ bankTxId: z.string().min(1), billingId: z.string().min(1) }).safeParse(input);
     if (!p.success) throw new Error("VALIDATION");

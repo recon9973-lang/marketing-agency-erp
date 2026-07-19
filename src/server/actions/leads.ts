@@ -24,6 +24,7 @@ import { getDefaultOrgId } from "@/server/org";
 import {
   recordAudit,
   requestMeta,
+  assertFeature,
   requireUser,
   runAction,
   type ActionResult
@@ -65,6 +66,7 @@ const createSchema = z.object({
 export async function createLead(input: unknown): Promise<ActionResult<{ id: string; duplicates: string[] }>> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "leads");
     const p = createSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const d = p.data;
@@ -132,6 +134,7 @@ const updateSchema = createSchema.partial().omit({ consent: true }).extend({
 export async function updateLead(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "leads");
     const p = updateSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const { id, ...d } = p.data;
@@ -185,6 +188,7 @@ const transitionSchema = z.object({
 export async function transitionLead(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "leads");
     const p = transitionSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const d = p.data;
@@ -235,6 +239,7 @@ const auditSchema = z.object({
 export async function saveLeadAudit(input: unknown): Promise<ActionResult<{ score: number }>> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "leads");
     const p = auditSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const d = p.data;
@@ -277,6 +282,7 @@ export async function runLeadSeoAudit(
 ): Promise<ActionResult<{ score: number; grade: string; version: string }>> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "leads");
     const p = engineAuditSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const d = p.data;
@@ -337,6 +343,7 @@ const convertSchema = z.object({ id: z.string().min(1) });
 export async function convertLeadToClient(input: unknown): Promise<ActionResult<{ clientId: string }>> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "leads");
     const p = convertSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const existing = await db.lead.findUnique({ where: { id: p.data.id } });
@@ -419,6 +426,7 @@ export async function convertLeadToClient(input: unknown): Promise<ActionResult<
 export async function deleteLead(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "leads");
     if (user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN) throw new Error("FORBIDDEN");
     const p = z.object({ id: z.string().min(1) }).safeParse(input);
     if (!p.success) throw new Error("VALIDATION");

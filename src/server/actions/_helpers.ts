@@ -17,6 +17,7 @@ import { headers } from "next/headers";
 
 import { Role } from "@/domain/types";
 import type { AccessScopeRecord } from "@/domain/access-control";
+import { canUseFeature, type FeatureKey } from "@/domain/features";
 import { db } from "@/server/db";
 import { getCurrentUser, type CurrentUser } from "@/server/session";
 
@@ -31,6 +32,14 @@ export async function requireUser(): Promise<CurrentUser> {
     throw new Error("UNAUTHENTICATED");
   }
   return user;
+}
+
+/** 기능 차단(deniedFeatures) 축을 서버 액션 계층에서도 재검증. 화면 진입 가드(layout)를
+ *  우회해 액션을 직접 호출하는 경우까지 막는다(심층 방어). 차단 시 throw. */
+export function assertFeature(user: CurrentUser, key: FeatureKey): void {
+  if (!canUseFeature(user.role, user.deniedFeatures ?? [], key)) {
+    throw new Error("FEATURE_DENIED");
+  }
 }
 
 /** ADMIN의 접근 범위를 로드. SUPER_ADMIN/MARKETER는 scope가 필요없어 빈 배열. */
@@ -105,6 +114,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   UNAUTHENTICATED: "로그인이 필요합니다.",
   FORBIDDEN_CLIENT_ACCESS: "이 거래처에 접근할 권한이 없습니다.",
   FORBIDDEN: "권한이 없습니다.",
+  FEATURE_DENIED: "이 기능에 대한 접근이 차단되어 있습니다.",
   ILLEGAL_TRANSITION: "허용되지 않은 상태 변경입니다.",
   DUPLICATE_CLIENT_CODE: "이미 사용 중인 거래처 코드입니다.",
   NOT_FOUND: "대상을 찾을 수 없습니다.",

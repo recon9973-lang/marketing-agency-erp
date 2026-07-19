@@ -13,6 +13,7 @@ import { db } from "@/server/db";
 import {
   recordAudit,
   requestMeta,
+  assertFeature,
   requireUser,
   runAction,
   type ActionResult
@@ -29,6 +30,7 @@ const requestSchema = z.object({
 export async function requestLeave(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "leave");
     const p = requestSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const d = p.data;
@@ -64,6 +66,7 @@ function assertApprover(role: Role) {
 export async function approveLeave(id: string): Promise<ActionResult> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "leave");
     assertApprover(user.role);
     const req = await db.leaveRequest.findUnique({ where: { id } });
     if (!req) throw new Error("NOT_FOUND");
@@ -103,6 +106,7 @@ export async function approveLeave(id: string): Promise<ActionResult> {
 export async function rejectLeave(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "leave");
     assertApprover(user.role);
     const p = z.object({ id: z.string().min(1), reason: z.string().trim().optional().nullable() }).safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
@@ -126,6 +130,7 @@ export async function rejectLeave(input: unknown): Promise<ActionResult> {
 export async function cancelLeave(id: string): Promise<ActionResult> {
   return runAction(async () => {
     const user = await requireUser();
+    assertFeature(user, "leave");
     const req = await db.leaveRequest.findUnique({ where: { id } });
     if (!req) throw new Error("NOT_FOUND");
     const isOwner = req.requesterId === user.id;
