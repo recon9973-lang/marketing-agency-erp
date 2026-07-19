@@ -36,6 +36,16 @@ const schema = z
   })
   .refine((d) => d.endTime >= d.startTime, { message: "END_BEFORE_START" });
 
+// 담당자 배정 권한: 본인은 항상 가능. 타인 배정은 관리자 스코프 내에서만.
+async function assertCanAssign(user: Awaited<ReturnType<typeof requireUser>>, assigneeId: string | null) {
+  if (!assigneeId || assigneeId === user.id) return;
+  if (user.role === Role.MARKETER) throw new Error("FORBIDDEN");
+  const scopes = await getAdminScopes(user);
+  if (!canAccessMarketer(user, assigneeId, scopes)) throw new Error("FORBIDDEN");
+  const target = await db.user.findUnique({ where: { id: assigneeId }, select: { id: true } });
+  if (!target) throw new Error("NOT_FOUND");
+}
+
 export async function createCalendarEvent(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const user = await requireUser();
@@ -43,15 +53,8 @@ export async function createCalendarEvent(input: unknown): Promise<ActionResult<
     if (!p.success) throw new Error("VALIDATION");
     const d = p.data;
 
-    // 담당자 배정 권한: 본인은 항상 가능. 타인 배정은 관리자 스코프 내에서만.
     const assigneeId = d.assigneeId || null;
-    if (assigneeId && assigneeId !== user.id) {
-      if (user.role === Role.MARKETER) throw new Error("FORBIDDEN");
-      const scopes = await getAdminScopes(user);
-      if (!canAccessMarketer(user, assigneeId, scopes)) throw new Error("FORBIDDEN");
-      const target = await db.user.findUnique({ where: { id: assigneeId }, select: { id: true } });
-      if (!target) throw new Error("NOT_FOUND");
-    }
+    await assertCanAssign(user, assigneeId);
 
     const startsAt = kstToUtc(d.date, d.startTime);
     const endsAt = kstToUtc(d.date, d.endTime);
@@ -84,6 +87,68 @@ export async function createCalendarEvent(input: unknown): Promise<ActionResult<
 
     revalidatePath("/calendar");
     return { id: saved.id };
+  });
+}
+
+export async function updateCalendarEvent(input: unknown): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const p = z
+      .object({
+        id: z.string().min(1),
+        title: z.string().trim().min(1).max(120),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        startTime: z.string().regex(/^\d{2}:\d{2}$/),
+        endTime: z.string().regex(/^\d{2}:\d{2}$/),
+        kind: z.enum(KINDS),
+        assigneeId: z.string().min(1).optional().nullable(),
+        description: z.string().trim().max(500).optional().nullable()
+      })
+      .refine((d) => d.endTime >= d.startTime, { message: "END_BEFORE_START" })
+      .safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    const d = p.data;
+
+    const event = await db.calendarEvent.findUnique({
+      where: { id: d.id },
+      select: { id: true, provider: true, createdById: true, assigneeId: true, workItemId: true, leaveRequestId: true, reportId: true }
+    });
+    if (!event) throw new Error("NOT_FOUND");
+    if (event.provider !== "INTERNAL" || event.workItemId || event.leaveRequestId || event.reportId) {
+      throw new Error("SYSTEM_EVENT");
+    }
+    const isManager = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
+    const isOwnerish = event.createdById === user.id || event.assigneeId === user.id;
+    if (!isOwnerish && !isManager) throw new Error("FORBIDDEN");
+
+    const assigneeId = d.assigneeId || null;
+    await assertCanAssign(user, assigneeId);
+
+    const meta = await requestMeta();
+    await db.$transaction(async (tx) => {
+      await tx.calendarEvent.update({
+        where: { id: event.id },
+        data: {
+          title: d.title,
+          description: d.description || null,
+          startsAt: kstToUtc(d.date, d.startTime),
+          endsAt: kstToUtc(d.date, d.endTime),
+          kind: d.kind,
+          assigneeId: assigneeId ?? event.assigneeId ?? user.id
+        }
+      });
+      await recordAudit(tx, {
+        actorId: user.id,
+        action: "calendar.event.update",
+        targetType: "CalendarEvent",
+        targetId: event.id,
+        afterState: { title: d.title, kind: d.kind, assigneeId: assigneeId ?? event.assigneeId },
+        ...meta
+      });
+    });
+
+    revalidatePath("/calendar");
+    return { id: event.id };
   });
 }
 

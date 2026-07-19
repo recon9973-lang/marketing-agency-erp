@@ -20,6 +20,9 @@ export type CalendarListItem = {
   kind: CalendarEventKind;
   syncStatus: ConnectionStatus;
   clientName: string | null;
+  assigneeId: string | null;
+  // 사람이 만든 독립 일정만 수정·삭제 가능(업무·연차·리포트 연결 이벤트는 원천에서만 관리).
+  editable: boolean;
 };
 
 export const calendarKindLabels: Record<CalendarEventKind, string> = {
@@ -120,6 +123,11 @@ export async function fetchTeamCalendarEvents(user: CurrentUser): Promise<TeamCa
       provider: true,
       kind: true,
       syncStatus: true,
+      createdById: true,
+      assigneeId: true,
+      workItemId: true,
+      leaveRequestId: true,
+      reportId: true,
       client: { select: { name: true } },
       assignee: { select: { name: true } },
       workItem: { select: { owner: { select: { name: true } } } },
@@ -128,6 +136,7 @@ export async function fetchTeamCalendarEvents(user: CurrentUser): Promise<TeamCa
     }
   });
 
+  // 관리자 뷰 — 스코프 내 독립 이벤트는 수정·삭제 가능(시스템 이벤트 제외).
   return events.map((event) => ({
     id: event.id,
     title: event.title,
@@ -138,6 +147,12 @@ export async function fetchTeamCalendarEvents(user: CurrentUser): Promise<TeamCa
     kind: event.kind,
     syncStatus: event.syncStatus,
     clientName: event.client?.name ?? null,
+    assigneeId: event.assigneeId,
+    editable:
+      event.provider === CalendarProvider.INTERNAL &&
+      !event.workItemId &&
+      !event.leaveRequestId &&
+      !event.reportId,
     // 직접 배정(assignee) 우선 → 업무 담당자 → 연차 신청자 → 생성자 순으로 파생.
     ownerName: event.assignee?.name ?? event.workItem?.owner?.name ?? event.leaveRequest?.requester?.name ?? event.createdBy?.name ?? "미배정"
   }));
@@ -157,12 +172,18 @@ export async function fetchCalendarEventsForUser(user: CurrentUser): Promise<Cal
       provider: true,
       kind: true,
       syncStatus: true,
+      createdById: true,
+      assigneeId: true,
+      workItemId: true,
+      leaveRequestId: true,
+      reportId: true,
       client: {
         select: { name: true }
       }
     }
   });
 
+  const isManager = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
   return events.map((event) => ({
     id: event.id,
     title: event.title,
@@ -172,6 +193,14 @@ export async function fetchCalendarEventsForUser(user: CurrentUser): Promise<Cal
     provider: event.provider,
     kind: event.kind,
     syncStatus: event.syncStatus,
-    clientName: event.client?.name ?? null
+    clientName: event.client?.name ?? null,
+    assigneeId: event.assigneeId,
+    // 독립 INTERNAL 이벤트 + (관리자 또는 생성자/담당자 본인)일 때만 수정·삭제 허용.
+    editable:
+      event.provider === CalendarProvider.INTERNAL &&
+      !event.workItemId &&
+      !event.leaveRequestId &&
+      !event.reportId &&
+      (isManager || event.createdById === user.id || event.assigneeId === user.id)
   }));
 }

@@ -3,6 +3,7 @@ import { CalendarScheduler } from "@/components/calendar/CalendarScheduler";
 import { MonthCalendar, type GridEvent } from "@/components/calendar/MonthCalendar";
 import { WeekCalendar, type WeekEvent } from "@/components/calendar/WeekCalendar";
 import { CalendarEventForm } from "@/components/calendar/CalendarEventForm";
+import { CalendarEventRow } from "@/components/calendar/CalendarEventRow";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { listActiveMembers } from "@/server/repositories/collab";
 import { calendarKindLabels, fetchCalendarEventsForUser, fetchTeamCalendarEvents, type CalendarListItem, type TeamCalendarItem } from "@/server/repositories/calendar";
@@ -53,29 +54,6 @@ function groupByOwner(events: TeamCalendarItem[]) {
   }, {});
 }
 
-function providerLabel(provider: CalendarProvider) {
-  if (provider === CalendarProvider.GOOGLE) return "Google";
-  if (provider === CalendarProvider.NAVER) return "Naver";
-  return "Internal";
-}
-
-function EventRow({ event }: { event: CalendarListItem }) {
-  return (
-    <li className="grid grid-cols-1 gap-3 border-t border-line py-4 md:grid-cols-[9rem_1fr_8rem] md:items-center">
-      <div className="text-sm text-slate-500">
-        {timeFormatter.format(event.startsAt)} - {timeFormatter.format(event.endsAt)}
-      </div>
-      <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={kindBadge(event.kind)}>{calendarKindLabels[event.kind]}</span>
-          <p className="font-medium text-ink">{event.title}</p>
-        </div>
-        <p className="mt-1 text-sm text-slate-600">{event.clientName ?? event.description ?? "사내 일정"}</p>
-      </div>
-      <div className="text-sm text-slate-500">{providerLabel(event.provider)}</div>
-    </li>
-  );
-}
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await getCurrentUser();
@@ -274,7 +252,30 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
               <h3 className="text-sm font-semibold text-brand">{dateFormatter.format(new Date(`${day}T00:00:00.000Z`))}</h3>
               <ul className="mt-2">
                 {dayEvents.map((event) => (
-                  <EventRow key={event.id} event={event} />
+                  <CalendarEventRow
+                    key={event.id}
+                    timeLabel={`${timeFormatter.format(event.startsAt)} - ${timeFormatter.format(event.endsAt)}`}
+                    kindLabel={calendarKindLabels[event.kind]}
+                    toneClass={kindBadge(event.kind)}
+                    title={event.title}
+                    subtitle={event.clientName ?? event.description ?? "사내 일정"}
+                    editable={event.editable}
+                    initial={{
+                      id: event.id,
+                      title: event.title,
+                      date: dayKeyFormatter.format(event.startsAt),
+                      startTime: kstHmFormatter.format(event.startsAt),
+                      endTime: kstHmFormatter.format(event.endsAt),
+                      kind: event.kind,
+                      assigneeId: event.assigneeId,
+                      description: event.description ?? ""
+                    }}
+                    members={members}
+                    canAssignOthers={isManager}
+                    selfId={user.id}
+                    selfName={user.name}
+                    defaultDate={defaultDate}
+                  />
                 ))}
               </ul>
             </div>

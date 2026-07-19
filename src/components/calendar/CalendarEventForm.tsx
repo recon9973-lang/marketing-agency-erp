@@ -1,14 +1,25 @@
 "use client";
 
-// 자체 캘린더 · 일정 추가 폼(C4) — 독립 일정 생성 + 담당자 직접배정.
-// 접이식. 관리자는 담당자 지정 가능, 담당자는 본인 일정으로 자동 생성.
+// 자체 캘린더 · 일정 폼(C4) — 독립 일정 생성/수정 + 담당자 직접배정.
 // 제어 컴포넌트(useState) — FormData 대신 상태로 안정 처리(코드베이스 폼 규약과 일치).
+// mode="create": "일정 추가" 트리거 버튼 + 접이식 폼. mode="edit": 인라인(항상 열림).
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarPlus } from "lucide-react";
-import { createCalendarEvent } from "@/server/actions/calendar-event";
+import { createCalendarEvent, updateCalendarEvent } from "@/server/actions/calendar-event";
 
 type Member = { id: string; name: string };
+
+export type EventInitial = {
+  id: string;
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  kind: string;
+  assigneeId: string | null;
+  description: string;
+};
 
 const KIND_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "TASK", label: "업무" },
@@ -18,7 +29,6 @@ const KIND_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 const field = "mt-1 w-full rounded-md border border-line bg-card px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand";
-// 날짜/시간 박스 아무 곳이나 클릭하면 네이티브 피커 열기(아이콘 클릭 강제 해제). 커서도 포인터.
 const pickerField = `${field} cursor-pointer`;
 function openPicker(e: React.MouseEvent<HTMLInputElement>) {
   const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
@@ -42,45 +52,42 @@ export function CalendarEventForm({
   canAssignOthers,
   selfId,
   selfName,
-  defaultDate
+  defaultDate,
+  mode = "create",
+  initial,
+  onClose
 }: {
   members: Member[];
   canAssignOthers: boolean;
   selfId: string;
   selfName: string;
   defaultDate: string; // YYYY-MM-DD (현재 뷰 기준일)
+  mode?: "create" | "edit";
+  initial?: EventInitial; // edit 모드 초기값
+  onClose?: () => void; // edit 모드 닫기
 }) {
+  const isEdit = mode === "edit";
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(isEdit); // edit는 항상 열림
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  // 담당자 후보 — 로그인 본인을 맨 위로(기본 선택). 관리자만 타인 배정 가능.
+  // 담당자 후보 — 로그인 본인을 맨 위로. 관리자만 타인 배정 가능.
   const options: Member[] = canAssignOthers
     ? [{ id: selfId, name: selfName }, ...members.filter((m) => m.id !== selfId)]
     : [{ id: selfId, name: selfName }];
 
-  // 제어 상태.
-  const [title, setTitle] = useState("");
-  const [date, setDate] = useState(defaultDate);
-  const [startTime, setStartTime] = useState("10:00");
-  const [endTime, setEndTime] = useState("11:00");
-  const [endManual, setEndManual] = useState(false); // 사용자가 종료를 직접 바꿨는지
-  const [kind, setKind] = useState("TASK");
-  const [assigneeId, setAssigneeId] = useState(selfId); // 로그인 계정 자동 선택
-  const [description, setDescription] = useState("");
+  // 제어 상태(edit면 초기값 시드).
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [date, setDate] = useState(initial?.date ?? defaultDate);
+  const [startTime, setStartTime] = useState(initial?.startTime ?? "10:00");
+  const [endTime, setEndTime] = useState(initial?.endTime ?? "11:00");
+  const [endManual, setEndManual] = useState(isEdit); // 수정 시 종료는 사용자 값 유지
+  const [kind, setKind] = useState(initial?.kind ?? "TASK");
+  const [assigneeId, setAssigneeId] = useState(initial?.assigneeId ?? selfId);
+  const [description, setDescription] = useState(initial?.description ?? "");
 
-  // 시작 시각 변경 시 종료를 +1시간으로 자동 세팅(사용자가 종료를 직접 조정했다면 유지).
-  function onStartChange(v: string) {
-    setStartTime(v);
-    if (!endManual) setEndTime(addOneHour(v));
-  }
-  function onEndChange(v: string) {
-    setEndTime(v);
-    setEndManual(true);
-  }
-
-  function reset() {
+  function resetCreate() {
     setTitle("");
     setDate(defaultDate);
     setStartTime("10:00");
@@ -90,6 +97,15 @@ export function CalendarEventForm({
     setAssigneeId(selfId);
     setDescription("");
     setError(null);
+  }
+
+  function onStartChange(v: string) {
+    setStartTime(v);
+    if (!endManual) setEndTime(addOneHour(v));
+  }
+  function onEndChange(v: string) {
+    setEndTime(v);
+    setEndManual(true);
   }
 
   function submit() {
@@ -103,7 +119,7 @@ export function CalendarEventForm({
       return;
     }
     start(async () => {
-      const res = await createCalendarEvent({
+      const payload = {
         title: title.trim(),
         date,
         startTime,
@@ -111,19 +127,28 @@ export function CalendarEventForm({
         kind,
         assigneeId: canAssignOthers ? assigneeId : selfId,
         description: description.trim() || null
-      });
+      };
+      const res = isEdit
+        ? await updateCalendarEvent({ id: initial!.id, ...payload })
+        : await createCalendarEvent(payload);
       if (!res.ok) {
         setError(
           res.error === "FORBIDDEN"
             ? "해당 담당자에게 배정할 권한이 없습니다."
-            : res.error === "VALIDATION"
-              ? "입력값을 확인하세요(제목·날짜·시간)."
-              : "일정 저장에 실패했습니다. 다시 시도해 주세요."
+            : res.error === "SYSTEM_EVENT"
+              ? "업무·연차 연결 일정은 수정할 수 없습니다."
+              : res.error === "VALIDATION"
+                ? "입력값을 확인하세요(제목·날짜·시간)."
+                : "저장에 실패했습니다. 다시 시도해 주세요."
         );
         return;
       }
-      reset();
-      setOpen(false);
+      if (isEdit) {
+        onClose?.();
+      } else {
+        resetCreate();
+        setOpen(false);
+      }
       router.refresh();
     });
   }
@@ -143,8 +168,14 @@ export function CalendarEventForm({
   return (
     <div className="rounded-2xl border border-line bg-card p-4">
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm font-bold text-ink">새 일정</p>
-        <button type="button" onClick={() => { reset(); setOpen(false); }} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
+        <p className="text-sm font-bold text-ink">{isEdit ? "일정 수정" : "새 일정"}</p>
+        <button
+          type="button"
+          onClick={() => { if (isEdit) onClose?.(); else { resetCreate(); setOpen(false); } }}
+          className="text-xs text-slate-400 hover:text-slate-600"
+        >
+          닫기
+        </button>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block text-xs font-medium text-slate-600 sm:col-span-2">제목
@@ -186,7 +217,7 @@ export function CalendarEventForm({
       {error ? <p className="mt-2 text-sm text-danger">{error}</p> : null}
       <div className="mt-3 flex justify-end">
         <button type="button" onClick={submit} disabled={pending} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
-          {pending ? "저장 중…" : "일정 저장"}
+          {pending ? "저장 중…" : isEdit ? "수정 저장" : "일정 저장"}
         </button>
       </div>
     </div>
