@@ -5,7 +5,7 @@ import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { CreateContractForm } from "@/components/contracts/CreateContractForm";
 import { fetchContractsForUser, type ContractListItem } from "@/server/repositories/contracts";
-import { listClientsForUser } from "@/server/repositories/clients";
+import { listClientsForContractForm } from "@/server/repositories/clients";
 import { listTemplatesForUse } from "@/server/repositories/document-templates";
 import { getCurrentUser } from "@/server/session";
 
@@ -47,7 +47,7 @@ export default async function ContractsPage() {
 
   const [contracts, clients, templates] = await Promise.all([
     fetchContractsForUser(user),
-    listClientsForUser(user),
+    listClientsForContractForm(user),
     listTemplatesForUse(["CONTRACT", "CLIENT"], user.role)
   ]);
 

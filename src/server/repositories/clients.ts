@@ -151,6 +151,35 @@ export async function listClientsForUser(user: CurrentUser) {
   }));
 }
 
+/**
+ * 계약서 폼 인계용 거래처 목록 — 이미 아는 정보(사업자번호·대표자·주소·월광고비)를 함께 반환해
+ * 계약 작성 시 재입력을 없앤다. 주소는 최신 컨설팅 보고서 → 지역 순으로 채운다.
+ */
+export async function listClientsForContractForm(user: CurrentUser) {
+  const where = await clientScopeWhere(user);
+  const clients = await db.client.findMany({
+    where: { ...where, active: true },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      businessNumber: true,
+      contactName: true,
+      region: true,
+      monthlyContractFee: true,
+      consultingReports: { orderBy: { createdAt: "desc" }, take: 1, select: { address: true } }
+    }
+  });
+  return clients.map((c) => ({
+    id: c.id,
+    name: c.name,
+    businessNumber: c.businessNumber ?? null,
+    contactName: c.contactName ?? null,
+    address: c.consultingReports[0]?.address ?? c.region ?? null,
+    monthlyFee: c.monthlyContractFee != null ? Number(c.monthlyContractFee) : null
+  }));
+}
+
 /** 거래처 상세 (권한 스코프 적용). 접근 불가/미존재 시 null → 페이지는 notFound 처리. */
 export async function getClientDetail(user: CurrentUser, clientId: string) {
   const client = await db.client.findUnique({

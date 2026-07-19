@@ -137,12 +137,15 @@ export async function createContract(input: unknown): Promise<ActionResult<{ id:
     // 거래처: 기존 선택(clientId) 또는 신규 거래처명(clientName)으로 자동 생성.
     let clientId: string;
     let clientName: string;
+    // 기존 거래처의 현재 갑 정보 — 계약에서 입력한 값으로 빈 칸을 역-백필하기 위해 보관.
+    let existingClient: { businessNumber: string | null; contactName: string | null; region: string | null; monthlyContractFee: unknown } | null = null;
     if (d.clientId) {
       const client = await db.client.findUnique({ where: { id: d.clientId } });
       if (!client) throw new Error("NOT_FOUND");
       await assertClient(user, d.clientId, client.assignedMarketerId);
       clientId = d.clientId;
       clientName = client.name;
+      existingClient = { businessNumber: client.businessNumber, contactName: client.contactName, region: client.region, monthlyContractFee: client.monthlyContractFee };
     } else {
       clientName = (d.clientName ?? "").trim();
       if (!clientName) throw new Error("VALIDATION");
@@ -170,6 +173,16 @@ export async function createContract(input: unknown): Promise<ActionResult<{ id:
           status: "DRAFT"
         }
       });
+      // 역방향 인계 — 기존 거래처에 없던 갑 정보(사업자번호·대표자·주소·월광고비)를
+      // 계약 입력값으로 채워 다음 단계에서 재사용(빈 칸만, 기존 값은 보존).
+      if (existingClient) {
+        const patch: Record<string, unknown> = {};
+        if (!existingClient.businessNumber && d.details?.clientBizNo) patch.businessNumber = d.details.clientBizNo;
+        if (!existingClient.contactName && d.details?.clientCeo) patch.contactName = d.details.clientCeo;
+        if (!existingClient.region && d.details?.clientAddress) patch.region = d.details.clientAddress;
+        if (existingClient.monthlyContractFee == null && d.amount != null) patch.monthlyContractFee = d.amount;
+        if (Object.keys(patch).length) await tx.client.update({ where: { id: clientId }, data: patch });
+      }
       await recordAudit(tx, { actorId: user.id, action: "contract.create", targetType: "Contract", targetId: contract.id, afterState: { title: contract.title, clientId: contract.clientId, guaranteeClaimWarnings: guaranteeFlags }, ...meta });
       return contract;
     });

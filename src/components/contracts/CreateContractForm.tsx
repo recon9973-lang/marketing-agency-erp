@@ -10,8 +10,17 @@ const labelCls = "text-xs font-semibold text-slate-500";
 
 type Template = { id: string; name: string; title: string; body: string };
 type Mode = "ad" | "free";
+// 인계용 거래처 옵션 — 이미 아는 갑 정보를 담아 계약 폼 자동 채움.
+type ClientOption = {
+  id: string;
+  name: string;
+  businessNumber?: string | null;
+  contactName?: string | null;
+  address?: string | null;
+  monthlyFee?: number | null;
+};
 
-export function CreateContractForm({ clients, templates }: { clients: { id: string; name: string }[]; templates: Template[] }) {
+export function CreateContractForm({ clients, templates }: { clients: ClientOption[]; templates: Template[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -21,6 +30,7 @@ export function CreateContractForm({ clients, templates }: { clients: { id: stri
   // 공통 — 거래처: 신규 거래처명(기본) 또는 기존 거래처 선택
   const [clientName, setClientName] = useState("");
   const [existingClientId, setExistingClientId] = useState("");
+  const [prefilled, setPrefilled] = useState(false); // 기존 거래처 정보 자동 채움 여부(안내용)
   const [title, setTitle] = useState("광고 업무 대행 계약서");
   const [amount, setAmount] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -89,6 +99,19 @@ export function CreateContractForm({ clients, templates }: { clients: { id: stri
     setScopeSel((prev) => [...prev, { label, group: "etc", qty: 1 }]);
     setEtcInput("");
   }
+  // 기존 거래처 선택 → 이미 아는 정보로 빈 칸만 자동 채움(사용자가 입력한 값은 보존).
+  function pickExistingClient(id: string) {
+    setExistingClientId(id);
+    const c = clients.find((x) => x.id === id);
+    if (!c) return;
+    setClientName(c.name);
+    setPrefilled(Boolean(c.businessNumber || c.contactName || c.address || c.monthlyFee != null));
+    if (c.monthlyFee != null && !amount) setAmount(String(c.monthlyFee));
+    if (c.businessNumber && !clientBizNo) setClientBizNo(c.businessNumber);
+    if (c.contactName && !clientCeo) setClientCeo(c.contactName);
+    if (c.address && !clientAddress) setClientAddress(c.address);
+  }
+
   function applyTemplate(templateId: string) {
     const tpl = templates.find((t) => t.id === templateId);
     if (!tpl) return;
@@ -156,13 +179,14 @@ export function CreateContractForm({ clients, templates }: { clients: { id: stri
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <label className="block">
           <span className={labelCls}>거래처명(갑) *</span>
-          <input value={clientName} onChange={(e) => { setClientName(e.target.value); setExistingClientId(""); }} disabled={Boolean(existingClientId)} placeholder="예: 미소진치과 (신규는 계약 생성 시 자동 등록)" className={inputCls} />
+          <input value={clientName} onChange={(e) => { setClientName(e.target.value); setExistingClientId(""); setPrefilled(false); }} disabled={Boolean(existingClientId)} placeholder="예: 미소진치과 (신규는 계약 생성 시 자동 등록)" className={inputCls} />
           {clients.length > 0 ? (
-            <select value={existingClientId} onChange={(e) => { setExistingClientId(e.target.value); const c = clients.find((x) => x.id === e.target.value); if (c) setClientName(c.name); }} className={`${inputCls} mt-1.5 text-xs`}>
+            <select value={existingClientId} onChange={(e) => { if (e.target.value) pickExistingClient(e.target.value); else { setExistingClientId(""); setPrefilled(false); } }} className={`${inputCls} mt-1.5 text-xs`}>
               <option value="">＋ 신규 거래처로 등록 (위에 이름 입력)</option>
               {clients.map((c) => <option key={c.id} value={c.id}>기존: {c.name}</option>)}
             </select>
           ) : null}
+          {prefilled ? <p className="mt-1 text-[11px] font-medium text-emerald-600">✓ 기존 정보(사업자번호·대표자·주소·월광고비)를 불러왔습니다. 필요 시 수정하세요.</p> : null}
         </label>
         <label className="block">
           <span className={labelCls}>계약명 *</span>
