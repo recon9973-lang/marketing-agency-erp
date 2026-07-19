@@ -8,6 +8,7 @@
 import { db } from "@/server/db";
 import { configuredEngines } from "@/server/geo-engine/engines";
 import { detectAnswer, extractDomain } from "@/server/geo-engine/detect";
+import { recomputeCitationScores } from "@/server/repositories/citation-score";
 
 const AUTO_MEMO = "자동 관측";
 const SNIPPET_MAX = 1500;
@@ -109,6 +110,12 @@ export async function runGeoWatch(clientId?: string, now = new Date()): Promise<
           .catch(() => undefined);
       }
     }
+
+    // 이 거래처의 일별 인용점수 스냅샷 재계산 — 대시보드·리포트 그래프 데이터를
+    // 자동 관측 직후 갱신(멱등). 이게 없으면 자동 관측이 돌아도 그래프가 안 쌓인다.
+    await recomputeCitationScores(client.id).catch((e) => {
+      console.warn(`[geo-watch] 인용점수 재계산 실패(거래처 ${client.id}): ${String(e).slice(0, 120)}`);
+    });
   }
 
   return result;
