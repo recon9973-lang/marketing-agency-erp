@@ -21,7 +21,7 @@ function uniqSorted(values: string[]): string[] {
   return [...new Set(values)].sort();
 }
 
-function buildCep(cluster: Cluster, _brand: string): Cep {
+export function buildCep(cluster: Cluster, _brand: string): Cep {
   const texts = cluster.members.map((m) => m.text);
   const tags = tagCluster(texts);
   const rep = representativeText(texts) || texts[0];

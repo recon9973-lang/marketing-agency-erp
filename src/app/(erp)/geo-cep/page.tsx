@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { getCurrentUser } from "@/server/session";
 import { discoverCeps } from "@/server/geo-studio/cep/finder";
+import { discoverCepsLive, cepRealConfigured } from "@/server/geo-studio/cep/live-finder";
 import { buildBrief } from "@/server/geo-studio/cep/brief";
 import { briefToMarkdown, makeCep } from "@/server/geo-studio/cep/models";
 import { ClusterBubbleMap, type BubbleCep } from "@/components/geo-cep/ClusterBubbleMap";
@@ -54,17 +55,43 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
   const keywordsStr = one(sp.keywords) ?? "";
   const ran = Boolean(brand && category);
 
-  const report = ran
-    ? (discoverCeps(brand, category, { competitors: csv(competitorsStr), extraKeywords: csv(keywordsStr) }) as unknown as {
-        probe_count: number;
-        candidate_count: number;
-        total_ceps: number;
-        whitespace_count: number;
-        ceps: CepRow[];
-        whitespace_ceps: string[];
-        cep_share: Record<string, number>;
-      })
-    : null;
+  type CepReportShape = {
+    probe_count: number;
+    candidate_count: number;
+    total_ceps: number;
+    whitespace_count: number;
+    ceps: CepRow[];
+    whitespace_ceps: string[];
+    cep_share: Record<string, number>;
+  };
+
+  // 실측 우선: 검색광고 연관키워드 + OpenAI 임베딩이 모두 연결되면 진짜 의미 군집(measured).
+  // 하나라도 미연결이면 가짜를 만들지 않고 목 파이프라인으로 강등하되 배지로 정직하게 표기(demo).
+  const realConfigured = cepRealConfigured();
+  const live = ran && realConfigured ? await discoverCepsLive(brand, category, { seedKeyword: category }) : null;
+  let cepTier: "measured" | "approx" = "approx";
+  let cepNote = "목 파이프라인(데모)";
+  let demoBanner: string | null = null;
+
+  let report: CepReportShape | null = null;
+  if (ran) {
+    if (live && live.data_tier === "measured") {
+      report = {
+        probe_count: 0,
+        candidate_count: live.candidate_count,
+        total_ceps: live.total_ceps,
+        whitespace_count: live.whitespace_count,
+        ceps: live.ceps as unknown as CepRow[],
+        whitespace_ceps: [], // 화이트스페이스는 경쟁사 AI 스캔(M1) 연동 시 산출
+        cep_share: {} // 점유율은 브랜드/경쟁 언급 스캔 필요 → 미측정
+      };
+      cepTier = "measured";
+      cepNote = "네이버 연관키워드 + 임베딩 군집(실측)";
+    } else {
+      report = discoverCeps(brand, category, { competitors: csv(competitorsStr), extraKeywords: csv(keywordsStr) }) as unknown as CepReportShape;
+      demoBanner = live?.note ?? "실측 미연결 — 네이버 검색광고 + OpenAI 임베딩 키를 연결하면 실측 CEP로 전환됩니다.";
+    }
+  }
 
   let briefMd: string | null = null;
   if (report && report.ceps[0]) {
@@ -78,7 +105,8 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
     );
   }
 
-  const review = report ? buildGptReview(report as unknown as ReviewReport, brand, category) : null;
+  // GPT 리뷰는 규칙기반 목 휴리스틱 → 실측(measured) 모드에선 표시하지 않음(실측인 척 금지).
+  const review = report && cepTier !== "measured" ? buildGptReview(report as unknown as ReviewReport, brand, category) : null;
   const { provider, effectiveTier } = getRequestProvider();
   const serpDocs = ran ? await provider.serpTop(category, 8) : [];
   const monthlyVol = ran ? await provider.monthlyVolume(category) : null;
@@ -130,12 +158,24 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
           <button type="submit" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
             🔍 CEP 발굴
           </button>
-          <span className="text-[11px] text-slate-400">4대 AI 인터로게이션 → 클러스터링 → 5차원 태깅·점수화 (현재 목 파이프라인)</span>
+          <span className="text-[11px] text-slate-400">{realConfigured ? "실측: 네이버 연관키워드 → OpenAI 임베딩 → 의미 군집" : "연관키워드·임베딩 키 연결 시 실측 CEP로 전환 (현재 데모)"}</span>
         </div>
       </form>
 
       {report && (
         <div className="space-y-4">
+          {demoBanner && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              <span className="font-bold">데모</span>
+              <span>{demoBanner}</span>
+            </div>
+          )}
+          {cepTier === "measured" && (
+            <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+              <TierBadge tier="measured" note="실측" />
+              <span>네이버 검색광고 연관키워드 {report.candidate_count}개를 임베딩·군집한 실측 CEP입니다.</span>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {[
               { label: "프로브", value: report.probe_count },
@@ -249,7 +289,7 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
           <div className="overflow-x-auto rounded-2xl border border-line bg-card">
             <div className="flex items-center gap-2 px-4 pt-4">
               <p className="text-sm font-bold text-ink">발굴된 CEP (우선순위순)</p>
-              <TierBadge tier="approx" note="목 파이프라인" />
+              <TierBadge tier={cepTier} note={cepNote} />
             </div>
             <table className="mt-2 w-full min-w-[720px] border-collapse text-left text-sm">
               <thead className="border-y border-line bg-surface text-xs font-semibold text-slate-500">
