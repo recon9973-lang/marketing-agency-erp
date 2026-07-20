@@ -1568,6 +1568,21 @@ model GeoKeyword {
   @@index([clientId, selected])
 }
 
+/// 원고 스튜디오 프로젝트 — 거래처별 집필 프로젝트(프롬프트/브리프). 실제 콘텐츠 생성은 GEO(콘텐츠 생성)에서 진행/연결.
+model ManuscriptProject {
+  id          String   @id @default(cuid())
+  clientId    String
+  name        String
+  prompt      String   @default("") // 업체별 집필 프롬프트·브리프(톤·금칙어·차별점 등)
+  notes       String?
+  orgId       String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([clientId])
+}
+
 /// GEO 답변 기록 — 질문×엔진×일자 단위의 AI 답변 출현 관측(수동 실행 기록).
 /// 약관상 자동 스크래핑은 배제 — 담당자가 실행 결과를 기록하고 캡처 링크를 남긴다(상품 증빙).
 model GeoAnswerRecord {
