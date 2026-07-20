@@ -5,6 +5,7 @@ import { SearchEngineNotices, SearchNoticesSkeleton } from "@/components/dashboa
 import { InternalNoticesWidget } from "@/components/dashboard/InternalNoticesWidget";
 import { MemoWidget } from "@/components/dashboard/MemoWidget";
 import { FavoritesWidget } from "@/components/dashboard/FavoritesWidget";
+import { MiniCalendarWidget } from "@/components/dashboard/MiniCalendarWidget";
 import { Role } from "@/domain/types";
 import { SafeBoundary } from "@/components/util/SafeBoundary";
 import { summarizeDashboard, type DashboardSummary } from "@/domain/dashboard";
@@ -76,8 +77,8 @@ export default async function DashboardPage() {
         </SafeBoundary>
       </div>
 
-      {/* 메모장 · 즐겨찾기 — 계정별 */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* 메모장 · 즐겨찾기 · 내부 캘린더 — 계정별 */}
+      <div className="grid gap-6 lg:grid-cols-3">
         <SafeBoundary fallback={null}>
           <Suspense fallback={<div className="h-52 animate-pulse rounded-2xl bg-surface" />}>
             <MemoWidget userId={user.id} />
@@ -86,6 +87,11 @@ export default async function DashboardPage() {
         <SafeBoundary fallback={null}>
           <Suspense fallback={<div className="h-52 animate-pulse rounded-2xl bg-surface" />}>
             <FavoritesWidget user={user} />
+          </Suspense>
+        </SafeBoundary>
+        <SafeBoundary fallback={null}>
+          <Suspense fallback={<div className="h-52 animate-pulse rounded-2xl bg-surface" />}>
+            <MiniCalendarWidget user={user} />
           </Suspense>
         </SafeBoundary>
       </div>

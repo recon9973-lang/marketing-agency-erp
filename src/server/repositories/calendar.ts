@@ -158,6 +158,21 @@ export async function fetchTeamCalendarEvents(user: CurrentUser): Promise<TeamCa
   }));
 }
 
+/** 대시보드 미니 캘린더용 — 지정 기간 이벤트의 일자·종류만(스코프는 buildCalendarWhere 재사용). */
+export async function fetchMonthCalendarEvents(user: CurrentUser, start: Date, end: Date): Promise<{ day: number; kind: CalendarEventKind }[]> {
+  try {
+    const scope = await buildCalendarWhere(user);
+    const events = await db.calendarEvent.findMany({
+      where: { AND: [scope, { startsAt: { gte: start, lt: end } }] },
+      select: { startsAt: true, kind: true },
+      take: 300
+    });
+    return events.map((e) => ({ day: e.startsAt.getDate(), kind: e.kind }));
+  } catch {
+    return [];
+  }
+}
+
 export type IcsExportEvent = { id: string; title: string; description: string | null; startsAt: Date; endsAt: Date };
 
 /** .ics 내보내기용 — 스코프 내 이벤트를 [now-30d, now+180d] 범위로. 최대 500건. */
