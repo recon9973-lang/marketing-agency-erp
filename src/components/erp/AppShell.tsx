@@ -12,6 +12,7 @@ import {
   CreditCard,
   FileSignature,
   FileText,
+  Link2,
   PenLine,
   Plug,
   ShieldCheck,
@@ -54,6 +55,7 @@ type ErpRoute =
   | "/magazine"
   | "/contracts"
   | "/work"
+  | "/worklog"
   | "/manuscript"
   | "/ai-studio"
   | "/image-studio"
@@ -163,6 +165,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       label: "업무관리",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: ClipboardList,
+      group: "분석·GEO"
+    },
+    {
+      href: "/worklog",
+      label: "업무 보고",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Link2,
       group: "분석·GEO"
     },
     {

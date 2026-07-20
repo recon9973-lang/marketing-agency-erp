@@ -1630,6 +1630,25 @@ model HrEvaluation {
   @@index([period])
 }
 
+/// 업무 보고(작업 결과물) — 담당자가 당일 완료한 결과물(예: 블로그 링크)을 거래처별로 남긴다.
+/// 카카오톡에 결과물 링크를 올리던 흐름을 ERP 안으로 흡수(팀 공유·이력 축적).
+model WorkReport {
+  id         String   @id @default(cuid())
+  clientId   String
+  authorId   String
+  workDate   DateTime // 작업 일자(일 단위)
+  category   String // 결과물 종류(WorkCategory 라벨 또는 기타)
+  title      String // 결과물 제목/설명
+  link       String? // 결과물 링크(URL)
+  note       String? // 비고
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([authorId])
+  @@index([workDate])
+}
+
 /// 내부 공지사항 — 관리자가 직접 작성해 전 직원에게 게시. (검색엔진 공지와 별개)
 model InternalNotice {
   id         String   @id @default(cuid())
