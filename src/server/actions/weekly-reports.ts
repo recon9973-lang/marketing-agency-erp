@@ -17,6 +17,9 @@ import {
   runAction,
   type ActionResult
 } from "@/server/actions/_helpers";
+import { requestApproval } from "@/server/actions/approvals";
+
+const weekFmt = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric" });
 
 /** 주어진 날짜가 속한 주의 월요일 00:00(UTC 기준 날짜)로 정규화. */
 function toWeekStart(dateStr: string): Date {
@@ -65,7 +68,10 @@ export async function createWeeklyReport(input: unknown): Promise<ActionResult<{
       await recordAudit(tx, { actorId: user.id, action: "weeklyReport.create", targetType: "WeeklyReport", targetId: wr.id, afterState: { weekStart: weekStart.toISOString() }, ...meta });
       return wr;
     });
+    // 결재라인 연결 — 상신하면 담당자→관리자→최고관리자 순으로 결재된다(승인함에 노출).
+    await requestApproval({ targetType: "WEEKLY_REPORT", targetId: saved.id, title: `주간보고 · ${weekFmt.format(weekStart)} 주` }).catch(() => undefined);
     revalidatePath("/weekly");
+    revalidatePath("/reports");
     return { id: saved.id };
   });
 }

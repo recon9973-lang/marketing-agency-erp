@@ -4,7 +4,6 @@ import type { LucideIcon } from "lucide-react";
 import {
   Archive,
   BriefcaseBusiness,
-  CalendarCheck,
   CalendarDays,
   ChartNoAxesCombined,
   CircleCheck,
@@ -237,13 +236,6 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       label: "결재",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: FileText,
-      group: "보고·결재"
-    },
-    {
-      href: "/weekly",
-      label: "주간보고",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: CalendarCheck,
       group: "보고·결재"
     },
     {

@@ -7,19 +7,36 @@ import { CreateReportForm } from "@/components/reports/CreateReportForm";
 import { GenerateMonthlyReport } from "@/components/reports/GenerateMonthlyReport";
 import { TemplateFiller } from "@/components/settings/TemplateFiller";
 import { LeaveSection } from "@/components/leave/LeaveSection";
+import { CreateWeeklyReportForm, type WorklogPick } from "@/components/weekly/CreateWeeklyReportForm";
+import { WeeklyReportList, type WeeklyItem } from "@/components/weekly/WeeklyReportList";
 import { ReportStatus } from "@/domain/types";
 import { fetchReportsForUser, type ReportListItem } from "@/server/repositories/reports";
+import { fetchWeeklyReportsForUser } from "@/server/repositories/weekly-reports";
+import { listWorkReports } from "@/server/repositories/work-report";
 import { listClientsForUser } from "@/server/repositories/clients";
 import { listTemplatesForUse } from "@/server/repositories/document-templates";
 import { getCurrentUser } from "@/server/session";
 
-// 결재 서류 유형 — 페이지 내부 탭(월간·연차·서식) + 주간보고(별도 라우트).
-type DocTab = "monthly" | "leave" | "forms";
+// 결재 서류 유형 — 페이지 내부 탭(월간·주간·연차·서식). 상신하면 결재라인으로 연결된다.
+type DocTab = "monthly" | "weekly" | "leave" | "forms";
 const DOC_TABS: { key: DocTab; label: string; desc: string }[] = [
   { key: "monthly", label: "월간 보고서", desc: "거래처 월간 성과 리포트" },
+  { key: "weekly", label: "주간보고", desc: "주간 업무보고(다중 취합)" },
   { key: "leave", label: "연차·휴가", desc: "휴가·연차 결재" },
   { key: "forms", label: "서식 발급", desc: "근로계약·재직증명 등" }
 ];
+
+/** 이번 주(월~일) 범위 YYYY-MM-DD. */
+function thisWeekRange(): { start: string; end: string } {
+  const now = new Date();
+  const day = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((day + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  return { start: fmt(monday), end: fmt(sunday) };
+}
 
 const monthFormatter = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long" });
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" });
@@ -97,7 +114,31 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   }
 
   const { doc } = await searchParams;
-  const activeDoc: DocTab = doc === "leave" ? "leave" : doc === "forms" ? "forms" : "monthly";
+  const activeDoc: DocTab = doc === "weekly" ? "weekly" : doc === "leave" ? "leave" : doc === "forms" ? "forms" : "monthly";
+
+  // 주간보고 탭: 내 주간보고 + 이번 주 업무 보고(다중 취합용).
+  let weeklyItems: WeeklyItem[] = [];
+  let worklogPicks: WorklogPick[] = [];
+  if (activeDoc === "weekly") {
+    const [weeklyRows, workScope] = await Promise.all([
+      fetchWeeklyReportsForUser(user).catch(() => []),
+      listWorkReports(user).catch(() => ({ reports: [], clients: [], workItems: [] }))
+    ]);
+    weeklyItems = weeklyRows.map((w) => ({
+      id: w.id,
+      authorName: w.authorName,
+      weekStart: new Date(w.weekStart).toISOString(),
+      summary: w.summary,
+      achievements: w.achievements,
+      plans: w.plans,
+      issues: w.issues,
+      editable: w.editable
+    }));
+    const { start, end } = thisWeekRange();
+    worklogPicks = workScope.reports
+      .filter((r) => r.authorId === user.id && r.workDate >= start && r.workDate <= end)
+      .map((r) => ({ id: r.id, workDate: r.workDate, category: r.category, title: r.title, link: r.link }));
+  }
 
   const [reports, clientRows, usableTemplates] = await Promise.all([
     fetchReportsForUser(user),
@@ -149,12 +190,6 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             </Link>
           );
         })}
-        <Link
-          href="/weekly"
-          className="rounded-lg px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:bg-surface"
-        >
-          주간보고 →
-        </Link>
       </div>
 
       {/* 월간 보고서 */}
@@ -164,6 +199,15 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           <GenerateMonthlyReport clients={clientOptions} />
           <CreateReportForm clients={clientOptions} />
           <DataTable columns={columns} rows={reports} emptyMessage="조회 가능한 보고서가 없습니다." />
+        </div>
+      )}
+
+      {/* 주간보고 */}
+      {activeDoc === "weekly" && (
+        <div className="space-y-4">
+          <p className="text-sm font-semibold text-ink">주간 업무보고 · 이번 주 업무 보고를 골라 취합할 수 있습니다. 제출하면 담당자 → 관리자 → 최고관리자 순으로 결재됩니다.</p>
+          <CreateWeeklyReportForm worklog={worklogPicks} />
+          <WeeklyReportList items={weeklyItems} />
         </div>
       )}
 

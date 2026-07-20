@@ -18,7 +18,7 @@ export type ApprovalView = {
   decidedAt: string | null;
 };
 
-const TYPE_LABEL: Record<string, string> = { CONTRACT: "계약", QUOTE: "견적", CONTENT: "콘텐츠", COMPLIANCE: "컴플라이언스" };
+const TYPE_LABEL: Record<string, string> = { CONTRACT: "계약", QUOTE: "견적", CONTENT: "콘텐츠", COMPLIANCE: "컴플라이언스", WEEKLY_REPORT: "주간보고", MONTHLY_REPORT: "월간보고" };
 export function approvalTypeLabel(t: string) {
   return TYPE_LABEL[t] ?? t;
 }

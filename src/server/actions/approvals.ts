@@ -17,7 +17,7 @@ import {
   type ActionResult
 } from "@/server/actions/_helpers";
 
-const TARGET_TYPES = ["CONTRACT", "QUOTE", "CONTENT", "COMPLIANCE"] as const;
+const TARGET_TYPES = ["CONTRACT", "QUOTE", "CONTENT", "COMPLIANCE", "WEEKLY_REPORT", "MONTHLY_REPORT"] as const;
 
 // 3단 결재 체인 컬럼 자가치유(마이그레이션 지연 대비·멱등).
 async function ensureChainCols(): Promise<void> {
@@ -110,10 +110,20 @@ export async function decideApproval(input: unknown): Promise<ActionResult> {
           data: { status: "APPROVED", approverId: user.id, comment, decidedAt: now, ...(stage === "L1" ? { l1ApproverId: user.id, l1DecidedAt: now } : {}) }
         });
       }
-      // 최종 결정 시에만 콘텐츠 기획안 상태 전이.
+      // 최종 결정 시에만 대상 상태 전이.
       if (finalStatus !== "PENDING" && approval.targetType === "CONTENT") {
         await tx.contentPlan
           .update({ where: { id: approval.targetId }, data: { status: finalStatus === "APPROVED" ? "APPROVED" : "REVIEWED" } })
+          .catch(() => undefined);
+      }
+      if (finalStatus !== "PENDING" && approval.targetType === "WEEKLY_REPORT") {
+        await tx.weeklyReport
+          .update({ where: { id: approval.targetId }, data: { status: finalStatus === "APPROVED" ? "APPROVED" : "REJECTED" } })
+          .catch(() => undefined);
+      }
+      if (finalStatus !== "PENDING" && approval.targetType === "MONTHLY_REPORT") {
+        await tx.report
+          .update({ where: { id: approval.targetId }, data: { status: finalStatus === "APPROVED" ? "APPROVED" : "REVIEW_NEEDED" } })
           .catch(() => undefined);
       }
       await recordAudit(tx, { actorId: user.id, action: "approval.decide", targetType: "Approval", targetId: p.data.id, afterState: { status: p.data.status, stage }, ...meta });

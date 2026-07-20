@@ -21,7 +21,7 @@ type Approval = {
   decidedAt: string | null;
 };
 
-const TYPE_LABEL: Record<string, string> = { CONTRACT: "계약", QUOTE: "견적", CONTENT: "콘텐츠", COMPLIANCE: "컴플라이언스" };
+const TYPE_LABEL: Record<string, string> = { CONTRACT: "계약", QUOTE: "견적", CONTENT: "콘텐츠", COMPLIANCE: "컴플라이언스", WEEKLY_REPORT: "주간보고", MONTHLY_REPORT: "월간보고" };
 const STATUS_LABEL: Record<string, string> = { PENDING: "대기", APPROVED: "승인", REJECTED: "반려" };
 const dateFmt = new Intl.DateTimeFormat("ko-KR", { dateStyle: "short", timeStyle: "short" });
 

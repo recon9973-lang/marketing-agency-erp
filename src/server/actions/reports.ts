@@ -20,6 +20,7 @@ import {
   runAction,
   type ActionResult
 } from "@/server/actions/_helpers";
+import { requestApproval } from "@/server/actions/approvals";
 import type { CurrentUser } from "@/server/session";
 
 async function assertClient(user: CurrentUser, clientId: string, assignedMarketerId: string | null) {
@@ -62,6 +63,8 @@ export async function createReport(input: unknown): Promise<ActionResult<{ id: s
       await recordAudit(tx, { actorId: user.id, action: "report.create", targetType: "Report", targetId: rep.id, afterState: rep, ...meta });
       return rep;
     });
+    // 결재라인 연결 — 상신하면 담당자→관리자→최고관리자 순으로 결재된다(승인함에 노출).
+    await requestApproval({ targetType: "MONTHLY_REPORT", targetId: saved.id, title: `월간보고 · ${d.title}`, clientId: d.clientId }).catch(() => undefined);
     revalidatePath("/reports");
     return { id: saved.id };
   });

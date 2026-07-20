@@ -4,6 +4,7 @@ import { DashboardHome } from "@/components/dashboard/DashboardHome";
 import { SearchEngineNotices, SearchNoticesSkeleton } from "@/components/dashboard/SearchEngineNotices";
 import { InternalNoticesWidget } from "@/components/dashboard/InternalNoticesWidget";
 import { MemoWidget } from "@/components/dashboard/MemoWidget";
+import { ChatWidget } from "@/components/dashboard/ChatWidget";
 import { MiniCalendarWidget } from "@/components/dashboard/MiniCalendarWidget";
 import { Role } from "@/domain/types";
 import { SafeBoundary } from "@/components/util/SafeBoundary";
@@ -76,11 +77,16 @@ export default async function DashboardPage() {
         </SafeBoundary>
       </div>
 
-      {/* 메모장 · 내부 캘린더 — 계정별 (즐겨찾기는 상단바로 이동) */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* 메모장 · 채팅 · 내부 캘린더 — 계정별 (즐겨찾기는 상단바로 이동) */}
+      <div className="grid gap-6 lg:grid-cols-3">
         <SafeBoundary fallback={null}>
           <Suspense fallback={<div className="h-52 animate-pulse rounded-2xl bg-surface" />}>
             <MemoWidget userId={user.id} />
+          </Suspense>
+        </SafeBoundary>
+        <SafeBoundary fallback={null}>
+          <Suspense fallback={<div className="h-52 animate-pulse rounded-2xl bg-surface" />}>
+            <ChatWidget user={user} />
           </Suspense>
         </SafeBoundary>
         <SafeBoundary fallback={null}>
