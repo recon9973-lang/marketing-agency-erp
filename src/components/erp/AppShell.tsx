@@ -377,7 +377,7 @@ export function AppShell({
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const items = getNavigationItems(role, canAccessSettings, deniedFeatures);
-  const home = items.find((i) => i.group === "홈");
+  const homeItems = items.filter((i) => i.group === "홈");
   const current = items.find((i) => isActive(pathname, i.href));
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -453,9 +453,11 @@ export function AppShell({
         </div>
 
         <nav className={`flex-1 overflow-y-auto ${collapsed ? "mt-3" : ""}`}>
-          {home ? (
+          {homeItems.length > 0 ? (
             <div className="grid grid-cols-1 gap-0.5 pb-1">
-              <NavLink item={home} active={isActive(pathname, home.href)} collapsed={collapsed} favorited={favHrefs.has(home.href)} onToggleFav={toggleFav} favPending={favPending} />
+              {homeItems.map((item) => (
+                <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} collapsed={collapsed} favorited={favHrefs.has(item.href)} onToggleFav={toggleFav} favPending={favPending} />
+              ))}
             </div>
           ) : null}
           {NAV_SECTIONS.map((section) => {
