@@ -50,6 +50,12 @@ import { discoverCeps } from "@/server/geo-studio/cep/finder";
 import { ClusterBubbleMap, type BubbleCep } from "@/components/geo-cep/ClusterBubbleMap";
 import { analyzeJourney, analyzeJourneyLive, type JourneyReport } from "@/server/geo-studio/path/analyzer";
 import { JourneyGraph, type RawNode } from "@/components/geo-path/JourneyGraph";
+import { GeoContentForm } from "@/components/geo-content/GeoContentForm";
+import { SavedContentDiagnoses } from "@/components/geo-content/SavedContentDiagnoses";
+import { listContentDiagnoses } from "@/server/repositories/geo-content-diagnosis";
+import { AiStudio } from "@/components/ai/AiStudio";
+import { listAiContentForUser } from "@/server/repositories/ai-content";
+import { isAiConfigured } from "@/server/ai/claude";
 import { GEO_STAGES, geoStageOf, type GeoStageKey } from "@/domain/geo/stages";
 
 // P2.1: 각 단계의 CTA(현재는 전용 도구로 이어짐 — P2.2~에서 인라인 통합).
@@ -266,8 +272,23 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
     }
   }
 
+  // 단계7(콘텐츠 진단)·단계9(콘텐츠 생성) 데이터.
+  const contentDiagnoses = activeTab === "content-diagnosis" ? await listContentDiagnoses(user).catch(() => []) : [];
+  const aiHistory = activeTab === "content" ? await listAiContentForUser(user).catch(() => []) : [];
+  const aiConfigured = isAiConfigured();
+  const clientOptions = clients.map((c) => ({ id: c.id, name: c.name }));
+
   // 화면 안에 인라인 통합된 탭(그 외는 단계 안내 패널).
-  const inlineTabs: GeoStageKey[] = ["dashboard", "keyword", "questions", "citation", "cep", "journey"];
+  const inlineTabs: GeoStageKey[] = [
+    "dashboard",
+    "keyword",
+    "questions",
+    "citation",
+    "cep",
+    "journey",
+    "content-diagnosis",
+    "content"
+  ];
 
   // llms.txt 본문(순수 생성) — 게시된 답변 페이지 기반
   const llmsText = buildLlmsTxt(
@@ -428,6 +449,28 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
               {journeyReport && (
                 <JourneyGraph tree={journeyReport.tree as unknown as RawNode} primaryPath={journeyReport.top_paths[0] ?? []} brand={selectedName} />
               )}
+            </div>
+          )}
+
+          {/* 단계7 — 콘텐츠 진단 */}
+          {activeTab === "content-diagnosis" && (
+            <div className="space-y-4">
+              <GeoContentForm />
+              {contentDiagnoses.length > 0 && (
+                <SavedContentDiagnoses items={contentDiagnoses.map((d) => ({ ...d, createdAt: d.createdAt.toISOString() }))} />
+              )}
+            </div>
+          )}
+
+          {/* 단계9 — 콘텐츠 생성 (AI마케팅·마케팅스튜디오 통합) */}
+          {activeTab === "content" && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                <p className="text-xs text-emerald-800">
+                  선택 거래처·키워드·질문을 바탕으로 답변형 콘텐츠(블로그·카드뉴스·SNS·광고카피)를 생성합니다. (기존 AI마케팅·마케팅스튜디오 통합)
+                </p>
+              </div>
+              <AiStudio clients={clientOptions} history={aiHistory} aiConfigured={aiConfigured} />
             </div>
           )}
 
