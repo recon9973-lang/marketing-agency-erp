@@ -2,6 +2,36 @@ import { canAccessClient, type AccessScopeRecord, type CurrentUser } from "@/dom
 import { Role } from "@/domain/types";
 import { db } from "@/server/db";
 
+/**
+ * 운영 DB 스키마 자가치유(멱등·additive 전용) — 빌드 시 `prisma db push`/`sync-additive`가
+ * 타임아웃·스킵되어 라이프사이클 단계 컬럼(stage/stageUpdatedAt)이나 업종 색상(colorTag)이
+ * 누락되면 거래처 조회가 P2022로 전체 실패한다(거래처/의료법검수/회의록/결재/정산 동반 다운).
+ * 컬럼이 없으면 읽기 직전에 보강한다. 인스턴스당 1회만 실행되도록 프로미스를 메모이즈.
+ */
+let clientSchemaEnsured: Promise<void> | null = null;
+function ensureClientColumns() {
+  if (!clientSchemaEnsured) {
+    clientSchemaEnsured = (async () => {
+      const stmts = [
+        'ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "stage" TEXT NOT NULL DEFAULT \'ONBOARDING\'',
+        'ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "stageUpdatedAt" TIMESTAMP(3)',
+        'ALTER TABLE "IndustryCategory" ADD COLUMN IF NOT EXISTS "colorTag" TEXT'
+      ];
+      for (const sql of stmts) {
+        try {
+          await db.$executeRawUnsafe(sql);
+        } catch (e) {
+          console.warn("[clients] 컬럼 보장 실패(무시):", String(e).slice(0, 140));
+        }
+      }
+    })().catch(() => {
+      // 다음 호출에서 재시도할 수 있도록 실패 시 메모이즈 해제.
+      clientSchemaEnsured = null;
+    });
+  }
+  return clientSchemaEnsured;
+}
+
 export type ClientListItem = {
   id: string;
   name: string;
@@ -126,6 +156,7 @@ async function clientScopeWhere(user: CurrentUser) {
 }
 
 export async function listClientsForUser(user: CurrentUser) {
+  await ensureClientColumns();
   const where = await clientScopeWhere(user);
   const clients = await db.client.findMany({
     where,
@@ -158,6 +189,7 @@ export async function listClientsForUser(user: CurrentUser) {
  * 계약 작성 시 재입력을 없앤다. 주소는 최신 컨설팅 보고서 → 지역 순으로 채운다.
  */
 export async function listClientsForContractForm(user: CurrentUser) {
+  await ensureClientColumns();
   const where = await clientScopeWhere(user);
   const clients = await db.client.findMany({
     where: { ...where, active: true },
@@ -184,6 +216,7 @@ export async function listClientsForContractForm(user: CurrentUser) {
 
 /** 거래처 상세 (권한 스코프 적용). 접근 불가/미존재 시 null → 페이지는 notFound 처리. */
 export async function getClientDetail(user: CurrentUser, clientId: string) {
+  await ensureClientColumns();
   const client = await db.client.findUnique({
     where: { id: clientId },
     select: {
