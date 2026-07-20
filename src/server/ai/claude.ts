@@ -126,6 +126,75 @@ export async function geoRewrite(content: string, keyword: string): Promise<stri
   return text;
 }
 
+export type ExecutionPlanInput = {
+  title: string;
+  idea: string;
+  goal?: string | null;
+  audience?: string | null;
+  constraints?: string | null;
+  success?: string | null;
+  clientName?: string | null;
+};
+
+/**
+ * 아이디어 → 실행계획서(마크다운) 생성. (skill: idea-to-execution-plan)
+ * 정보가 부족해도 멈추지 않고 합리적 가정을 `가정`으로 표기해 초안을 만든다.
+ */
+export async function generateExecutionPlan(input: ExecutionPlanInput): Promise<string> {
+  if (!isAiConfigured()) throw new Error("AI_NOT_CONFIGURED");
+  const client = new Anthropic();
+  const system =
+    "당신은 아이디어를 곧바로 실행 가능한 계획서로 바꾸는 전략 실행 컨설턴트입니다. " +
+    "정보가 부족해도 멈추지 말고 합리적 가정을 명시해 초안을 제시합니다. " +
+    "원칙: (1) 아이디어와 사실·가정·미결정을 구분, (2) 문제와 성공 기준을 먼저 정의, " +
+    "(3) 각 단계에 목표·활동·산출물·담당·기한·완료조건을 포함, (4) KPI는 측정 방법과 점검 주기를 함께, " +
+    "(5) 확정되지 않은 비용·인력·기간을 사실처럼 단정하지 말고 `가정`으로 표기, " +
+    "(6) 법무·개인정보·광고·의료 등 적용 가능한 검토를 누락하지 않음, " +
+    "(7) 실행과 무관한 배경 설명은 길게 쓰지 않음. " +
+    "아래 표준 형식(마크다운)으로 결과만 출력하고 사족·해설은 넣지 않습니다.\n\n" +
+    "표준 형식:\n" +
+    "# [프로젝트명] 실행계획서\n" +
+    "## 1. 요약 (목표/대상/기대 결과)\n" +
+    "## 2. 전제와 가정 (표: 구분 | 내용 | 검증 방법 또는 결정 시점)\n" +
+    "## 3. 접근안 비교 (표: 안 | 장점 | 한계 | 추천 여부, 2~3개 비교 후 저비용·저리스크 안 추천)\n" +
+    "## 4. 권장 범위 (포함/제외/핵심 가치제안)\n" +
+    "## 5. 실행 로드맵 (표: 단계 | 기간 | 핵심 활동 | 산출물 | 담당 | 완료 조건, 3~5단계)\n" +
+    "## 6. 자원·예산 (표: 항목 | 필요량 또는 비용 | 근거/가정)\n" +
+    "## 7. 리스크와 대응 (표: 리스크 | 영향 | 조기 신호 | 대응)\n" +
+    "## 8. KPI와 점검 (표: 지표 | 목표 | 측정 방법 | 점검 주기 | 다음 행동)\n" +
+    "## 9. 즉시 할 일 (오늘 시작할 1~3개)\n" +
+    "마지막에 `핵심 가정`과 `다음 의사결정`을 짧게 요약합니다.";
+
+  const lines: string[] = ["# 아이디어"];
+  lines.push(input.idea || input.title);
+  lines.push("");
+  lines.push("## 입력 정보");
+  lines.push(`- 제목: ${input.title}`);
+  if (input.clientName) lines.push(`- 관련 거래처: ${input.clientName}`);
+  if (input.goal) lines.push(`- 목표: ${input.goal}`);
+  if (input.audience) lines.push(`- 대상: ${input.audience}`);
+  if (input.constraints) lines.push(`- 제약: ${input.constraints}`);
+  if (input.success) lines.push(`- 성공 기준: ${input.success}`);
+  lines.push("");
+  lines.push("위 아이디어를 표준 형식의 실행계획서로 작성하세요. 비어 있는 정보는 합리적 기본 가정을 세워 `가정`으로 표기합니다.");
+
+  const stream = client.messages.stream({
+    model: AI_MODEL,
+    max_tokens: 8000,
+    thinking: { type: "adaptive" },
+    system,
+    messages: [{ role: "user", content: lines.join("\n") }]
+  });
+  const message = await stream.finalMessage();
+  const text = message.content
+    .filter((block): block is Anthropic.TextBlock => block.type === "text")
+    .map((block) => block.text)
+    .join("\n")
+    .trim();
+  if (!text) throw new Error("AI_EMPTY");
+  return text;
+}
+
 /** 응답에서 JSON 객체만 안전하게 추출(코드펜스/설명 섞여도). */
 /** Claude 텍스트 응답에서 JSON 객체를 추출·파싱. 코드펜스/서문 섞여도 첫 {~마지막 }.
  *  모든 AI 기능(컨설팅·블로그·키워드·콘텐츠·GEO·매거진)의 단일 파싱 관문. */

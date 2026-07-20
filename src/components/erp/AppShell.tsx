@@ -12,6 +12,7 @@ import {
   CreditCard,
   FileSignature,
   FileText,
+  Lightbulb,
   Link2,
   PenLine,
   Plug,
@@ -66,6 +67,7 @@ type ErpRoute =
   | "/image-studio"
   | "/studio"
   | "/compliance"
+  | "/ideas"
   | "/approvals"
   | "/keywords"
   | "/marketing-studio"
@@ -213,6 +215,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       label: "의료법 검수",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: ShieldCheck,
+      group: "제작"
+    },
+    {
+      href: "/ideas",
+      label: "아이디어",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Lightbulb,
       group: "제작"
     },
     {

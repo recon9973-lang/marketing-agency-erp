@@ -1651,6 +1651,26 @@ model WorkReport {
   @@index([workItemId])
 }
 
+/// 아이디어 노트 — 러프한 아이디어를 실행계획서(마크다운)로 문서화. AI로 초안 생성.
+model IdeaNote {
+  id          String   @id @default(cuid())
+  authorId    String
+  clientId    String? // (선택) 관련 거래처
+  title       String
+  idea        String   @default("") // 러프 아이디어 원문
+  goal        String? // 목표(해결할 문제·기대 결과)
+  audience    String? // 대상
+  constraints String? // 제약(예산·기간·인력·규제·채널)
+  success     String? // 성공 기준
+  plan        String? // 생성된 실행계획서(마크다운)
+  status      String   @default("DRAFT") // DRAFT | PLANNED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([authorId])
+  @@index([clientId])
+}
+
 /// 내부 공지사항 — 관리자가 직접 작성해 전 직원에게 게시. (검색엔진 공지와 별개)
 model InternalNotice {
   id         String   @id @default(cuid())
