@@ -4,8 +4,17 @@ import "server-only";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
 // 로그인(auth.ts)과 동일한 정규화 — 맥↔PC 한글 조합/전각/끝공백 불일치 방지.
+// + NFKC로도 안 합쳐지는 맥↔한국윈도우 모호문자를 통일:
+//   · ₩(U+20A9): 한국 윈도우 키보드는 백슬래시 키가 ₩로 입력됨 → \ 로 접기(맥은 \).
+//   · 스마트 따옴표(맥 자동교정): '  '  " "  → 직선 따옴표.
+// 알파벳/숫자만 있는 비밀번호는 영향 없음(해당 문자가 없으므로). 기존 해시와도 호환.
 function normalize(v: string): string {
-  return v.normalize("NFKC").trim();
+  return v
+    .normalize("NFKC")
+    .replace(/₩/g, "\\")
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .trim();
 }
 
 const KEYLEN = 64;

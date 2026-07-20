@@ -40,7 +40,13 @@ function secureEquals(a: string, b: string): boolean {
  *     그 경우는 비밀번호에서 \ 를 빼는 것이 근본 해결이다.
  */
 function normalizeCredential(v: string): string {
-  return v.normalize("NFKC").trim();
+  // ₩(한국 윈도우 백슬래시 키)·스마트 따옴표는 NFKC로 안 합쳐지므로 명시적으로 통일.
+  return v
+    .normalize("NFKC")
+    .replace(/₩/g, "\\")
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .trim();
 }
 
 /** 진단용 — 입력 문자의 "종류"만 분류(실제 값은 노출하지 않음). 맥↔PC 원인 파악. */

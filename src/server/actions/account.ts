@@ -18,7 +18,13 @@ import {
 } from "@/server/actions/_helpers";
 
 function normalize(v: string): string {
-  return v.normalize("NFKC").trim();
+  // ₩(한국 윈도우 백슬래시 키)·스마트 따옴표 통일 — 맥↔윈도우 로그인 불일치 방지.
+  return v
+    .normalize("NFKC")
+    .replace(/₩/g, "\\")
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .trim();
 }
 
 export async function changeAdminPassword(input: unknown): Promise<ActionResult> {
