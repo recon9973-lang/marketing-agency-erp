@@ -44,6 +44,11 @@ import { GeoStagePanel } from "@/components/geo/GeoStagePanel";
 import { GeoKeywordPanel } from "@/components/geo/GeoKeywordPanel";
 import { listGeoKeywords, listSelectedGeoKeywords } from "@/server/repositories/geo-keyword";
 import { naverSearchConfigured } from "@/server/integrations/naver-search";
+import { discoverCepsLive, cepRealConfigured } from "@/server/geo-studio/cep/live-finder";
+import { discoverCeps } from "@/server/geo-studio/cep/finder";
+import { ClusterBubbleMap, type BubbleCep } from "@/components/geo-cep/ClusterBubbleMap";
+import { analyzeJourney, analyzeJourneyLive, type JourneyReport } from "@/server/geo-studio/path/analyzer";
+import { JourneyGraph, type RawNode } from "@/components/geo-path/JourneyGraph";
 import { GEO_STAGES, geoStageOf, type GeoStageKey } from "@/domain/geo/stages";
 
 // P2.1: 각 단계의 CTA(현재는 전용 도구로 이어짐 — P2.2~에서 인라인 통합).
@@ -219,10 +224,49 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
   // 단계1(키워드) 인라인 데이터 — 해당 탭에서만 조회.
   const geoKeywordRows = activeTab === "keyword" && selectedId ? await listGeoKeywords(selectedId) : [];
   const naverConfigured = naverSearchConfigured();
-  // 단계2(질문)에서 참고할 채택 키워드.
-  const selectedKw = activeTab === "questions" && selectedId ? await listSelectedGeoKeywords(selectedId) : [];
+  // 단계2·4·5에서 참고할 채택 키워드.
+  const needsKw = activeTab === "questions" || activeTab === "cep" || activeTab === "journey";
+  const selectedKw = needsKw && selectedId ? await listSelectedGeoKeywords(selectedId) : [];
+
+  // 단계4(CEP) — 브랜드=거래처명, 카테고리=진료과. 채택 키워드를 시드로.
+  const cepBrand = selectedName || "브랜드";
+  const cepCategory = defaultDepartment || selectedName || "";
+  let cepCeps: BubbleCep[] = [];
+  let cepTier: "measured" | "demo" = "demo";
+  let cepNote: string | null = null;
+  if (activeTab === "cep" && selectedId && cepCategory) {
+    const live = cepRealConfigured()
+      ? await discoverCepsLive(cepBrand, cepCategory, { seedKeyword: selectedKw[0] ?? cepCategory }).catch(() => null)
+      : null;
+    if (live && Array.isArray(live.ceps) && live.ceps.length > 0) {
+      cepCeps = live.ceps as unknown as BubbleCep[];
+      cepTier = live.data_tier === "measured" ? "measured" : "demo";
+      cepNote = live.note ?? null;
+    } else {
+      const mock = discoverCeps(cepBrand, cepCategory, { extraKeywords: selectedKw.slice(0, 10) }) as { ceps?: unknown[] };
+      cepCeps = ((mock?.ceps ?? []) as unknown) as BubbleCep[];
+      cepTier = "demo";
+      cepNote = "네이버 연관어·임베딩 미연결 — 데모 군집입니다. 연동 시 실측으로 바뀝니다.";
+    }
+  }
+
+  // 단계5(여정) — 시드 질의=채택 키워드 최상위(없으면 진료과).
+  const journeySeed = selectedKw[0] ?? defaultDepartment ?? selectedName;
+  let journeyReport: JourneyReport | null = null;
+  let journeyTier: "approx" | "demo" = "demo";
+  if (activeTab === "journey" && selectedId && journeySeed) {
+    const live = await analyzeJourneyLive(selectedName || "브랜드", journeySeed).catch(() => null);
+    if (live) {
+      journeyReport = live;
+      journeyTier = "approx";
+    } else {
+      journeyReport = analyzeJourney(selectedName || "브랜드", journeySeed);
+      journeyTier = "demo";
+    }
+  }
+
   // 화면 안에 인라인 통합된 탭(그 외는 단계 안내 패널).
-  const inlineTabs: GeoStageKey[] = ["dashboard", "keyword", "questions", "citation"];
+  const inlineTabs: GeoStageKey[] = ["dashboard", "keyword", "questions", "citation", "cep", "journey"];
 
   // llms.txt 본문(순수 생성) — 게시된 답변 페이지 기반
   const llmsText = buildLlmsTxt(
@@ -336,6 +380,53 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
                 <MentionRateTrend points={mentionSeries} />
               </div>
               <GeoMatrix clientId={selectedId} rows={rows} />
+            </div>
+          )}
+
+          {/* 단계4 — CEP (카테고리 진입점 군집) */}
+          {activeTab === "cep" && selectedId && (
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-line bg-card p-5">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white">4</span>
+                  <h3 className="text-base font-bold text-ink">CEP — 카테고리 진입점</h3>
+                  <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${cepTier === "measured" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                    {cepTier === "measured" ? "실측" : "데모"}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  <b className="text-slate-600">{cepBrand}</b> · 카테고리 <b className="text-slate-600">{cepCategory || "미지정"}</b> 기준 소비자 구매 계기(CEP) 군집.
+                </p>
+                {cepNote && <p className="mt-1 text-[11px] text-amber-600">{cepNote}</p>}
+              </div>
+              {cepCeps.length > 0 ? (
+                <ClusterBubbleMap ceps={cepCeps} seedLabel={cepCategory} />
+              ) : (
+                <p className="rounded-2xl border border-dashed border-line bg-surface/50 px-4 py-10 text-center text-sm text-slate-500">
+                  진료과(카테고리)가 설정되면 CEP 군집을 표시합니다. 거래처 상세에서 업종/진료과를 지정하세요.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* 단계5 — 여정 (검색 경로 네트워크) */}
+          {activeTab === "journey" && selectedId && (
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-line bg-card p-5">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white">5</span>
+                  <h3 className="text-base font-bold text-ink">여정 — 검색 경로 분석</h3>
+                  <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${journeyTier === "approx" ? "border-sky-200 bg-sky-50 text-sky-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                    {journeyTier === "approx" ? "근사(연관어 인접)" : "데모"}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  시드 질의 <b className="text-slate-600">{journeySeed}</b> 기준 검색 전·후 경로. {journeyReport ? `노드 ${journeyReport.total_nodes} · 브랜드 언급률 ${journeyReport.brand_mention_rate}%` : ""}
+                </p>
+              </div>
+              {journeyReport && (
+                <JourneyGraph tree={journeyReport.tree as unknown as RawNode} primaryPath={journeyReport.top_paths[0] ?? []} brand={selectedName} />
+              )}
             </div>
           )}
 
