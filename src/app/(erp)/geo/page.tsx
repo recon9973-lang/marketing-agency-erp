@@ -39,6 +39,63 @@ import {
 } from "@/server/repositories/citation-score";
 import { listInsightClients } from "@/server/repositories/insights";
 import { getCurrentUser } from "@/server/session";
+import { GeoStageNav } from "@/components/geo/GeoStageNav";
+import { GeoStagePanel } from "@/components/geo/GeoStagePanel";
+import { GEO_STAGES, geoStageOf, type GeoStageKey } from "@/domain/geo/stages";
+
+// P2.1: 각 단계의 CTA(현재는 전용 도구로 이어짐 — P2.2~에서 인라인 통합).
+const STAGE_CTA: Record<GeoStageKey, string> = {
+  keyword: "검색량 조회 열기",
+  questions: "질문 설계 열기",
+  citation: "AI 스캐너 열기",
+  cep: "CEP 파인더 열기",
+  journey: "여정 분석 열기",
+  dashboard: "대시보드",
+  "content-diagnosis": "콘텐츠 진단 열기",
+  plan: "GEO 주간 리포트 열기",
+  content: "콘텐츠 생성 열기",
+  campaign: "캠페인 플래너 열기",
+  learning: "학습 패널 열기"
+};
+const STAGE_TIER: Partial<Record<GeoStageKey, "measured" | "approx" | "demo">> = {
+  keyword: "measured",
+  questions: "measured",
+  citation: "measured",
+  cep: "approx",
+  journey: "approx",
+  "content-diagnosis": "demo",
+  plan: "measured",
+  content: "measured",
+  campaign: "demo"
+};
+function stageHref(tab: GeoStageKey, clientId: string | null, brand: string, category: string): string {
+  const b = encodeURIComponent(brand || "");
+  const c = encodeURIComponent(category || "");
+  switch (tab) {
+    case "keyword":
+      return "/keywords";
+    case "questions":
+      return `/geo?client=${clientId ?? ""}&tab=dashboard`;
+    case "citation":
+      return `/geo-scan?brand=${b}`;
+    case "cep":
+      return `/geo-cep?brand=${b}&category=${c}`;
+    case "journey":
+      return "/geo-path";
+    case "content-diagnosis":
+      return "/geo-content";
+    case "plan":
+      return "/reports/geo-weekly";
+    case "content":
+      return "/ai-studio";
+    case "campaign":
+      return "/geo-planner";
+    case "learning":
+      return "/geo-learning";
+    default:
+      return "/geo";
+  }
+}
 
 const KPI_ICONS = {
   question: (
@@ -66,11 +123,12 @@ const KPI_ICONS = {
   )
 } as const;
 
-export default async function GeoPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
+export default async function GeoPage({ searchParams }: { searchParams: Promise<{ client?: string; tab?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const { client: clientParam } = await searchParams;
+  const { client: clientParam, tab: tabParam } = await searchParams;
+  const activeTab = geoStageOf(tabParam);
   const clients = await listInsightClients(user);
   const selectedId = clientParam && clients.some((c) => c.id === clientParam) ? clientParam : clients[0]?.id ?? null;
   const selectedName = clients.find((c) => c.id === selectedId)?.name ?? "";
@@ -183,8 +241,8 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
     <section className="space-y-4">
       <PageHeader
         eyebrow="SEO·GEO 실행 프로그램"
-        title="GEO 모니터링"
-        description="생성형 AI(ChatGPT·Perplexity·Gemini 등) 답변에서 병원 언급·인용을 질문 단위로 관측합니다."
+        title="GEO"
+        description="키워드 선별 → 질문 → 4대 AI 인용 → CEP → 여정 → 통합 대시보드 → 콘텐츠 → 계획 → 캠페인 → 학습을 한 화면에서 이어서 진행합니다."
       />
 
       {/* 미보장 고지 — 상시 표기 */}
@@ -213,8 +271,23 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
             ))}
           </div>
 
-          <GeoPhaseProgress phases={geoPhases} />
-          {selectedId && <GeoToolLinks clientId={selectedId} />}
+          {/* GEO 11단계 통합 탭바 */}
+          <GeoStageNav clientId={selectedId} active={activeTab} />
+
+          {activeTab !== "dashboard" && (
+            <GeoStagePanel
+              stage={GEO_STAGES.find((s) => s.key === activeTab)!}
+              clientName={selectedName}
+              ctaHref={stageHref(activeTab, selectedId, selectedName, defaultDepartment)}
+              ctaLabel={STAGE_CTA[activeTab]}
+              tier={STAGE_TIER[activeTab]}
+            />
+          )}
+
+          {activeTab === "dashboard" && (
+            <>
+              <GeoPhaseProgress phases={geoPhases} />
+              {selectedId && <GeoToolLinks clientId={selectedId} />}
 
           {/* KPI 타일 */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -339,6 +412,8 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
               <GeoLlmsTxt clientName={selectedName} llmsText={llmsText} urls={publishedUrls} />
               <GeoChannelGuide defaultOpen />
             </GeoTabs>
+          )}
+            </>
           )}
         </>
       )}
