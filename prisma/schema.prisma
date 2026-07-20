@@ -1551,6 +1551,23 @@ model GeoQuestion {
   @@index([orgId])
 }
 
+/// GEO 키워드 선택 — 파이프라인 시작점(단계1). 메인·서브 시드에서 연관키워드(네이버 SearchAd 실측)를
+/// 추출하고 검색량 30 이상만 선별한 작업 세트. 선택된 키워드가 질문·CEP·여정·콘텐츠 단계로 이어진다.
+model GeoKeyword {
+  id        String   @id @default(cuid())
+  clientId  String
+  term      String
+  volume    Int? // 월 검색량(PC+모바일, 네이버 SearchAd 실측). null=미측정
+  source    String   @default("RELATED") // SEED(입력 시드) | RELATED(추출 연관어)
+  selected  Boolean  @default(false) // 파이프라인에 채택
+  orgId     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, term])
+  @@index([clientId, selected])
+}
+
 /// GEO 답변 기록 — 질문×엔진×일자 단위의 AI 답변 출현 관측(수동 실행 기록).
 /// 약관상 자동 스크래핑은 배제 — 담당자가 실행 결과를 기록하고 캡처 링크를 남긴다(상품 증빙).
 model GeoAnswerRecord {

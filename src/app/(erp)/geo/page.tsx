@@ -41,6 +41,9 @@ import { listInsightClients } from "@/server/repositories/insights";
 import { getCurrentUser } from "@/server/session";
 import { GeoStageNav } from "@/components/geo/GeoStageNav";
 import { GeoStagePanel } from "@/components/geo/GeoStagePanel";
+import { GeoKeywordPanel } from "@/components/geo/GeoKeywordPanel";
+import { listGeoKeywords } from "@/server/repositories/geo-keyword";
+import { naverSearchConfigured } from "@/server/integrations/naver-search";
 import { GEO_STAGES, geoStageOf, type GeoStageKey } from "@/domain/geo/stages";
 
 // P2.1: 각 단계의 CTA(현재는 전용 도구로 이어짐 — P2.2~에서 인라인 통합).
@@ -213,6 +216,10 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
     "";
   const defaultRegion = selectedClient?.region ?? "";
 
+  // 단계1(키워드) 인라인 데이터 — 해당 탭에서만 조회.
+  const geoKeywordRows = activeTab === "keyword" && selectedId ? await listGeoKeywords(selectedId) : [];
+  const naverConfigured = naverSearchConfigured();
+
   // llms.txt 본문(순수 생성) — 게시된 답변 페이지 기반
   const llmsText = buildLlmsTxt(
     llmsInputFromClient({
@@ -274,7 +281,11 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
           {/* GEO 11단계 통합 탭바 */}
           <GeoStageNav clientId={selectedId} active={activeTab} />
 
-          {activeTab !== "dashboard" && (
+          {activeTab === "keyword" && selectedId && (
+            <GeoKeywordPanel clientId={selectedId} clientName={selectedName} rows={geoKeywordRows} configured={naverConfigured} />
+          )}
+
+          {activeTab !== "dashboard" && activeTab !== "keyword" && (
             <GeoStagePanel
               stage={GEO_STAGES.find((s) => s.key === activeTab)!}
               clientName={selectedName}
