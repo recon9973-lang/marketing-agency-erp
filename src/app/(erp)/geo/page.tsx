@@ -42,6 +42,7 @@ import { getCurrentUser } from "@/server/session";
 import { GeoStageNav } from "@/components/geo/GeoStageNav";
 import { GeoStagePanel } from "@/components/geo/GeoStagePanel";
 import { GeoKeywordPanel } from "@/components/geo/GeoKeywordPanel";
+import { CdjFunnelMap } from "@/components/geo/CdjFunnelMap";
 import { listGeoKeywords, listSelectedGeoKeywords } from "@/server/repositories/geo-keyword";
 import { naverSearchConfigured } from "@/server/integrations/naver-search";
 import { discoverCepsLive, cepRealConfigured } from "@/server/geo-studio/cep/live-finder";
@@ -224,8 +225,8 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
   // 단계1(키워드) 인라인 데이터 — 해당 탭에서만 조회.
   const geoKeywordRows = activeTab === "keyword" && selectedId ? await listGeoKeywords(selectedId) : [];
   const naverConfigured = naverSearchConfigured();
-  // 단계2·4·5에서 참고할 채택 키워드.
-  const needsKw = activeTab === "questions" || activeTab === "cep" || activeTab === "journey";
+  // 단계2·4·5·대시보드에서 참고할 채택 키워드.
+  const needsKw = ["dashboard", "questions", "cep", "journey"].includes(activeTab);
   const selectedKw = needsKw && selectedId ? await listSelectedGeoKeywords(selectedId) : [];
 
   // 단계4(CEP) — 브랜드=거래처명, 카테고리=진료과. 채택 키워드를 시드로.
@@ -465,6 +466,19 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
               </div>
             ))}
           </div>
+
+          {selectedId && (
+            <CdjFunnelMap
+              metrics={{
+                keywords: selectedKw.length,
+                questions: summary.totalQuestions,
+                mentionRate: geoScore,
+                citedCount: summary.citedCount,
+                publishedPages: publishedPages.length
+              }}
+              clientName={selectedName}
+            />
+          )}
 
           {selectedId && (
             <GeoTabs
