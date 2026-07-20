@@ -28,7 +28,8 @@ export function SearchNoticesSkeleton() {
 }
 
 export async function SearchEngineNotices() {
-  const { items, degraded } = await getSearchNotices(6);
+  const { items: allItems, degraded } = await getSearchNotices(12);
+  const items = allItems.slice(0, 3); // 3개까지만, 나머지는 ‘더보기’(/notices)
 
   return (
     <section className="rounded-2xl border border-line bg-card p-4">

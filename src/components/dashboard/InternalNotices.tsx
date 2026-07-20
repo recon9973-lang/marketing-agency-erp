@@ -3,9 +3,11 @@
 // 대시보드 위젯 — 내부 공지사항(관리자 작성). 검색엔진 공지와 나란히 반폭으로 배치.
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Megaphone, Plus, Trash2, Pin, X } from "lucide-react";
+import { Megaphone, Plus, Trash2, Pin, X, ArrowRight } from "lucide-react";
 import { createInternalNotice, deleteInternalNotice } from "@/server/actions/notices";
 import type { InternalNoticeRow } from "@/server/repositories/internal-notice";
+
+const CAP = 3;
 
 const dateFmt = new Intl.DateTimeFormat("ko-KR", { year: "2-digit", month: "numeric", day: "numeric" });
 
@@ -17,6 +19,7 @@ export function InternalNotices({ notices, canManage }: { notices: InternalNotic
   const [body, setBody] = useState("");
   const [pinned, setPinned] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   function submit() {
     if (!title.trim() || !body.trim()) return;
@@ -74,32 +77,32 @@ export function InternalNotices({ notices, canManage }: { notices: InternalNotic
         </div>
       )}
 
-      <div className="mt-3 space-y-2">
+      <div className="mt-3 space-y-1">
         {notices.length === 0 ? (
           <p className="rounded-lg border border-dashed border-line bg-surface/40 px-3 py-6 text-center text-xs text-slate-400">
             등록된 내부 공지가 없습니다.{canManage ? " ‘작성’으로 첫 공지를 올려보세요." : ""}
           </p>
         ) : (
-          notices.map((n) => (
-            <div key={n.id} className="rounded-lg border border-line bg-surface/30 px-3 py-2">
-              <div className="flex items-start justify-between gap-2">
-                <p className="flex items-center gap-1 text-sm font-semibold text-ink">
-                  {n.pinned && <Pin className="h-3 w-3 text-brand" />} {n.title}
-                </p>
-                {canManage && (
-                  <button type="button" onClick={() => remove(n.id)} disabled={busyId === n.id} className="shrink-0 text-slate-300 hover:text-rose-500" aria-label="삭제">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-              <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-slate-600">{n.body}</p>
-              <p className="mt-1 text-[10px] text-slate-400">
-                {n.authorName ?? "관리자"} · {dateFmt.format(new Date(n.createdAt))}
-              </p>
+          notices.slice(0, showAll ? notices.length : CAP).map((n) => (
+            <div key={n.id} className="group flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-surface" title={n.body}>
+              {n.pinned && <Pin className="h-3 w-3 shrink-0 text-brand" />}
+              <span className="min-w-0 flex-1 truncate text-sm text-ink">{n.title}</span>
+              <span className="shrink-0 text-[11px] tabular-nums text-slate-400">{dateFmt.format(new Date(n.createdAt))}</span>
+              {canManage && (
+                <button type="button" onClick={() => remove(n.id)} disabled={busyId === n.id} className="shrink-0 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:text-rose-500" aria-label="삭제">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           ))
         )}
       </div>
+
+      {notices.length > CAP && (
+        <button type="button" onClick={() => setShowAll((v) => !v)} className="mt-2 flex w-full items-center justify-center gap-0.5 rounded-lg border border-line py-1.5 text-[11px] font-semibold text-brand hover:bg-surface">
+          {showAll ? "접기" : `더보기 (${notices.length - CAP}건 더)`} <ArrowRight className={`h-3 w-3 transition ${showAll ? "-rotate-90" : ""}`} />
+        </button>
+      )}
     </section>
   );
 }

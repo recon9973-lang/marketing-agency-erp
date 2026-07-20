@@ -158,16 +158,24 @@ export async function fetchTeamCalendarEvents(user: CurrentUser): Promise<TeamCa
   }));
 }
 
-/** 대시보드 미니 캘린더용 — 지정 기간 이벤트의 일자·종류만(스코프는 buildCalendarWhere 재사용). */
-export async function fetchMonthCalendarEvents(user: CurrentUser, start: Date, end: Date): Promise<{ day: number; kind: CalendarEventKind }[]> {
+export type MiniCalendarEvent = { day: number; kind: CalendarEventKind; title: string; time: string };
+
+/** 대시보드 미니 캘린더용 — 지정 기간 이벤트(일자·종류·제목·시각). 스코프는 buildCalendarWhere 재사용. */
+export async function fetchMonthCalendarEvents(user: CurrentUser, start: Date, end: Date): Promise<MiniCalendarEvent[]> {
   try {
     const scope = await buildCalendarWhere(user);
     const events = await db.calendarEvent.findMany({
       where: { AND: [scope, { startsAt: { gte: start, lt: end } }] },
-      select: { startsAt: true, kind: true },
+      orderBy: { startsAt: "asc" },
+      select: { startsAt: true, kind: true, title: true },
       take: 300
     });
-    return events.map((e) => ({ day: e.startsAt.getDate(), kind: e.kind }));
+    return events.map((e) => ({
+      day: e.startsAt.getDate(),
+      kind: e.kind,
+      title: e.title,
+      time: new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" }).format(e.startsAt)
+    }));
   } catch {
     return [];
   }

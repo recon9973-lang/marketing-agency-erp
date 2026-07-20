@@ -24,11 +24,16 @@ import {
   LineChart,
   Newspaper,
   Palette,
-  Target
+  Target,
+  Star,
+  PanelLeftClose,
+  PanelLeftOpen
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
+import { toggleUserFavorite } from "@/server/actions/favorites";
+import type { FavoriteRow } from "@/server/repositories/user-favorite";
 import { Role } from "@/domain/types";
 import { canUseFeature, CONTROLLABLE_FEATURES, type FeatureKey } from "@/domain/features";
 import { BrandLogo } from "@/components/erp/BrandLogo";
@@ -300,21 +305,50 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+function NavLink({
+  item,
+  active,
+  collapsed,
+  favorited,
+  onToggleFav,
+  favPending
+}: {
+  item: NavItem;
+  active: boolean;
+  collapsed: boolean;
+  favorited: boolean;
+  onToggleFav: (item: NavItem) => void;
+  favPending: boolean;
+}) {
   const Icon = item.icon;
   return (
-    <Link
-      href={item.href}
-      aria-current={active ? "page" : undefined}
-      className={
-        active
-          ? "flex items-center gap-3 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white"
-          : "flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-600 transition hover:bg-surface hover:text-ink"
-      }
-    >
-      <Icon className="h-[17px] w-[17px] shrink-0" strokeWidth={1.8} />
-      <span>{item.label}</span>
-    </Link>
+    <div className="group/nav relative flex items-center">
+      <Link
+        href={item.href}
+        aria-current={active ? "page" : undefined}
+        title={collapsed ? item.label : undefined}
+        className={`flex flex-1 items-center gap-3 rounded-lg py-2 text-sm transition ${collapsed ? "justify-center px-2" : "px-3"} ${
+          active ? "bg-brand font-semibold text-white" : "text-slate-600 hover:bg-surface hover:text-ink"
+        }`}
+      >
+        <Icon className="h-[17px] w-[17px] shrink-0" strokeWidth={1.8} />
+        {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+      </Link>
+      {!collapsed && (
+        <button
+          type="button"
+          onClick={() => onToggleFav(item)}
+          disabled={favPending}
+          aria-label={favorited ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+          title={favorited ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+          className={`absolute right-1.5 rounded p-1 transition ${
+            favorited ? "opacity-100" : "opacity-0 group-hover/nav:opacity-100"
+          } ${active ? "text-white/80 hover:text-white" : "text-slate-300 hover:text-amber-500"}`}
+        >
+          <Star className={`h-3.5 w-3.5 ${favorited ? "fill-amber-400 text-amber-400" : ""}`} />
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -322,18 +356,51 @@ export function AppShell({
   children,
   role,
   canAccessSettings = false,
-  deniedFeatures = []
+  deniedFeatures = [],
+  favorites = []
 }: {
   children: ReactNode;
   role: Role;
   canAccessSettings?: boolean;
   deniedFeatures?: FeatureKey[];
+  favorites?: FavoriteRow[];
 }) {
   const pathname = usePathname() ?? "";
+  const router = useRouter();
   const items = getNavigationItems(role, canAccessSettings, deniedFeatures);
   const home = items.find((i) => i.group === "홈");
   const current = items.find((i) => isActive(pathname, i.href));
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [favPending, startFav] = useTransition();
+
+  const favHrefs = new Set(favorites.map((f) => f.href));
+  function toggleFav(item: NavItem) {
+    startFav(async () => {
+      await toggleUserFavorite({ label: item.label, href: item.href });
+      router.refresh();
+    });
+  }
+
+  // 사이드바 접힘 상태 유지(localStorage).
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem("erp-sidebar-collapsed") === "1");
+    } catch {
+      /* noop */
+    }
+  }, []);
+  function toggleCollapsed() {
+    setCollapsed((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem("erp-sidebar-collapsed", next ? "1" : "0");
+      } catch {
+        /* noop */
+      }
+      return next;
+    });
+  }
 
   // 전역 단축키 — ⌘K / Ctrl+K 로 검색 팔레트 토글.
   useEffect(() => {
@@ -352,17 +419,34 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-surface text-ink">
-      {/* 데스크톱 화이트 사이드바 (테마 토큰 — 다크 자동 반전) */}
-      <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-line bg-panel px-3.5 py-5 md:flex">
-        <Link href="/dashboard" className="block rounded-lg px-2 pb-5 pt-1 transition hover:opacity-80" aria-label="대시보드로">
-          <BrandLogo tone="auto" className="text-[22px]" />
-          <p className="mt-1.5 text-[10px] tracking-[0.14em] text-slate-400">MARKETING ERP</p>
-        </Link>
+      {/* 데스크톱 화이트 사이드바 (테마 토큰 — 다크 자동 반전) · 접기 지원 */}
+      <aside className={`fixed inset-y-0 left-0 hidden flex-col border-r border-line bg-panel py-5 transition-all md:flex ${collapsed ? "w-16 px-2" : "w-60 px-3.5"}`}>
+        <div className={`flex items-center ${collapsed ? "flex-col gap-2" : "justify-between"}`}>
+          <Link href="/dashboard" className="block rounded-lg px-1 pt-1 transition hover:opacity-80" aria-label="대시보드로">
+            {collapsed ? (
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-sm font-black text-white">V</span>
+            ) : (
+              <div className="px-1">
+                <BrandLogo tone="auto" className="text-[22px]" />
+                <p className="mt-1.5 text-[10px] tracking-[0.14em] text-slate-400">MARKETING ERP</p>
+              </div>
+            )}
+          </Link>
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? "사이드바 펼치기" : "사이드바 접기"}
+            title={collapsed ? "펼치기" : "접기"}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-surface hover:text-ink"
+          >
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
+        </div>
 
-        <nav className="flex-1 overflow-y-auto">
+        <nav className={`flex-1 overflow-y-auto ${collapsed ? "mt-3" : ""}`}>
           {home ? (
             <div className="grid grid-cols-1 gap-0.5 pb-1">
-              <NavLink item={home} active={isActive(pathname, home.href)} />
+              <NavLink item={home} active={isActive(pathname, home.href)} collapsed={collapsed} favorited={favHrefs.has(home.href)} onToggleFav={toggleFav} favPending={favPending} />
             </div>
           ) : null}
           {NAV_SECTIONS.map((section) => {
@@ -370,10 +454,14 @@ export function AppShell({
             if (sectionItems.length === 0) return null;
             return (
               <div key={section}>
-                <p className="px-2.5 pb-1.5 pt-4 text-[10px] uppercase tracking-[0.12em] text-slate-400">{section}</p>
+                {collapsed ? (
+                  <div className="mx-2 my-2 border-t border-line" />
+                ) : (
+                  <p className="px-2.5 pb-1.5 pt-4 text-[10px] uppercase tracking-[0.12em] text-slate-400">{section}</p>
+                )}
                 <div className="grid grid-cols-1 gap-0.5">
                   {sectionItems.map((item) => (
-                    <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} />
+                    <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} collapsed={collapsed} favorited={favHrefs.has(item.href)} onToggleFav={toggleFav} favPending={favPending} />
                   ))}
                 </div>
               </div>
@@ -381,18 +469,20 @@ export function AppShell({
           })}
         </nav>
 
-        <div className="mt-3 flex items-center gap-2.5 border-t border-line px-2 pt-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-soft text-sm font-bold text-brand-strong">
-            {ROLE_LABEL[role].charAt(0)}
+        {!collapsed && (
+          <div className="mt-3 flex items-center gap-2.5 border-t border-line px-2 pt-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-soft text-sm font-bold text-brand-strong">
+              {ROLE_LABEL[role].charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold text-ink">{ROLE_LABEL[role]}</p>
+              <p className="text-[10px] text-slate-400">Marketing ERP</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="truncate text-xs font-semibold text-ink">{ROLE_LABEL[role]}</p>
-            <p className="text-[10px] text-slate-400">Marketing ERP</p>
-          </div>
-        </div>
+        )}
       </aside>
 
-      <main className="min-h-screen md:pl-60">
+      <main className={`min-h-screen transition-all ${collapsed ? "md:pl-16" : "md:pl-60"}`}>
         <header className="sticky top-0 z-10 border-b border-line bg-panel/95 px-4 py-3.5 backdrop-blur sm:px-6">
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="min-w-0 shrink-0">
@@ -419,6 +509,27 @@ export function AppShell({
               {ROLE_LABEL[role].charAt(0)}
             </div>
           </div>
+
+          {/* 즐겨찾기 바 — 검색바 바로 아래. 사이드바 별표로 고정한 페이지 바로가기. */}
+          {favorites.length > 0 && (
+            <div className="mt-2.5 flex items-center gap-2 overflow-x-auto pb-0.5">
+              <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />
+              {favorites.map((f) => {
+                const active = isActive(pathname, f.href);
+                return (
+                  <Link
+                    key={f.id}
+                    href={f.href as ErpRoute}
+                    className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                      active ? "border-brand bg-brand text-white" : "border-line bg-card text-slate-600 hover:border-brand/40 hover:text-brand"
+                    }`}
+                  >
+                    {f.label}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
 
           {/* 모바일 가로 스크롤 네비 */}
           <nav className="mt-3 flex gap-2 overflow-x-auto pb-1 md:hidden">
