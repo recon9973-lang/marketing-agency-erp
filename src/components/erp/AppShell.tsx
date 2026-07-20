@@ -39,6 +39,7 @@ import { ErpSearch } from "@/components/search/ErpSearch";
 
 type ErpRoute =
   | "/dashboard"
+  | "/chat"
   | "/leads"
   | "/clients"
   | "/insights"
@@ -97,6 +98,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       label: "대시보드",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: ChartNoAxesCombined,
+      group: "홈"
+    },
+    {
+      href: "/chat",
+      label: "채팅",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: MessageSquare,
       group: "홈"
     },
     // ── 영업·계약: 컨설팅(리드/무료진단) → 계약 → 담당자 배정(거래처) ──
