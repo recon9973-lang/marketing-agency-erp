@@ -80,11 +80,11 @@ type ErpRoute =
   | "/settings"
   | "/account";
 
-// 업무 흐름 기반 그룹 — 컨설팅·계약 → 기획·분석 → 제작·검수 → 보고 → 관리.
-type NavGroup = "홈" | "영업·계약" | "기획·분석" | "제작·검수" | "보고·기록" | "관리";
+// 업무 흐름 기반 그룹 — 컨설팅·계약 → 분석·GEO → 제작 → 보고 → 관리.
+type NavGroup = "홈" | "영업·계약" | "분석·GEO" | "제작" | "보고·결재" | "관리";
 
 // 사이드바 섹션 렌더 순서(홈은 상단 고정이라 제외).
-const NAV_SECTIONS: NavGroup[] = ["영업·계약", "기획·분석", "제작·검수", "보고·기록", "관리"];
+const NAV_SECTIONS: NavGroup[] = ["영업·계약", "분석·GEO", "제작", "보고·결재", "관리"];
 
 export type NavItem = {
   href: ErpRoute;
@@ -129,176 +129,176 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       icon: BriefcaseBusiness,
       group: "영업·계약"
     },
-    // ── 기획·분석: 상세분석(인사이트·검색량·GEO) → 업무계획(업무관리·캘린더) ──
+    // ── 분석·GEO: 상세분석(인사이트·검색량·GEO) → 업무계획(업무관리·캘린더) ──
     {
       href: "/insights",
       label: "거래처 인사이트",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: LineChart,
-      group: "기획·분석"
+      group: "분석·GEO"
     },
     {
       href: "/keywords",
       label: "검색량 조회",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Search,
-      group: "기획·분석"
+      group: "분석·GEO"
     },
     {
       href: "/geo",
       label: "GEO 모니터링",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Radar,
-      group: "기획·분석"
+      group: "분석·GEO"
     },
     {
       href: "/geo-studio",
       label: "GEO Studio",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Workflow,
-      group: "기획·분석"
+      group: "분석·GEO"
     },
     {
       href: "/geo-scan",
       label: "GEO 스캐너",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Satellite,
-      group: "기획·분석"
+      group: "분석·GEO"
     },
     {
       href: "/geo-cep",
       label: "CEP 파인더",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Compass,
-      group: "기획·분석"
+      group: "분석·GEO"
     },
     {
       href: "/geo-path",
       label: "GEO 여정",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Route,
-      group: "기획·분석"
+      group: "분석·GEO"
     },
     {
       href: "/geo-planner",
       label: "GEO 캠페인",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Rocket,
-      group: "기획·분석"
+      group: "분석·GEO"
     },
     {
       href: "/geo-learning",
       label: "GEO 학습",
       roles: [Role.SUPER_ADMIN, Role.ADMIN],
       icon: Sparkles,
-      group: "기획·분석"
+      group: "분석·GEO"
     },
     {
       href: "/work",
       label: "업무관리",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: ClipboardList,
-      group: "기획·분석"
+      group: "분석·GEO"
     },
     {
       href: "/calendar",
       label: "캘린더",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: CalendarDays,
-      group: "기획·분석"
+      group: "분석·GEO"
     },
-    // ── 제작·검수: 원고·이미지·디자인·AI·마케팅·매거진 → 의료법 검수 → 승인(발행) ──
+    // ── 제작: 원고·이미지·디자인·AI·마케팅·매거진 → 의료법 검수 → 승인(발행) ──
     {
       href: "/manuscript",
       label: "원고 스튜디오",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: PenLine,
-      group: "제작·검수"
+      group: "제작"
     },
     {
       href: "/image-studio",
       label: "이미지 스튜디오",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: ImageIcon,
-      group: "제작·검수"
+      group: "제작"
     },
     {
       href: "/studio",
       label: "디자인 스튜디오",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Palette,
-      group: "제작·검수"
+      group: "제작"
     },
     {
       href: "/ai-studio",
       label: "AI 마케팅",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Sparkles,
-      group: "제작·검수"
+      group: "제작"
     },
     {
       href: "/geo-content",
       label: "GEO 콘텐츠",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: FileText,
-      group: "제작·검수"
+      group: "제작"
     },
     {
       href: "/marketing-studio",
       label: "마케팅 스튜디오",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Megaphone,
-      group: "제작·검수"
+      group: "제작"
     },
     {
       href: "/magazine",
       label: "매거진",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Newspaper,
-      group: "제작·검수"
+      group: "제작"
     },
     {
       href: "/compliance",
       label: "의료법 검수",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: ShieldCheck,
-      group: "제작·검수"
+      group: "제작"
     },
     {
       href: "/approvals",
       label: "승인함",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: CircleCheck,
-      group: "제작·검수"
+      group: "보고·결재"
     },
-    // ── 보고·기록: 월간 보고서 → 주간보고 → 회의록 → 보관함 ──
+    // ── 보고·결재: 월간 보고서 → 주간보고 → 회의록 → 보관함 ──
     {
       href: "/reports",
-      label: "보고서",
+      label: "결재",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: FileText,
-      group: "보고·기록"
+      group: "보고·결재"
     },
     {
       href: "/weekly",
       label: "주간보고",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: CalendarCheck,
-      group: "보고·기록"
+      group: "보고·결재"
     },
     {
       href: "/meetings",
       label: "회의록",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Video,
-      group: "보고·기록"
+      group: "보고·결재"
     },
     {
       href: "/vault",
       label: "보관함",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Archive,
-      group: "보고·기록"
+      group: "보고·결재"
     },
     // ── 관리(관리자): 입출금(정산/지출) → 연차 → 연동 → 직원/권한 ──
     {
