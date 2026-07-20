@@ -1230,6 +1230,7 @@ model StoredFile {
   data         Bytes
   uploadedById String?
   folderId     String?
+  deletedAt    DateTime? // 휴지통(소프트 삭제) — null=정상, 값=휴지통. 영구삭제는 관리자만.
   createdAt    DateTime     @default(now())
   uploadedBy   User?        @relation("FileUploader", fields: [uploadedById], references: [id])
   folder       VaultFolder? @relation(fields: [folderId], references: [id])
@@ -1237,6 +1238,7 @@ model StoredFile {
 
   @@index([uploadedById])
   @@index([folderId])
+  @@index([deletedAt])
 }
 
 /// AI 마케팅 엔진 — Claude로 블로그/카드뉴스/SNS 문구를 생성해 보관.

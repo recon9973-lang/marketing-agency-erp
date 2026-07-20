@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { CreateFolderForm, DeleteFolderButton, FileActions, UploadForm } from "@/components/vault/VaultControls";
+import { TrashActions } from "@/components/vault/TrashActions";
 import { Role } from "@/domain/types";
-import { countRootVaultFiles, listVaultFiles, listVaultFolders, type VaultFileItem } from "@/server/repositories/vault";
+import { countRootVaultFiles, listVaultFiles, listVaultFolders, listVaultTrash, type VaultFileItem } from "@/server/repositories/vault";
 import { getCurrentUser } from "@/server/session";
 
 const dateFmt = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" });
@@ -20,9 +21,13 @@ export default async function VaultPage({ searchParams }: { searchParams: Promis
 
   const { folder } = await searchParams;
   const selectedFolderId = folder ?? null;
-  const isSuperAdmin = user.role === Role.SUPER_ADMIN;
+  const isAdmin = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
 
-  const [folders, rootCount] = await Promise.all([listVaultFolders(), countRootVaultFiles()]);
+  const [folders, rootCount, trash] = await Promise.all([
+    listVaultFolders(),
+    countRootVaultFiles(),
+    isAdmin ? listVaultTrash() : Promise.resolve([])
+  ]);
   const selectedFolder = selectedFolderId ? folders.find((f) => f.id === selectedFolderId) ?? null : null;
   // 존재하지 않는 폴더 id면 루트로.
   const effectiveFolderId = selectedFolder ? selectedFolder.id : null;
@@ -44,6 +49,13 @@ export default async function VaultPage({ searchParams }: { searchParams: Promis
     { key: "actions", header: "", render: (f) => <FileActions fileId={f.id} /> }
   ];
 
+  const trashColumns: DataTableColumn<VaultFileItem>[] = [
+    { key: "name", header: "파일", render: (f) => <span className="font-medium text-slate-600">{f.fileName}</span> },
+    { key: "size", header: "크기", render: (f) => <span className="text-slate-500">{humanSize(f.size)}</span> },
+    { key: "uploader", header: "올린 사람", render: (f) => f.uploaderName ?? "-" },
+    { key: "actions", header: "", render: (f) => <TrashActions fileId={f.id} /> }
+  ];
+
   function chipCls(active: boolean) {
     return active
       ? "rounded-full bg-brand px-3.5 py-1.5 text-sm font-semibold text-white"
@@ -55,7 +67,7 @@ export default async function VaultPage({ searchParams }: { searchParams: Promis
       <DashboardHeader
         eyebrow="공용 파일함"
         title="보관함"
-        description="팀이 공유하는 파일을 폴더로 정리해 보관합니다. 폴더 생성·삭제는 최고관리자만 가능하고, 파일 업로드·삭제는 누구나 할 수 있습니다."
+        description="팀이 공유하는 파일을 폴더로 정리해 보관합니다. 폴더 생성·삭제·파일 업로드는 누구나 가능하고, 삭제한 파일은 휴지통으로 이동합니다(영구삭제·복원은 관리자)."
       />
 
       {/* 폴더 선택 칩 */}
@@ -68,13 +80,11 @@ export default async function VaultPage({ searchParams }: { searchParams: Promis
         ))}
       </div>
 
-      {/* 폴더 관리 (최고관리자) */}
-      {isSuperAdmin ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface/60 p-3">
-          <CreateFolderForm />
-          {selectedFolder ? <DeleteFolderButton folderId={selectedFolder.id} folderName={selectedFolder.name} /> : null}
-        </div>
-      ) : null}
+      {/* 폴더 관리 (누구나) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface/60 p-3">
+        <CreateFolderForm />
+        {selectedFolder ? <DeleteFolderButton folderId={selectedFolder.id} folderName={selectedFolder.name} /> : null}
+      </div>
 
       {/* 현재 위치 + 업로드 */}
       <div className="space-y-3">
@@ -85,6 +95,15 @@ export default async function VaultPage({ searchParams }: { searchParams: Promis
       </div>
 
       <DataTable columns={columns} rows={files} emptyMessage="이 위치에 파일이 없습니다. 위에서 파일을 업로드하세요." />
+
+      {/* 휴지통 (관리자 전용) */}
+      {isAdmin && (
+        <div className="space-y-3 border-t border-line pt-6">
+          <h3 className="text-base font-semibold text-ink">🗑️ 휴지통 <span className="text-slate-400">({trash.length})</span></h3>
+          <p className="text-sm text-slate-500">삭제된 파일입니다. 복원하거나 영구 삭제할 수 있습니다(관리자 전용).</p>
+          <DataTable columns={trashColumns} rows={trash} emptyMessage="휴지통이 비어 있습니다." />
+        </div>
+      )}
     </div>
   );
 }
