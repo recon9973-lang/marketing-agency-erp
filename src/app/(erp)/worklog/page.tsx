@@ -13,7 +13,7 @@ export default async function WorkLogPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const { reports, clients } = await listWorkReports(user);
+  const { reports, clients, workItems } = await listWorkReports(user);
   const categories = Object.values(WorkCategory).map((c) => workCategoryLabels[c]);
   const isManager = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
   // 로컬(KST) 기준 오늘 날짜.
@@ -30,6 +30,7 @@ export default async function WorkLogPage() {
         reports={reports}
         clients={clients}
         categories={categories}
+        workItems={workItems}
         todayISO={todayISO}
         viewerId={user.id}
         isManager={isManager}

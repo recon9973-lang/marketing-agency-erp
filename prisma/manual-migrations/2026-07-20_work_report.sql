@@ -15,3 +15,5 @@ CREATE TABLE IF NOT EXISTS "WorkReport" (
 CREATE INDEX IF NOT EXISTS "WorkReport_clientId_idx" ON "WorkReport" ("clientId");
 CREATE INDEX IF NOT EXISTS "WorkReport_authorId_idx" ON "WorkReport" ("authorId");
 CREATE INDEX IF NOT EXISTS "WorkReport_workDate_idx" ON "WorkReport" ("workDate");
+ALTER TABLE "WorkReport" ADD COLUMN IF NOT EXISTS "workItemId" TEXT;
+CREATE INDEX IF NOT EXISTS "WorkReport_workItemId_idx" ON "WorkReport" ("workItemId");

@@ -17,24 +17,40 @@ async function ensureTable(): Promise<void> {
     await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "WorkReport_clientId_idx" ON "WorkReport" ("clientId")`);
     await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "WorkReport_authorId_idx" ON "WorkReport" ("authorId")`);
     await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "WorkReport_workDate_idx" ON "WorkReport" ("workDate")`);
+    await db.$executeRawUnsafe(`ALTER TABLE "WorkReport" ADD COLUMN IF NOT EXISTS "workItemId" TEXT`);
   } catch (e) {
     console.warn("[work-report] 테이블 보장 실패(무시):", String(e).slice(0, 140));
   }
 }
 
-const createSchema = z.object({
+function normalizeLink(raw?: string | null): string | null {
+  let link = raw?.trim() || null;
+  if (link && !/^https?:\/\//i.test(link)) link = `https://${link}`;
+  return link;
+}
+
+const bulkSchema = z.object({
   clientId: z.string().min(1),
   workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "날짜 형식이 올바르지 않습니다."),
   category: z.string().trim().min(1).max(60),
-  title: z.string().trim().min(1).max(300),
-  link: z.string().trim().max(1000).optional().nullable(),
-  note: z.string().trim().max(2000).optional().nullable()
+  workItemId: z.string().trim().optional().nullable(),
+  items: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1).max(300),
+        link: z.string().trim().max(1000).optional().nullable(),
+        note: z.string().trim().max(2000).optional().nullable()
+      })
+    )
+    .min(1)
+    .max(20)
 });
 
-export async function createWorkReport(input: unknown): Promise<ActionResult<{ id: string }>> {
+/** 여러 건의 결과물을 한 번에 등록(같은 거래처·일자·종류·연결업무 공유). */
+export async function createWorkReports(input: unknown): Promise<ActionResult<{ count: number }>> {
   return runAction(async () => {
     const user = await requireUser();
-    const p = createSchema.safeParse(input);
+    const p = bulkSchema.safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
     const d = p.data;
 
@@ -44,25 +60,29 @@ export async function createWorkReport(input: unknown): Promise<ActionResult<{ i
     const scopes = await getAdminScopes(user);
     assertCanAccessClient(user, d.clientId, scopes, client.assignedMarketerId);
 
-    // 링크는 있으면 http(s) 형태로 정규화(스킴 없으면 https 부여).
-    let link = d.link?.trim() || null;
-    if (link && !/^https?:\/\//i.test(link)) link = `https://${link}`;
+    // 연결 업무가 지정되면 같은 거래처의 업무인지 확인.
+    let workItemId: string | null = d.workItemId?.trim() || null;
+    if (workItemId) {
+      const wi = await db.workItem.findUnique({ where: { id: workItemId }, select: { clientId: true } });
+      if (!wi || wi.clientId !== d.clientId) workItemId = null;
+    }
 
     await ensureTable();
-    const row = await db.workReport.create({
-      data: {
+    const workDate = new Date(`${d.workDate}T00:00:00`);
+    await db.workReport.createMany({
+      data: d.items.map((it) => ({
         clientId: d.clientId,
         authorId: user.id,
-        workDate: new Date(`${d.workDate}T00:00:00`),
+        workItemId,
+        workDate,
         category: d.category.trim(),
-        title: d.title.trim(),
-        link,
-        note: d.note?.trim() || null
-      },
-      select: { id: true }
+        title: it.title.trim(),
+        link: normalizeLink(it.link),
+        note: it.note?.trim() || null
+      }))
     });
     revalidatePath("/worklog");
-    return { id: row.id };
+    return { count: d.items.length };
   });
 }
 

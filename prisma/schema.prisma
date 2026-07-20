@@ -1636,6 +1636,7 @@ model WorkReport {
   id         String   @id @default(cuid())
   clientId   String
   authorId   String
+  workItemId String? // (선택) 업무관리(WorkItem) 연결
   workDate   DateTime // 작업 일자(일 단위)
   category   String // 결과물 종류(WorkCategory 라벨 또는 기타)
   title      String // 결과물 제목/설명
@@ -1647,6 +1648,7 @@ model WorkReport {
   @@index([clientId])
   @@index([authorId])
   @@index([workDate])
+  @@index([workItemId])
 }
 
 /// 내부 공지사항 — 관리자가 직접 작성해 전 직원에게 게시. (검색엔진 공지와 별개)
