@@ -6,7 +6,6 @@ import {
   BriefcaseBusiness,
   CalendarCheck,
   CalendarDays,
-  Compass,
   ChartNoAxesCombined,
   CircleCheck,
   ClipboardList,
@@ -19,16 +18,10 @@ import {
   Plug,
   ShieldCheck,
   KeyRound,
-  Sparkles,
   Video,
   MessageSquare,
   Radar,
-  Rocket,
-  Route,
-  Satellite,
-  Workflow,
   Search,
-  Megaphone,
   LineChart,
   Newspaper,
   Palette,
@@ -146,51 +139,9 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
     },
     {
       href: "/geo",
-      label: "GEO 모니터링",
+      label: "GEO",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Radar,
-      group: "분석·GEO"
-    },
-    {
-      href: "/geo-studio",
-      label: "GEO Studio",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Workflow,
-      group: "분석·GEO"
-    },
-    {
-      href: "/geo-scan",
-      label: "GEO 스캐너",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Satellite,
-      group: "분석·GEO"
-    },
-    {
-      href: "/geo-cep",
-      label: "CEP 파인더",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Compass,
-      group: "분석·GEO"
-    },
-    {
-      href: "/geo-path",
-      label: "GEO 여정",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Route,
-      group: "분석·GEO"
-    },
-    {
-      href: "/geo-planner",
-      label: "GEO 캠페인",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Rocket,
-      group: "분석·GEO"
-    },
-    {
-      href: "/geo-learning",
-      label: "GEO 학습",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN],
-      icon: Sparkles,
       group: "분석·GEO"
     },
     {
@@ -227,27 +178,6 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       label: "디자인 스튜디오",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Palette,
-      group: "제작"
-    },
-    {
-      href: "/ai-studio",
-      label: "AI 마케팅",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Sparkles,
-      group: "제작"
-    },
-    {
-      href: "/geo-content",
-      label: "GEO 콘텐츠",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: FileText,
-      group: "제작"
-    },
-    {
-      href: "/marketing-studio",
-      label: "마케팅 스튜디오",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Megaphone,
       group: "제작"
     },
     {
