@@ -1603,6 +1603,15 @@ model InternalNotice {
   @@index([createdAt])
 }
 
+/// 개인 메모장 — 계정별 1개(자동 저장). 대시보드 위젯.
+model UserMemo {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  content   String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 /// GEO 답변 기록 — 질문×엔진×일자 단위의 AI 답변 출현 관측(수동 실행 기록).
 /// 약관상 자동 스크래핑은 배제 — 담당자가 실행 결과를 기록하고 캡처 링크를 남긴다(상품 증빙).
 model GeoAnswerRecord {

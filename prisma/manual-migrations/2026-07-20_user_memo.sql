@@ -1,0 +1,12 @@
+-- 개인 메모장(계정별 1개). 멱등 추가.
+BEGIN;
+CREATE TABLE IF NOT EXISTS "UserMemo" (
+  "id" TEXT NOT NULL,
+  "userId" TEXT NOT NULL,
+  "content" TEXT NOT NULL DEFAULT '',
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "UserMemo_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "UserMemo_userId_key" ON "UserMemo" ("userId");
+COMMIT;
