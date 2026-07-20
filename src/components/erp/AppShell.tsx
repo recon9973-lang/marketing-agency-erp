@@ -18,6 +18,7 @@ import {
   Plane,
   Plug,
   ShieldCheck,
+  KeyRound,
   Sparkles,
   Video,
   MessageSquare,
@@ -76,7 +77,8 @@ type ErpRoute =
   | "/reports"
   | "/vault"
   | "/integrations"
-  | "/settings";
+  | "/settings"
+  | "/account";
 
 // 업무 흐름 기반 그룹 — 컨설팅·계약 → 기획·분석 → 제작·검수 → 보고 → 관리.
 type NavGroup = "홈" | "영업·계약" | "기획·분석" | "제작·검수" | "보고·기록" | "관리";
@@ -325,6 +327,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       label: "직원/권한",
       roles: [Role.SUPER_ADMIN],
       icon: ShieldCheck,
+      group: "관리"
+    },
+    {
+      href: "/account",
+      label: "계정·비밀번호",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN],
+      icon: KeyRound,
       group: "관리"
     }
   ];
