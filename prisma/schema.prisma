@@ -1588,6 +1588,21 @@ model ManuscriptProject {
   @@index([clientId])
 }
 
+/// 내부 공지사항 — 관리자가 직접 작성해 전 직원에게 게시. (검색엔진 공지와 별개)
+model InternalNotice {
+  id         String   @id @default(cuid())
+  title      String
+  body       String
+  authorId   String?
+  authorName String?
+  pinned     Boolean  @default(false)
+  orgId      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
 /// GEO 답변 기록 — 질문×엔진×일자 단위의 AI 답변 출현 관측(수동 실행 기록).
 /// 약관상 자동 스크래핑은 배제 — 담당자가 실행 결과를 기록하고 캡처 링크를 남긴다(상품 증빙).
 model GeoAnswerRecord {

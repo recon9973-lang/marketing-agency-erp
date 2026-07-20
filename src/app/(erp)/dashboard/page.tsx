@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { DashboardHome } from "@/components/dashboard/DashboardHome";
 import { SearchEngineNotices, SearchNoticesSkeleton } from "@/components/dashboard/SearchEngineNotices";
+import { InternalNoticesWidget } from "@/components/dashboard/InternalNoticesWidget";
+import { Role } from "@/domain/types";
 import { SafeBoundary } from "@/components/util/SafeBoundary";
 import { summarizeDashboard, type DashboardSummary } from "@/domain/dashboard";
 import { fetchDashboardInput } from "@/server/repositories/dashboard";
@@ -54,13 +56,23 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  const isAdmin = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
+
   return (
     <div className="space-y-6">
-      <SafeBoundary fallback={null}>
-        <Suspense fallback={<SearchNoticesSkeleton />}>
-          <SearchEngineNotices />
-        </Suspense>
-      </SafeBoundary>
+      {/* 공지사항(내부 작성) · 검색엔진 공지 — 반폭 2열 */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SafeBoundary fallback={null}>
+          <Suspense fallback={<SearchNoticesSkeleton />}>
+            <InternalNoticesWidget canManage={isAdmin} />
+          </Suspense>
+        </SafeBoundary>
+        <SafeBoundary fallback={null}>
+          <Suspense fallback={<SearchNoticesSkeleton />}>
+            <SearchEngineNotices />
+          </Suspense>
+        </SafeBoundary>
+      </div>
       <Suspense fallback={<DashboardSkeleton />}>
         <DashboardData user={user} />
       </Suspense>
