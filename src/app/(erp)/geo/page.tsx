@@ -56,6 +56,14 @@ import { listContentDiagnoses } from "@/server/repositories/geo-content-diagnosi
 import { AiStudio } from "@/components/ai/AiStudio";
 import { listAiContentForUser } from "@/server/repositories/ai-content";
 import { isAiConfigured } from "@/server/ai/claude";
+import { GeoPlannerForm } from "@/components/geo-planner/GeoPlannerForm";
+import { SavedGeoPlans } from "@/components/geo-planner/SavedGeoPlans";
+import { listGeoCampaignPlans } from "@/server/repositories/geo-campaign-plan";
+import { GeoLearningPanel, type VersionRow } from "@/components/geo/GeoLearningPanel";
+import { listModelVersions } from "@/server/repositories/geo-model";
+import { getDefaultOrgId } from "@/server/org";
+import { Role } from "@/domain/types";
+import { ConnectionBadge } from "@/components/ui/ConnectionBadge";
 import { GEO_STAGES, geoStageOf, type GeoStageKey } from "@/domain/geo/stages";
 
 // P2.1: 각 단계의 CTA(현재는 전용 도구로 이어짐 — P2.2~에서 인라인 통합).
@@ -278,6 +286,26 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
   const aiConfigured = isAiConfigured();
   const clientOptions = clients.map((c) => ({ id: c.id, name: c.name }));
 
+  // 단계10(캠페인)·단계11(학습) 데이터.
+  const savedPlans = activeTab === "campaign" ? await listGeoCampaignPlans(user).catch(() => []) : [];
+  const canManageLearning = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
+  let learningVersions: VersionRow[] = [];
+  if (activeTab === "learning" && canManageLearning) {
+    const orgId = await getDefaultOrgId().catch(() => null);
+    const vrows = orgId ? await listModelVersions(orgId).catch(() => []) : [];
+    learningVersions = vrows.map((v) => ({
+      id: v.id,
+      version: v.version,
+      status: v.status,
+      summary: v.summary,
+      weights: (v.weights as unknown as VersionRow["weights"]) ?? [],
+      diff: (v.diff as unknown as VersionRow["diff"]) ?? [],
+      basisCount: v.basisCount,
+      appliedAt: v.appliedAt ? v.appliedAt.toISOString() : null,
+      createdAt: v.createdAt.toISOString()
+    }));
+  }
+
   // 화면 안에 인라인 통합된 탭(그 외는 단계 안내 패널).
   const inlineTabs: GeoStageKey[] = [
     "dashboard",
@@ -287,7 +315,10 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
     "cep",
     "journey",
     "content-diagnosis",
-    "content"
+    "content",
+    "plan",
+    "campaign",
+    "learning"
   ];
 
   // llms.txt 본문(순수 생성) — 게시된 답변 페이지 기반
@@ -473,6 +504,64 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
               <AiStudio clients={clientOptions} history={aiHistory} aiConfigured={aiConfigured} />
             </div>
           )}
+
+          {/* 단계8 — 계획서 (일·주·월·연 캐던스) */}
+          {activeTab === "plan" && selectedId && (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-line bg-card p-5">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white">8</span>
+                  <h3 className="text-base font-bold text-ink">GEO 실행 계획서 · 캐던스</h3>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">일·주·월·연 단위 실행 리듬과 각 주기의 산출물.</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    { k: "일간", d: "질문 관측 기록 · 이슈 대응", src: "관측 현황" },
+                    { k: "주간", d: "언급률 추이 · 주간 리포트", src: "주간 리포트" },
+                    { k: "월간", d: "월간 성과 요약 · 리포트", src: "월간 요약(아래)" },
+                    { k: "연간", d: "분기 전략 · 목표 재설정", src: "전략 방향(대시보드)" }
+                  ].map((c) => (
+                    <div key={c.k} className="rounded-xl border border-line bg-surface/40 p-3">
+                      <p className="text-xs font-bold text-ink">{c.k}</p>
+                      <p className="mt-1 text-[11px] leading-snug text-slate-600">{c.d}</p>
+                      <p className="mt-1 text-[10px] text-emerald-600">{c.src}</p>
+                    </div>
+                  ))}
+                </div>
+                <a href="/reports/geo-weekly" className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
+                  주간 리포트 열기
+                </a>
+              </div>
+              <GeoMonthlyReport data={reportData} clientName={selectedName} />
+            </div>
+          )}
+
+          {/* 단계10 — 캠페인 플래너 */}
+          {activeTab === "campaign" && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800">
+                <ConnectionBadge state="demo" hint="추정 모델·미저장" />
+                <span>채널 믹스·ROI·KPI는 입력값 기반 <b>추정 모델</b>입니다(실측 성과 아님).</span>
+              </div>
+              <GeoPlannerForm />
+              <section className="rounded-2xl border border-line bg-card p-4">
+                <p className="mb-2 text-sm font-bold text-ink">
+                  저장된 계획 <span className="text-slate-400">({savedPlans.length})</span>
+                </p>
+                <SavedGeoPlans plans={savedPlans.map((pl) => ({ ...pl, createdAt: pl.createdAt.toISOString() }))} />
+              </section>
+            </div>
+          )}
+
+          {/* 단계11 — 학습 (관리자+) */}
+          {activeTab === "learning" &&
+            (canManageLearning ? (
+              <GeoLearningPanel versions={learningVersions} canManage={canManageLearning} />
+            ) : (
+              <p className="rounded-2xl border border-line bg-card p-6 text-center text-sm text-slate-500">
+                학습 모듈은 관리자 이상만 볼 수 있습니다.
+              </p>
+            ))}
 
           {!inlineTabs.includes(activeTab) && (
             <GeoStagePanel
