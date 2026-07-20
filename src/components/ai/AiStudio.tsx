@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, Check, Sparkles, Trash2 } from "lucide-react";
+import { Copy, Check, Sparkles, Trash2, ShieldCheck, ShieldAlert } from "lucide-react";
 import { deleteAiContent, generateAiContent } from "@/server/actions/ai-content";
 import type { AiContentItem } from "@/server/repositories/ai-content";
+import type { ComplianceResult } from "@/server/compliance/medical-law";
 
 type ClientOption = { id: string; name: string };
 
@@ -38,15 +39,19 @@ export function AiStudio({
   const [kind, setKind] = useState<string>("BLOG");
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [medicalCheck, setMedicalCheck] = useState(true);
+  const [compliance, setCompliance] = useState<ComplianceResult | null>(null);
 
   function onSubmit(fd: FormData) {
     setError(null);
+    setCompliance(null);
     const payload = {
       kind,
       topic: String(fd.get("topic") || ""),
       keywords: String(fd.get("keywords") || "") || null,
       tone: String(fd.get("tone") || "") || null,
-      clientId: String(fd.get("clientId") || "") || null
+      clientId: String(fd.get("clientId") || "") || null,
+      medicalCheck
     };
     start(async () => {
       const res = await generateAiContent(payload);
@@ -54,6 +59,7 @@ export function AiStudio({
         setError(res.error);
         return;
       }
+      setCompliance(res.data?.compliance ?? null);
       router.refresh();
     });
   }
@@ -123,6 +129,13 @@ export function AiStudio({
 
         {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
 
+        {/* 의료법 검수 적용 여부 — 모든 콘텐츠 생성단 공통 체크박스 */}
+        <label className="mt-4 flex w-fit items-center gap-2 rounded-lg border border-line bg-surface/40 px-3 py-2 text-xs text-slate-600">
+          <input type="checkbox" checked={medicalCheck} onChange={(e) => setMedicalCheck(e.target.checked)} className="h-4 w-4 accent-brand" />
+          <ShieldCheck className="h-3.5 w-3.5 text-brand" />
+          <span>의료법(의료광고법 §56) 검수 적용 — 생성 후 위험 표현을 자동 진단</span>
+        </label>
+
         <div className="mt-4 flex items-center gap-3">
           <button
             type="submit"
@@ -137,6 +150,32 @@ export function AiStudio({
           ) : null}
         </div>
       </form>
+
+      {/* 의료법 검수 결과 */}
+      {compliance &&
+        (compliance.flags.length === 0 ? (
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            <ShieldCheck className="h-4 w-4" /> 의료법 검수 통과 — 위험 표현이 발견되지 않았습니다. (최종 판단은 담당자 검토)
+          </div>
+        ) : (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+            <div className="flex items-center gap-2 text-sm font-bold text-amber-800">
+              <ShieldAlert className="h-4 w-4" /> 의료법 위험 표현 {compliance.flags.length}건 (높음 {compliance.highCount} · 중간 {compliance.mediumCount})
+            </div>
+            <ul className="mt-2 space-y-1">
+              {compliance.flags.map((f, i) => (
+                <li key={i} className="flex flex-wrap items-center gap-2 text-xs text-amber-900">
+                  <span className={`rounded px-1.5 py-0.5 font-bold ${f.severity === "high" ? "bg-rose-100 text-rose-700" : "bg-amber-200 text-amber-800"}`}>
+                    {f.severity === "high" ? "높음" : "중간"}
+                  </span>
+                  <span className="font-medium">{f.label}</span>
+                  <span className="text-amber-700">“{f.matched}”</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[11px] text-amber-700">규칙 기반 1차 진단입니다. 최종 판단은 담당자 검토가 필요합니다.</p>
+          </div>
+        ))}
 
       <section className="space-y-3">
         <h3 className="text-sm font-bold text-ink">생성 기록 ({history.length})</h3>

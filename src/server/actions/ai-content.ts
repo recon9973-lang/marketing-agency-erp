@@ -20,6 +20,7 @@ import {
   type ActionResult
 } from "@/server/actions/_helpers";
 import { AI_MODEL, generateMarketingContent, type AiContentKind } from "@/server/ai/claude";
+import { checkMedicalLaw, type ComplianceResult } from "@/server/compliance/medical-law";
 import type { CurrentUser } from "@/server/session";
 
 const KINDS = ["BLOG", "CARD_NEWS", "SNS", "AD_COPY", "KEYWORD"] as const;
@@ -29,12 +30,13 @@ const generateSchema = z.object({
   topic: z.string().trim().min(1).max(500),
   keywords: z.string().trim().max(500).optional().nullable(),
   tone: z.string().trim().max(200).optional().nullable(),
-  clientId: z.string().trim().optional().nullable()
+  clientId: z.string().trim().optional().nullable(),
+  medicalCheck: z.boolean().optional() // 의료법 검수 적용 여부(콘텐츠 생성단 체크박스)
 });
 
 export async function generateAiContent(
   input: unknown
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string; compliance: ComplianceResult | null }>> {
   return runAction(async () => {
     const user = await requireUser();
     const p = generateSchema.safeParse(input);
@@ -102,7 +104,9 @@ export async function generateAiContent(
     });
 
     revalidatePath("/ai-studio");
-    return { id: saved.id };
+    // 의료법 검수 적용 시 규칙엔진으로 위험 표현을 즉시 진단(결과는 화면에 표시).
+    const compliance = d.medicalCheck ? checkMedicalLaw(result) : null;
+    return { id: saved.id, compliance };
   });
 }
 
