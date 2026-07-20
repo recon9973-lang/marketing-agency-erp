@@ -10,6 +10,10 @@ import { PendingApprovals } from "@/components/settings/PendingApprovals";
 import { MasterManager } from "@/components/settings/MasterManager";
 import { DocumentTemplateManager } from "@/components/settings/DocumentTemplateManager";
 import { TemplateFiller } from "@/components/settings/TemplateFiller";
+import { HrEvaluationPanel } from "@/components/settings/HrEvaluationPanel";
+import Link from "next/link";
+import type { Route } from "next";
+import { listHrEvaluations } from "@/server/repositories/hr-evaluation";
 import { listAllTemplates, listTemplatesForUse } from "@/server/repositories/document-templates";
 import { ConnectionStatus, Role, UserStatus } from "@/domain/types";
 import { db } from "@/server/db";
@@ -107,7 +111,7 @@ function IntegrationCard({ integration }: { integration: IntegrationSettingsItem
   );
 }
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const user = await getCurrentUser();
 
   if (!user) {
@@ -121,6 +125,10 @@ export default async function SettingsPage() {
 
   const isAdmin = user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN;
   const isSuperAdmin = user.role === Role.SUPER_ADMIN;
+
+  const { tab } = await searchParams;
+  const activeTab: "staff" | "evaluation" = tab === "evaluation" ? "evaluation" : "staff";
+  const evaluations = activeTab === "evaluation" ? await listHrEvaluations() : [];
 
   // 각 데이터 소스에 방어 — 하나가 실패(스키마 드리프트 등)해도 설정 화면 전체가 죽지 않게.
   // (특히 비밀번호 변경 카드는 데이터에 의존하지 않으므로 항상 뜨도록.) 실패는 로그로 남긴다.
@@ -145,11 +153,40 @@ export default async function SettingsPage() {
   return (
     <section className="space-y-6">
       <DashboardHeader
-        eyebrow="설정"
-        title="직원 권한 및 외부 연동 설정"
-        description="직원 역할, 관리자 접근 범위, 이메일 로그인, 구글/네이버 캘린더, 향후 PG와 계좌·카드 연동 준비 상태를 확인합니다."
+        eyebrow="인사관리"
+        title="인사관리"
+        description="직원 권한·접근 범위·외부 연동을 관리하고, 인사관리평가로 직원을 주기별로 평가합니다."
       />
 
+      {/* 인사관리 탭 */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-line pb-1">
+        {[
+          { key: "staff", label: "직원·권한" },
+          { key: "evaluation", label: "인사관리평가" }
+        ].map((t) => {
+          const on = t.key === activeTab;
+          return (
+            <Link
+              key={t.key}
+              href={`/settings?tab=${t.key}` as Route}
+              aria-current={on ? "page" : undefined}
+              className={`rounded-lg px-3.5 py-2 text-sm font-semibold transition ${on ? "bg-brand text-white shadow-sm" : "text-slate-600 hover:bg-surface"}`}
+            >
+              {t.label}
+            </Link>
+          );
+        })}
+      </div>
+
+      {activeTab === "evaluation" && (
+        <HrEvaluationPanel
+          staff={overview.staff.map((m) => ({ id: m.id, name: m.name, role: m.role }))}
+          evaluations={evaluations}
+        />
+      )}
+
+      {activeTab === "staff" && (
+      <>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {overview.integrations.map((integration) => (
           <IntegrationCard key={integration.id} integration={integration} />
@@ -263,6 +300,8 @@ export default async function SettingsPage() {
         <p className="text-sm text-slate-500">근로계약서·재직증명서 등 서식을 골라 항목을 채우고 인쇄/PDF로 발급합니다.</p>
         <TemplateFiller templates={usableTemplates} />
       </div>
+      </>
+      )}
     </section>
   );
 }

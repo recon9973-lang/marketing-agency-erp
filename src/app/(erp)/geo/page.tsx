@@ -40,6 +40,7 @@ import {
 import { listInsightClients } from "@/server/repositories/insights";
 import { getCurrentUser } from "@/server/session";
 import { GeoStageNav } from "@/components/geo/GeoStageNav";
+import { GeoSelfQuery } from "@/components/geo/GeoSelfQuery";
 import { GeoStagePanel } from "@/components/geo/GeoStagePanel";
 import { GeoKeywordPanel } from "@/components/geo/GeoKeywordPanel";
 import { CdjFunnelMap } from "@/components/geo/CdjFunnelMap";
@@ -357,11 +358,27 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
       <p className="rounded-xl border border-line bg-surface/60 px-3 py-2 text-[11px] text-slate-500">{GEO_DISCLAIMER}</p>
 
       {clients.length === 0 ? (
-        <p className="rounded-2xl border border-line bg-card p-6 text-center text-sm text-slate-500">
-          거래처가 없습니다. 먼저 영업 리드를 거래처로 전환해주세요.
-        </p>
+        <div className="space-y-3">
+          <p className="rounded-2xl border border-line bg-card p-4 text-center text-sm text-slate-500">
+            등록된 거래처가 없습니다. 계약 단계에서 이어받거나, 아래에서 업체명·키워드를 입력해 바로 자체 조회할 수 있습니다.
+          </p>
+          <GeoSelfQuery />
+        </div>
       ) : (
         <>
+          {/* 자체 조회 — 거래처가 있어도 언제든 빠르게(접이식). 선택 거래처 정보를 기본값으로 채움. */}
+          <details className="group rounded-2xl border border-emerald-200 bg-emerald-50/30">
+            <summary className="cursor-pointer list-none px-5 py-3 text-sm font-semibold text-emerald-800 marker:content-none">
+              <span className="inline-flex items-center gap-2">
+                <span className="transition-transform group-open:rotate-90">▶</span>
+                자체 조회 (거래처 없이 업체명·키워드로 빠르게)
+              </span>
+            </summary>
+            <div className="px-2 pb-2">
+              <GeoSelfQuery presetBrand={selectedName} presetKeyword={defaultDepartment} />
+            </div>
+          </details>
+
           {/* 거래처 선택 탭 */}
           <div className="flex flex-wrap gap-1.5">
             {clients.map((c) => (

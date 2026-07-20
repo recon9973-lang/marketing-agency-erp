@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ManuscriptProjects } from "@/components/manuscript/ManuscriptProjects";
 import { listInsightClients } from "@/server/repositories/insights";
-import { listManuscriptProjects } from "@/server/repositories/manuscript";
+import { listManuscriptDrafts, listManuscriptProjects } from "@/server/repositories/manuscript";
+import { isAiConfigured } from "@/server/ai/claude";
 import { getCurrentUser } from "@/server/session";
 
 export const dynamic = "force-dynamic";
@@ -20,13 +21,15 @@ export default async function ManuscriptStudioPage({ searchParams }: { searchPar
   const selectedId = clientParam && clients.some((c) => c.id === clientParam) ? clientParam : clients[0]?.id ?? null;
   const selectedName = clients.find((c) => c.id === selectedId)?.name ?? "";
   const projects = selectedId ? await listManuscriptProjects(selectedId) : [];
+  const drafts = await listManuscriptDrafts(projects.map((p) => p.id));
+  const aiConfigured = isAiConfigured();
 
   return (
     <section className="space-y-4">
       <PageHeader
         eyebrow="제작 · 원고"
         title="원고 스튜디오"
-        description="거래처별 집필 프로젝트(프롬프트·브리프)를 설정합니다. 실제 콘텐츠 생성은 GEO 콘텐츠 생성에서 이 프롬프트를 활용해 진행합니다."
+        description="거래처별 집필 프로젝트(프롬프트·브리프)를 설정하고, 프로젝트 안에서 원고를 자체 제작합니다. 직접 작성하거나 AI 초안 생성(연동 시)을 활용할 수 있습니다."
       />
 
       {clients.length === 0 ? (
@@ -52,7 +55,7 @@ export default async function ManuscriptStudioPage({ searchParams }: { searchPar
             ))}
           </div>
 
-          {selectedId && <ManuscriptProjects clientId={selectedId} clientName={selectedName} rows={projects} />}
+          {selectedId && <ManuscriptProjects clientId={selectedId} clientName={selectedName} rows={projects} drafts={drafts} aiConfigured={aiConfigured} />}
         </>
       )}
     </section>

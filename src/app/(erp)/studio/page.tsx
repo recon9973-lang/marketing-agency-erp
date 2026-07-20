@@ -10,7 +10,7 @@ import { listVaultFolders } from "@/server/repositories/vault";
 import { Role } from "@/domain/types";
 import { getCurrentUser } from "@/server/session";
 import { getDefaultOrgId } from "@/server/org";
-import { listStudioProjects } from "@/server/repositories/studio";
+import { countRootStudioProjects, listStudioFolders, listStudioProjects } from "@/server/repositories/studio";
 
 export const dynamic = "force-dynamic";
 // AI 이미지 생성은 수십 초 걸릴 수 있어 넉넉히.
@@ -22,19 +22,24 @@ const TABS = [
   { key: "image", label: "AI 이미지 생성", icon: Sparkles }
 ] as const;
 
-export default async function StudioPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+export default async function StudioPage({ searchParams }: { searchParams: Promise<{ tab?: string; folder?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const { tab } = await searchParams;
+  const { tab, folder } = await searchParams;
   const active: "design" | "image" = tab === "image" ? "image" : "design";
   const isAdmin = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
 
   const orgId = await getDefaultOrgId();
-  const [projects, folders] = await Promise.all([
-    listStudioProjects(orgId),
+  // folder 파라미터: "root"=미분류만 / 폴더id=해당 폴더 / 없으면 전체.
+  const folderFilter: string | null | undefined = folder === "root" ? null : folder || undefined;
+  const [studioFolders, rootCount, projects, imageFolders] = await Promise.all([
+    active === "design" ? listStudioFolders(orgId) : Promise.resolve([]),
+    active === "design" ? countRootStudioProjects(orgId) : Promise.resolve(0),
+    listStudioProjects(orgId, { folderFilter }),
     active === "image" ? listVaultFolders().catch(() => []) : Promise.resolve([])
   ]);
+  const selectedFolder = folder === "root" ? "root" : folder && studioFolders.some((f) => f.id === folder) ? folder : null;
 
   return (
     <div className="space-y-6">
@@ -91,11 +96,15 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
             canvasW: p.canvasW,
             canvasH: p.canvasH,
             thumbnail: p.thumbnail,
+            folderId: p.folderId,
             updatedAt: p.updatedAt.toISOString()
           }))}
+          folders={studioFolders}
+          rootCount={rootCount}
+          selectedFolder={selectedFolder}
         />
       ) : (
-        <ImageStudio imageConfigured={isImageConfigured()} folders={folders.map((f) => ({ id: f.id, name: f.name }))} />
+        <ImageStudio imageConfigured={isImageConfigured()} folders={imageFolders.map((f) => ({ id: f.id, name: f.name }))} />
       )}
     </div>
   );

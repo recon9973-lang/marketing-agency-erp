@@ -1587,7 +1587,47 @@ model ManuscriptProject {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  drafts      ManuscriptDraft[]
+
   @@index([clientId])
+}
+
+/// 원고 초안(자체 제작) — 프로젝트 안에서 직접 쓰거나 AI로 생성한 실제 원고.
+model ManuscriptDraft {
+  id          String   @id @default(cuid())
+  projectId   String
+  title       String   @default("")
+  kind        String   @default("BLOG") // BLOG/CARD_NEWS/SNS/AD_COPY
+  body        String   @default("") // 실제 원고 본문
+  source      String   @default("manual") // manual/ai
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project ManuscriptProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+/// 인사관리평가 — 관리자가 직원을 주기별(분기·월)로 다면 평가. 인사관리 화면 내부 탭.
+model HrEvaluation {
+  id            String   @id @default(cuid())
+  evaluateeId   String // 평가 대상 직원
+  evaluatorId   String? // 평가자(관리자)
+  period        String // 평가 주기 라벨(예: 2026-Q3, 2026-07)
+  performance   Int      @default(3) // 업무성과 1~5
+  collaboration Int      @default(3) // 협업 1~5
+  diligence     Int      @default(3) // 성실성 1~5
+  expertise     Int      @default(3) // 전문성 1~5
+  attitude      Int      @default(3) // 태도 1~5
+  strengths     String? // 강점
+  improvements  String? // 개선점
+  comment       String? // 종합 코멘트
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([evaluateeId])
+  @@index([period])
 }
 
 /// 내부 공지사항 — 관리자가 직접 작성해 전 직원에게 게시. (검색엔진 공지와 별개)
@@ -1734,6 +1774,7 @@ model StudioProject {
   orgId     String
   ownerId   String
   clientId  String? // (차별화) ERP 거래처 연동 여지
+  folderId  String? // 스튜디오 폴더(정리용). null=미분류
   title     String   @default("제목 없는 디자인")
   kind      String   @default("blank") // cardnews|sns|thumbnail|popup|banner|detail|blank
   canvasW   Int
@@ -1747,6 +1788,19 @@ model StudioProject {
   @@index([orgId, updatedAt])
   @@index([ownerId])
   @@index([clientId])
+  @@index([folderId])
+}
+
+/// 디자인 스튜디오 폴더 — 조직 단위로 디자인을 정리(vault 폴더와 유사).
+model StudioFolder {
+  id          String   @id @default(cuid())
+  orgId       String
+  name        String
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([orgId])
 }
 
 /// 브랜드킷 — 조직/거래처별 로고·컬러·폰트. 디자인 스튜디오에서 원클릭 적용(ERP 연동 차별화).

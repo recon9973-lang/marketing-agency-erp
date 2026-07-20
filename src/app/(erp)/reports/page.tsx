@@ -6,19 +6,20 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { CreateReportForm } from "@/components/reports/CreateReportForm";
 import { GenerateMonthlyReport } from "@/components/reports/GenerateMonthlyReport";
 import { TemplateFiller } from "@/components/settings/TemplateFiller";
+import { LeaveSection } from "@/components/leave/LeaveSection";
 import { ReportStatus } from "@/domain/types";
 import { fetchReportsForUser, type ReportListItem } from "@/server/repositories/reports";
 import { listClientsForUser } from "@/server/repositories/clients";
 import { listTemplatesForUse } from "@/server/repositories/document-templates";
 import { getCurrentUser } from "@/server/session";
 
-// 결재 서류 유형 — 이용자가 필요한 결재 서류를 골라 작성.
-const DOC_TYPES = [
-  { key: "monthly", label: "월간 보고서", desc: "거래처 월간 성과 리포트", href: "#monthly" },
-  { key: "weekly", label: "주간보고", desc: "여러 보고서 선택 작성", href: "/weekly" },
-  { key: "leave", label: "연차·휴가 신청", desc: "휴가·연차 결재", href: "/leave" },
-  { key: "form", label: "서식 발급", desc: "근로계약·재직증명 등", href: "#forms" }
-] as const;
+// 결재 서류 유형 — 페이지 내부 탭(월간·연차·서식) + 주간보고(별도 라우트).
+type DocTab = "monthly" | "leave" | "forms";
+const DOC_TABS: { key: DocTab; label: string; desc: string }[] = [
+  { key: "monthly", label: "월간 보고서", desc: "거래처 월간 성과 리포트" },
+  { key: "leave", label: "연차·휴가", desc: "휴가·연차 결재" },
+  { key: "forms", label: "서식 발급", desc: "근로계약·재직증명 등" }
+];
 
 const monthFormatter = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long" });
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" });
@@ -88,12 +89,15 @@ const columns: DataTableColumn<ReportListItem>[] = [
   }
 ];
 
-export default async function ReportsPage() {
+export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ doc?: string }> }) {
   const user = await getCurrentUser();
 
   if (!user) {
     redirect("/login");
   }
+
+  const { doc } = await searchParams;
+  const activeDoc: DocTab = doc === "leave" ? "leave" : doc === "forms" ? "forms" : "monthly";
 
   const [reports, clientRows, usableTemplates] = await Promise.all([
     fetchReportsForUser(user),
@@ -128,42 +132,60 @@ export default async function ReportsPage() {
         </div>
       </div>
 
-      {/* 결재 서류 선택 */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {DOC_TYPES.map((t) => (
-          <Link
-            key={t.key}
-            href={t.href as Route}
-            className="rounded-xl border border-line bg-card p-3 transition hover:border-brand hover:shadow-sm"
-          >
-            <p className="text-sm font-bold text-ink">{t.label}</p>
-            <p className="mt-1 text-[11px] leading-snug text-slate-500">{t.desc}</p>
-          </Link>
-        ))}
+      {/* 결재 서류 탭 (월간·연차·서식) + 주간보고(별도 라우트) */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-line pb-1">
+        {DOC_TABS.map((t) => {
+          const on = t.key === activeDoc;
+          return (
+            <Link
+              key={t.key}
+              href={`/reports?doc=${t.key}` as Route}
+              aria-current={on ? "page" : undefined}
+              className={`rounded-lg px-3.5 py-2 text-sm font-semibold transition ${
+                on ? "bg-brand text-white shadow-sm" : "text-slate-600 hover:bg-surface"
+              }`}
+            >
+              {t.label}
+            </Link>
+          );
+        })}
+        <Link
+          href="/weekly"
+          className="rounded-lg px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:bg-surface"
+        >
+          주간보고 →
+        </Link>
       </div>
 
       {/* 월간 보고서 */}
-      <div id="monthly" className="space-y-4 scroll-mt-20">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-semibold text-ink">월간 보고서 · 거래처 GEO 주간 리포트를 규칙기반으로 조립합니다.</p>
-          <Link
-            href="/reports/geo-weekly"
-            className="shrink-0 rounded-full border border-emerald-200 bg-card px-3.5 py-1.5 text-xs font-semibold text-emerald-700 hover:border-emerald-300 hover:text-emerald-800"
-          >
-            GEO 주간 리포트 →
-          </Link>
+      {activeDoc === "monthly" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-ink">월간 보고서 · 거래처 GEO 주간 리포트를 규칙기반으로 조립합니다.</p>
+            <Link
+              href="/reports/geo-weekly"
+              className="shrink-0 rounded-full border border-emerald-200 bg-card px-3.5 py-1.5 text-xs font-semibold text-emerald-700 hover:border-emerald-300 hover:text-emerald-800"
+            >
+              GEO 주간 리포트 →
+            </Link>
+          </div>
+          <GenerateMonthlyReport clients={clientOptions} />
+          <CreateReportForm clients={clientOptions} />
+          <DataTable columns={columns} rows={reports} emptyMessage="조회 가능한 보고서가 없습니다." />
         </div>
-        <GenerateMonthlyReport clients={clientOptions} />
-        <CreateReportForm clients={clientOptions} />
-        <DataTable columns={columns} rows={reports} emptyMessage="조회 가능한 보고서가 없습니다." />
-      </div>
+      )}
+
+      {/* 연차·휴가 */}
+      {activeDoc === "leave" && <LeaveSection user={user} />}
 
       {/* 인사·일반 서식 발급 */}
-      <div id="forms" className="space-y-3 scroll-mt-20">
-        <h3 className="text-base font-semibold text-ink">서식 발급</h3>
-        <p className="text-sm text-slate-500">근로계약서·재직증명서 등 서식을 골라 항목을 채우고 인쇄/PDF로 발급합니다.</p>
-        <TemplateFiller templates={usableTemplates} />
-      </div>
+      {activeDoc === "forms" && (
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-ink">서식 발급</h3>
+          <p className="text-sm text-slate-500">근로계약서·재직증명서 등 서식을 골라 항목을 채우고 인쇄/PDF로 발급합니다.</p>
+          <TemplateFiller templates={usableTemplates} />
+        </div>
+      )}
     </section>
   );
 }

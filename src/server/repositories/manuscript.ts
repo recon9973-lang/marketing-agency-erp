@@ -21,3 +21,35 @@ export async function listManuscriptProjects(clientId: string): Promise<Manuscri
     return [];
   }
 }
+
+export type ManuscriptDraftRow = {
+  id: string;
+  projectId: string;
+  title: string;
+  kind: string;
+  body: string;
+  source: string;
+  updatedAt: string;
+};
+
+/** 선택 거래처의 모든 프로젝트에 걸친 원고 초안을 한 번에 조회(프로젝트별 그룹핑은 호출부에서). */
+export async function listManuscriptDrafts(projectIds: string[]): Promise<ManuscriptDraftRow[]> {
+  if (projectIds.length === 0) return [];
+  try {
+    const rows = await db.manuscriptDraft.findMany({
+      where: { projectId: { in: projectIds } },
+      orderBy: { updatedAt: "desc" }
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      projectId: r.projectId,
+      title: r.title,
+      kind: r.kind,
+      body: r.body,
+      source: r.source,
+      updatedAt: r.updatedAt.toISOString()
+    }));
+  } catch {
+    return [];
+  }
+}

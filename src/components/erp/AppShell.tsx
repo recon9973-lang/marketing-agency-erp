@@ -13,7 +13,6 @@ import {
   FileSignature,
   FileText,
   PenLine,
-  Plane,
   Plug,
   ShieldCheck,
   KeyRound,
@@ -238,19 +237,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       icon: Archive,
       group: "보고·결재"
     },
-    // ── 관리(관리자): 입출금(정산/지출) → 연차 → 연동 → 직원/권한 ──
+    // ── 관리(관리자): 입출금(정산/지출) → 연동 → 인사관리 ──
+    // 연차/휴가는 결재(/reports?doc=leave) 내부 탭으로 이동.
     {
       href: "/finance",
       label: "정산/지출",
       roles: [Role.SUPER_ADMIN, Role.ADMIN],
       icon: CreditCard,
-      group: "관리"
-    },
-    {
-      href: "/leave",
-      label: "연차/휴가",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Plane,
       group: "관리"
     },
     {
@@ -262,7 +255,7 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
     },
     {
       href: "/settings",
-      label: "직원/권한",
+      label: "인사관리",
       roles: [Role.SUPER_ADMIN],
       icon: ShieldCheck,
       group: "관리"

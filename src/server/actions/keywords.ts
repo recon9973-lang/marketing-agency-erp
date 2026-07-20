@@ -12,7 +12,7 @@ import { runAction, type ActionResult } from "@/server/action-result";
 import { requireUser } from "@/server/actions/_helpers";
 import { validationError } from "@/server/errors";
 import { fetchKeywordTrends, naverDatalabConfigured, type KeywordTrend } from "@/server/integrations/naver-datalab";
-import { fetchKeywordVolumes, naverSearchConfigured, type KeywordVolume } from "@/server/integrations/naver-search";
+import { fetchKeywordExpansion, fetchKeywordVolumes, naverSearchConfigured, type KeywordFull, type KeywordVolume } from "@/server/integrations/naver-search";
 
 function formDataToObject(formData: FormData) {
   const record: Record<string, string> = {};
@@ -53,5 +53,22 @@ export async function lookupKeywordVolumeAction(
 
     // 둘 다 없으면 데모 추정치.
     return { mode: "volume", source: "demo", volume: await fetchKeywordVolumes(list) };
+  });
+}
+
+/**
+ * 검색량 조회(전체 지표 + 연관키워드) — 화면에서 누적·삭제·엑셀로 다루는 신형 조회.
+ * 네이버 검색광고 키워드도구가 제공하는 모든 컬럼과 연관키워드를 한 번에 반환한다.
+ */
+export async function lookupKeywordsFull(
+  input: { keywords: string }
+): Promise<ActionResult<{ rows: KeywordFull[]; connected: boolean; truncated: number }>> {
+  return runAction(async () => {
+    await requireUser();
+    const list = parseKeywords(input?.keywords ?? "");
+    if (list.length === 0) {
+      throw validationError("키워드를 입력해주세요.", { keywords: ["키워드를 입력해주세요."] });
+    }
+    return fetchKeywordExpansion(list);
   });
 }

@@ -191,3 +191,58 @@ export async function deleteStudioProject(input: unknown): Promise<ActionResult>
     revalidatePath("/studio");
   });
 }
+
+// ── 스튜디오 폴더 ─────────────────────────────────────────────
+
+async function ensureStudioFolder(): Promise<void> {
+  try {
+    await db.$executeRawUnsafe(
+      `CREATE TABLE IF NOT EXISTS "StudioFolder" ("id" TEXT NOT NULL, "orgId" TEXT NOT NULL, "name" TEXT NOT NULL, "createdById" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "StudioFolder_pkey" PRIMARY KEY ("id"))`
+    );
+    await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StudioFolder_orgId_idx" ON "StudioFolder" ("orgId")`);
+    await db.$executeRawUnsafe(`ALTER TABLE "StudioProject" ADD COLUMN IF NOT EXISTS "folderId" TEXT`);
+  } catch (e) {
+    console.warn("[studio] 폴더 테이블 보장 실패(무시):", String(e).slice(0, 140));
+  }
+}
+
+export async function createStudioFolder(input: unknown): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const orgId = await getDefaultOrgId();
+    const { name } = z.object({ name: z.string().trim().min(1).max(60) }).parse(input);
+    await ensureStudioFolder();
+    const row = await db.studioFolder.create({ data: { orgId, name, createdById: user.id }, select: { id: true } });
+    revalidatePath("/studio");
+    return { id: row.id };
+  });
+}
+
+export async function deleteStudioFolder(input: unknown): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireUser();
+    const orgId = await getDefaultOrgId();
+    const { id } = z.object({ id: z.string().min(1) }).parse(input);
+    // 폴더 삭제 시 안의 디자인은 미분류로 이동(데이터 보존).
+    await db.studioProject.updateMany({ where: { orgId, folderId: id }, data: { folderId: null } });
+    await db.studioFolder.deleteMany({ where: { id, orgId } });
+    revalidatePath("/studio");
+  });
+}
+
+export async function moveStudioProject(input: unknown): Promise<ActionResult> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const orgId = await getDefaultOrgId();
+    const { id, folderId } = z.object({ id: z.string().min(1), folderId: z.string().nullable() }).parse(input);
+    await assertProjectAccess(user, orgId, id);
+    // 대상 폴더가 조직 소유인지 확인(널이면 미분류).
+    if (folderId) {
+      const folder = await db.studioFolder.findFirst({ where: { id: folderId, orgId }, select: { id: true } });
+      if (!folder) throw new Error("NOT_FOUND");
+    }
+    await ensureStudioFolder();
+    await db.studioProject.update({ where: { id }, data: { folderId } });
+    revalidatePath("/studio");
+  });
+}

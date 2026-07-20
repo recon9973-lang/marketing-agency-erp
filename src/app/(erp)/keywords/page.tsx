@@ -21,7 +21,7 @@ export default async function KeywordsPage() {
       <PageHeader
         eyebrow="마케팅"
         title="검색량 조회"
-        description="거래처 키워드의 월간 검색수를 확인합니다."
+        description="키워드의 월간 검색수·클릭·클릭률 등 네이버 제공 지표 전체와 연관키워드를 조회합니다. 다시 조회하면 누적되고, 행별 삭제·엑셀 다운로드가 가능합니다."
       />
 
       <div
