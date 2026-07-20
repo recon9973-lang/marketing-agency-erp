@@ -1,11 +1,10 @@
 import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
-import { EmployeeSettings } from "@/components/settings/EmployeeSettings";
+import { StaffPermissionManager } from "@/components/settings/StaffPermissionManager";
 import { AdminPasswordCard } from "@/components/settings/AdminPasswordCard";
 import { AdminScopeManager } from "@/components/settings/AdminScopeManager";
 import { MarketerAssignment } from "@/components/settings/MarketerAssignment";
-import { FeaturePermissions } from "@/components/settings/FeaturePermissions";
 import { PendingApprovals } from "@/components/settings/PendingApprovals";
 import { MasterManager } from "@/components/settings/MasterManager";
 import { DocumentTemplateManager } from "@/components/settings/DocumentTemplateManager";
@@ -187,21 +186,42 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       {activeTab === "staff" && (
       <>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {overview.integrations.map((integration) => (
-          <IntegrationCard key={integration.id} integration={integration} />
-        ))}
-      </div>
-
-      {/* 최고관리자는 아래 '직원 초대·권한'에서 편집 가능한 목록을 보므로 읽기 전용 표는 본인 계정에만 노출. */}
-      {!isSuperAdmin && (
+      {/* ① 직원 권한 — 사람 중심 통합 관리 (최고관리자) */}
+      {isSuperAdmin ? (
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-ink">직원 권한</h3>
+          <p className="text-sm text-slate-500">직원마다 <b>역할 · 메뉴 접근 · 설정 접근 · 로그인 링크</b>를 카드 하나에서 관리합니다. 각 직원을 펼쳐 스위치로 켜고 끄세요.</p>
+          <StaffPermissionManager
+            employees={overview.staff.map((member) => ({
+              id: member.id,
+              name: member.name,
+              email: member.email,
+              role: member.role,
+              status: member.status,
+              canAccessSettings: member.canAccessSettings,
+              deniedFeatures: member.deniedFeatures
+            }))}
+            isSuperAdmin={isSuperAdmin}
+            adminCanManageExpense={companySetting?.adminCanManageExpense ?? false}
+          />
+        </div>
+      ) : (
         <div className="space-y-3">
           <h3 className="text-base font-semibold text-ink">내 계정</h3>
           <DataTable columns={staffColumns} rows={overview.staff} emptyMessage="조회 가능한 직원이 없습니다." />
         </div>
       )}
 
-      <div className="space-y-3">
+      {isAdmin && (
+        <div className="space-y-3 border-t border-line pt-6">
+          <h3 className="text-base font-semibold text-ink">가입 승인 대기</h3>
+          <p className="text-sm text-slate-500">직원이 로그인 화면에서 요청한 가입입니다. 승인하면 역할이 부여되고 로그인 링크 메일이 발송됩니다.</p>
+          <PendingApprovals requests={pendingRequests.map((r) => ({ id: r.id, name: r.name, email: r.email, createdAt: r.createdAt.toISOString() }))} />
+        </div>
+      )}
+
+      {/* ② 거래처 접근 범위 & 담당 배정 */}
+      <div className="space-y-3 border-t border-line pt-6">
         <h3 className="text-base font-semibold text-ink">관리자 접근 범위</h3>
         <p className="text-sm text-slate-500">관리자(ADMIN)가 볼 수 있는 담당자·거래처 범위를 지정합니다. 최고관리자는 전체, 담당자는 본인 거래처만 봅니다.</p>
         {isSuperAdmin ? (
@@ -216,26 +236,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         )}
       </div>
 
-      {isAdmin && (
-        <div className="space-y-3">
-          <h3 className="text-base font-semibold text-ink">가입 승인 대기</h3>
-          <p className="text-sm text-slate-500">직원이 로그인 화면에서 요청한 가입입니다. 승인하면 역할이 부여되고 로그인 링크 메일이 발송됩니다.</p>
-          <PendingApprovals requests={pendingRequests.map((r) => ({ id: r.id, name: r.name, email: r.email, createdAt: r.createdAt.toISOString() }))} />
-        </div>
-      )}
-
-      {isSuperAdmin && (
-        <div className="space-y-3">
-          <h3 className="text-base font-semibold text-ink">기능 접근 권한</h3>
-          <p className="text-sm text-slate-500">직원별로 메뉴 접근을 켜고 끕니다. 끄면 사이드바에서 숨겨지고 URL로 들어와도 차단됩니다.</p>
-          <FeaturePermissions
-            members={overview.staff
-              .filter((m) => m.role !== Role.SUPER_ADMIN)
-              .map((m) => ({ id: m.id, name: m.name, role: m.role, deniedFeatures: m.deniedFeatures }))}
-          />
-        </div>
-      )}
-
       {isSuperAdmin && (
         <div className="space-y-3">
           <h3 className="text-base font-semibold text-ink">담당자 배정 현황</h3>
@@ -247,33 +247,26 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </div>
       )}
 
+      {/* ③ 계정 · 연동 */}
       {isSuperAdmin && (
-        <div className="space-y-3">
+        <div className="space-y-3 border-t border-line pt-6">
           <h3 className="text-base font-semibold text-ink">로그인 비밀번호</h3>
           <AdminPasswordCard adminEmail={process.env.ADMIN_EMAIL ?? null} />
         </div>
       )}
 
-      {isSuperAdmin && (
-        <div className="space-y-3">
-          <h3 className="text-base font-semibold text-ink">직원 초대 및 권한 관리</h3>
-          <EmployeeSettings
-            employees={overview.staff.map((member) => ({
-              id: member.id,
-              name: member.name,
-              email: member.email,
-              role: member.role,
-              status: member.status,
-              canAccessSettings: member.canAccessSettings
-            }))}
-            isSuperAdmin={isSuperAdmin}
-            adminCanManageExpense={companySetting?.adminCanManageExpense ?? false}
-          />
+      <div className="space-y-3 border-t border-line pt-6">
+        <h3 className="text-base font-semibold text-ink">외부 연동 상태</h3>
+        <p className="text-sm text-slate-500">이메일·캘린더·PG 등 외부 연동 준비 상태입니다.</p>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {overview.integrations.map((integration) => (
+            <IntegrationCard key={integration.id} integration={integration} />
+          ))}
         </div>
-      )}
+      </div>
 
       {isAdmin && (
-        <div className="space-y-3">
+        <div className="space-y-3 border-t border-line pt-6">
           <h3 className="text-base font-semibold text-ink">업무 카테고리 마스터</h3>
           <MasterManager
             items={workCategories.map((item) => ({
