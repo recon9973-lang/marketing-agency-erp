@@ -14,7 +14,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 const AI_LABEL: Record<string, string> = { chatgpt: "ChatGPT", gemini: "Gemini", claude: "Claude", perplexity: "Perplexity" };
 
-type ByAi = { rate: number; mentioned: number; total: number; errors: number; avg_response_ms: number; mocked: boolean; contexts: string[] };
+type ByAi = { rate: number; mentioned: number; total: number; errors: number; avg_response_ms: number; mocked: boolean; contexts: string[]; errorSample?: string | null };
 type Competitor = { name: string; overall_rate: number; by_ai: Record<string, number> };
 
 export default async function GeoScanPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -139,7 +139,12 @@ export default async function GeoScanPage({ searchParams }: { searchParams: Prom
                         {a.mocked && <span className="ml-1.5 rounded bg-surface px-1 py-0.5 text-[9px] text-slate-400">목</span>}
                       </td>
                       <td className={`px-2 py-2 font-semibold ${rateColor(a.rate)}`}>{a.rate}%</td>
-                      <td className="px-2 py-2 text-slate-600">{a.mentioned}/{a.total}{a.errors ? ` (오류 ${a.errors})` : ""}</td>
+                      <td className="px-2 py-2 text-slate-600">
+                        {a.mentioned}/{a.total}{a.errors ? ` (오류 ${a.errors})` : ""}
+                        {a.errors > 0 && a.errorSample && (
+                          <span className="mt-0.5 block break-all text-[10px] font-normal text-rose-500">{a.errorSample}</span>
+                        )}
+                      </td>
                       <td className="px-2 py-2 text-slate-400">{a.avg_response_ms}ms</td>
                     </tr>
                   ))}

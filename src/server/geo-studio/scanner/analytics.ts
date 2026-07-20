@@ -50,6 +50,8 @@ export function aggregate(results: ScanResult[], brand: string, competitors: str
       errors: rows.length - valid.length,
       avg_response_ms: rows.length ? pyRound(rows.reduce((s, r) => s + r.responseMs, 0) / rows.length, 0) : 0,
       mocked: rows.every((r) => r.mocked),
+      // 실패 원인 샘플(첫 오류) — 화면에서 왜 실패했는지 바로 보이게(진단용).
+      errorSample: rows.find((r) => r.error)?.error ?? null,
       contexts
     };
   }
