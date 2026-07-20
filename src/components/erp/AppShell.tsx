@@ -43,6 +43,7 @@ type ErpRoute =
   | "/leads"
   | "/clients"
   | "/insights"
+  | "/seo"
   | "/geo"
   | "/geo-studio"
   | "/geo-scan"
@@ -140,6 +141,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
     {
       href: "/keywords",
       label: "검색량 조회",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Search,
+      group: "분석·GEO"
+    },
+    {
+      href: "/seo",
+      label: "SEO 진단",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Search,
       group: "분석·GEO"
