@@ -18,6 +18,7 @@ import {
   fetchSettingsOverview,
   type IntegrationSettingsItem,
   type ScopeSettingsItem,
+  type SettingsOverview,
   type StaffSettingsItem
 } from "@/server/repositories/settings";
 import { getCurrentUser } from "@/server/session";
@@ -121,12 +122,19 @@ export default async function SettingsPage() {
   const isAdmin = user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN;
   const isSuperAdmin = user.role === Role.SUPER_ADMIN;
 
+  // 각 데이터 소스에 방어 — 하나가 실패(스키마 드리프트 등)해도 설정 화면 전체가 죽지 않게.
+  // (특히 비밀번호 변경 카드는 데이터에 의존하지 않으므로 항상 뜨도록.) 실패는 로그로 남긴다.
+  const emptyOverview: SettingsOverview = { staff: [], scopes: [], clients: [], integrations: [] };
+  const warn = (where: string) => (e: unknown) => {
+    console.warn(`[settings] ${where} 로드 실패: ${String(e).slice(0, 140)}`);
+    return undefined;
+  };
   const [overview, workCategories, companySetting, docTemplates, usableTemplates, pendingRequests] = await Promise.all([
-    fetchSettingsOverview(user),
-    isAdmin ? getWorkCategories() : Promise.resolve([]),
-    isSuperAdmin ? db.companySetting.findFirst() : Promise.resolve(null),
-    isAdmin ? listAllTemplates() : Promise.resolve([]),
-    listTemplatesForUse(["HR", "GENERAL"], user.role),
+    fetchSettingsOverview(user).catch((e) => (warn("overview")(e), emptyOverview)),
+    (isAdmin ? getWorkCategories() : Promise.resolve([])).catch((e) => (warn("workCategories")(e), [])),
+    (isSuperAdmin ? db.companySetting.findFirst() : Promise.resolve(null)).catch((e) => (warn("companySetting")(e), null)),
+    (isAdmin ? listAllTemplates() : Promise.resolve([])).catch((e) => (warn("docTemplates")(e), [])),
+    listTemplatesForUse(["HR", "GENERAL"], user.role).catch((e) => (warn("usableTemplates")(e), [])),
     isAdmin
       ? db.user
           .findMany({ where: { status: UserStatus.PENDING }, orderBy: { createdAt: "desc" }, select: { id: true, name: true, email: true, createdAt: true } })
