@@ -1037,6 +1037,11 @@ model Approval {
   approverId  String?
   status      String    @default("PENDING") // PENDING | APPROVED | REJECTED
   comment     String?
+  // 3단 결재 체인: 담당자(요청) → 관리자(L1) → 최고관리자(L2). 모두 additive·nullable.
+  stage        String    @default("L1") // L1(관리자 검토 대기) | L2(최고관리자 최종 대기)
+  l1ApproverId String? // 관리자(L1) 승인자
+  l1DecidedAt  DateTime?
+  l1Comment    String?
   orgId       String?
   createdAt   DateTime  @default(now())
   decidedAt   DateTime?

@@ -12,6 +12,7 @@ export type ApprovalView = {
   requesterName: string;
   approverName: string | null;
   status: string;
+  stage: string; // L1(관리자 검토) | L2(최고관리자 최종)
   comment: string | null;
   createdAt: string;
   decidedAt: string | null;
@@ -32,6 +33,7 @@ function map(rows: Awaited<ReturnType<typeof fetchRows>>): ApprovalView[] {
     requesterName: a.requester.name,
     approverName: a.approver?.name ?? null,
     status: a.status,
+    stage: a.stage ?? "L2",
     comment: a.comment,
     createdAt: a.createdAt.toISOString(),
     decidedAt: a.decidedAt ? a.decidedAt.toISOString() : null
@@ -50,6 +52,17 @@ async function fetchRows(where: object) {
 /** 대기 중 승인(승인자=관리자용). */
 export async function listPendingApprovals(): Promise<ApprovalView[]> {
   return map(await fetchRows({ status: "PENDING" }));
+}
+
+/** 역할별 결재 대기함 — 최고관리자는 전체 PENDING, 관리자는 L1(관리자 검토) 단계만.
+ *  마이그레이션 지연으로 stage 컬럼이 없어도 죽지 않게 방어(전체 PENDING 폴백). */
+export async function listPendingApprovalsForRole(role: string, _userId: string): Promise<ApprovalView[]> {
+  try {
+    const where = role === "SUPER_ADMIN" ? { status: "PENDING" } : { status: "PENDING", stage: "L1" };
+    return map(await fetchRows(where));
+  } catch {
+    return map(await fetchRows({ status: "PENDING" }).catch(() => []));
+  }
 }
 
 /** 내가 요청한 승인(모든 상태). */

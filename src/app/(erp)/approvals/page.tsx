@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { ApprovalQueue } from "@/components/approvals/ApprovalQueue";
 import { Role } from "@/domain/types";
-import { listPendingApprovals, listMyApprovalRequests } from "@/server/repositories/approvals";
+import { listPendingApprovalsForRole, listMyApprovalRequests } from "@/server/repositories/approvals";
 import { getCurrentUser } from "@/server/session";
 
 export const dynamic = "force-dynamic";
@@ -11,20 +11,23 @@ export default async function ApprovalsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const canDecide = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
+  // 승인함(결재 대기함)은 관리자 이상만 접근.
+  const isAdmin = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
+  if (!isAdmin) redirect("/dashboard");
+
   const [pending, myRequests] = await Promise.all([
-    canDecide ? listPendingApprovals() : Promise.resolve([]),
+    listPendingApprovalsForRole(user.role, user.id),
     listMyApprovalRequests(user.id)
   ]);
 
   return (
     <div className="space-y-6">
       <DashboardHeader
-        eyebrow="승인"
-        title="통합 승인함"
-        description="계약·견적·원고·콘텐츠 승인 요청을 한 곳에서 처리합니다. 승인/반려는 관리자 이상만 가능합니다."
+        eyebrow="결재"
+        title="승인함 (결재)"
+        description="담당자→관리자→최고관리자 순으로 결재합니다. 관리자는 1차 검토 후 최고관리자에게 상신되고, 최고관리자가 최종 승인합니다."
       />
-      <ApprovalQueue pending={pending} myRequests={myRequests} canDecide={canDecide} />
+      <ApprovalQueue pending={pending} myRequests={myRequests} canDecide={isAdmin} />
     </div>
   );
 }

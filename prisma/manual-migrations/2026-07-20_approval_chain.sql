@@ -1,0 +1,7 @@
+-- 3단 결재 체인(담당자→관리자→최고관리자) additive 컬럼. 멱등.
+BEGIN;
+ALTER TABLE "Approval" ADD COLUMN IF NOT EXISTS "stage" TEXT NOT NULL DEFAULT 'L1';
+ALTER TABLE "Approval" ADD COLUMN IF NOT EXISTS "l1ApproverId" TEXT;
+ALTER TABLE "Approval" ADD COLUMN IF NOT EXISTS "l1DecidedAt" TIMESTAMP(3);
+ALTER TABLE "Approval" ADD COLUMN IF NOT EXISTS "l1Comment" TEXT;
+COMMIT;

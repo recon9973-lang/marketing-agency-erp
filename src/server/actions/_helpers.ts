@@ -124,6 +124,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   TOO_SHORT: "새 비밀번호는 8자 이상이어야 합니다.",
   NO_ADMIN_EMAIL: "관리자 이메일(ADMIN_EMAIL)이 설정되어 있지 않습니다.",
   SAVE_UNVERIFIED: "저장 후 검증에 실패했습니다(DB 반영 지연 가능). 잠시 후 다시 시도해 주세요.",
+  NEED_SUPER_ADMIN: "최종 결재는 최고관리자만 가능합니다.",
   INACTIVE_MARKETER: "비활성 담당자에게는 배정할 수 없습니다.",
   AI_NOT_CONFIGURED: "AI가 아직 연결되지 않았습니다. 연동 화면에서 ANTHROPIC_API_KEY를 등록하면 켜집니다.",
   AI_EMPTY: "AI가 결과를 만들지 못했습니다. 주제를 조금 더 구체적으로 입력해 다시 시도해주세요.",

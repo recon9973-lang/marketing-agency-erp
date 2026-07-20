@@ -189,7 +189,7 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
     {
       href: "/approvals",
       label: "승인함",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      roles: [Role.SUPER_ADMIN, Role.ADMIN],
       icon: CircleCheck,
       group: "보고·결재"
     },
