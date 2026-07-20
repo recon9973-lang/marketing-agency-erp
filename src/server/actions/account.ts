@@ -86,6 +86,19 @@ export async function changeAdminPassword(input: unknown): Promise<ActionResult>
       },
       select: { id: true }
     });
+    // 저장 검증 — 로그인이 읽는 것과 동일한 경로로 다시 읽어 새 비밀번호가 검증되는지 확인.
+    // '저장은 됐다는데 로그인은 옛 비번만 받는' 현상(반영 지연/경로 불일치)을 조기에 잡는다.
+    let readback: { passwordHash: string | null } | null = null;
+    try {
+      readback = await db.user.findUnique({ where: { email: adminEmail }, select: { passwordHash: true } });
+    } catch (e) {
+      console.warn("[account] 저장 검증 재조회 실패:", String(e).slice(0, 140));
+    }
+    if (!verifyPassword(next, readback?.passwordHash)) {
+      console.error("[account] 비밀번호 저장 검증 실패 — 재조회 해시 불일치", { hasHash: Boolean(readback?.passwordHash) });
+      throw new Error("SAVE_UNVERIFIED");
+    }
+
     // 비밀번호 값은 절대 기록하지 않는다 — 변경 사실만 남긴다. 실패해도 변경은 유지(best-effort).
     try {
       await recordAudit(db, {

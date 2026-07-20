@@ -132,6 +132,11 @@ async function authorizeAdmin(rawEmail: unknown, rawPassword: unknown) {
     return null;
   }
 
+  // 진단: DB 해시 대신 env(옛 비밀번호)로만 통과한 경우 — 저장된 새 비번이 로그인에 안 잡히는지 점검.
+  if (!hashOk && envOk) {
+    console.warn(`[auth] admin 로그인 ENV 폴백 통과 (hasHash=${Boolean(existing?.passwordHash)}, hashOk=false) — DB 저장 비번 미인증`);
+  }
+
   return upsertAdminUser(adminEmail);
 }
 
