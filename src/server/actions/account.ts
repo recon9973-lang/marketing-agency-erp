@@ -64,28 +64,32 @@ export async function changeAdminPassword(input: unknown): Promise<ActionResult>
 
     const passwordHash = hashPassword(next);
     const meta = await requestMeta();
-    await db.$transaction(async (tx) => {
-      await tx.user.upsert({
-        where: { email: adminEmail },
-        update: { passwordHash },
-        create: {
-          email: adminEmail,
-          name: "최고관리자",
-          role: Role.SUPER_ADMIN,
-          status: UserStatus.ACTIVE,
-          isActive: true,
-          canAccessSettings: true,
-          passwordHash
-        }
-      });
-      // 비밀번호 값은 절대 기록하지 않는다 — 변경 사실만 감사 로그에 남긴다.
-      await recordAudit(tx, {
+    // 비밀번호 저장이 핵심 — 감사로그 쓰기(스키마 드리프트 가능)에 발목 잡히지 않게 분리한다.
+    const saved = await db.user.upsert({
+      where: { email: adminEmail },
+      update: { passwordHash },
+      create: {
+        email: adminEmail,
+        name: "최고관리자",
+        role: Role.SUPER_ADMIN,
+        status: UserStatus.ACTIVE,
+        isActive: true,
+        canAccessSettings: true,
+        passwordHash
+      },
+      select: { id: true }
+    });
+    // 비밀번호 값은 절대 기록하지 않는다 — 변경 사실만 남긴다. 실패해도 변경은 유지(best-effort).
+    try {
+      await recordAudit(db, {
         actorId: user.id,
         action: "admin.password.change",
         targetType: "User",
-        targetId: adminUser?.id ?? adminEmail,
+        targetId: adminUser?.id ?? saved.id,
         ...meta
       });
-    });
+    } catch (e) {
+      console.warn("[account] 비밀번호 변경 감사로그 실패:", String(e).slice(0, 140));
+    }
   });
 }
