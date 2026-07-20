@@ -75,7 +75,9 @@ describe("M1 aggregate", () => {
   });
 
   it("aggregate 집계 결과가 파이썬과 동일", () => {
-    const out = aggregate(results, "베놈한의원", ["경쟁A", "경쟁B"]);
+    const out = aggregate(results, "베놈한의원", ["경쟁A", "경쟁B"]) as { by_ai: Record<string, Record<string, unknown>> };
+    // errorSample은 파이썬에 없는 TS 전용 진단 필드 → 파리티 비교에서 제외.
+    for (const k of Object.keys(out.by_ai)) delete out.by_ai[k].errorSample;
     expect(out).toEqual(g.aggregate.output);
   });
 });

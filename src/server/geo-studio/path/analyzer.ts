@@ -49,9 +49,15 @@ export function analyzeJourney(brand: string, seedQuery: string, opts: ExploreOp
  * 미연결(검색광고 키 없음)이면 null → 호출부가 목으로 폴백.
  */
 export async function analyzeJourneyLive(brand: string, seedQuery: string, scanDate?: string): Promise<JourneyReport | null> {
-  const tree = await exploreJourneyLive(seedQuery, brand);
-  if (!tree) return null;
-  return buildJourneyReport(tree, brand, seedQuery, scanDate ?? new Date().toISOString());
+  try {
+    const tree = await exploreJourneyLive(seedQuery, brand);
+    if (!tree) return null;
+    return buildJourneyReport(tree, brand, seedQuery, scanDate ?? new Date().toISOString());
+  } catch (e) {
+    // 실측 실패는 화면을 죽이지 않는다 — null 반환 → 호출부가 목으로 폴백.
+    console.warn(`[geo-path] 실측 여정 실패(${seedQuery}): ${String(e).slice(0, 120)}`);
+    return null;
+  }
 }
 
 /** 여정 리포트 + Topical Authority + 클러스터 계획 결합. */

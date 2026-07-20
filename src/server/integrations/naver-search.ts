@@ -87,13 +87,22 @@ export async function fetchRelatedKeywords(seed: string, limit = 100): Promise<R
   const signature = sign(timestamp, "GET", KEYWORDS_PATH, secret);
   const url = `${API_BASE}${KEYWORDS_PATH}?hintKeywords=${encodeURIComponent(hint)}&showDetail=1`;
 
-  const response = await fetch(url, {
-    headers: { "X-Timestamp": timestamp, "X-API-KEY": apiKey, "X-Customer": customerId, "X-Signature": signature }
-  });
-  if (!response.ok) throw new Error(`네이버 검색광고 API 오류 (${response.status})`);
-
-  const json = (await response.json()) as { keywordList?: Array<Record<string, unknown>> };
-  const list = Array.isArray(json.keywordList) ? json.keywordList : [];
+  // 네트워크·레이트리밋(429) 실패로 화면이 죽지 않도록 — 에러 시 빈 배열(호출부는 데모로 폴백).
+  let list: Array<Record<string, unknown>> = [];
+  try {
+    const response = await fetch(url, {
+      headers: { "X-Timestamp": timestamp, "X-API-KEY": apiKey, "X-Customer": customerId, "X-Signature": signature }
+    });
+    if (!response.ok) {
+      console.warn(`[naver-ad] 연관키워드 조회 실패 ${response.status}(시드 ${hint})`);
+      return [];
+    }
+    const json = (await response.json()) as { keywordList?: Array<Record<string, unknown>> };
+    list = Array.isArray(json.keywordList) ? json.keywordList : [];
+  } catch (e) {
+    console.warn(`[naver-ad] 연관키워드 조회 예외(시드 ${hint}): ${String(e).slice(0, 120)}`);
+    return [];
+  }
 
   return list
     .map((row) => {

@@ -69,6 +69,28 @@ export async function discoverCepsLive(
   if (!sources.relatedKeywords) return demo("네이버 검색광고 키 미연결 — 연관키워드 실측 불가(데모).");
   if (!sources.embeddings) return demo("OpenAI 임베딩 키 미연결 — 의미 군집 실측 불가(데모).");
 
+  // 실측 호출(네이버·OpenAI)이 실패해도 화면을 죽이지 않는다 — 데모로 폴백.
+  try {
+    return await runRealCep(brand, category, seed, scanDate, sources, opts);
+  } catch (e) {
+    console.warn(`[geo-cep] 실측 CEP 실패(${seed}): ${String(e).slice(0, 120)}`);
+    return demo("실측 조회 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.");
+  }
+}
+
+async function runRealCep(
+  brand: string,
+  category: string,
+  seed: string,
+  scanDate: string,
+  sources: { relatedKeywords: boolean; embeddings: boolean },
+  opts: LiveDiscoverOptions
+): Promise<LiveCepReport> {
+  const demo = (note: string): LiveCepReport => ({
+    data_tier: "demo", brand, category, seed, scan_date: scanDate,
+    candidate_count: 0, total_ceps: 0, whitespace_count: 0, ceps: [], top_ceps: [], note, sources
+  });
+
   // 1) 실측 연관키워드(절대 검색량 동반, 총검색량 내림차순)
   const rows = await fetchRelatedKeywords(seed, opts.limit ?? 120);
   if (rows.length < 3) return demo(`연관키워드가 부족합니다(${rows.length}개). 시드를 넓혀 다시 시도하세요.`);
