@@ -64,6 +64,13 @@ export async function changeAdminPassword(input: unknown): Promise<ActionResult>
 
     const passwordHash = hashPassword(next);
     const meta = await requestMeta();
+    // 운영 DB에 passwordHash 컬럼이 없던 경우(빌드 시 db push/additive-sync 누락) 대비.
+    // 멱등·additive DDL로 컬럼을 보장 — 없으면 P2022로 저장이 실패하므로 저장 직전에 확인한다.
+    try {
+      await db.$executeRawUnsafe('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "passwordHash" TEXT');
+    } catch (e) {
+      console.warn("[account] passwordHash 컬럼 보장 실패(무시):", String(e).slice(0, 140));
+    }
     // 비밀번호 저장이 핵심 — 감사로그 쓰기(스키마 드리프트 가능)에 발목 잡히지 않게 분리한다.
     const saved = await db.user.upsert({
       where: { email: adminEmail },
