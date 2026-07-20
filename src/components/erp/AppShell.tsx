@@ -332,7 +332,7 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
     {
       href: "/account",
       label: "계정·비밀번호",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN],
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: KeyRound,
       group: "관리"
     }

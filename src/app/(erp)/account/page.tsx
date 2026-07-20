@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { AdminPasswordCard } from "@/components/settings/AdminPasswordCard";
+import { SelfPasswordCard } from "@/components/account/SelfPasswordCard";
 import { StaffAccessTool } from "@/components/account/StaffAccessTool";
 import { getCurrentUser } from "@/server/session";
 import { Role } from "@/domain/types";
@@ -16,6 +17,12 @@ export default async function AccountPage() {
 
   const isSuperAdmin = user.role === Role.SUPER_ADMIN;
   const isAdmin = isSuperAdmin || user.role === Role.ADMIN;
+
+  // 본인 비밀번호 설정 여부 — 조회 실패해도 페이지가 죽지 않게 방어.
+  const me = await db.user
+    .findUnique({ where: { id: user.id }, select: { passwordHash: true } })
+    .catch(() => null);
+  const hasOwnPassword = Boolean(me?.passwordHash);
 
   // 직원 목록 — 실패해도 페이지가 죽지 않게 방어(비밀번호 카드는 항상 뜨도록).
   const staff = isAdmin
@@ -45,12 +52,15 @@ export default async function AccountPage() {
         </div>
       </div>
 
-      {/* 내 비밀번호 변경 (최고관리자) */}
+      {/* 내 로그인 비밀번호 — 모든 역할(담당자 포함) 본인 비밀번호 설정·변경 */}
+      <SelfPasswordCard email={user.email} hasPassword={hasOwnPassword} />
+
+      {/* 복구용 마스터 비밀번호 (최고관리자) — Vercel ADMIN_EMAIL 계정, 잠금 대비용 */}
       {isSuperAdmin && (
         <div className="rounded-2xl border border-line bg-card p-5">
-          <h3 className="mb-1 text-base font-semibold text-ink">로그인 비밀번호</h3>
+          <h3 className="mb-1 text-base font-semibold text-ink">복구용 마스터 비밀번호</h3>
           <p className="mb-3 text-xs leading-relaxed text-slate-500">
-            변경하면 <b>모든 기기</b>에서 새 비밀번호로 로그인합니다(옛 비밀번호는 무효화). 특수문자(<code className="rounded bg-surface px-1">\ ₩ &apos; &quot;</code>) 없이 <b>영문+숫자</b> 조합을 권장합니다.
+            <b>ADMIN_EMAIL</b> 계정의 비밀번호입니다(잠금 대비 복구용). 특수문자(<code className="rounded bg-surface px-1">\ ₩ &apos; &quot;</code>) 없이 <b>영문+숫자</b> 조합을 권장합니다.
           </p>
           <AdminPasswordCard adminEmail={process.env.ADMIN_EMAIL ?? null} />
         </div>

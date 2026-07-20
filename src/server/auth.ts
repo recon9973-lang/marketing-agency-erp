@@ -106,38 +106,47 @@ async function authorizeAdmin(rawEmail: unknown, rawPassword: unknown) {
     return upsertAdminUser(BOOTSTRAP_EMAIL);
   }
 
-  // (2) env 기반 관리자.
+  // (2) env 기반 최고관리자 — 이메일이 ADMIN_EMAIL과 일치할 때. DB 해시(우선) 또는 env ADMIN_PASSWORD(복구용).
   const adminEmail = normalizeCredential(process.env.ADMIN_EMAIL ?? "").toLowerCase();
-  if (!adminEmail) return null;
-  if (!secureEquals(email, adminEmail)) return null;
-
-  // 비밀번호 검증: 설정된 DB 해시(우선) 또는 env ADMIN_PASSWORD(복구용) 중 하나라도 맞으면 통과.
-  // 컬럼 미반영(배포 직후 마이그레이션 지연) 등으로 조회가 실패해도 env 검증으로 폴백 — 잠금 방지.
-  let existing: { passwordHash: string | null } | null = null;
-  try {
-    existing = await db.user.findUnique({ where: { email: adminEmail }, select: { passwordHash: true } });
-  } catch {
-    existing = null;
-  }
-  const envPassword = normalizeCredential(process.env.ADMIN_PASSWORD ?? "");
-  const hashOk = verifyPassword(password, existing?.passwordHash);
-  const envOk = envPassword.length > 0 && secureEquals(password, envPassword);
-  if (!hashOk && !envOk) {
-    // 실제 값은 절대 로그하지 않는다 — 원인 파악용 분류만(전각/공백 등).
+  if (adminEmail && secureEquals(email, adminEmail)) {
+    // 조회 실패(마이그레이션 지연 등)에도 env 검증으로 폴백 — 잠금 방지.
+    let existing: { passwordHash: string | null } | null = null;
+    try {
+      existing = await db.user.findUnique({ where: { email: adminEmail }, select: { passwordHash: true } });
+    } catch {
+      existing = null;
+    }
+    const envPassword = normalizeCredential(process.env.ADMIN_PASSWORD ?? "");
+    const hashOk = verifyPassword(password, existing?.passwordHash);
+    const envOk = envPassword.length > 0 && secureEquals(password, envPassword);
+    if (hashOk || envOk) {
+      if (!hashOk && envOk) {
+        console.warn(`[auth] admin 로그인 ENV 폴백 통과 (hasHash=${Boolean(existing?.passwordHash)})`);
+      }
+      return upsertAdminUser(adminEmail);
+    }
     console.warn(
       `[auth] admin login fail: hasHash=${Boolean(existing?.passwordHash)}` +
-        ` rawClass=${classifyChars(String(rawPassword ?? ""))}` +
-        ` normClass=${classifyChars(password)}`
+        ` rawClass=${classifyChars(String(rawPassword ?? ""))} normClass=${classifyChars(password)}`
     );
     return null;
   }
 
-  // 진단: DB 해시 대신 env(옛 비밀번호)로만 통과한 경우 — 저장된 새 비번이 로그인에 안 잡히는지 점검.
-  if (!hashOk && envOk) {
-    console.warn(`[auth] admin 로그인 ENV 폴백 통과 (hasHash=${Boolean(existing?.passwordHash)}, hashOk=false) — DB 저장 비번 미인증`);
+  // (3) 일반 사용자 비밀번호 로그인 — 본인이 /account 에서 설정한 User.passwordHash. 담당자 포함.
+  //     활성(ACTIVE) 계정만 허용. 매직링크 없이 이메일+비밀번호로 로그인 가능.
+  let account: { id: string; email: string; name: string; passwordHash: string | null; status: UserStatus } | null = null;
+  try {
+    account = await db.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, name: true, passwordHash: true, status: true }
+    });
+  } catch {
+    account = null;
   }
-
-  return upsertAdminUser(adminEmail);
+  if (account?.passwordHash && account.status === UserStatus.ACTIVE && verifyPassword(password, account.passwordHash)) {
+    return { id: account.id, email: account.email, name: account.name };
+  }
+  return null;
 }
 
 /**

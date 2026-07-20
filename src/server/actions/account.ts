@@ -113,3 +113,67 @@ export async function changeAdminPassword(input: unknown): Promise<ActionResult>
     }
   });
 }
+
+/**
+ * 본인 계정 비밀번호 변경/설정 — 모든 역할(담당자 포함). 로그인한 사용자 자신의 User.passwordHash 갱신.
+ * 최초 설정(해시 없음)이면 현재 비밀번호 생략, 이미 있으면 현재 비밀번호 확인.
+ * 설정 후 이메일+비밀번호로 로그인 가능(매직링크 없이도).
+ */
+export async function changeOwnPassword(input: unknown): Promise<ActionResult> {
+  return runAction(async () => {
+    const user = await requireUser();
+
+    const p = z
+      .object({ current: z.string().optional(), next: z.string().min(1), confirm: z.string().min(1) })
+      .safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+
+    const next = normalize(p.data.next);
+    if (next.length < 8) throw new Error("TOO_SHORT");
+    if (normalize(p.data.confirm) !== next) throw new Error("MISMATCH");
+
+    // passwordHash 컬럼 보장(멱등·additive) — 스키마 미반영 DB에서도 저장되게.
+    try {
+      await db.$executeRawUnsafe('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "passwordHash" TEXT');
+    } catch (e) {
+      console.warn("[account] passwordHash 컬럼 보장 실패(무시):", String(e).slice(0, 140));
+    }
+
+    let existing: { passwordHash: string | null } | null = null;
+    try {
+      existing = await db.user.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
+    } catch (e) {
+      console.warn("[account] 본인 비밀번호 조회 실패:", String(e).slice(0, 140));
+    }
+    // 이미 비밀번호가 있으면 현재 비밀번호 확인. 최초 설정(해시 없음)이면 생략(이미 인증된 세션이므로).
+    if (existing?.passwordHash) {
+      const cur = normalize(p.data.current ?? "");
+      if (!cur || !verifyPassword(cur, existing.passwordHash)) throw new Error("WRONG_CURRENT");
+    }
+
+    const passwordHash = hashPassword(next);
+    await db.user.update({ where: { id: user.id }, data: { passwordHash } });
+
+    // 저장 검증 — 로그인이 읽는 것과 동일 경로로 재조회.
+    let readback: { passwordHash: string | null } | null = null;
+    try {
+      readback = await db.user.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
+    } catch (e) {
+      console.warn("[account] 본인 비밀번호 저장 검증 재조회 실패:", String(e).slice(0, 140));
+    }
+    if (!verifyPassword(next, readback?.passwordHash)) throw new Error("SAVE_UNVERIFIED");
+
+    try {
+      const meta = await requestMeta();
+      await recordAudit(db, {
+        actorId: user.id,
+        action: "user.password.change",
+        targetType: "User",
+        targetId: user.id,
+        ...meta
+      });
+    } catch (e) {
+      console.warn("[account] 본인 비밀번호 감사로그 실패:", String(e).slice(0, 140));
+    }
+  });
+}
