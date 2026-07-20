@@ -12,7 +12,6 @@ import {
   CreditCard,
   FileSignature,
   FileText,
-  ImageIcon,
   PenLine,
   Plane,
   Plug,
@@ -167,15 +166,8 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       group: "제작"
     },
     {
-      href: "/image-studio",
-      label: "이미지 스튜디오",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: ImageIcon,
-      group: "제작"
-    },
-    {
       href: "/studio",
-      label: "디자인 스튜디오",
+      label: "스튜디오",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Palette,
       group: "제작"
