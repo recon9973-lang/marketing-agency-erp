@@ -160,15 +160,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       {/* 월간 보고서 */}
       {activeDoc === "monthly" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-ink">월간 보고서 · 거래처 GEO 주간 리포트를 규칙기반으로 조립합니다.</p>
-            <Link
-              href="/reports/geo-weekly"
-              className="shrink-0 rounded-full border border-emerald-200 bg-card px-3.5 py-1.5 text-xs font-semibold text-emerald-700 hover:border-emerald-300 hover:text-emerald-800"
-            >
-              GEO 주간 리포트 →
-            </Link>
-          </div>
+          <p className="text-sm font-semibold text-ink">월간 보고서 · 거래처 월간 성과를 규칙기반으로 조립합니다. (GEO 주간 리포트는 GEO → 계획 탭에 있습니다.)</p>
           <GenerateMonthlyReport clients={clientOptions} />
           <CreateReportForm clients={clientOptions} />
           <DataTable columns={columns} rows={reports} emptyMessage="조회 가능한 보고서가 없습니다." />

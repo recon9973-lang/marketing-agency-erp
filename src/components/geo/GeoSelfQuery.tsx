@@ -44,9 +44,9 @@ export function GeoSelfQuery({ presetBrand, presetKeyword }: { presetBrand?: str
   }
 
   return (
-    <div className="space-y-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-5">
+    <div className="space-y-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-5 dark:border-emerald-800/50 dark:bg-emerald-950/30">
       <div className="flex items-center gap-2">
-        <Sparkles className="h-4 w-4 text-emerald-600" />
+        <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
         <h3 className="text-sm font-bold text-ink">자체 조회 — 거래처 없이 빠르게</h3>
       </div>
       <p className="text-xs text-slate-500">

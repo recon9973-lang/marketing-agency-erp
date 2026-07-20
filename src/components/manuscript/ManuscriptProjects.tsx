@@ -188,8 +188,8 @@ function ProjectCard({
       </button>
 
       {/* 자체 제작 — 새 원고 */}
-      <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
-        <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
+      <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 dark:border-emerald-800/50 dark:bg-emerald-950/30">
+        <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
           <FileText className="h-3.5 w-3.5" /> 원고 자체 제작
         </p>
         <div className="mt-2 grid gap-2 sm:grid-cols-[8rem_1fr]">

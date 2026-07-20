@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Download, Trash2, Search } from "lucide-react";
+import { Download, Trash2, Search, Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { lookupKeywordsFull } from "@/server/actions/keywords";
 import type { KeywordFull } from "@/server/integrations/naver-search";
@@ -59,6 +59,7 @@ export function KeywordLookup() {
   const [connected, setConnected] = useState<boolean | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [pending, start] = useTransition();
 
   const totals = useMemo(() => {
@@ -66,12 +67,12 @@ export function KeywordLookup() {
     return { seed, related: rows.length - seed };
   }, [rows]);
 
-  function run() {
+  function query(terms: string) {
     setError(null);
     setNote(null);
-    if (!input.trim()) return;
+    if (!terms.trim()) return;
     start(async () => {
-      const res = await lookupKeywordsFull({ keywords: input });
+      const res = await lookupKeywordsFull({ keywords: terms });
       if (!res.ok) {
         setError(res.error.message);
         return;
@@ -87,9 +88,26 @@ export function KeywordLookup() {
           const existing = map.get(key);
           map.set(key, existing ? { ...r, related: existing.related && r.related } : r);
         }
-        return [...map.values()];
+        const merged = [...map.values()];
+        // 맥락 연관 키워드 추천 갱신 — 이번 결과의 연관어 중 아직 시드가 아닌 상위 24개.
+        const seedNorms = new Set(merged.filter((r) => !r.related).map((r) => norm(r.keyword)));
+        const picks = incoming
+          .filter((r) => r.related && !seedNorms.has(norm(r.keyword)))
+          .sort((a, b) => (b.total ?? 0) - (a.total ?? 0))
+          .slice(0, 24)
+          .map((r) => r.keyword);
+        setSuggestions(picks);
+        return merged;
       });
     });
+  }
+  function run() {
+    query(input);
+  }
+  // 추천 칩 클릭 → 해당 키워드를 시드로 추가 조회(누적). 클릭한 칩은 추천에서 제거.
+  function addSuggestion(term: string) {
+    setSuggestions((prev) => prev.filter((s) => norm(s) !== norm(term)));
+    query(term);
   }
 
   function removeRow(keyword: string) {
@@ -98,6 +116,7 @@ export function KeywordLookup() {
   function clearAll() {
     setRows([]);
     setNote(null);
+    setSuggestions([]);
   }
 
   function downloadExcel() {
@@ -144,6 +163,28 @@ export function KeywordLookup() {
           <p className="text-xs text-slate-400">※ 미연동(데모) 상태 — 시드 키워드는 추정치이고 연관키워드는 표시되지 않습니다. 검색광고 API 키를 설정하면 실측·연관키워드가 표시됩니다.</p>
         ) : null}
       </div>
+
+      {/* 맥락 연관 키워드 추천 — 상단 별도 표시, 클릭하면 시드로 추가 조회 */}
+      {suggestions.length > 0 ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-800/50 dark:bg-emerald-950/30">
+          <p className="mb-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+            맥락 연관 키워드 · 클릭하면 추가 조회됩니다
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {suggestions.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => addSuggestion(s)}
+                disabled={pending}
+                className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-800 transition hover:bg-emerald-600 hover:text-white disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200"
+              >
+                <Plus className="h-3 w-3" /> {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* 결과 툴바 */}
       {rows.length > 0 ? (

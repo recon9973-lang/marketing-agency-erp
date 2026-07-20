@@ -367,8 +367,8 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
       ) : (
         <>
           {/* 자체 조회 — 거래처가 있어도 언제든 빠르게(접이식). 선택 거래처 정보를 기본값으로 채움. */}
-          <details className="group rounded-2xl border border-emerald-200 bg-emerald-50/30">
-            <summary className="cursor-pointer list-none px-5 py-3 text-sm font-semibold text-emerald-800 marker:content-none">
+          <details className="group rounded-2xl border border-emerald-200 bg-emerald-50/40 dark:border-emerald-800/50 dark:bg-emerald-950/30">
+            <summary className="cursor-pointer list-none px-5 py-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300 marker:content-none">
               <span className="inline-flex items-center gap-2">
                 <span className="transition-transform group-open:rotate-90">▶</span>
                 자체 조회 (거래처 없이 업체명·키워드로 빠르게)
