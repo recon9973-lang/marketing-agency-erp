@@ -42,7 +42,7 @@ import { getCurrentUser } from "@/server/session";
 import { GeoStageNav } from "@/components/geo/GeoStageNav";
 import { GeoStagePanel } from "@/components/geo/GeoStagePanel";
 import { GeoKeywordPanel } from "@/components/geo/GeoKeywordPanel";
-import { listGeoKeywords } from "@/server/repositories/geo-keyword";
+import { listGeoKeywords, listSelectedGeoKeywords } from "@/server/repositories/geo-keyword";
 import { naverSearchConfigured } from "@/server/integrations/naver-search";
 import { GEO_STAGES, geoStageOf, type GeoStageKey } from "@/domain/geo/stages";
 
@@ -219,6 +219,10 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
   // 단계1(키워드) 인라인 데이터 — 해당 탭에서만 조회.
   const geoKeywordRows = activeTab === "keyword" && selectedId ? await listGeoKeywords(selectedId) : [];
   const naverConfigured = naverSearchConfigured();
+  // 단계2(질문)에서 참고할 채택 키워드.
+  const selectedKw = activeTab === "questions" && selectedId ? await listSelectedGeoKeywords(selectedId) : [];
+  // 화면 안에 인라인 통합된 탭(그 외는 단계 안내 패널).
+  const inlineTabs: GeoStageKey[] = ["dashboard", "keyword", "questions", "citation"];
 
   // llms.txt 본문(순수 생성) — 게시된 답변 페이지 기반
   const llmsText = buildLlmsTxt(
@@ -281,11 +285,61 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
           {/* GEO 11단계 통합 탭바 */}
           <GeoStageNav clientId={selectedId} active={activeTab} />
 
+          {/* 단계1 — 키워드 */}
           {activeTab === "keyword" && selectedId && (
             <GeoKeywordPanel clientId={selectedId} clientName={selectedName} rows={geoKeywordRows} configured={naverConfigured} />
           )}
 
-          {activeTab !== "dashboard" && activeTab !== "keyword" && (
+          {/* 단계2 — 질문 추출 (채택 키워드 연동) */}
+          {activeTab === "questions" && selectedId && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                <p className="text-xs text-emerald-800">
+                  단계1에서 채택한 <b>{selectedKw.length}개</b> 키워드가 질문 생성에 반영됩니다.
+                  {selectedKw.length > 0 && <span className="ml-1 text-emerald-600">{selectedKw.slice(0, 8).join(" · ")}</span>}
+                  {selectedKw.length === 0 && (
+                    <a href={`/geo?client=${selectedId}&tab=keyword`} className="ml-1 font-semibold underline">
+                      먼저 키워드를 채택하세요 →
+                    </a>
+                  )}
+                </p>
+              </div>
+              <GeoCandidateGenerator clientId={selectedId} defaultDepartment={defaultDepartment} defaultRegion={defaultRegion} />
+              <GeoQuestionAdder clientId={selectedId} />
+              <GeoMatrix clientId={selectedId} rows={rows} />
+            </div>
+          )}
+
+          {/* 단계3 — 4대 AI 인용 측정 */}
+          {activeTab === "citation" && selectedId && (
+            <div className="space-y-4">
+              <GeoAutoWatch
+                clientId={selectedId}
+                configuredEngines={configuredEngines().map((e) => e.engine)}
+                monitorableCount={rows.filter((r) => r.status === "APPROVED" || r.status === "MONITORING").length}
+              />
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <div className="rounded-2xl border border-line bg-card p-4">
+                  <h3 className="mb-1 text-sm font-bold text-ink">AI 모델별 언급률</h3>
+                  <p className="mb-3 text-[11px] text-slate-500">엔진별 분포 · 첫 관측 대비 현재</p>
+                  <EngineRadar data={engineRadar} />
+                </div>
+                <div className="rounded-2xl border border-line bg-card p-4">
+                  <h3 className="mb-1 text-sm font-bold text-ink">언급 현황 (우리 vs 경쟁사)</h3>
+                  <p className="mb-3 text-[11px] text-slate-500">질문×엔진 최신 관측 기준 랭킹</p>
+                  <MentionStanding rows={standing} />
+                </div>
+              </div>
+              <div className="rounded-2xl border border-line bg-card p-4">
+                <h3 className="mb-1 text-sm font-bold text-ink">전체 언급률 추이</h3>
+                <p className="mb-3 text-[11px] text-slate-500">AI 답변이 우리 병원을 인용하는 비율 · 주 1회 관측</p>
+                <MentionRateTrend points={mentionSeries} />
+              </div>
+              <GeoMatrix clientId={selectedId} rows={rows} />
+            </div>
+          )}
+
+          {!inlineTabs.includes(activeTab) && (
             <GeoStagePanel
               stage={GEO_STAGES.find((s) => s.key === activeTab)!}
               clientName={selectedName}

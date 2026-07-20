@@ -63,7 +63,11 @@ export async function generateGeoCandidates(input: unknown): Promise<ActionResul
       take: 6,
       select: { keyword: true }
     });
-    const keywords = kwRows.map((k) => k.keyword);
+    // GEO 단계1에서 채택한 키워드(검색량≥30 선별)를 질문 생성에 우선 인계 → 파이프라인 연결.
+    const geoKw = await db.geoKeyword
+      .findMany({ where: { clientId: d.clientId, selected: true }, orderBy: [{ volume: "desc" }], take: 10, select: { term: true } })
+      .catch(() => [] as { term: string }[]);
+    const keywords = [...new Set([...geoKw.map((k) => k.term), ...kwRows.map((k) => k.keyword)])].slice(0, 12);
     const candidates = buildGeoQuestionCandidates(d.department, d.region, { hospitalName: client?.name ?? null, competitors, keywords });
     const existing = await db.geoQuestion.findMany({
       where: { clientId: d.clientId },
