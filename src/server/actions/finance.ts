@@ -7,7 +7,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { Role } from "@/domain/types";
+import { Role, FinancialAccountType, ConnectionStatus } from "@/domain/types";
 import { assertCanAccessClient } from "@/domain/access-control";
 import { computeBillingStatus } from "@/domain/finance-rules";
 import { db } from "@/server/db";
@@ -244,5 +244,41 @@ export async function confirmBankMatch(input: unknown): Promise<ActionResult> {
       });
     });
     revalidatePath("/finance");
+  });
+}
+
+/**
+ * 은행 계좌·카드 수동 등록. 실시간 연동(오픈뱅킹·카드사 API)은 미구현이므로
+ * connectionStatus=DISCONNECTED(미연결)로 정직하게 저장한다. 관리자 이상.
+ */
+export async function createFinancialAccount(input: unknown): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    if (user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN) throw new Error("FORBIDDEN");
+    const p = z
+      .object({
+        type: z.enum(["BANK", "CARD"]),
+        displayName: z.string().trim().min(1).max(80),
+        institutionName: z.string().trim().max(80).optional().nullable(),
+        last4: z.string().trim().max(4).optional().nullable()
+      })
+      .safeParse(input);
+    if (!p.success) throw new Error("VALIDATION");
+    const d = p.data;
+    const meta = await requestMeta();
+    const acc = await db.financialAccount.create({
+      data: {
+        type: d.type as FinancialAccountType,
+        displayName: d.displayName,
+        institutionName: d.institutionName || null,
+        accountLast4: d.type === "BANK" ? d.last4 || null : null,
+        cardLast4: d.type === "CARD" ? d.last4 || null : null,
+        connectionStatus: ConnectionStatus.DISCONNECTED,
+        isActive: true
+      }
+    });
+    await recordAudit(db, { actorId: user.id, action: "finance.account.create", targetType: "FinancialAccount", targetId: acc.id, afterState: { type: d.type, displayName: d.displayName }, ...meta });
+    revalidatePath("/finance");
+    return { id: acc.id };
   });
 }

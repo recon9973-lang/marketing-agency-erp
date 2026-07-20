@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { BankReconcile } from "@/components/finance/BankReconcile";
+import { AddFinancialAccount } from "@/components/finance/AddFinancialAccount";
 import { CreateBillingForm } from "@/components/finance/CreateBillingForm";
 import { RecordPaymentForm } from "@/components/finance/RecordPaymentForm";
 import { listClientsForUser } from "@/server/repositories/clients";
@@ -169,6 +170,13 @@ export default async function FinancePage() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800">
+        <span className="rounded-md border border-amber-300 bg-white px-2 py-0.5 text-[10px] font-bold text-amber-700">미연결 · 수동</span>
+        <span>
+          은행·카드 <b>실시간 자동 연동</b>(오픈뱅킹·카드사 API)은 아직 미구현입니다. 지금은 계좌/카드를 <b>수동 등록</b>하고 거래내역을 수기 입력·대사합니다. 인증키 확보 시 자동 수집으로 전환됩니다.
+        </span>
+      </div>
+
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {overview.accounts.length > 0 ? (
           overview.accounts.map((account) => <AccountCard key={account.id} account={account} />)
@@ -176,6 +184,8 @@ export default async function FinancePage() {
           <div className="rounded-2xl border border-line bg-white p-4 text-sm text-slate-500">등록된 지출 연동 계좌/카드가 없습니다.</div>
         )}
       </div>
+
+      {canManage && <AddFinancialAccount />}
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
