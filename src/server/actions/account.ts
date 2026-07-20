@@ -49,7 +49,13 @@ export async function changeAdminPassword(input: unknown): Promise<ActionResult>
     if (!adminEmail) throw new Error("NO_ADMIN_EMAIL");
 
     // 현재 비밀번호 확인 — DB 해시(있으면) 또는 env ADMIN_PASSWORD(복구용) 중 하나라도 맞아야 한다.
-    const adminUser = await db.user.findUnique({ where: { email: adminEmail }, select: { id: true, passwordHash: true } });
+    // 조회 실패(스키마 드리프트 등)에도 잠기지 않도록 방어 — env 비밀번호로 폴백 확인.
+    let adminUser: { id: string; passwordHash: string | null } | null = null;
+    try {
+      adminUser = await db.user.findUnique({ where: { email: adminEmail }, select: { id: true, passwordHash: true } });
+    } catch {
+      adminUser = null;
+    }
     const envPassword = normalize(process.env.ADMIN_PASSWORD ?? "");
     const currentOk =
       verifyPassword(p.data.current, adminUser?.passwordHash) ||

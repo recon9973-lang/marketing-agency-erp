@@ -42,7 +42,8 @@ export function AdminPasswordCard({ adminEmail }: { adminEmail: string | null })
     start(async () => {
       const res = await changeAdminPassword({ current, next, confirm });
       if (!res.ok) {
-        setError(MSG[res.error ?? "default"] ?? MSG.default);
+        // 서버가 코드별로 이미 한국어 메시지를 만들어 준다 → 그대로 노출(원인 정확히 표시).
+        setError(res.error || MSG[res.code ?? "default"] || MSG.default);
         return;
       }
       setDone(true);
