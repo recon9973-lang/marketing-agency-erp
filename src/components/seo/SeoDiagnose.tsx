@@ -15,6 +15,7 @@ export function SeoDiagnose({ presetUrl }: { presetUrl?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SeoEngineResult | null>(null);
   const [score, setScore] = useState<number | null>(null);
+  const [meta, setMeta] = useState<{ version: string; fetchedWith: string } | null>(null);
 
   function run() {
     setError(null);
@@ -24,12 +25,16 @@ export function SeoDiagnose({ presetUrl }: { presetUrl?: string }) {
       if (!res.ok) {
         setError(res.code === "SEO_FETCH_FAILED" ? "페이지를 불러오지 못했습니다. URL을 확인해 주세요." : res.error);
         setResult(null);
+        setMeta(null);
         return;
       }
       setResult(res.data?.result ?? null);
       setScore(res.data?.score ?? null);
+      setMeta(res.data ? { version: res.data.version, fetchedWith: res.data.fetchedWith } : null);
     });
   }
+
+  const fetchedLabel = meta?.fetchedWith === "googlebot" ? "실측 · Googlebot UA" : "실측 · 브라우저 UA";
 
   const fails = result
     ? result.categories.flatMap((c) => c.items.filter((i) => i.pass === false).map((i) => ({ cat: c.label, name: i.name, desc: i.desc, points: i.points })))
@@ -65,6 +70,13 @@ export function SeoDiagnose({ presetUrl }: { presetUrl?: string }) {
               <p className="mt-1 text-xs text-slate-400">
                 통과 {result.summary.passed} · 개선필요 {result.summary.failed} · {result.domain}
               </p>
+              {meta && (
+                <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <span className="rounded-full border border-brand/30 bg-brand-soft px-2 py-0.5 font-semibold text-brand-strong">VENOM SEO 엔진 v{meta.version}</span>
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">{fetchedLabel}</span>
+                  <span className="text-slate-400">정본 파이프라인(배포 시 자동 동기화)</span>
+                </p>
+              )}
             </div>
           </div>
 

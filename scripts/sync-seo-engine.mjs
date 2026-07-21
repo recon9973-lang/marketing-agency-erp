@@ -14,9 +14,11 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
 const VENDOR = join(__dirname, "..", "src", "server", "seo-engine", "vendor");
 
 const REPO = process.env.SEO_ENGINE_REPO || "recon9973-lang/desktop-tutorial";
@@ -75,6 +77,13 @@ async function main() {
   if (checkOnly && changed > 0) process.exit(1);
   if (failed === FILES.length) {
     console.warn("[sync-seo-engine] 전부 실패 — 오프라인/비공개 저장소일 수 있음. 벤더 사본으로 진행.");
+  }
+  // 활성 엔진 버전·정본 출처를 배포 로그에 남긴다(항상 같은 엔진 사용 확인용).
+  try {
+    const eng = require(join(VENDOR, "seo-engine.cjs"));
+    console.log(`[sync-seo-engine] 활성 엔진: VENOM SEO v${eng.version} · 정본 ${REPO}@${REF}`);
+  } catch {
+    /* 벤더 사본 로드 불가 — 무시 */
   }
 }
 
