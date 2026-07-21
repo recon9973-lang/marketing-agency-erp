@@ -35,24 +35,40 @@ export async function requestSignup(input: unknown): Promise<ActionResult> {
     const exists = await db.user.findFirst({ where: { email }, select: { id: true } });
     if (exists) return;
 
-    const orgId = await getDefaultOrgId();
-    const meta = await requestMeta();
-    await db.$transaction(async (tx) => {
-      const u = await tx.user.create({
-        data: { email, name, role: Role.MARKETER, status: UserStatus.PENDING, orgId }
-      });
-      await recordAudit(tx, { actorId: u.id, action: "signup.request", targetType: "User", targetId: u.id, afterState: { email }, ...meta });
-      // 관리자에게 알림.
-      const admins = await tx.user.findMany({
-        where: { role: { in: [Role.SUPER_ADMIN, Role.ADMIN] }, status: UserStatus.ACTIVE },
-        select: { id: true }
-      });
-      for (const a of admins) {
-        await tx.notification.create({
-          data: { userId: a.id, type: "SIGNUP_REQUEST", title: "새 가입 요청", body: `${name} (${email}) 님이 가입을 요청했습니다.`, link: "/settings", targetType: "User", targetId: u.id, orgId }
-        });
-      }
+    const orgId = await getDefaultOrgId().catch(() => null);
+
+    // 운영 DB의 UserStatus enum에 'PENDING' 값이 없으면(마이그레이션/additive-sync 지연) 가입 생성이
+    // invalid enum 오류로 실패한다. 생성 직전에 멱등 additive DDL로 값을 보장한다(트랜잭션 밖에서 선실행).
+    try {
+      await db.$executeRawUnsafe(`ALTER TYPE "UserStatus" ADD VALUE IF NOT EXISTS 'PENDING'`);
+    } catch (e) {
+      console.warn("[signup] UserStatus enum 보강 실패(무시):", String(e).slice(0, 140));
+    }
+
+    // 핵심: PENDING 사용자 생성(이것만 성공하면 가입 요청은 접수된 것).
+    const u = await db.user.create({
+      data: { email, name, role: Role.MARKETER, status: UserStatus.PENDING, orgId: orgId ?? undefined },
+      select: { id: true }
     });
+
+    // 부가: 감사로그·관리자 알림은 실패해도 가입을 막지 않는다(스키마 드리프트 방어).
+    try {
+      const meta = await requestMeta();
+      await db.$transaction(async (tx) => {
+        await recordAudit(tx, { actorId: u.id, action: "signup.request", targetType: "User", targetId: u.id, afterState: { email }, ...meta });
+        const admins = await tx.user.findMany({
+          where: { role: { in: [Role.SUPER_ADMIN, Role.ADMIN] }, status: UserStatus.ACTIVE },
+          select: { id: true }
+        });
+        for (const a of admins) {
+          await tx.notification.create({
+            data: { userId: a.id, type: "SIGNUP_REQUEST", title: "새 가입 요청", body: `${name} (${email}) 님이 가입을 요청했습니다.`, link: "/settings", targetType: "User", targetId: u.id, orgId: orgId ?? undefined }
+          });
+        }
+      });
+    } catch (e) {
+      console.warn("[signup] 알림/감사 기록 실패(무시):", String(e).slice(0, 140));
+    }
     revalidatePath("/settings");
   });
 }
