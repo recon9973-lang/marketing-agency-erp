@@ -3,13 +3,44 @@
 // 최고관리자(SUPER_ADMIN)는 항상 전체 접근(차단 무시).
 import { Role } from "./types";
 
-export type FeatureKey = "finance" | "contracts" | "leads" | "leave";
+export type FeatureKey =
+  | "finance"
+  | "contracts"
+  | "leads"
+  | "leave"
+  | "geo"
+  | "keywords"
+  | "seo"
+  | "worklog"
+  | "manuscript"
+  | "studio"
+  | "magazine"
+  | "compliance"
+  | "ideas"
+  | "meetings"
+  | "vault";
 
-export const CONTROLLABLE_FEATURES: { key: FeatureKey; label: string; href: string }[] = [
-  { key: "finance", label: "재무", href: "/finance" },
-  { key: "contracts", label: "계약서", href: "/contracts" },
-  { key: "leads", label: "영업 리드", href: "/leads" },
-  { key: "leave", label: "근태/인사", href: "/leave" }
+export const CONTROLLABLE_FEATURES: { key: FeatureKey; label: string; href: string; group: string }[] = [
+  // 영업·계약
+  { key: "leads", label: "영업 리드", href: "/leads", group: "영업·계약" },
+  { key: "contracts", label: "계약서", href: "/contracts", group: "영업·계약" },
+  // 분석·GEO
+  { key: "geo", label: "GEO", href: "/geo", group: "분석·GEO" },
+  { key: "keywords", label: "검색량 조회", href: "/keywords", group: "분석·GEO" },
+  { key: "seo", label: "SEO 진단", href: "/seo", group: "분석·GEO" },
+  { key: "worklog", label: "업무 보고", href: "/worklog", group: "분석·GEO" },
+  // 제작
+  { key: "manuscript", label: "원고 스튜디오", href: "/manuscript", group: "제작" },
+  { key: "studio", label: "스튜디오", href: "/studio", group: "제작" },
+  { key: "magazine", label: "매거진", href: "/magazine", group: "제작" },
+  { key: "compliance", label: "의료법 검수", href: "/compliance", group: "제작" },
+  { key: "ideas", label: "아이디어", href: "/ideas", group: "제작" },
+  // 보고·결재
+  { key: "meetings", label: "회의록", href: "/meetings", group: "보고·결재" },
+  { key: "vault", label: "보관함", href: "/vault", group: "보고·결재" },
+  // 관리
+  { key: "finance", label: "재무/정산", href: "/finance", group: "관리" },
+  { key: "leave", label: "연차/근태", href: "/leave", group: "관리" }
 ];
 
 const FEATURE_KEYS = new Set<string>(CONTROLLABLE_FEATURES.map((f) => f.key));

@@ -22,8 +22,22 @@ const FEATURE_DESC: Record<FeatureKey, string> = {
   finance: "거래처 청구·입금, 회사 지출/정산 관리",
   contracts: "계약서 작성·서명·발송",
   leads: "영업 리드(잠재 거래처)·무료진단·컨설팅",
-  leave: "연차·휴가 등 근태"
+  leave: "연차·휴가 등 근태",
+  geo: "GEO 분석·모니터링·실행 프로그램",
+  keywords: "검색량·연관키워드 조회",
+  seo: "홈페이지 SEO 실측 진단",
+  worklog: "당일 작업 결과물 보고",
+  manuscript: "원고 집필·자체 제작",
+  studio: "디자인·이미지 스튜디오",
+  magazine: "매거진 발행",
+  compliance: "의료광고법 검수",
+  ideas: "아이디어 → 실행계획서",
+  meetings: "회의록 작성·열람",
+  vault: "공용 파일 보관함"
 };
+
+// 그룹 순서(표시용).
+const FEATURE_GROUPS = ["영업·계약", "분석·GEO", "제작", "보고·결재", "관리"];
 
 const ROLE_META: Record<string, { label: string; icon: typeof User; tone: string; desc: string }> = {
   SUPER_ADMIN: { label: "최고관리자", icon: Crown, tone: "text-amber-600 bg-amber-50 border-amber-200", desc: "모든 기능·전체 거래처·최종 결재. 권한 제한 없음." },
@@ -136,8 +150,7 @@ function StaffCard({ employee: e, isSuperAdmin, onError }: { employee: Employee;
       else router.refresh();
     });
   }
-  function toggleFeature(key: FeatureKey, allow: boolean) {
-    const next = allow ? denied.filter((k) => k !== key) : [...new Set([...denied, key])];
+  function applyDenied(next: FeatureKey[]) {
     setDenied(next);
     onError(null);
     start(async () => {
@@ -148,6 +161,10 @@ function StaffCard({ employee: e, isSuperAdmin, onError }: { employee: Employee;
       } else router.refresh();
     });
   }
+  function toggleFeature(key: FeatureKey, allow: boolean) {
+    applyDenied(allow ? denied.filter((k) => k !== key) : [...new Set([...denied, key])]);
+  }
+  const allKeys = CONTROLLABLE_FEATURES.map((f) => f.key);
   function makeLink() {
     onError(null);
     start(async () => {
@@ -212,19 +229,36 @@ function StaffCard({ employee: e, isSuperAdmin, onError }: { employee: Employee;
                 </div>
               )}
 
-              {/* 메뉴(기능) 권한 */}
+              {/* 메뉴(기능) 권한 — 그룹별 */}
               <div>
-                <p className="mb-1 text-xs font-semibold text-slate-500">메뉴 접근 권한 <span className="font-normal text-slate-400">— 끄면 해당 메뉴가 숨겨지고 접근이 차단됩니다</span></p>
-                <div className="space-y-1.5">
-                  {CONTROLLABLE_FEATURES.map((f) => {
-                    const allowed = !denied.includes(f.key);
+                <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-slate-500">메뉴 접근 권한 <span className="font-normal text-slate-400">— 끄면 그 메뉴가 숨겨지고 URL로 들어와도 차단됩니다</span></p>
+                  <span className="flex gap-1.5">
+                    <button type="button" onClick={() => applyDenied([])} disabled={pending} className="rounded border border-line px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:border-brand hover:text-brand disabled:opacity-50">전체 허용</button>
+                    <button type="button" onClick={() => applyDenied(allKeys)} disabled={pending} className="rounded border border-line px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:border-rose-300 hover:text-rose-500 disabled:opacity-50">전체 차단</button>
+                  </span>
+                </div>
+                <div className="space-y-2.5">
+                  {FEATURE_GROUPS.map((g) => {
+                    const feats = CONTROLLABLE_FEATURES.filter((f) => f.group === g);
+                    if (feats.length === 0) return null;
                     return (
-                      <div key={f.key} className="flex items-center justify-between gap-3 rounded-lg border border-line bg-white px-3 py-2">
-                        <span className="min-w-0">
-                          <span className="block text-sm font-medium text-ink">{f.label}</span>
-                          <span className="block text-[11px] text-slate-400">{FEATURE_DESC[f.key]}</span>
-                        </span>
-                        <Toggle checked={allowed} onChange={(v) => toggleFeature(f.key, v)} disabled={pending} />
+                      <div key={g}>
+                        <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">{g}</p>
+                        <div className="grid gap-1.5 sm:grid-cols-2">
+                          {feats.map((f) => {
+                            const allowed = !denied.includes(f.key);
+                            return (
+                              <div key={f.key} className="flex items-center justify-between gap-3 rounded-lg border border-line bg-white px-3 py-2">
+                                <span className="min-w-0">
+                                  <span className="block text-sm font-medium text-ink">{f.label}</span>
+                                  <span className="block text-[11px] text-slate-400">{FEATURE_DESC[f.key]}</span>
+                                </span>
+                                <Toggle checked={allowed} onChange={(v) => toggleFeature(f.key, v)} disabled={pending} />
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     );
                   })}
