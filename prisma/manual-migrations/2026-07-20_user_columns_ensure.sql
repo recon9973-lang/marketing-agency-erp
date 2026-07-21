@@ -1,0 +1,11 @@
+-- User 후속 컬럼 보강(멱등·additive) — 직원 초대/설정 조회 P2022 방지.
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "canAccessSettings" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "kakaoId" TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "loginLinkToken" TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "passwordHash" TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "deniedFeatures" JSONB;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "googleCalendarConnected" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "naverCalendarConnected" BOOLEAN NOT NULL DEFAULT false;
+CREATE UNIQUE INDEX IF NOT EXISTS "User_loginLinkToken_key" ON "User"("loginLinkToken");
+CREATE UNIQUE INDEX IF NOT EXISTS "User_kakaoId_key" ON "User"("kakaoId");

@@ -13,6 +13,7 @@ import { parseFeatureKeys } from "@/domain/features";
 import { signIn } from "@/server/auth";
 import { db } from "@/server/db";
 import { getDefaultOrgId } from "@/server/org";
+import { ensureUserColumns } from "@/server/ensure-user-columns";
 import {
   recordAudit,
   requestMeta,
@@ -44,6 +45,7 @@ export async function inviteEmployee(input: unknown): Promise<ActionResult<{ id:
     const exists = await db.user.findFirst({ where: { email: d.email.toLowerCase() } });
     if (exists) throw new Error("VALIDATION"); // 이미 존재하는 이메일
 
+    await ensureUserColumns(); // loginLinkToken 등 누락 컬럼 보강(P2022 방지)
     const meta = await requestMeta();
     const orgId = await getDefaultOrgId();
     const created = await db.$transaction(async (tx) => {
@@ -79,6 +81,7 @@ export async function getOrCreateLoginLink(input: unknown): Promise<ActionResult
     const p = z.object({ userId: z.string().min(1), regenerate: z.boolean().optional() }).safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
 
+    await ensureUserColumns();
     const target = await db.user.findUnique({ where: { id: p.data.userId }, select: { id: true, role: true, loginLinkToken: true } });
     if (!target) throw new Error("NOT_FOUND");
     if (target.role === Role.SUPER_ADMIN) throw new Error("FORBIDDEN"); // 최고관리자는 비밀번호 로그인 사용
@@ -124,6 +127,7 @@ export async function setSettingsAccess(input: unknown): Promise<ActionResult> {
     const p = z.object({ userId: z.string().min(1), canAccess: z.boolean() }).safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
 
+    await ensureUserColumns();
     const target = await db.user.findUnique({ where: { id: p.data.userId } });
     if (!target) throw new Error("NOT_FOUND");
     if (target.role === Role.SUPER_ADMIN) throw new Error("FORBIDDEN"); // 최고관리자는 항상 접근, 토글 대상 아님
@@ -153,6 +157,7 @@ export async function setUserFeatureAccess(input: unknown): Promise<ActionResult
     const p = z.object({ userId: z.string().min(1), deniedFeatures: z.array(z.string()) }).safeParse(input);
     if (!p.success) throw new Error("VALIDATION");
 
+    await ensureUserColumns();
     const target = await db.user.findUnique({ where: { id: p.data.userId }, select: { role: true, deniedFeatures: true } });
     if (!target) throw new Error("NOT_FOUND");
     if (target.role === Role.SUPER_ADMIN) throw new Error("FORBIDDEN"); // 최고관리자는 항상 전체 접근

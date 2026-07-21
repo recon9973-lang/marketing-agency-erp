@@ -1,6 +1,7 @@
 import { ConnectionStatus, FinancialAccountType, Role, UserStatus } from "@/domain/types";
 import { parseFeatureKeys, type FeatureKey } from "@/domain/features";
 import { db } from "@/server/db";
+import { ensureUserColumns } from "@/server/ensure-user-columns";
 import type { CurrentUser } from "@/server/session";
 
 export type StaffSettingsItem = {
@@ -46,6 +47,7 @@ export type SettingsOverview = {
 
 export async function fetchSettingsOverview(user: CurrentUser): Promise<SettingsOverview> {
   const isSuper = user.role === Role.SUPER_ADMIN;
+  await ensureUserColumns(); // deniedFeatures·canAccessSettings·loginLinkToken 등 누락 방지(P2022)
   const [staff, scopes, accounts, clients] = await Promise.all([
     db.user.findMany({
       where: user.role === Role.SUPER_ADMIN ? {} : { id: user.id },
