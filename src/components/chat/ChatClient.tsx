@@ -19,7 +19,7 @@ export function ChatClient({ rooms, staff, meId }: { rooms: ChatRoomRow[]; staff
   const [mode, setMode] = useState<"none" | "direct" | "channel">("none");
   const [chName, setChName] = useState("");
   const [chMembers, setChMembers] = useState<string[]>([]);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const activeRoom = rooms.find((r) => r.id === activeId) ?? null;
 
@@ -42,8 +42,10 @@ export function ChatClient({ rooms, staff, meId }: { rooms: ChatRoomRow[]; staff
     };
   }, [activeId]);
 
+  // 메시지 갱신 시 목록 컨테이너만 맨 아래로(창 전체 스크롤 방지 — 입력창이 밀려 숨는 문제 예방).
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: "end" });
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
   function send() {
@@ -86,7 +88,7 @@ export function ChatClient({ rooms, staff, meId }: { rooms: ChatRoomRow[]; staff
   }
 
   return (
-    <div className="flex h-[calc(100vh-190px)] min-h-[420px] overflow-hidden rounded-2xl border border-line bg-card">
+    <div className="flex h-[calc(100dvh-190px)] min-h-[420px] overflow-hidden rounded-2xl border border-line bg-card">
       {/* 방 목록 */}
       <aside className={`w-full shrink-0 flex-col border-r border-line sm:flex sm:w-64 ${activeId ? "hidden sm:flex" : "flex"}`}>
         <div className="flex items-center justify-between gap-1 border-b border-line p-3">
@@ -149,7 +151,7 @@ export function ChatClient({ rooms, staff, meId }: { rooms: ChatRoomRow[]; staff
       </aside>
 
       {/* 메시지 */}
-      <div className={`flex-col ${activeId ? "flex" : "hidden sm:flex"} min-w-0 flex-1`}>
+      <div className={`flex-col ${activeId ? "flex" : "hidden sm:flex"} min-h-0 min-w-0 flex-1`}>
         {activeRoom ? (
           <>
             <div className="flex items-center gap-2 border-b border-line p-3">
@@ -158,7 +160,7 @@ export function ChatClient({ rooms, staff, meId }: { rooms: ChatRoomRow[]; staff
               </button>
               <p className="text-sm font-bold text-ink">{activeRoom.title}</p>
             </div>
-            <div className="flex-1 space-y-2 overflow-y-auto p-3">
+            <div ref={listRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
               {messages.length === 0 ? (
                 <p className="pt-8 text-center text-xs text-slate-400">첫 메시지를 보내보세요.</p>
               ) : (
@@ -175,13 +177,14 @@ export function ChatClient({ rooms, staff, meId }: { rooms: ChatRoomRow[]; staff
                   );
                 })
               )}
-              <div ref={bottomRef} />
             </div>
             <div className="flex items-center gap-2 border-t border-line p-3">
               <input
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 onKeyDown={(e) => {
+                  // 한글 IME 조합 중 Enter는 무시 — 마지막 글자가 중복 전송되는 문제 방지.
+                  if (e.nativeEvent.isComposing || e.keyCode === 229) return;
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     send();
