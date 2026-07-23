@@ -147,3 +147,78 @@ export function buildMarketReport(regionInput: string, specialty: string | null,
 
   return { ok: true, region: label, markdown: L.join("\n") };
 }
+
+// 예산 배분(월 기준) — venomad-proposal STEP4 표준 채널 믹스(입력 예산에 비례).
+const BUDGET_MIX: { channel: string; pct: number; role: string }[] = [
+  { channel: "콘텐츠 제작(블로그·상세페이지)", pct: 40, role: "검색 유입·신뢰 자산" },
+  { channel: "네이버 플레이스·검색광고", pct: 25, role: "지역 노출·전환" },
+  { channel: "GEO·SEO(AI 답변·순위)", pct: 20, role: "장기 상위 선점" },
+  { channel: "리뷰·후기·CRM 관리", pct: 15, role: "재방문·평판" }
+];
+
+/** 상권 실측 → 마케팅 제안서(마크다운). venomad-proposal 구조. KPI는 목표치(보장 아님). */
+export function buildProposal(
+  regionInput: string,
+  specialty: string | null,
+  brand?: string | null,
+  monthlyBudgetManwon = 200
+): MarketReport {
+  const { resolve, population, hospitals } = getLocationInsight(regionInput);
+  if (!resolve.key) {
+    return {
+      ok: false,
+      region: resolve.label,
+      markdown: "",
+      candidates: resolve.candidates,
+      note: resolve.candidates.length ? "지역이 모호합니다. 후보에서 선택하세요." : "지역을 찾지 못했습니다."
+    };
+  }
+  const label = resolve.label;
+  const demand = specialty ? getDemandBySpecialty(specialty) : [];
+  const nationalPer = nationalHospitalsPerTenThousand();
+  const client = brand?.trim() || "(일반형 · 병원명 자리)";
+  const now = new Date().toISOString().slice(0, 10);
+  const budget = monthlyBudgetManwon > 0 ? monthlyBudgetManwon : 200;
+
+  const L: string[] = [];
+  L.push(`# 마케팅 제안서 — ${client}`);
+  L.push("");
+  L.push(`- **지역/분야**: ${label}${specialty ? ` · ${specialty}` : ""} · **기준일** ${now}`);
+  L.push(`- 본 제안서의 성과 수치는 **목표치**이며 보장이 아닙니다. 의료광고법 준수(효과·최상급·전후 강조 금지).`);
+  L.push("");
+
+  L.push(`## 1. 현황 진단 (상권 실측)`);
+  if (population) L.push(`- 상권 인구 ${fmt(population.total)}명 · 여성 ${population.femaleRatio ?? "—"}% · 전월 ${population.delta >= 0 ? "▲" : "▼"}${fmt(Math.abs(population.delta))}`);
+  if (hospitals) {
+    const per = hospitals.perTenThousand;
+    const dense = per != null && nationalPer ? (per >= nationalPer * 1.2 ? "과밀" : per <= nationalPer * 0.8 ? "여유" : "평균") : "—";
+    L.push(`- 경쟁 병·의원 ${fmt(hospitals.total)}개 · 만명당 ${per ?? "—"}(전국 ${nationalPer}, **${dense}**)`);
+  }
+  if (demand.length) L.push(`- ${specialty} 실수요 상위: ${demand.slice(0, 3).map((d) => `${d.code} ${KCD[d.code] ?? ""}`).join(" · ")}`);
+  L.push("");
+
+  L.push(`## 2. 목표 (3개월 · 목표치)`);
+  L.push(`- 지역 핵심 키워드 검색 상위 노출 · 네이버 플레이스 상위 진입`);
+  L.push(`- AI 답변(GEO) 병원 언급률 상승 · 리뷰/후기 축적`);
+  L.push("");
+
+  L.push(`## 3. 전략 (채널 믹스)`);
+  if (specialty) L.push(`- ${specialty} 실수요 상병 기반 콘텐츠·질문 설계로 검색·AI 답변 동시 공략`);
+  L.push(`- 네이버 플레이스 최적화 + 블로그/상세페이지 자산화 + GEO 상위 선점 + 리뷰 관리`);
+  L.push("");
+
+  L.push(`## 4. 예산 배분 (월 ${budget}만원 기준)`);
+  L.push(`| 채널 | 비중 | 월 예산 | 역할 |`);
+  L.push(`|---|---:|---:|---|`);
+  for (const m of BUDGET_MIX) L.push(`| ${m.channel} | ${m.pct}% | ${fmt(Math.round((budget * m.pct) / 100))}만 | ${m.role} |`);
+  L.push(`| **합계** | **100%** | **${fmt(budget)}만** | |`);
+  L.push("");
+
+  L.push(`## 5. 기대효과 (목표치 · 보장 아님)`);
+  L.push(`- 검색·지도 노출 확대 → 문의·예약 유입 증가`);
+  L.push(`- AI 답변·검색 상위 선점으로 중장기 인지도·신뢰 강화`);
+  L.push("");
+  L.push(`> 상권 데이터 출처: 행안부 주민등록(2026.6) · 심평원 병원정보(2026.6)·상병통계(2025) ✅실측.`);
+
+  return { ok: true, region: label, markdown: L.join("\n") };
+}

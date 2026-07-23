@@ -5,7 +5,7 @@
  * 데이터: 행안부 주민등록(2026.6) · 심평원 병원정보/상병통계. 모두 ✅실측.
  */
 import { useState, useTransition } from "react";
-import { analyzeRegion, generateMarketReport, type RegionAnalysis } from "@/server/actions/region";
+import { analyzeRegion, generateMarketReport, generateProposal, type RegionAnalysis } from "@/server/actions/region";
 
 // 주요 KCD 3단위 상병코드 라벨(표준). 없는 코드는 코드 그대로 표기(날조 금지).
 const KCD: Record<string, string> = {
@@ -38,6 +38,7 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [report, setReport] = useState<string | null>(null);
+  const [reportKind, setReportKind] = useState<"리포트" | "제안서">("리포트");
   const [reportPending, startReport] = useTransition();
 
   function run(regionOverride?: string) {
@@ -52,12 +53,14 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
     });
   }
 
-  function makeReport() {
+  function makeReport(kind: "리포트" | "제안서") {
     if (!res?.resolve.key) return;
+    setReportKind(kind);
     startReport(async () => {
-      const r = await generateMarketReport({ region: res.resolve.label, specialty: specialty || null, brand: brand || null });
+      const args = { region: res.resolve.label, specialty: specialty || null, brand: brand || null };
+      const r = kind === "제안서" ? await generateProposal(args) : await generateMarketReport(args);
       if (r.ok && r.data.ok) setReport(r.data.markdown);
-      else setError(r.ok ? r.data.note ?? "리포트 생성 실패" : r.error.message);
+      else setError(r.ok ? r.data.note ?? "생성 실패" : r.error.message);
     });
   }
 
@@ -67,7 +70,7 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `상권분석_${res?.resolve.label ?? "리포트"}${specialty ? `_${specialty}` : ""}.md`;
+    a.download = `${reportKind === "제안서" ? "제안서" : "상권분석"}_${res?.resolve.label ?? ""}${specialty ? `_${specialty}` : ""}.md`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -279,16 +282,23 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
           <div className={CARD}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="text-sm font-bold text-ink">📄 상권분석 리포트 생성</h3>
-                <p className="mt-0.5 text-[11px] text-slate-500">위 실측 데이터로 문서(마크다운)를 즉시 작성 — 3등급 출처·의료광고법 준수.</p>
+                <h3 className="text-sm font-bold text-ink">📄 문서 생성 {report && <span className="text-emerald-600">· {reportKind}</span>}</h3>
+                <p className="mt-0.5 text-[11px] text-slate-500">위 실측 데이터로 상권분석 리포트·마케팅 제안서(마크다운)를 즉시 작성 — 3등급 출처·의료광고법 준수.</p>
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={makeReport}
+                  onClick={() => makeReport("리포트")}
                   disabled={reportPending}
                   className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-50 dark:bg-slate-700"
                 >
-                  {reportPending ? "작성 중…" : report ? "다시 생성" : "리포트 생성"}
+                  {reportPending && reportKind === "리포트" ? "작성 중…" : "상권 리포트"}
+                </button>
+                <button
+                  onClick={() => makeReport("제안서")}
+                  disabled={reportPending}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {reportPending && reportKind === "제안서" ? "작성 중…" : "제안서"}
                 </button>
                 {report && (
                   <button
