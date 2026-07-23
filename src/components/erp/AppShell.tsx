@@ -21,6 +21,7 @@ import {
   MessageSquare,
   Radar,
   Search,
+  MapPin,
   LineChart,
   Newspaper,
   Palette,
@@ -50,6 +51,7 @@ type ErpRoute =
   | "/insights"
   | "/seo"
   | "/geo"
+  | "/market"
   | "/geo-studio"
   | "/geo-scan"
   | "/geo-cep"
@@ -150,6 +152,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       label: "검색량 조회",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Search,
+      group: "분석·GEO"
+    },
+    {
+      href: "/market",
+      label: "상권분석",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: MapPin,
       group: "분석·GEO"
     },
     {

@@ -25,6 +25,7 @@ const FEATURE_DESC: Record<FeatureKey, string> = {
   leave: "연차·휴가 등 근태",
   geo: "GEO 분석·모니터링·실행 프로그램",
   keywords: "검색량·연관키워드 조회",
+  market: "상권분석(인구·병원 밀집도·진료과 수요) 실측",
   seo: "홈페이지 SEO 실측 진단",
   worklog: "당일 작업 결과물 보고",
   manuscript: "원고 집필·자체 제작",

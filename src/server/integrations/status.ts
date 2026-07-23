@@ -127,6 +127,16 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       fallback: "미설정 시 총계·원자료 업로드로 대체"
     },
     {
+      key: "regionData",
+      label: "상권 실측 데이터 (행안부·심평원)",
+      category: "데이터·광고",
+      configured: true,
+      envVars: [],
+      description: "행안부 주민등록(인구·성별·증감) + 심평원 병원정보(밀집도·좌표)·상병통계를 내장 데이터셋으로 실측 (키 불필요)",
+      usedIn: "상권분석(/market)·거래처 인사이트",
+      fallback: "상시 내장 — data/ 원본 갱신 시 scripts/build-region-data.py 재실행"
+    },
+    {
       key: "geoEngines",
       label: "AI 답변 엔진 (GEO 자동 관측)",
       category: "데이터·광고",
