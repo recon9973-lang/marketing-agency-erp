@@ -179,6 +179,16 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       fallback: "데이터랩/데모로 대체"
     },
     {
+      key: "naverLocal",
+      label: "네이버 지역검색 (경쟁사 플레이스)",
+      category: "데이터·광고",
+      configured: has("NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET"),
+      envVars: ["NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET"],
+      description: "지역+진료과 경쟁사 상위 표본(플레이스) — 상권분석 경쟁 축",
+      usedIn: "상권분석(/market) 경쟁사",
+      fallback: "미설정 시 경쟁사 표본 미표시(밀집도는 심평원으로 대체)"
+    },
+    {
       key: "toss",
       label: "토스페이먼츠 (결제)",
       category: "결제",

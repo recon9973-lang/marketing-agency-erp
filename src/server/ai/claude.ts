@@ -96,6 +96,38 @@ export async function generateMarketingContent(input: GenerateInput): Promise<st
 }
 
 /**
+ * 상권 실측 리포트 → AI 심층 분석(종합진단·타깃·차별화·채널전략·리스크).
+ * 데이터에 근거(수치 인용), 날조·의료광고 위반 금지. 키 없으면 AI_NOT_CONFIGURED.
+ */
+export async function generateMarketNarrative(dataMarkdown: string): Promise<string> {
+  if (!isAiConfigured()) throw new Error("AI_NOT_CONFIGURED");
+  const client = new Anthropic();
+  const system =
+    "당신은 한국의 병원 마케팅 전략 컨설턴트입니다. 주어진 상권 실측 데이터만을 근거로 " +
+    "종합 진단과 실행 전략을 제시합니다. 원칙: (1) 데이터의 수치를 인용해 근거를 대고, " +
+    "(2) 데이터에 없는 숫자는 절대 지어내지 말고(날조 금지), (3) 과장·허위·의료광고법 위반 " +
+    "표현 금지, (4) KPI·기대효과는 '목표치'로 표현(보장 아님). 결과는 한국어 마크다운 불릿 본문만 출력합니다.";
+  const user =
+    "다음 상권 실측 리포트를 바탕으로 종합진단·핵심 타깃·차별화 포인트·채널 전략·리스크를 " +
+    "6~10개 불릿으로 작성하세요. 각 불릿은 가능한 한 리포트의 수치를 인용하세요.\n\n" +
+    dataMarkdown.slice(0, 8000);
+  const stream = client.messages.stream({
+    model: AI_MODEL,
+    max_tokens: 3000,
+    system,
+    messages: [{ role: "user", content: user }]
+  });
+  const message = await stream.finalMessage();
+  const text = message.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n")
+    .trim();
+  if (!text) throw new Error("AI_EMPTY");
+  return text;
+}
+
+/**
  * GEO(생성형 엔진 최적화) 관점 콘텐츠 재작성 — AI 답변에 인용되기 쉽게.
  * 핵심을 앞에(BLUF), 근거·수치 명시, 질문-답변형 구조, 과장/의료광고 위반 회피.
  * 키가 없으면 AI_NOT_CONFIGURED(상위에서 규칙 재작성으로 폴백).

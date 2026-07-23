@@ -5,8 +5,9 @@
  * 데이터: 행안부 주민등록(2026.6) · 심평원 병원정보/상병통계. 모두 ✅실측.
  */
 import { useState, useTransition } from "react";
-import { analyzeRegion, generateMarketReport, generateProposal, analyzeRadius, type RegionAnalysis } from "@/server/actions/region";
+import { analyzeRegion, generateMarketReport, generateProposal, analyzeRadius, searchCompetitors, type RegionAnalysis } from "@/server/actions/region";
 import type { FacilityRadius } from "@/server/data/region-insight";
+import type { LocalPlace } from "@/server/integrations/naver-local";
 import { downloadMarketDeck } from "@/components/market/deck";
 
 // 주요 KCD 3단위 상병코드 라벨(표준). 없는 코드는 코드 그대로 표기(날조 금지).
@@ -46,6 +47,8 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
   const [radiusRes, setRadiusRes] = useState<FacilityRadius | null>(null);
   const [radiusPending, startRadius] = useTransition();
   const [pptBusy, setPptBusy] = useState(false);
+  const [comp, setComp] = useState<{ configured: boolean; query: string; places: LocalPlace[] } | null>(null);
+  const [compPending, startComp] = useTransition();
 
   function run(regionOverride?: string) {
     const q = (regionOverride ?? region).trim();
@@ -53,6 +56,7 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
     setError(null);
     setReport(null);
     setRadiusRes(null);
+    setComp(null);
     start(async () => {
       const r = await analyzeRegion({ region: q, specialty: specialty || null });
       if (r.ok) setRes(r.data);
@@ -85,6 +89,16 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
       const r = kind === "제안서" ? await generateProposal(args) : await generateMarketReport(args);
       if (r.ok && r.data.ok) setReport(r.data.markdown);
       else setError(r.ok ? r.data.note ?? "생성 실패" : r.error.message);
+    });
+  }
+
+  function runComp() {
+    if (!res?.resolve.key) return;
+    setError(null);
+    startComp(async () => {
+      const r = await searchCompetitors({ region: res.resolve.label, specialty: specialty || null });
+      if (r.ok) setComp(r.data);
+      else setError(r.error.message);
     });
   }
 
@@ -315,6 +329,47 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
               위에서 진료과를 선택하면 ③ 해당 과의 주상병 실수요(전국)를 함께 보여줍니다.
             </p>
           )}
+
+          {/* 경쟁사 상위 (네이버 지역검색) */}
+          <div className={CARD}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-ink">🏥 경쟁사 상위 <span className="font-normal text-slate-400">네이버 지역검색</span></h3>
+                <p className="mt-0.5 text-[11px] text-slate-500">&lsquo;{res.resolve.label} {specialty}&rsquo; 상위 표본(최대 5 · 리뷰순). 개수 아님, 상위 샘플.</p>
+              </div>
+              <button
+                onClick={runComp}
+                disabled={compPending}
+                className="rounded-lg border border-line px-4 py-2 text-sm font-semibold text-slate-700 hover:border-emerald-300 disabled:opacity-50 dark:text-slate-200"
+              >
+                {compPending ? "조회 중…" : "경쟁사 조회"}
+              </button>
+            </div>
+            {comp && !comp.configured && (
+              <p className="mt-3 text-[11px] text-amber-600">
+                네이버 지역검색 미연결 — <code>NAVER_CLIENT_ID/SECRET</code> 설정 시 실측 표본이 나옵니다.
+              </p>
+            )}
+            {comp?.configured && comp.places.length === 0 && (
+              <p className="mt-3 text-[11px] text-slate-500">&lsquo;{comp.query}&rsquo; 결과가 없습니다.</p>
+            )}
+            {comp && comp.places.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {comp.places.map((p, i) => (
+                  <div key={i} className="flex items-start gap-2 rounded-xl border border-line bg-surface/40 p-2.5">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">{i + 1}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-ink">
+                        {p.link ? <a href={p.link} target="_blank" rel="noreferrer" className="hover:underline">{p.name}</a> : p.name}
+                        {p.category && <span className="ml-1.5 text-[10px] font-normal text-slate-400">{p.category}</span>}
+                      </p>
+                      <p className="truncate text-[11px] text-slate-500">{p.roadAddress || p.address}{p.telephone ? ` · ${p.telephone}` : ""}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* 반경 밀집도 (#1) */}
           <div className={CARD}>

@@ -19,6 +19,20 @@ import {
   type FacilityRadius
 } from "@/server/data/region-insight";
 import { buildMarketReport, buildProposal, type MarketReport } from "@/server/market/report";
+import { searchLocalPlaces, naverLocalConfigured, type LocalPlace } from "@/server/integrations/naver-local";
+import { isAiConfigured, generateMarketNarrative } from "@/server/ai/claude";
+
+/** 리포트/제안서 마크다운에 AI 심층 분석을 덧붙인다(키 있을 때·실패 시 원본 유지). */
+async function withAiNarrative(report: MarketReport): Promise<MarketReport> {
+  if (!report.ok || !report.markdown || !isAiConfigured()) return report;
+  try {
+    const ai = await generateMarketNarrative(report.markdown);
+    if (ai) report.markdown += `\n\n## AI 심층 분석\n${ai}\n`;
+  } catch {
+    // AI 실패는 무시 — 결정형 리포트는 그대로 유효.
+  }
+  return report;
+}
 
 export type RegionAnalysis = {
   resolve: RegionResolve;
@@ -51,7 +65,22 @@ export async function generateMarketReport(input: {
 }): Promise<ActionResult<MarketReport>> {
   return runAction(async (): Promise<MarketReport> => {
     await requireUser();
-    return buildMarketReport((input.region ?? "").trim(), input.specialty?.trim() || null, input.brand?.trim() || null);
+    return withAiNarrative(buildMarketReport((input.region ?? "").trim(), input.specialty?.trim() || null, input.brand?.trim() || null));
+  });
+}
+
+/** 지역+진료과 → 네이버 지역검색 경쟁사 상위 표본(최대 5). 미연결 시 configured=false. */
+export async function searchCompetitors(input: {
+  region: string;
+  specialty?: string | null;
+}): Promise<ActionResult<{ configured: boolean; query: string; places: LocalPlace[] }>> {
+  return runAction(async () => {
+    await requireUser();
+    const { resolve } = getLocationInsight((input.region ?? "").trim());
+    const label = resolve.key ? resolve.label : (input.region ?? "").trim();
+    const q = `${label} ${input.specialty?.trim() || ""}`.trim();
+    const places = await searchLocalPlaces(q, 5);
+    return { configured: naverLocalConfigured(), query: q, places };
   });
 }
 
@@ -76,11 +105,13 @@ export async function generateProposal(input: {
 }): Promise<ActionResult<MarketReport>> {
   return runAction(async (): Promise<MarketReport> => {
     await requireUser();
-    return buildProposal(
-      (input.region ?? "").trim(),
-      input.specialty?.trim() || null,
-      input.brand?.trim() || null,
-      input.monthlyBudget ?? 200
+    return withAiNarrative(
+      buildProposal(
+        (input.region ?? "").trim(),
+        input.specialty?.trim() || null,
+        input.brand?.trim() || null,
+        input.monthlyBudget ?? 200
+      )
     );
   });
 }
