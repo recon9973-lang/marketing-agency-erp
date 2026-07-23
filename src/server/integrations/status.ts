@@ -117,6 +117,16 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       fallback: "발송 없이 미리보기"
     },
     {
+      key: "sgisPopulation",
+      label: "SGIS 인구통계 (통계청)",
+      category: "데이터·광고",
+      configured: has("SGIS_CONSUMER_KEY", "SGIS_CONSUMER_SECRET"),
+      envVars: ["SGIS_CONSUMER_KEY", "SGIS_CONSUMER_SECRET"],
+      description: "지역(시군구/읍면동) 인구·평균연령·세대수·인구밀도를 API로 실측 (상권분석)",
+      usedIn: "상권분석·거래처 인사이트(인구 축)",
+      fallback: "미설정 시 총계·원자료 업로드로 대체"
+    },
+    {
       key: "geoEngines",
       label: "AI 답변 엔진 (GEO 자동 관측)",
       category: "데이터·광고",
