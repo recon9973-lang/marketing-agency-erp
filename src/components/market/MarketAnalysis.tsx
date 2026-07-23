@@ -5,7 +5,7 @@
  * 데이터: 행안부 주민등록(2026.6) · 심평원 병원정보/상병통계. 모두 ✅실측.
  */
 import { useState, useTransition } from "react";
-import { analyzeRegion, type RegionAnalysis } from "@/server/actions/region";
+import { analyzeRegion, generateMarketReport, type RegionAnalysis } from "@/server/actions/region";
 
 // 주요 KCD 3단위 상병코드 라벨(표준). 없는 코드는 코드 그대로 표기(날조 금지).
 const KCD: Record<string, string> = {
@@ -33,19 +33,43 @@ const SPECIALTIES = [
 export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { presetRegion?: string; presetSpecialty?: string }) {
   const [region, setRegion] = useState(presetRegion);
   const [specialty, setSpecialty] = useState(presetSpecialty);
+  const [brand, setBrand] = useState("");
   const [res, setRes] = useState<RegionAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [report, setReport] = useState<string | null>(null);
+  const [reportPending, startReport] = useTransition();
 
   function run(regionOverride?: string) {
     const q = (regionOverride ?? region).trim();
     if (!q) return;
     setError(null);
+    setReport(null);
     start(async () => {
       const r = await analyzeRegion({ region: q, specialty: specialty || null });
       if (r.ok) setRes(r.data);
       else setError(r.error.message);
     });
+  }
+
+  function makeReport() {
+    if (!res?.resolve.key) return;
+    startReport(async () => {
+      const r = await generateMarketReport({ region: res.resolve.label, specialty: specialty || null, brand: brand || null });
+      if (r.ok && r.data.ok) setReport(r.data.markdown);
+      else setError(r.ok ? r.data.note ?? "리포트 생성 실패" : r.error.message);
+    });
+  }
+
+  function downloadReport() {
+    if (!report) return;
+    const blob = new Blob([report], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `상권분석_${res?.resolve.label ?? "리포트"}${specialty ? `_${specialty}` : ""}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   const pop = res?.population;
@@ -84,6 +108,15 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                 </option>
               ))}
             </select>
+          </label>
+          <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+            업체명 (선택 · 리포트용)
+            <input
+              value={brand}
+              onChange={(e) => setBrand(e.target.value)}
+              placeholder="예: OO의원"
+              className="mt-1 block w-36 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-emerald-400"
+            />
           </label>
           <button
             onClick={() => run()}
@@ -241,6 +274,38 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
               위에서 진료과를 선택하면 ③ 해당 과의 주상병 실수요(전국)를 함께 보여줍니다.
             </p>
           )}
+
+          {/* 리포트 생성 (#3) */}
+          <div className={CARD}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-ink">📄 상권분석 리포트 생성</h3>
+                <p className="mt-0.5 text-[11px] text-slate-500">위 실측 데이터로 문서(마크다운)를 즉시 작성 — 3등급 출처·의료광고법 준수.</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={makeReport}
+                  disabled={reportPending}
+                  className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-50 dark:bg-slate-700"
+                >
+                  {reportPending ? "작성 중…" : report ? "다시 생성" : "리포트 생성"}
+                </button>
+                {report && (
+                  <button
+                    onClick={downloadReport}
+                    className="rounded-lg border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800/60 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+                  >
+                    .md 다운로드
+                  </button>
+                )}
+              </div>
+            </div>
+            {report && (
+              <pre className="mt-3 max-h-[480px] overflow-auto rounded-xl border border-line bg-surface/60 p-4 text-[11px] leading-relaxed text-ink whitespace-pre-wrap">
+                {report}
+              </pre>
+            )}
+          </div>
         </>
       )}
     </div>

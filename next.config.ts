@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
   experimental: {
     staleTimes: { dynamic: 120, static: 300 }
   },
+  // 상권분석 좌표 데이터셋(gz)은 fs 로 런타임에 읽으므로, 해당 라우트 번들에 포함시킨다.
+  outputFileTracingIncludes: {
+    "/market": ["./src/server/data/region/*.gz"],
+    "/insights": ["./src/server/data/region/*.gz"]
+  },
   // Konva(react-konva)는 브라우저 전용으로만 로드된다(디자인 스튜디오, ssr:false).
   // Node 진입점이 선택적 네이티브 의존성 'canvas'를 참조하는데, 서버에서 렌더하지
   // 않으므로 빈 모듈로 별칭 처리해 번들 오류를 없앤다.

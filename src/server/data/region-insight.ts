@@ -122,6 +122,22 @@ export function getRegionPopulation(key: string): RegionPopulation | null {
   return population[key] ?? null;
 }
 
+/** 전국 인구 만명당 병·의원 수(경쟁 강도 비교 기준선). 조인된 시군구 기준. */
+let nationalPerCache: number | null = null;
+export function nationalHospitalsPerTenThousand(): number {
+  if (nationalPerCache != null) return nationalPerCache;
+  let hos = 0;
+  let pop = 0;
+  for (const [key, counts] of Object.entries(hospitals)) {
+    const p = population[key];
+    if (!p?.total) continue;
+    hos += Object.values(counts).reduce((a, b) => a + b, 0);
+    pop += p.total;
+  }
+  nationalPerCache = pop ? Math.round((hos / pop) * 10000 * 10) / 10 : 0;
+  return nationalPerCache;
+}
+
 // ── ② 병원 밀집도(시군구) ────────────────────────────────────
 export type HospitalSummary = {
   counts: HospitalCounts;

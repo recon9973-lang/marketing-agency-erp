@@ -15,6 +15,7 @@ import {
   type HospitalSummary,
   type DemandRow
 } from "@/server/data/region-insight";
+import { buildMarketReport, type MarketReport } from "@/server/market/report";
 
 export type RegionAnalysis = {
   resolve: RegionResolve;
@@ -35,5 +36,17 @@ export async function analyzeRegion(input: {
     const specialty = input.specialty?.trim() || null;
     const demand = specialty ? getDemandBySpecialty(specialty) : [];
     return { resolve, population, hospitals, specialty, demand };
+  });
+}
+
+/** 지역+진료과 → 상권분석 리포트(마크다운) 생성. 내장 실측 데이터 기반(날조 없음). */
+export async function generateMarketReport(input: {
+  region: string;
+  specialty?: string | null;
+  brand?: string | null;
+}): Promise<ActionResult<MarketReport>> {
+  return runAction(async (): Promise<MarketReport> => {
+    await requireUser();
+    return buildMarketReport((input.region ?? "").trim(), input.specialty?.trim() || null, input.brand?.trim() || null);
   });
 }
