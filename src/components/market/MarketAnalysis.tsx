@@ -7,6 +7,7 @@
 import { useState, useTransition } from "react";
 import { analyzeRegion, generateMarketReport, generateProposal, analyzeRadius, type RegionAnalysis } from "@/server/actions/region";
 import type { FacilityRadius } from "@/server/data/region-insight";
+import { downloadMarketDeck } from "@/components/market/deck";
 
 // 주요 KCD 3단위 상병코드 라벨(표준). 없는 코드는 코드 그대로 표기(날조 금지).
 const KCD: Record<string, string> = {
@@ -44,6 +45,7 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
   const [radiusKm, setRadiusKm] = useState(1);
   const [radiusRes, setRadiusRes] = useState<FacilityRadius | null>(null);
   const [radiusPending, startRadius] = useTransition();
+  const [pptBusy, setPptBusy] = useState(false);
 
   function run(regionOverride?: string) {
     const q = (regionOverride ?? region).trim();
@@ -84,6 +86,20 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
       if (r.ok && r.data.ok) setReport(r.data.markdown);
       else setError(r.ok ? r.data.note ?? "생성 실패" : r.error.message);
     });
+  }
+
+  async function makeDeck() {
+    if (!res?.resolve.key) return;
+    setPptBusy(true);
+    setError(null);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await downloadMarketDeck({ analysis: res, brand, radius: radiusRes, today });
+    } catch {
+      setError("PPT 생성 중 오류가 발생했습니다.");
+    } finally {
+      setPptBusy(false);
+    }
   }
 
   function downloadReport() {
@@ -406,6 +422,13 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
                 >
                   {reportPending && reportKind === "제안서" ? "작성 중…" : "제안서"}
+                </button>
+                <button
+                  onClick={makeDeck}
+                  disabled={pptBusy}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  {pptBusy ? "생성 중…" : "PPT 다운로드"}
                 </button>
                 {report && (
                   <button

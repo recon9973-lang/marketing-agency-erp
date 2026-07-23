@@ -17,9 +17,30 @@ const nextConfig: NextConfig = {
   // Konva(react-konva)는 브라우저 전용으로만 로드된다(디자인 스튜디오, ssr:false).
   // Node 진입점이 선택적 네이티브 의존성 'canvas'를 참조하는데, 서버에서 렌더하지
   // 않으므로 빈 모듈로 별칭 처리해 번들 오류를 없앤다.
-  webpack: (config) => {
+  webpack: (config, { isServer, webpack }) => {
     config.resolve = config.resolve ?? {};
     config.resolve.alias = { ...config.resolve.alias, canvas: false };
+    // pptxgenjs(브라우저 다운로드용)는 node:fs/https 등을 정적 import 하지만 브라우저에선
+    // 쓰지 않는다. exports 필드 탓에 package.json 의 browser 매핑이 무시되므로,
+    // 클라이언트 번들에서 node: 프리픽스를 제거하고 Node 빌트인을 빈 모듈로 스텁한다.
+    if (!isServer) {
+      config.plugins.push(
+        new webpack.NormalModuleReplacementPlugin(/^node:/, (r: { request: string }) => {
+          r.request = r.request.replace(/^node:/, "");
+        })
+      );
+      config.resolve.fallback = {
+        ...(config.resolve.fallback ?? {}),
+        fs: false,
+        https: false,
+        http: false,
+        os: false,
+        path: false,
+        zlib: false,
+        stream: false,
+        crypto: false
+      };
+    }
     return config;
   }
 };

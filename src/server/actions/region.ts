@@ -11,6 +11,7 @@ import {
   getLocationInsight,
   getDemandBySpecialty,
   radiusForFacility,
+  nationalHospitalsPerTenThousand,
   type RegionResolve,
   type RegionPopulation,
   type HospitalSummary,
@@ -25,6 +26,7 @@ export type RegionAnalysis = {
   hospitals: HospitalSummary | null;
   specialty: string | null;
   demand: DemandRow[];
+  nationalPer: number; // 전국 인구 만명당 병·의원 수(경쟁강도 기준선)
 };
 
 export async function analyzeRegion(input: {
@@ -37,7 +39,7 @@ export async function analyzeRegion(input: {
     const { resolve, population, hospitals } = getLocationInsight(region);
     const specialty = input.specialty?.trim() || null;
     const demand = specialty ? getDemandBySpecialty(specialty) : [];
-    return { resolve, population, hospitals, specialty, demand };
+    return { resolve, population, hospitals, specialty, demand, nationalPer: nationalHospitalsPerTenThousand() };
   });
 }
 
