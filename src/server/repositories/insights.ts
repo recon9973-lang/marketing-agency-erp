@@ -4,6 +4,7 @@
 // 핵심/연관 키워드. 마케터는 본인 담당 거래처만, 관리자/최고관리자는 전체.
 import { Role } from "@/domain/types";
 import { db } from "@/server/db";
+import { fetchRelatedKeywords, naverSearchConfigured } from "@/server/integrations/naver-search";
 import type { CurrentUser } from "@/server/session";
 
 export type InsightClient = { id: string; name: string };
@@ -45,6 +46,8 @@ export type ClientInsight = {
   rankSeries: RankSeries[];
   coreKeywords: KeywordRow[];
   relatedKeywords: KeywordRow[];
+  /** 연관 키워드 제안이 실측(네이버)일 때 사용한 시드(진료과/분야). 저장 키워드 폴백이면 null. */
+  relatedSeed: string | null;
 };
 
 const CHANNEL_LABEL: Record<string, string> = { place: "플레이스", blog: "블로그", homepage: "홈페이지" };
@@ -94,7 +97,13 @@ export async function getClientInsight(
         user.role === Role.MARKETER
           ? { id: clientId, assignedMarketerId: user.id }
           : { id: clientId },
-      select: { id: true, name: true }
+      select: {
+        id: true,
+        name: true,
+        industryCustom: true,
+        industryCategory: { select: { name: true, parent: { select: { name: true } } } },
+        hospitalProfile: { select: { departments: true } }
+      }
     })
     .catch(() => null);
   if (!client) return null;
@@ -175,6 +184,35 @@ export async function getClientInsight(
     trackedKeywords: rankSeries.length
   };
 
+  // 연관 키워드 제안 — 거래처의 실제 분야(진료과/업종)를 시드로 네이버 연관키워드를 실측 조회.
+  // 저장된 잡키워드를 그대로 보여주지 않고, 항상 그 거래처 분야에 맞는 제안을 낸다(치과→치과).
+  const specialty =
+    client.industryCategory?.name ??
+    client.industryCategory?.parent?.name ??
+    client.hospitalProfile?.departments?.split(/[,\n]/)[0]?.trim() ??
+    client.industryCustom ??
+    null;
+  const seed = specialty || core[0]?.keyword || client.name;
+  let suggested: KeywordRow[] = [];
+  if (seed && naverSearchConfigured()) {
+    const rel = await fetchRelatedKeywords(seed, 14).catch(() => []);
+    const seedNorm = seed.replace(/\s+/g, "").toLowerCase();
+    suggested = rel
+      .filter((r) => r.keyword.replace(/\s+/g, "").toLowerCase() !== seedNorm)
+      .slice(0, 12)
+      .map((r, i) => ({
+        id: `sugg-${i}-${r.keyword}`,
+        keyword: r.keyword,
+        channel: "",
+        intent: null,
+        searchVolume: r.total,
+        trendRatio: null,
+        priority: 99
+      }));
+  }
+  // 실측 제안이 있으면 그걸 쓰고, 미연동/빈 결과면 저장 키워드로 폴백.
+  const relatedKeywords = suggested.length > 0 ? suggested : related.slice(0, 24);
+
   return {
     clientId: client.id,
     clientName: client.name,
@@ -186,6 +224,7 @@ export async function getClientInsight(
     impressionSeries,
     rankSeries,
     coreKeywords: core,
-    relatedKeywords: related.slice(0, 24)
+    relatedKeywords,
+    relatedSeed: suggested.length > 0 ? seed : null
   };
 }

@@ -325,9 +325,14 @@ export function InsightsView({
               )}
             </div>
             <div className="rounded-2xl border border-line bg-white p-5">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-bold text-ink">연관 키워드 제안</p>
-                <Link href={"/keywords" as Route} className="text-xs font-bold text-brand-strong">검색량 조회 →</Link>
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-bold text-ink">연관 키워드 제안</p>
+                  <p className="mt-0.5 text-[11px] text-slate-400">
+                    {insight.relatedSeed ? <>‘{insight.relatedSeed}’ 기준 네이버 연관키워드 실측</> : "거래처 저장 키워드"}
+                  </p>
+                </div>
+                <Link href={"/keywords" as Route} className="shrink-0 text-xs font-bold text-brand-strong">검색량 조회 →</Link>
               </div>
               {insight.relatedKeywords.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
