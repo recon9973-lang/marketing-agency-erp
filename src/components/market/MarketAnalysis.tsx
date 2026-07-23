@@ -5,7 +5,8 @@
  * 데이터: 행안부 주민등록(2026.6) · 심평원 병원정보/상병통계. 모두 ✅실측.
  */
 import { useState, useTransition } from "react";
-import { analyzeRegion, generateMarketReport, generateProposal, type RegionAnalysis } from "@/server/actions/region";
+import { analyzeRegion, generateMarketReport, generateProposal, analyzeRadius, type RegionAnalysis } from "@/server/actions/region";
+import type { FacilityRadius } from "@/server/data/region-insight";
 
 // 주요 KCD 3단위 상병코드 라벨(표준). 없는 코드는 코드 그대로 표기(날조 금지).
 const KCD: Record<string, string> = {
@@ -40,15 +41,36 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
   const [report, setReport] = useState<string | null>(null);
   const [reportKind, setReportKind] = useState<"리포트" | "제안서">("리포트");
   const [reportPending, startReport] = useTransition();
+  const [radiusKm, setRadiusKm] = useState(1);
+  const [radiusRes, setRadiusRes] = useState<FacilityRadius | null>(null);
+  const [radiusPending, startRadius] = useTransition();
 
   function run(regionOverride?: string) {
     const q = (regionOverride ?? region).trim();
     if (!q) return;
     setError(null);
     setReport(null);
+    setRadiusRes(null);
     start(async () => {
       const r = await analyzeRegion({ region: q, specialty: specialty || null });
       if (r.ok) setRes(r.data);
+      else setError(r.error.message);
+    });
+  }
+
+  function runRadius(km?: number, nameOverride?: string) {
+    if (!res?.resolve.key) return;
+    const nm = (nameOverride ?? brand).trim();
+    if (!nm) {
+      setError("반경 밀집도는 업체명이 필요합니다(위 '업체명'에 병원명 입력).");
+      return;
+    }
+    const k = km ?? radiusKm;
+    setRadiusKm(k);
+    setError(null);
+    startRadius(async () => {
+      const r = await analyzeRadius({ region: res.resolve.label, name: nm, radiusKm: k });
+      if (r.ok) setRadiusRes(r.data);
       else setError(r.error.message);
     });
   }
@@ -277,6 +299,91 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
               위에서 진료과를 선택하면 ③ 해당 과의 주상병 실수요(전국)를 함께 보여줍니다.
             </p>
           )}
+
+          {/* 반경 밀집도 (#1) */}
+          <div className={CARD}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-ink">📍 반경 밀집도 <span className="font-normal text-slate-400">업체 좌표 기준</span></h3>
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  업체명이 병원 목록에 있으면 좌표를 찾아 반경 내 <b>동종 경쟁</b>·전체 병·의원을 실측합니다(지오코딩 불필요).
+                </p>
+              </div>
+              <div className="flex gap-1">
+                {[1, 3].map((k) => (
+                  <button
+                    key={k}
+                    onClick={() => runRadius(k)}
+                    disabled={radiusPending}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
+                      radiusKm === k && radiusRes ? "border-emerald-600 bg-emerald-600 text-white" : "border-line bg-surface text-slate-600 hover:border-emerald-300"
+                    }`}
+                  >
+                    {radiusPending && radiusKm === k ? "…" : `반경 ${k}km`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {radiusRes && radiusRes.candidates.length > 1 && (
+              <div className="mt-3">
+                <p className="mb-1 text-[11px] text-slate-500">여러 곳이 일치합니다 — 대상 선택:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {radiusRes.candidates.map((c) => (
+                    <button
+                      key={c.name}
+                      onClick={() => runRadius(radiusKm, c.name)}
+                      className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    >
+                      {c.name} <span className="text-slate-400">({c.type})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {radiusRes?.facility && radiusRes.all && radiusRes.sameType && (
+              <div className="mt-3 space-y-3">
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  기준: <b className="text-ink">{radiusRes.facility.name}</b> <span className="text-slate-400">({radiusRes.facility.type})</span> · 반경 {radiusRes.radiusKm}km
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-center">
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-800/50 dark:bg-emerald-950/30">
+                    <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{fmt(radiusRes.sameType.total)}</div>
+                    <div className="text-[10px] text-slate-500">동종({radiusRes.facility.type}) 경쟁</div>
+                  </div>
+                  <div className="rounded-xl border border-line bg-surface/50 p-3">
+                    <div className="text-2xl font-bold text-ink">{fmt(radiusRes.all.total)}</div>
+                    <div className="text-[10px] text-slate-500">전체 병·의원</div>
+                  </div>
+                </div>
+                {radiusRes.sameType.nearest.length > 0 && (
+                  <div>
+                    <p className="mb-1 text-[11px] font-semibold text-slate-500">가까운 동종 경쟁 (거리순)</p>
+                    <div className="max-h-40 space-y-0.5 overflow-auto">
+                      {radiusRes.sameType.nearest.slice(0, 10).map((n, i) => (
+                        <div key={i} className="flex items-center justify-between text-[11px]">
+                          <span className="truncate text-slate-600 dark:text-slate-300">{n.name}</span>
+                          <span className="shrink-0 text-slate-400">{n.distanceKm}km</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {radiusRes && !radiusRes.facility && radiusRes.candidates.length === 0 && (
+              <p className="mt-3 text-[11px] text-amber-600">
+                {radiusRes.available
+                  ? `'${brand}'을(를) ${res.resolve.label} 병원 목록에서 찾지 못했습니다. 정확한 병원명을 입력하세요.`
+                  : "좌표 데이터가 로드되지 않았습니다(배포 환경 파일 미포함). 잠시 후 다시 시도하세요."}
+              </p>
+            )}
+            {!radiusRes && !brand && (
+              <p className="mt-3 text-[11px] text-slate-500">위 &lsquo;업체명&rsquo;에 병원명을 넣고 반경 버튼을 누르세요.</p>
+            )}
+          </div>
 
           {/* 리포트 생성 (#3) */}
           <div className={CARD}>

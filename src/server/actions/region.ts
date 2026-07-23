@@ -10,10 +10,12 @@ import { requireUser } from "@/server/actions/_helpers";
 import {
   getLocationInsight,
   getDemandBySpecialty,
+  radiusForFacility,
   type RegionResolve,
   type RegionPopulation,
   type HospitalSummary,
-  type DemandRow
+  type DemandRow,
+  type FacilityRadius
 } from "@/server/data/region-insight";
 import { buildMarketReport, buildProposal, type MarketReport } from "@/server/market/report";
 
@@ -48,6 +50,18 @@ export async function generateMarketReport(input: {
   return runAction(async (): Promise<MarketReport> => {
     await requireUser();
     return buildMarketReport((input.region ?? "").trim(), input.specialty?.trim() || null, input.brand?.trim() || null);
+  });
+}
+
+/** 업체명+지역 → 좌표 매칭 → 반경 밀집도(동종 경쟁·전체). 지오코딩 불필요. */
+export async function analyzeRadius(input: {
+  region: string;
+  name: string;
+  radiusKm?: number;
+}): Promise<ActionResult<FacilityRadius>> {
+  return runAction(async (): Promise<FacilityRadius> => {
+    await requireUser();
+    return radiusForFacility((input.region ?? "").trim(), (input.name ?? "").trim(), input.radiusKm ?? 1);
   });
 }
 

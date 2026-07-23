@@ -249,6 +249,56 @@ export function radiusDensity(
   return { total: hits.length, byType, nearest: hits.slice(0, 20), available: true };
 }
 
+// ── 업체명 → 좌표 → 반경 밀집도 ──────────────────────────────
+export type FacilityHit = { name: string; type: string; lat: number; lng: number };
+
+/** 시군구(canonical key) 내에서 업체명으로 병·의원을 찾는다(부분일치, 최대 8건). */
+export function findFacilitiesByName(regionKey: string, nameQuery: string): FacilityHit[] {
+  const pts = loadPoints();
+  if (!pts) return [];
+  const ki = pts.keys.indexOf(regionKey);
+  if (ki < 0) return [];
+  const q = nameQuery.replace(/\s+/g, "");
+  const hits: FacilityHit[] = [];
+  for (let i = 0; i < pts.k.length && hits.length < 8; i++) {
+    if (pts.k[i] !== ki) continue;
+    if (q && !pts.n[i].replace(/\s+/g, "").includes(q)) continue;
+    hits.push({ name: pts.n[i], type: pts.types[pts.t[i]], lat: pts.lat[i], lng: pts.lng[i] });
+  }
+  return hits;
+}
+
+export type FacilityRadius = {
+  available: boolean;
+  facility: FacilityHit | null;
+  candidates: FacilityHit[]; // 이름이 여러 개 매칭될 때
+  radiusKm: number;
+  sameType: RadiusResult | null; // 동종 종별만
+  all: RadiusResult | null; // 전체 병·의원
+};
+
+/**
+ * 업체명(+지역)으로 좌표를 찾아 반경 밀집도 산출. 마케팅 대상 병원은 심평원 목록에 있으므로
+ * 지오코딩 없이 반경 내 동종 경쟁·전체 병·의원을 실측한다.
+ */
+export function radiusForFacility(regionInput: string, name: string, radiusKm = 1): FacilityRadius {
+  const { resolve } = getLocationInsight(regionInput);
+  const empty: FacilityRadius = { available: false, facility: null, candidates: [], radiusKm, sameType: null, all: null };
+  if (!resolve.key) return empty;
+  const hits = findFacilitiesByName(resolve.key, name);
+  if (hits.length === 0) return { ...empty, available: loadPoints() != null };
+  if (hits.length > 1) return { available: true, facility: null, candidates: hits, radiusKm, sameType: null, all: null };
+  const f = hits[0];
+  return {
+    available: true,
+    facility: f,
+    candidates: [],
+    radiusKm,
+    sameType: radiusDensity(f.lat, f.lng, radiusKm, f.type),
+    all: radiusDensity(f.lat, f.lng, radiusKm)
+  };
+}
+
 // ── 통합 인사이트 ────────────────────────────────────────────
 export type LocationInsight = {
   resolve: RegionResolve;
