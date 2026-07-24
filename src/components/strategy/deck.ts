@@ -52,11 +52,38 @@ export async function downloadStrategyDeck(strategy: MarketingStrategy, today: s
   s1.addText(`${label} · ${today}`, { x: 1.15, y: 4.8, w: 11, h: 0.5, fontSize: 16, color: C.gray, fontFace: FONT });
   s1.addText("상권·키워드·검색여정·정밀진단·경쟁·예산·채널점유 실측 종합", { x: 1.15, y: 6.6, w: 11, h: 0.4, fontSize: 11, color: C.sub, fontFace: FONT });
 
-  // ── 2. 수주 진단 ──────────────────────────────────────────
+  // ── 2. 핵심 요약(KPI 카드) — 상권분석 덱과 동일 구조 ───────
+  const sSum = pptx.addSlide();
+  head(sSum, "핵심 요약", 2);
+  const a0 = s.acquisition?.review;
+  const kpis: [string, string][] = [
+    [a0 ? `${a0.overallScore}` : "—", a0 ? `수주 진단 (${a0.stage})` : "수주 진단"],
+    [`${s.keywords.rows.length}`, `실측 키워드${s.keywords.searchConnected ? "" : "(데모)"}`],
+    [`${s.competitors.places.length}`, "경쟁사 표본(최대 5)"],
+    [s.seo.ok ? `${s.seo.score}` : "—", s.seo.ok ? `SEO·GEO (${s.seo.grade})` : "SEO·GEO 진단"]
+  ];
+  kpis.forEach(([v, k], i) => {
+    const x = 0.6 + i * 3.05;
+    sSum.addShape(pptx.ShapeType.roundRect, { x, y: 1.6, w: 2.8, h: 1.7, fill: { color: C.light }, line: { color: C.line, width: 1 }, rectRadius: 0.06 });
+    sSum.addText(v, { x, y: 1.9, w: 2.8, h: 0.8, fontSize: 32, bold: true, color: C.brand, align: "center", fontFace: FONT });
+    sSum.addText(k, { x, y: 2.75, w: 2.8, h: 0.5, fontSize: 11.5, color: C.sub, align: "center", fontFace: FONT });
+  });
+  // 채널 점유 요약(있으면) + 예산 한줄
+  const sovLine = s.sov.configured
+    ? `채널 점유: ${s.sov.channels.map((c) => `${c.channel} ${c.ownSlots > 0 ? (c.ownRank ? `${c.ownRank}위` : `상위 ${c.ownSlots}건`) : "미노출"}`).join(" · ")}`
+    : "채널 점유: 병원명 입력 시 본원 노출 실측";
+  sSum.addText(sovLine, { x: 0.6, y: 3.8, w: 12.1, h: 0.5, fontSize: 13, color: C.ink, fontFace: FONT });
+  const budgetLine = s.budget.bidConnected
+    ? `광고 예산(실측 CPC): ${s.budget.scenarios.map((sc) => `${sc.label} ${won(sc.monthlyWon)}원`).join(" · ")}`
+    : "광고 예산: 네이버 검색광고 연결 시 실측 CPC 기반 산출(추정 없음)";
+  sSum.addText(budgetLine, { x: 0.6, y: 4.4, w: 12.1, h: 0.5, fontSize: 13, color: C.ink, fontFace: FONT });
+  if (a0?.headline) sSum.addText(`· ${a0.headline}`, { x: 0.6, y: 5.1, w: 12.1, h: 0.8, fontSize: 12, color: C.sub, fontFace: FONT, lineSpacingMultiple: 1.1 });
+
+  // ── 3. 수주 진단 ──────────────────────────────────────────
   const a = s.acquisition?.review;
   if (a) {
     const s2 = pptx.addSlide();
-    head(s2, "01. 수주 진단 · 대응 방향", 2);
+    head(s2, "01. 수주 진단 · 대응 방향", 3);
     s2.addText(a.stage, { x: 0.6, y: 1.35, w: 6, h: 0.5, fontSize: 20, bold: true, color: C.brand, fontFace: FONT });
     s2.addText(`${a.overallScore}/100`, { x: 10.5, y: 1.3, w: 2.3, h: 0.6, fontSize: 28, bold: true, color: C.ink, align: "right", fontFace: FONT });
     s2.addText(a.headline, { x: 0.6, y: 1.9, w: 12.1, h: 0.6, fontSize: 12, color: C.sub, fontFace: FONT });
@@ -75,18 +102,28 @@ export async function downloadStrategyDeck(strategy: MarketingStrategy, today: s
 
   // ── 3. 키워드 실측 ────────────────────────────────────────
   const s3 = pptx.addSlide();
-  head(s3, "02. 키워드 실측 · 검색량·경쟁·포화도", 3);
+  head(s3, "02. 키워드 실측 · 검색량·경쟁·포화도", 4);
   if (s.keywords.rows.length) {
-    const rows = [["키워드", "PC", "Mobile", "합계", "경쟁", "블로그", "포화도"]].concat(
-      s.keywords.rows.slice(0, 11).map((r) => [r.keyword, fmt(r.pc), fmt(r.mobile), fmt(r.total), r.competition ?? "—", fmt(r.blogDocs), r.saturation ?? "—"])
+    const rows = [["키워드", "합계", "경쟁", "블로그", "포화도"]].concat(
+      s.keywords.rows.slice(0, 11).map((r) => [r.keyword, fmt(r.total), r.competition ?? "—", fmt(r.blogDocs), r.saturation ?? "—"])
     );
-    tbl(s3, rows, 0.6, 1.35, 12.1, [3.5, 1.3, 1.5, 1.5, 1.3, 1.5, 1.5]);
+    tbl(s3, rows, 0.6, 1.35, 7.0, [2.6, 1.2, 1.0, 1.1, 1.1]);
+    // 그래프: 상위 월검색량 가로 막대(인포그래픽)
+    const topV = s.keywords.rows.filter((r) => (r.total ?? 0) > 0).slice(0, 7);
+    if (topV.length) {
+      s3.addText("월검색량 상위", { x: 8.0, y: 1.35, w: 4.7, h: 0.35, fontSize: 12, bold: true, color: C.ink, fontFace: FONT });
+      s3.addChart(pptx.ChartType.bar, [{ name: "월검색량", labels: topV.map((r) => r.keyword), values: topV.map((r) => r.total ?? 0) }], {
+        x: 8.0, y: 1.75, w: 4.8, h: 4.8, barDir: "bar", chartColors: [C.brand], showLegend: false, showValue: true,
+        dataLabelColor: C.ink, dataLabelFontSize: 9, dataLabelFontFace: FONT, catAxisLabelColor: C.ink, catAxisLabelFontFace: FONT,
+        catAxisLabelFontSize: 9, valAxisHidden: true, valGridLine: { style: "none" }, catAxisLineShow: false
+      });
+    }
   } else s3.addText("키워드 결과 없음(진료과 선택 시 정확도 상승).", { x: 0.6, y: 1.5, w: 12, h: 0.4, fontSize: 12, color: C.sub, fontFace: FONT });
   s3.addText(`검색량·경쟁: 네이버 검색광고${s.keywords.searchConnected ? "(실측)" : "(미연동·데모)"} · 포화도: 네이버 블로그`, { x: 0.6, y: 6.9, w: 12, h: 0.35, fontSize: 9, color: C.sub, fontFace: FONT });
 
   // ── 4. 검색 여정·퍼널 ─────────────────────────────────────
   const s4 = pptx.addSlide();
-  head(s4, "03. 검색 여정 · 퍼널 전략", 4);
+  head(s4, "03. 검색 여정 · 퍼널 전략", 5);
   const stages = ["문제인식", "정보탐색", "비교", "병원검토", "예약"] as const;
   stages.forEach((st, i) => {
     const ks = s.journey.keywords.filter((k) => k.stage === st).map((k) => k.keyword);
@@ -108,7 +145,7 @@ export async function downloadStrategyDeck(strategy: MarketingStrategy, today: s
   // ── 5. 정밀진단(SEO·GEO) ──────────────────────────────────
   if (s.seo.attempted) {
     const s5 = pptx.addSlide();
-    head(s5, "04. 홈페이지 검색·AI 노출 정밀진단", 5);
+    head(s5, "04. 홈페이지 검색·AI 노출 정밀진단", 6);
     if (s.seo.ok) {
       s5.addText(`${s.seo.score}`, { x: 0.6, y: 1.4, w: 2, h: 1.0, fontSize: 54, bold: true, color: C.brand, fontFace: FONT });
       s5.addText(`/100 · ${s.seo.grade}`, { x: 2.5, y: 2.0, w: 3, h: 0.5, fontSize: 16, color: C.sub, fontFace: FONT });
@@ -129,7 +166,7 @@ export async function downloadStrategyDeck(strategy: MarketingStrategy, today: s
   // ── 6. 채널 점유 ──────────────────────────────────────────
   if (s.sov.configured) {
     const s6 = pptx.addSlide();
-    head(s6, "05. 채널 점유 · 본원 vs 경쟁", 6);
+    head(s6, "05. 채널 점유 · 본원 vs 경쟁", 7);
     s6.addText(`핵심 키워드: ${s.sov.keyword ?? "—"}`, { x: 0.6, y: 1.35, w: 12, h: 0.4, fontSize: 12, color: C.sub, fontFace: FONT });
     s.sov.channels.forEach((c, i) => {
       const y = 2.3 + i * 1.0;
@@ -145,7 +182,7 @@ export async function downloadStrategyDeck(strategy: MarketingStrategy, today: s
   // ── 7. 경쟁사 ─────────────────────────────────────────────
   if (s.competitors.places.length) {
     const s7 = pptx.addSlide();
-    head(s7, "06. 경쟁사 상위 표본", 7);
+    head(s7, "06. 경쟁사 상위 표본", 8);
     s.competitors.places.slice(0, 5).forEach((p, i) => {
       const y = 1.5 + i * 1.0;
       s7.addText(`${i + 1}`, { x: 0.6, y, w: 0.6, h: 0.5, fontSize: 20, bold: true, color: C.brand, fontFace: FONT });
@@ -158,7 +195,7 @@ export async function downloadStrategyDeck(strategy: MarketingStrategy, today: s
 
   // ── 8. 광고 예산 시나리오 ─────────────────────────────────
   const s8 = pptx.addSlide();
-  head(s8, "07. 광고 예산 시나리오 · 파워링크", 8);
+  head(s8, "07. 광고 예산 시나리오 · 파워링크", 9);
   if (s.budget.bidConnected) {
     const brows = [["키워드", "월검색수", "경쟁", "CPC(실측)"]].concat(
       s.budget.rows.map((r) => [r.keyword, fmt(r.total), r.competition ?? "—", r.cpc == null ? "미조회" : fmt(r.cpc)])
@@ -186,7 +223,7 @@ export async function downloadStrategyDeck(strategy: MarketingStrategy, today: s
 
   // ── 9. 의료광고 리스크 ────────────────────────────────────
   const s9 = pptx.addSlide();
-  head(s9, "08. 의료광고 리스크 · 의료법 §56 1차 스캔", 9);
+  head(s9, "08. 의료광고 리스크 · 의료법 §56 1차 스캔", 10);
   if (!s.compliance.scanned) s9.addText("홈페이지 URL 미입력 — 있으면 위험 표현 자동 점검.", { x: 0.6, y: 1.5, w: 12, h: 0.4, fontSize: 12, color: C.sub, fontFace: FONT });
   else if (s.compliance.high + s.compliance.medium === 0) s9.addText("위험 표현 미검출(자동 1차). 최종 게시 전 내부·전문 검토 유지.", { x: 0.6, y: 1.5, w: 12, h: 0.4, fontSize: 13, color: C.ok, fontFace: FONT });
   else {
@@ -197,7 +234,31 @@ export async function downloadStrategyDeck(strategy: MarketingStrategy, today: s
   }
   s9.addText("1차 자동 필터 — 심의 통과를 보장하지 않음(의료법 §56). 전후사진·최상급·효과보장 표현 지양.", { x: 0.6, y: 6.9, w: 12, h: 0.35, fontSize: 9, color: C.sub, fontFace: FONT });
 
-  // ── 10. 마무리 ────────────────────────────────────────────
+  // ── 11. 데이터 출처 · 고지 — 상권분석 덱과 동일 표기 체계 ──
+  const sSrc = pptx.addSlide();
+  head(sSrc, "데이터 출처 · 고지", 11);
+  const measured: string[] = [];
+  const missing: string[] = [];
+  (s.keywords.searchConnected ? measured : missing).push("키워드 검색량·경쟁(네이버 검색광고)");
+  (s.budget.bidConnected ? measured : missing).push("파워링크 CPC 입찰가(네이버 검색광고)");
+  (s.competitors.places.length ? measured : missing).push("경쟁사 상위 표본(네이버 지역검색·최대 5)");
+  (s.keywords.rows.some((r) => r.blogDocs != null) ? measured : missing).push("블로그 포화도(네이버 블로그)");
+  (s.seo.ok ? measured : missing).push("홈페이지 SEO·GEO 정밀진단(VENOM 엔진)");
+  (s.compliance.scanned ? measured : missing).push("의료광고 위험 표현 스캔(홈페이지)");
+  (s.sov.configured ? measured : missing).push("채널 점유율(본원 vs 경쟁)");
+  const lines: [string, string][] = [
+    ["✅ 실측", measured.length ? measured.join(", ") : "—"],
+    ["🟡 정성", "수주 진단 단계·대응 방향·검색여정 퍼널 메시지(해석)"],
+    ["🔴 미실측", missing.length ? missing.join(", ") : "없음(주요 소스 연결됨)"]
+  ];
+  lines.forEach(([tag, body], i) => {
+    const y = 1.6 + i * 1.35;
+    sSrc.addText(tag, { x: 0.6, y, w: 2.0, h: 0.5, fontSize: 15, bold: true, color: i === 0 ? C.ok : i === 1 ? C.warn : C.risk, fontFace: FONT });
+    sSrc.addText(body, { x: 2.7, y, w: 10, h: 1.2, fontSize: 12, color: C.ink, fontFace: FONT, lineSpacingMultiple: 1.15, valign: "top" });
+  });
+  sSrc.addText("CPC는 네이버 검색광고 실측 입찰가만 사용(추정 금지). 경쟁사는 네이버 지역검색 OpenAPI 상한(최대 5) 표본. 성과 수치는 목표치이며 보장이 아닙니다 · 의료광고법 준수.", { x: 0.6, y: 6.2, w: 12.1, h: 0.8, fontSize: 10, color: C.sub, fontFace: FONT, lineSpacingMultiple: 1.15 });
+
+  // ── 12. 마무리 ────────────────────────────────────────────
   const s10 = pptx.addSlide();
   s10.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 7.5, fill: { color: C.dark } });
   s10.addText("분석 → 제안 → 진행 → 보고", { x: 0.8, y: 2.4, w: 11.7, h: 0.6, fontSize: 20, color: C.brand, bold: true, fontFace: FONT });

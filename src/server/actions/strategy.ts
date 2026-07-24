@@ -190,7 +190,10 @@ function buildBrief(s: {
   const L: string[] = [];
   L.push(`# 마케팅 전략 브리프 — ${s.brand}`);
   L.push("");
-  L.push(`- 지역/진료 ${s.label}${s.specialty ? ` · ${s.specialty}` : ""} · 기준일 ${s.date}`);
+  L.push(`- **지역/분야**: ${s.label}${s.specialty ? ` · ${s.specialty}` : ""}`);
+  L.push(`- **기준일**: ${s.date}`);
+  L.push(`- **데이터**: 네이버 검색광고(키워드·CPC) · 네이버 지역검색·블로그(경쟁·포화) · VENOM SEO/GEO 엔진 · 심평원·행안부(상권)`);
+  L.push(`- **표기**: ✅실측 · 🟡정성/추정 · 🔴미실측. KPI는 목표치(보장 아님), 의료광고법 준수.`);
   L.push("");
   // 1. 수주 진단
   const a = s.acquisition?.review;
@@ -270,6 +273,21 @@ function buildBrief(s: {
     });
     L.push(`- → 미노출 채널이 진입 우선순위(경쟁이 점유 중인 지점).`);
   }
+  L.push("");
+  // 부록 — 데이터 상태(상권분석 리포트와 동일 표기 체계)
+  const measured: string[] = [];
+  const missing: string[] = [];
+  (s.keywords.searchConnected ? measured : missing).push("키워드 검색량·경쟁(네이버 검색광고)");
+  (s.budget.bidConnected ? measured : missing).push("파워링크 CPC 입찰가(네이버 검색광고)");
+  (s.competitors.configured && s.competitors.places.length ? measured : missing).push("경쟁사 상위 표본(네이버 지역검색)");
+  (s.keywords.rows.some((r) => r.blogDocs != null) ? measured : missing).push("블로그 포화도(네이버 블로그)");
+  (s.seo.ok ? measured : missing).push("홈페이지 SEO·GEO 정밀진단(VENOM 엔진)");
+  (s.compliance.scanned ? measured : missing).push("의료광고 위험 표현 스캔(홈페이지)");
+  (s.sov.configured ? measured : missing).push("채널 점유율(본원 vs 경쟁)");
+  L.push(`## 부록 — 데이터 상태`);
+  if (measured.length) L.push(`- ✅실측: ${measured.join(", ")}`);
+  L.push(`- 🟡정성: 수주 진단 단계·대응 방향·검색여정 퍼널 메시지(해석)`);
+  if (missing.length) L.push(`- 🔴미실측: ${missing.join(", ")}`);
   L.push("");
   L.push(`> 실측 근거 기반. 수치는 목표·해석이며 성과 보장이 아님. 의료광고법 준수(전후사진·최상급·효과보장 금지). 위험 스캔은 1차 필터이며 심의 통과를 보장하지 않음.`);
   return L.join("\n");
