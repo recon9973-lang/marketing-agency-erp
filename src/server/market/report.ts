@@ -43,6 +43,7 @@ function provinceLines(sido: string): string[] {
 }
 import type { LocalPlace } from "@/server/integrations/naver-local";
 import type { RegionDemographics } from "@/server/integrations/sgis";
+import { buildScorecard } from "@/server/market/scorecard";
 
 /** 리포트에 덧붙일 실측 보강(연결된 소스: 네이버 경쟁사 · SGIS 연령·성별). */
 export type ReportExtra = { competitors?: LocalPlace[]; demographics?: RegionDemographics | null };
@@ -159,6 +160,19 @@ export function buildMarketReport(
   L.push(`- **데이터**: 행안부 주민등록(2026.6) · 심평원 병원정보(2026.6) · 심평원 표시과목별 상병통계(2025)`);
   L.push(`- **표기**: ✅실측 · 🟡정성/추정 · 🔴미실측. KPI는 목표치(보장 아님), 의료광고법 준수.`);
   L.push("");
+
+  // 종합 스코어카드
+  const sc = buildScorecard({ population, hospitals, openings: resolve.key ? getOpenings(resolve.key) : null, nationalPer });
+  if (sc) {
+    L.push(`## 종합 스코어카드 — **${sc.grade}등급 (${sc.overall}/100)**`);
+    L.push(`| 부문 | 점수 | 근거 |`);
+    L.push(`|---|---:|---|`);
+    for (const s of sc.subs) L.push(`| ${s.label} | ${s.score} | ${s.note} |`);
+    L.push("");
+    if (sc.strengths.length) L.push(`- 강점: ${sc.strengths.join(" / ")}`);
+    if (sc.weaknesses.length) L.push(`- 약점: ${sc.weaknesses.join(" / ")}`);
+    L.push("");
+  }
 
   // ① 인구
   L.push(`## 1. 인구 · 성별 ✅실측`);
@@ -287,6 +301,15 @@ export function buildProposal(
   L.push(`- **지역/분야**: ${label}${specialty ? ` · ${specialty}` : ""} · **기준일** ${now}`);
   L.push(`- 본 제안서의 성과 수치는 **목표치**이며 보장이 아닙니다. 의료광고법 준수(효과·최상급·전후 강조 금지).`);
   L.push("");
+
+  const psc = buildScorecard({ population, hospitals, openings: resolve.key ? getOpenings(resolve.key) : null, nationalPer });
+  if (psc) {
+    L.push(`## 상권 종합 평가 — **${psc.grade}등급 (${psc.overall}/100)**`);
+    L.push(`- ${psc.subs.map((s) => `${s.label} ${s.score}`).join(" · ")}`);
+    if (psc.strengths.length) L.push(`- 강점: ${psc.strengths.join(" / ")}`);
+    if (psc.weaknesses.length) L.push(`- 약점: ${psc.weaknesses.join(" / ")}`);
+    L.push("");
+  }
 
   L.push(`## 1. 현황 진단 (상권 실측)`);
   if (population) L.push(`- 상권 인구 ${fmt(population.total)}명 · 여성 ${population.femaleRatio ?? "—"}% · 전월 ${population.delta >= 0 ? "▲" : "▼"}${fmt(Math.abs(population.delta))}`);

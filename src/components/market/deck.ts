@@ -69,9 +69,14 @@ export async function downloadMarketDeck({ analysis, brand, radius, today }: Dec
     s2.addText(v, { x, y: 1.9, w: 2.8, h: 0.8, fontSize: 30, bold: true, color: C.brand, align: "center", fontFace: FONT });
     s2.addText(k, { x, y: 2.7, w: 2.8, h: 0.4, fontSize: 12, color: C.sub, align: "center", fontFace: FONT });
   });
+  if (analysis.scorecard) {
+    const sc = analysis.scorecard;
+    s2.addText(`종합 ${sc.grade}등급 (${sc.overall}/100)`, { x: 0.6, y: 3.5, w: 5, h: 0.5, fontSize: 20, bold: true, color: C.brand, fontFace: FONT });
+    s2.addText(sc.subs.map((s) => `${s.label} ${s.score}`).join("   ·   "), { x: 5.4, y: 3.6, w: 7.5, h: 0.4, fontSize: 12, color: C.sub, fontFace: FONT });
+  }
   const dense = hos?.perTenThousand != null && nat ? hos.perTenThousand / nat : null;
   const verdict = dense == null ? "" : dense >= 1.2 ? "전국 평균 대비 과밀 — 차별화·검색 상위 선점이 관건." : dense <= 0.8 ? "전국 평균 대비 여유 — 공급 대비 수요 우위 가능." : "전국 평균 수준의 경쟁 강도.";
-  s2.addText(`· ${verdict}`, { x: 0.6, y: 3.9, w: 12, h: 0.5, fontSize: 15, color: C.ink, fontFace: FONT });
+  s2.addText(`· ${verdict}`, { x: 0.6, y: 4.3, w: 12, h: 0.5, fontSize: 15, color: C.ink, fontFace: FONT });
 
   // 3. 인구·성별
   const s3 = pptx.addSlide();

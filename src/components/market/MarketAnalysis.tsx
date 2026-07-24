@@ -35,6 +35,7 @@ const SPECIALTIES = [
   "한의원", "한방병원"
 ];
 const ORIENTAL = new Set(["한의원", "한방병원", "한방"]);
+const GRADE_BG: Record<string, string> = { A: "bg-emerald-600", B: "bg-sky-600", C: "bg-amber-500", D: "bg-rose-500" };
 
 export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { presetRegion?: string; presetSpecialty?: string }) {
   const [region, setRegion] = useState(presetRegion);
@@ -229,6 +230,39 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
             <h2 className="text-lg font-bold text-ink">{res.resolve.label}</h2>
             <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300">실측</span>
           </div>
+
+          {/* 종합 스코어카드 */}
+          {res.scorecard && (
+            <div className={CARD}>
+              <div className="flex flex-wrap items-center gap-4">
+                <div className={`flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-2xl text-white ${GRADE_BG[res.scorecard.grade]}`}>
+                  <span className="text-3xl font-black leading-none">{res.scorecard.grade}</span>
+                  <span className="text-[11px] font-semibold opacity-90">{res.scorecard.overall}/100</span>
+                </div>
+                <div className="min-w-[220px] flex-1 space-y-1.5">
+                  {res.scorecard.subs.map((s) => (
+                    <div key={s.key} className="flex items-center gap-2 text-[11px]">
+                      <span className="w-16 shrink-0 text-slate-500">{s.label}</span>
+                      <div className="h-2.5 flex-1 overflow-hidden rounded bg-surface">
+                        <div className={`h-full rounded ${s.score >= 63 ? "bg-emerald-500" : s.score >= 48 ? "bg-amber-500" : "bg-rose-500"}`} style={{ width: `${s.score}%` }} />
+                      </div>
+                      <span className="w-7 shrink-0 text-right font-bold text-ink">{s.score}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-3 grid gap-2 text-[11px] sm:grid-cols-2">
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 px-2.5 py-1.5 dark:border-emerald-800/50 dark:bg-emerald-950/30">
+                  <span className="font-semibold text-emerald-700 dark:text-emerald-300">강점</span>
+                  <ul className="mt-0.5 list-disc pl-4 text-slate-600 dark:text-slate-300">{res.scorecard.strengths.map((t, i) => <li key={i}>{t}</li>)}</ul>
+                </div>
+                <div className="rounded-lg border border-rose-200 bg-rose-50/40 px-2.5 py-1.5 dark:border-rose-900/50 dark:bg-rose-950/30">
+                  <span className="font-semibold text-rose-600 dark:text-rose-300">약점</span>
+                  <ul className="mt-0.5 list-disc pl-4 text-slate-600 dark:text-slate-300">{res.scorecard.weaknesses.map((t, i) => <li key={i}>{t}</li>)}</ul>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-4 lg:grid-cols-2">
             {/* ① 인구 */}

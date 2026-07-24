@@ -31,6 +31,7 @@ import {
 
 const ORIENTAL_SPECIALTIES = new Set(["한의원", "한방병원", "한방"]);
 import { buildMarketReport, buildProposal, type MarketReport, type ReportExtra } from "@/server/market/report";
+import { buildScorecard, type Scorecard } from "@/server/market/scorecard";
 import { searchLocalPlaces, naverLocalConfigured, type LocalPlace } from "@/server/integrations/naver-local";
 import { resolveAdmCode, fetchRegionDemographics } from "@/server/integrations/sgis";
 import { isAiConfigured, generateMarketNarrative } from "@/server/ai/claude";
@@ -82,6 +83,7 @@ export type RegionAnalysis = {
   openings: Openings | null; // 최근 개원 추세(경쟁 심화 신호)
   province: { sido: string; rows: ProvinceRow[] }; // 양방 시도별 다빈도 상병
   demoMap: Record<string, DiseaseDemo>; // 상병(3단)별 성별×연령 타깃
+  scorecard: Scorecard | null; // 상권 종합 스코어카드(등급·부문·강약점)
   nationalPer: number; // 전국 인구 만명당 병·의원 수(경쟁강도 기준선)
 };
 
@@ -112,7 +114,9 @@ export async function analyzeRegion(input: {
       const d = getDiseaseDemographics(c);
       if (d) demoMap[c] = d;
     });
-    return { resolve, population, hospitals, specialty, demand, orientalDemand, frequent, openings, province, demoMap, nationalPer: nationalHospitalsPerTenThousand() };
+    const nationalPer = nationalHospitalsPerTenThousand();
+    const scorecard = buildScorecard({ population, hospitals, openings, nationalPer });
+    return { resolve, population, hospitals, specialty, demand, orientalDemand, frequent, openings, province, demoMap, scorecard, nationalPer };
   });
 }
 
