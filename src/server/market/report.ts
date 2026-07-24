@@ -53,6 +53,24 @@ function provinceLines(sido: string, specialty: string | null): string[] {
 import type { LocalPlace } from "@/server/integrations/naver-local";
 import type { RegionDemographics } from "@/server/integrations/sgis";
 import { buildScorecard } from "@/server/market/scorecard";
+import { buildSpecialtyProfile } from "@/server/market/specialty-profile";
+
+/** 진료과 타깃 프로파일 마크다운 라인. */
+function profileLines(specialty: string | null, demo: ReportExtra["demographics"]): string[] {
+  const p = buildSpecialtyProfile(specialty, demo ?? null);
+  if (!p) return [];
+  const out = [`## ${p.specialty} 타깃 프로파일`];
+  if (p.hasAge && p.targetCount != null)
+    out.push(`- 핵심 타깃 **${p.targetLabel}** — ${fmt(p.targetCount)}명(타깃층 ${p.targetShare}%, SGIS 연령 실측)`);
+  else out.push(`- 핵심 타깃 **${p.targetLabel}** — 타깃 인구 수치는 SGIS 연령 연동 시(현재 총인구·성비만)`);
+  const have = p.factors.filter((f) => f.status === "have").map((f) => f.label);
+  const partial = p.factors.filter((f) => f.status === "partial").map((f) => f.label);
+  const missing = p.factors.filter((f) => f.status === "missing").map((f) => f.label);
+  if (have.length) out.push(`- ✅ 보유: ${have.join(", ")}`);
+  if (partial.length) out.push(`- 🟡 부분: ${partial.join(", ")}`);
+  if (missing.length) out.push(`- 🔴 미보유(데이터 추가 필요): ${missing.join(", ")}`);
+  return out;
+}
 
 /** 리포트에 덧붙일 실측 보강(연결된 소스: 네이버 경쟁사 · SGIS 연령·성별). */
 export type ReportExtra = { competitors?: LocalPlace[]; demographics?: RegionDemographics | null };
@@ -187,6 +205,10 @@ export function buildMarketReport(
     if (sc.weaknesses.length) L.push(`- 약점: ${sc.weaknesses.join(" / ")}`);
     L.push("");
   }
+
+  // 진료과 타깃 프로파일
+  for (const line of profileLines(specialty, extra.demographics)) L.push(line);
+  if (specialty) L.push("");
 
   // ① 인구
   L.push(`## 1. 인구 · 성별 ✅실측`);

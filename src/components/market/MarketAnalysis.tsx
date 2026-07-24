@@ -269,6 +269,43 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
             </div>
           )}
 
+          {/* 진료과 타깃 프로파일 */}
+          {res.specialtyProfile && (
+            <div className={CARD}>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-sm font-bold text-ink">🎯 {res.specialtyProfile.specialty} 타깃 프로파일</h3>
+                <span className="text-[11px] text-slate-500">핵심 타깃: <b className="text-ink">{res.specialtyProfile.targetLabel}</b></span>
+              </div>
+              <div className="mt-2 flex flex-wrap items-end gap-3">
+                {res.specialtyProfile.hasAge && res.specialtyProfile.targetCount != null ? (
+                  <div className="flex items-end gap-2">
+                    <span className="text-2xl font-bold text-emerald-600">{fmt(res.specialtyProfile.targetCount)}</span>
+                    <span className="pb-0.5 text-xs text-slate-500">명 · 타깃층 {res.specialtyProfile.targetShare}% (SGIS 연령 실측)</span>
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-amber-600">SGIS 연령 미연동 — 타깃 인구 수치는 SGIS 키 연결 시 표시(총인구·성비는 아래 ①)</span>
+                )}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {res.specialtyProfile.factors.map((f) => (
+                  <span
+                    key={f.label}
+                    className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                      f.status === "have"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300"
+                        : f.status === "partial"
+                          ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+                          : "border-line bg-surface/60 text-slate-400 line-through"
+                    }`}
+                  >
+                    {f.status === "have" ? "✓ " : f.status === "partial" ? "◐ " : ""}{f.label}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[10px] text-slate-400">✓ 보유 · ◐ 부분(광역/근사) · 취소선 = 미보유(데이터 추가 필요)</p>
+            </div>
+          )}
+
           <div className="grid gap-4 lg:grid-cols-2">
             {/* ① 인구 */}
             <div className={CARD}>
@@ -309,6 +346,23 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                       <span>여 {fmt(pop.female)}</span>
                     </div>
                   </div>
+                  {res.demographics?.ageResolved && res.demographics.ageBands.length > 0 && (
+                    <div>
+                      <p className="mb-1 text-[11px] font-semibold text-slate-500">연령대 분포 <span className="font-normal text-slate-400">SGIS 실측</span></p>
+                      <div className="space-y-0.5">
+                        {res.demographics.ageBands.map((b) => (
+                          <div key={b.label} className="flex items-center gap-2 text-[10px]">
+                            <span className="w-16 shrink-0 text-slate-500">{b.label}</span>
+                            <div className="h-2.5 flex-1 overflow-hidden rounded bg-surface"><div className="h-full rounded bg-violet-500" style={{ width: `${b.ratio}%` }} /></div>
+                            <span className="w-10 shrink-0 text-right font-semibold text-ink">{b.ratio}%</span>
+                          </div>
+                        ))}
+                      </div>
+                      {res.demographics.femaleCore2039 != null && (
+                        <p className="mt-1 text-[10px] text-rose-500/80">20~30대 여성 코어 {fmt(res.demographics.femaleCore2039)}명</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="text-sm text-slate-400">인구 데이터 없음</p>

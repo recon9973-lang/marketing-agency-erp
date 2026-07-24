@@ -34,7 +34,8 @@ const ORIENTAL_SPECIALTIES = new Set(["한의원", "한방병원", "한방"]);
 import { buildMarketReport, buildProposal, type MarketReport, type ReportExtra } from "@/server/market/report";
 import { buildScorecard, type Scorecard } from "@/server/market/scorecard";
 import { searchLocalPlaces, naverLocalConfigured, type LocalPlace } from "@/server/integrations/naver-local";
-import { resolveAdmCode, fetchRegionDemographics } from "@/server/integrations/sgis";
+import { resolveAdmCode, fetchRegionDemographics, sgisConfigured, type RegionDemographics } from "@/server/integrations/sgis";
+import { buildSpecialtyProfile, type SpecialtyProfile } from "@/server/market/specialty-profile";
 import { isAiConfigured, generateMarketNarrative } from "@/server/ai/claude";
 import { storeDensityInRadius, publicDataConfigured, type StoreDensity } from "@/server/integrations/publicdata-store";
 
@@ -86,6 +87,8 @@ export type RegionAnalysis = {
   province: { sido: string; rows: ProvinceRow[]; specialtyFiltered: boolean }; // 양방 시도별 다빈도 상병
   demoMap: Record<string, DiseaseDemo>; // 상병(3단)별 성별×연령 타깃
   scorecard: Scorecard | null; // 상권 종합 스코어카드(등급·부문·강약점)
+  demographics: RegionDemographics | null; // SGIS 연령·성별(있으면)
+  specialtyProfile: SpecialtyProfile | null; // 진료과 타깃 인구 프로파일
   nationalPer: number; // 전국 인구 만명당 병·의원 수(경쟁강도 기준선)
 };
 
@@ -134,7 +137,14 @@ export async function analyzeRegion(input: {
     });
     const nationalPer = nationalHospitalsPerTenThousand();
     const scorecard = buildScorecard({ population, hospitals, openings, nationalPer });
-    return { resolve, population, hospitals, specialty, demand, orientalDemand, frequent, openings, province, demoMap, scorecard, nationalPer };
+    // SGIS 연령·성별(키 있을 때) → 진료과 타깃 인구 프로파일.
+    let demographics: RegionDemographics | null = null;
+    if (resolve.key && sgisConfigured()) {
+      const adm = await resolveAdmCode(resolve.label).catch(() => null);
+      demographics = adm ? await fetchRegionDemographics(adm.admCd).catch(() => null) : null;
+    }
+    const specialtyProfile = buildSpecialtyProfile(specialty, demographics);
+    return { resolve, population, hospitals, specialty, demand, orientalDemand, frequent, openings, province, demoMap, scorecard, demographics, specialtyProfile, nationalPer };
   });
 }
 
