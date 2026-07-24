@@ -17,6 +17,7 @@ import hospitalsJson from "./region/hospitals-by-sgg.json";
 import demandJson from "./region/demand-by-specialty.json";
 import orientalJson from "./region/oriental-demand-by-sgg.json";
 import frequentJson from "./region/frequent-diseases.json";
+import openingsJson from "./region/openings-by-sgg.json";
 
 export type RegionPopulation = {
   total: number;
@@ -51,6 +52,13 @@ export type FrequentKind = "전체" | "한방";
 /** 전국 다빈도 상병(3년 추이). kind: 전체(양방 중심)·한방. */
 export function getFrequentDiseases(kind: FrequentKind): { years: FrequentFile["years"]; rows: FrequentDisease[] } {
   return { years: frequent.years, rows: frequent.data[kind] ?? [] };
+}
+
+// 개원 추세(시군구별 최근 1년·3년 개원 수, 기준 2026-06-30) — 경쟁 심화 신호.
+export type Openings = { y1: number; y3: number; total: number };
+const openings = openingsJson as Record<string, Openings>;
+export function getOpenings(key: string): Openings | null {
+  return openings[key] ?? null;
 }
 
 // ── 지역 정규화 ─────────────────────────────────────────────

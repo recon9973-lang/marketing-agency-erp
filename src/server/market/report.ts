@@ -9,6 +9,7 @@ import {
   getDemandBySpecialty,
   getOrientalDemand,
   getFrequentDiseases,
+  getOpenings,
   nationalHospitalsPerTenThousand,
   type HospitalSummary,
   type RegionPopulation
@@ -156,6 +157,8 @@ export function buildMarketReport(
     L.push(`- 전체 **${fmt(hospitals.total)}개** · 의원 ${fmt(hospitals.clinic)} · 치과의원 ${fmt(hospitals.dental)} · 한의원 ${fmt(hospitals.oriental)} · 병원급 ${fmt(hospitals.hospitalGrade)}`);
     if (hospitals.clinicToOriental != null) L.push(`- 의원:한의원 = **${hospitals.clinicToOriental}:1**`);
     if (hospitals.perTenThousand != null) L.push(`- 인구 만명당 **${hospitals.perTenThousand}개** (전국 평균 ${nationalPer})`);
+    const op = resolve.key ? getOpenings(resolve.key) : null;
+    if (op) L.push(`- 최근 개원: 1년 **${fmt(op.y1)}곳** · 3년 **${fmt(op.y3)}곳** — ${op.y1 >= 30 ? "신규 진입 활발(경쟁 심화)" : op.y1 <= 3 ? "신규 진입 적음(안정)" : "보통"} ✅실측`);
     L.push("");
     L.push(`| 종별 | 수 |`);
     L.push(`|---|---:|`);
@@ -206,6 +209,7 @@ export function buildMarketReport(
   if (demand.length) measured.push("진료과 주상병 수요(심평원)");
   if (orientalD && orientalD.byDx.length) measured.push("한방 지역 주상병 수요(심평원)");
   measured.push("전국 다빈도 상병·3년 추이(심평원)");
+  if (resolve.key && getOpenings(resolve.key)) measured.push("개원 추세(심평원 병원정보)");
   if (extra.demographics?.genderResolved || extra.demographics?.ageResolved) measured.push("연령×성별 코어(SGIS)");
   if (extra.competitors && extra.competitors.length) measured.push("경쟁사 상위 표본(네이버 지역검색)");
   const missing: string[] = ["양방 지역별 진료인원(심평원 지역 진료통계 별도)"];

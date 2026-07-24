@@ -113,6 +113,24 @@ ws = wb["병원정보서비스"]
 it = ws.iter_rows(values_only=True); h = next(it)
 ci = {k: i for i, k in enumerate(h)}
 hosp = collections.defaultdict(lambda: collections.Counter())
+# 개원 추세(경쟁 신호): 기준일 2026-06-30(파일 기준) 대비 최근 1년·3년 개원 수.
+import datetime
+REF = datetime.date(2026, 6, 30)
+D1 = REF - datetime.timedelta(days=365)
+D3 = REF - datetime.timedelta(days=365 * 3)
+
+def parse_open_date(v):
+    if v is None or v == "":
+        return None
+    if hasattr(v, "year"):
+        return datetime.date(v.year, v.month, v.day)
+    s = str(v)[:10]
+    try:
+        return datetime.date(int(s[0:4]), int(s[5:7]), int(s[8:10]))
+    except Exception:
+        return None
+
+openings = collections.defaultdict(lambda: {"y1": 0, "y3": 0, "total": 0})
 # 포인트(컬럼형): 종별 인덱스 / 위 / 경 / 시군구키 인덱스
 TYPES = []  # 종별코드명 목록(인덱스 부여)
 tindex = {}
@@ -124,6 +142,13 @@ for r in it:
     jong = (r[ci["종별코드명"]] or "").strip()
     key = canon_from_hospital(sido, sgg)
     hosp[key][jong] += 1
+    od = parse_open_date(r[ci["개설일자"]])
+    if od:
+        o = openings[key]; o["total"] += 1
+        if od >= D1:
+            o["y1"] += 1
+        if od >= D3:
+            o["y3"] += 1
     x = r[ci["좌표(X)"]]; y = r[ci["좌표(Y)"]]
     if x in (None, "") or y in (None, ""):
         no_coord += 1
@@ -141,6 +166,12 @@ hospitals = {k: dict(c) for k, c in hosp.items()}
 meta["hospital_sgg"] = len(hospitals)
 meta["hospital_no_coord"] = no_coord
 json.dump(hospitals, open(os.path.join(OUT, "hospitals-by-sgg.json"), "w"),
+          ensure_ascii=False, separators=(",", ":"))
+
+# 개원 추세(시군구별 최근 1년·3년 개원 수) — 경쟁 심화 신호. 기준일 2026-06-30.
+openings_out = {k: v for k, v in openings.items()}
+meta["openings_ref"] = REF.isoformat()
+json.dump(openings_out, open(os.path.join(OUT, "openings-by-sgg.json"), "w"),
           ensure_ascii=False, separators=(",", ":"))
 
 points = {"types": TYPES, "keys": KEYS,

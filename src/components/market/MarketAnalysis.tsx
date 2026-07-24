@@ -283,6 +283,12 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                     {hos.clinicToOriental != null && <span>의원:한의원 <b className="text-ink">{hos.clinicToOriental}:1</b></span>}
                     {hos.perTenThousand != null && <span>만명당 <b className="text-ink">{hos.perTenThousand}</b>개</span>}
                   </div>
+                  {res.openings && (
+                    <div className="rounded-lg border border-line bg-surface/40 px-2.5 py-1.5 text-[11px]">
+                      <span className="font-semibold text-ink">최근 개원</span> · 1년 <b className={res.openings.y1 >= 30 ? "text-rose-500" : "text-ink"}>{fmt(res.openings.y1)}곳</b> · 3년 {fmt(res.openings.y3)}곳
+                      <span className="ml-1 text-slate-400">{res.openings.y1 >= 30 ? "· 신규 진입 활발(경쟁 심화)" : res.openings.y1 <= 3 ? "· 안정" : ""}</span>
+                    </div>
+                  )}
                   {/* 종별 전체 막대 */}
                   <div className="space-y-1">
                     {Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([type, n]) => (
