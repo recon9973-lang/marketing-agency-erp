@@ -6,8 +6,11 @@
  *   ① 수주 진단(대응 방향)  ② 키워드 실측  ③ 홈페이지 검색·AI 노출 정밀진단  ④ 경쟁사  → 통합 브리프
  * ※ 상권분석과 별개 트랙. 상권 화면(/market)에는 전략 내용을 넣지 않는다.
  */
+import { Prisma } from "@prisma/client";
 import { runAction, type ActionResult } from "@/server/action-result";
 import { requireUser } from "@/server/actions/_helpers";
+import { db } from "@/server/db";
+import { getDefaultOrgId } from "@/server/org";
 import {
   getLocationInsight,
   getOpenings,
@@ -254,5 +257,40 @@ export async function analyzeMarketingStrategy(input: {
     const brief = buildBrief({ brand, label, specialty, date, acquisition, keywords, journey, seo, compliance, competitors });
 
     return { brand, regionLabel: label, specialty, resolved: Boolean(key), acquisition, keywords, journey, seo, compliance, competitors, brief };
+  });
+}
+
+/** 마케팅 전략 결과를 상담 리포트(ConsultingReport)로 저장 — 상담 이력·재조회. clientId 있으면 연결. */
+export async function saveStrategyReport(input: {
+  brand: string;
+  region: string;
+  specialty?: string | null;
+  brief: string;
+  summary?: string | null;
+  keywords?: unknown;
+  competitors?: string | null;
+  clientId?: string | null;
+}): Promise<ActionResult<{ id: string }>> {
+  return runAction(async (): Promise<{ id: string }> => {
+    const user = await requireUser();
+    const brief = (input.brief ?? "").trim();
+    if (!brief) throw new Error("빈 브리프는 저장할 수 없습니다.");
+    const orgId = await getDefaultOrgId();
+    const report = await db.consultingReport.create({
+      data: {
+        clientId: input.clientId?.trim() || null,
+        authorId: user.id,
+        hospitalName: input.brand?.trim() || "(신규 병원)",
+        address: input.region?.trim() || null,
+        departments: input.specialty?.trim() || null,
+        keywords: (Array.isArray(input.keywords) ? input.keywords : []) as Prisma.InputJsonValue,
+        competitors: input.competitors?.trim() ? input.competitors.trim() : Prisma.JsonNull,
+        marketAnalysis: brief,
+        summary: input.summary?.trim() || null,
+        status: "DRAFT",
+        orgId
+      }
+    });
+    return { id: report.id };
   });
 }

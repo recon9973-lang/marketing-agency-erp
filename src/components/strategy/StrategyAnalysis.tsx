@@ -6,9 +6,9 @@
  * 상권분석(/market)과 별개 트랙. 상권 데이터를 근거로 소비만.
  */
 import { useState, useTransition } from "react";
-import { analyzeMarketingStrategy, type MarketingStrategy } from "@/server/actions/strategy";
+import { analyzeMarketingStrategy, saveStrategyReport, type MarketingStrategy } from "@/server/actions/strategy";
 import { ConsultingReviewPanel } from "@/components/insights/ConsultingReviewPanel";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Save } from "lucide-react";
 
 const SPECIALTIES = [
   "", "내과", "정형외과", "성형외과", "피부과", "이비인후과", "안과", "산부인과", "소아청소년과",
@@ -37,6 +37,7 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [copied, setCopied] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
 
   function run() {
     const q = region.trim();
@@ -45,11 +46,31 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
       return;
     }
     setError(null);
+    setSaveState("idle");
     start(async () => {
       const r = await analyzeMarketingStrategy({ brand: brand || null, region: q, specialty: specialty || null, url: url || null });
       if (r.ok) setRes(r.data);
       else setError(r.error.message);
     });
+  }
+
+  async function saveReport() {
+    if (!res) return;
+    setSaveState("saving");
+    const r = await saveStrategyReport({
+      brand: res.brand,
+      region: res.regionLabel,
+      specialty: res.specialty,
+      brief: res.brief,
+      summary: res.acquisition?.review.headline ?? null,
+      keywords: res.keywords.rows,
+      competitors: res.competitors.places.map((p) => p.name).join(", ") || null
+    });
+    if (r.ok) setSaveState("saved");
+    else {
+      setSaveState("idle");
+      setError(r.error.message);
+    }
   }
 
   async function copyBrief() {
@@ -104,10 +125,15 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
         <>
           {/* 통합 브리프 복사 */}
           <div className="flex items-center justify-between rounded-xl border border-line bg-surface/50 px-4 py-2.5">
-            <span className="text-[12.5px] font-semibold text-slate-500">📄 4개 실측 블록 종합 — 통합 제안 브리프</span>
-            <button onClick={copyBrief} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-card px-3 py-1.5 text-[12.5px] font-semibold text-slate-600 transition hover:bg-surface/60 dark:text-slate-300">
-              {copied ? <><Check className="h-3.5 w-3.5 text-emerald-500" /> 복사됨</> : <><Copy className="h-3.5 w-3.5" /> 브리프 복사</>}
-            </button>
+            <span className="text-[12.5px] font-semibold text-slate-500">📄 6개 실측 블록 종합 — 통합 제안 브리프</span>
+            <div className="flex items-center gap-2">
+              <button onClick={saveReport} disabled={saveState !== "idle"} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-card px-3 py-1.5 text-[12.5px] font-semibold text-slate-600 transition hover:bg-surface/60 disabled:opacity-60 dark:text-slate-300">
+                {saveState === "saved" ? <><Check className="h-3.5 w-3.5 text-emerald-500" /> 저장됨</> : saveState === "saving" ? "저장 중…" : <><Save className="h-3.5 w-3.5" /> 상담 리포트로 저장</>}
+              </button>
+              <button onClick={copyBrief} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-card px-3 py-1.5 text-[12.5px] font-semibold text-slate-600 transition hover:bg-surface/60 dark:text-slate-300">
+                {copied ? <><Check className="h-3.5 w-3.5 text-emerald-500" /> 복사됨</> : <><Copy className="h-3.5 w-3.5" /> 브리프 복사</>}
+              </button>
+            </div>
           </div>
 
           {!res.resolved && (
