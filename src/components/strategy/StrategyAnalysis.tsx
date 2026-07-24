@@ -366,7 +366,7 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
             <div className={CARD}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-bold text-ink">⑦ 광고 예산 시나리오 <span className="font-normal text-slate-400">파워링크 CPC</span></h3>
-                <span className={`text-[11px] ${res.budget.bidConnected ? "text-emerald-500" : "text-amber-500"}`}>{res.budget.bidConnected ? "✅ CPC 실측(검색광고 입찰가)" : "🟡 CPC 경쟁도 기반 추정"}</span>
+                <span className={`text-[11px] ${res.budget.bidConnected ? "text-emerald-500" : "text-slate-400"}`}>{res.budget.bidConnected ? "✅ CPC 실측(검색광고 입찰가)" : "⚪ 네이버 검색광고 미연결"}</span>
               </div>
               <div className="mt-3 overflow-x-auto">
                 <table className="w-full min-w-[440px] text-[12.5px]">
@@ -375,7 +375,7 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
                       <th className="pb-2 pr-3 font-semibold">키워드</th>
                       <th className="px-2 pb-2 text-right font-semibold">월검색수</th>
                       <th className="px-2 pb-2 text-center font-semibold">경쟁</th>
-                      <th className="px-2 pb-2 text-right font-semibold">CPC(원)</th>
+                      <th className="px-2 pb-2 text-right font-semibold">CPC(원, 실측)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -384,25 +384,33 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
                         <td className="py-2 pr-3 font-medium text-ink">{r.keyword}</td>
                         <td className="px-2 text-right tabular-nums text-slate-500">{fmt(r.total)}</td>
                         <td className="px-2 text-center text-slate-500">{r.competition ?? "—"}</td>
-                        <td className="px-2 text-right tabular-nums text-ink">{fmt(r.cpc)}{!r.measured && <span className="text-amber-500">*</span>}</td>
+                        <td className="px-2 text-right tabular-nums text-ink">{r.cpc == null ? <span className="text-slate-400">미조회</span> : fmt(r.cpc)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
-                {res.budget.scenarios.map((sc) => (
-                  <div key={sc.label} className="rounded-xl border border-line bg-surface/50 p-3">
-                    <div className="text-[11.5px] font-bold text-brand">{sc.label}</div>
-                    <div className="mt-0.5 flex items-baseline gap-1">
-                      <span className="text-xl font-black tabular-nums text-ink">{Math.round(sc.monthlyWon / 10000).toLocaleString("ko-KR")}</span>
-                      <span className="text-[11px] text-slate-400">만원/월</span>
-                    </div>
-                    <p className="mt-1 text-[10.5px] text-slate-400">{sc.note}</p>
+              {res.budget.bidConnected ? (
+                <>
+                  <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
+                    {res.budget.scenarios.map((sc) => (
+                      <div key={sc.label} className="rounded-xl border border-line bg-surface/50 p-3">
+                        <div className="text-[11.5px] font-bold text-brand">{sc.label}</div>
+                        <div className="mt-0.5 flex items-baseline gap-1">
+                          <span className="text-xl font-black tabular-nums text-ink">{Math.round(sc.monthlyWon / 10000).toLocaleString("ko-KR")}</span>
+                          <span className="text-[11px] text-slate-400">만원/월</span>
+                        </div>
+                        <p className="mt-1 text-[10.5px] text-slate-400">{sc.note}</p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <p className="mt-2 text-[10.5px] text-slate-400">* 표시 CPC = 경쟁도 기반 추정(실측 입찰가 아님). 예산 = 월검색량×CTR×CPC 가늠 — 실집행 전 참고치.</p>
+                  <p className="mt-2 text-[10.5px] text-slate-400">CPC = 네이버 검색광고 실측 입찰가. 예산 = 월검색량×CTR×CPC 가늠 — 실집행 전 참고치.</p>
+                </>
+              ) : (
+                <div className="mt-3 rounded-xl border border-line bg-surface/40 p-3 text-[11.5px] text-slate-500">
+                  <b className="text-ink">예산 시나리오 미산출</b> — 네이버 검색광고 API 미연결로 CPC 실측 입찰가를 확보하지 못했습니다. <span className="text-slate-400">추정치는 사용하지 않습니다.</span> <code className="text-[10.5px]">NAVER_AD_API_KEY·SECRET·CUSTOMER_ID</code> 연결 시 실측 입찰가 기반 예산이 자동 산출됩니다.
+                </div>
+              )}
             </div>
           )}
 

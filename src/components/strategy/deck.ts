@@ -159,18 +159,30 @@ export async function downloadStrategyDeck(strategy: MarketingStrategy, today: s
   // ── 8. 광고 예산 시나리오 ─────────────────────────────────
   const s8 = pptx.addSlide();
   head(s8, "07. 광고 예산 시나리오 · 파워링크", 8);
-  const brows = [["키워드", "월검색수", "경쟁", "CPC(원)"]].concat(
-    s.budget.rows.map((r) => [r.keyword, fmt(r.total), r.competition ?? "—", `${fmt(r.cpc)}${r.measured ? "" : "*"}`])
-  );
-  tbl(s8, brows, 0.6, 1.35, 6.6, [3.0, 1.6, 1.0, 1.0]);
-  s.budget.scenarios.forEach((sc, i) => {
-    const y = 1.5 + i * 1.6;
-    s8.addShape(pptx.ShapeType.roundRect, { x: 7.6, y, w: 5.1, h: 1.35, fill: { color: C.light }, line: { color: C.brand, width: 1 }, rectRadius: 0.06 });
-    s8.addText(sc.label, { x: 7.8, y: y + 0.12, w: 2, h: 0.3, fontSize: 12, bold: true, color: C.brand, fontFace: FONT });
-    s8.addText(`${won(sc.monthlyWon)}원/월`, { x: 9.6, y: y + 0.1, w: 3, h: 0.5, fontSize: 20, bold: true, color: C.ink, align: "right", fontFace: FONT });
-    s8.addText(sc.note, { x: 7.8, y: y + 0.75, w: 4.7, h: 0.4, fontSize: 9.5, color: C.sub, fontFace: FONT });
-  });
-  s8.addText(`* CPC = 경쟁도 추정(실측 입찰가 아님) · 예산 = 월검색량×CTR×CPC 가늠 · ${s.budget.bidConnected ? "일부 실측" : "추정"}`, { x: 0.6, y: 6.9, w: 12, h: 0.35, fontSize: 9, color: C.sub, fontFace: FONT });
+  if (s.budget.bidConnected) {
+    const brows = [["키워드", "월검색수", "경쟁", "CPC(실측)"]].concat(
+      s.budget.rows.map((r) => [r.keyword, fmt(r.total), r.competition ?? "—", r.cpc == null ? "미조회" : fmt(r.cpc)])
+    );
+    tbl(s8, brows, 0.6, 1.35, 6.6, [3.0, 1.6, 1.0, 1.0]);
+    s.budget.scenarios.forEach((sc, i) => {
+      const y = 1.5 + i * 1.6;
+      s8.addShape(pptx.ShapeType.roundRect, { x: 7.6, y, w: 5.1, h: 1.35, fill: { color: C.light }, line: { color: C.brand, width: 1 }, rectRadius: 0.06 });
+      s8.addText(sc.label, { x: 7.8, y: y + 0.12, w: 2, h: 0.3, fontSize: 12, bold: true, color: C.brand, fontFace: FONT });
+      s8.addText(`${won(sc.monthlyWon)}원/월`, { x: 9.6, y: y + 0.1, w: 3, h: 0.5, fontSize: 20, bold: true, color: C.ink, align: "right", fontFace: FONT });
+      s8.addText(sc.note, { x: 7.8, y: y + 0.75, w: 4.7, h: 0.4, fontSize: 9.5, color: C.sub, fontFace: FONT });
+    });
+    s8.addText(`CPC = 네이버 검색광고 실측 입찰가 · 예산 = 월검색량×CTR×CPC 가늠(실집행 전 참고)${s.budget.measuredCount < s.budget.rows.length ? ` · 실측 ${s.budget.measuredCount}개 키워드 기준` : ""}`, { x: 0.6, y: 6.9, w: 12, h: 0.35, fontSize: 9, color: C.sub, fontFace: FONT });
+  } else {
+    const brows = [["키워드", "월검색수", "경쟁"]].concat(
+      s.budget.rows.map((r) => [r.keyword, fmt(r.total), r.competition ?? "—"])
+    );
+    tbl(s8, brows, 0.6, 1.35, 6.6, [3.6, 2.0, 1.0]);
+    s8.addShape(pptx.ShapeType.roundRect, { x: 7.6, y: 1.5, w: 5.1, h: 3.2, fill: { color: C.light }, line: { color: C.warn, width: 1 }, rectRadius: 0.06 });
+    s8.addText("예산 시나리오 미산출", { x: 7.85, y: 1.75, w: 4.6, h: 0.4, fontSize: 14, bold: true, color: C.warn, fontFace: FONT });
+    s8.addText("네이버 검색광고 API 미연결로 CPC 실측 입찰가를 확보하지 못했습니다. 추정치는 사용하지 않습니다.", { x: 7.85, y: 2.3, w: 4.6, h: 1.4, fontSize: 11, color: C.ink, fontFace: FONT, lineSpacingMultiple: 1.15 });
+    s8.addText("NAVER_AD_API_KEY·SECRET·CUSTOMER_ID 연결 시 실측 입찰가 기반 예산이 자동 산출됩니다.", { x: 7.85, y: 3.7, w: 4.6, h: 0.9, fontSize: 9.5, color: C.sub, fontFace: FONT, lineSpacingMultiple: 1.15 });
+    s8.addText("CPC 추정 금지 원칙 — 실측 입찰가만 예산 근거로 사용합니다.", { x: 0.6, y: 6.9, w: 12, h: 0.35, fontSize: 9, color: C.sub, fontFace: FONT });
+  }
 
   // ── 9. 의료광고 리스크 ────────────────────────────────────
   const s9 = pptx.addSlide();

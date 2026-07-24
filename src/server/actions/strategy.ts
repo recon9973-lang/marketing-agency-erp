@@ -26,6 +26,7 @@ import { fetchBidEstimates } from "@/server/integrations/naver-search";
 import { buildJourneyFunnel, journeyFunnelMarkdown, type JourneyFunnel } from "@/server/market/journey-funnel";
 import { runSeoAudit, scorePct, type SeoAuditOutcome } from "@/server/seo-engine";
 import { searchLocalPlaces, fetchBlogTop, naverLocalConfigured, type LocalPlace } from "@/server/integrations/naver-local";
+import { selectCompetitors } from "@/server/market/competitor-filter";
 import { checkMedicalLaw } from "@/server/compliance/medical-law";
 
 export type StrategySeo = {
@@ -45,8 +46,9 @@ export type StrategyCompetitors = { configured: boolean; query: string; places: 
 
 export type StrategyBudget = {
   bidConnected: boolean; // 하나라도 실측 입찰가 확보(프로덕션·키 연결 시)
-  rows: { keyword: string; total: number | null; competition: string | null; cpc: number; measured: boolean }[];
-  scenarios: { label: string; monthlyWon: number; note: string }[];
+  measuredCount: number; // 실측 CPC 확보 키워드 수(0이면 예산 산출 불가)
+  rows: { keyword: string; total: number | null; competition: string | null; cpc: number | null; measured: boolean }[];
+  scenarios: { label: string; monthlyWon: number; note: string }[]; // 실측 CPC 있을 때만 채워짐(추정 금지)
 };
 
 export type ChannelSov = {
@@ -124,31 +126,12 @@ function scanCompliance(outcome: SeoAuditOutcome | null, prohibited?: string | n
   };
 }
 
-/** 상호 정규화(공백·의료기관 접미어 제거) — 자기병원 판별용. */
-function normName(s: string): string {
-  return s
-    .replace(/\s+/g, "")
-    .replace(/(의원|병원|치과|한의원|한방병원|클리닉|centre|center|clinic)$/i, "")
-    .toLowerCase();
-}
-
-/** 진료과 동종 필터 + 자기병원(brand) 제외 경쟁사 상위 표본. */
+/** 진료과 관련 우선 정렬 + 자기병원·이종 제외 경쟁사 상위 표본(최대 5·네이버 API 상한). */
 async function fetchCompetitors(label: string, specialty: string | null, brand: string | null = null): Promise<StrategyCompetitors> {
   const q = `${label} ${specialty || ""}`.trim();
   if (!naverLocalConfigured()) return { configured: false, query: q, places: [] };
-  const b = brand ? normName(brand) : "";
-  const raw = (await searchLocalPlaces(q, 8).catch(() => [])).filter((p) => {
-    if (b.length < 2) return true;
-    const n = normName(p.name);
-    return n.length >= 2 && !(n === b || n.includes(b) || b.includes(n));
-  });
-  let places = raw;
-  if (specialty) {
-    const term = specialty.replace(/\s+/g, "");
-    const same = raw.filter((p) => `${p.category}${p.name}`.replace(/\s+/g, "").includes(term));
-    if (same.length > 0) places = same;
-  }
-  return { configured: true, query: q, places: places.slice(0, 5) };
+  const raw = await searchLocalPlaces(q, 5).catch(() => []);
+  return { configured: true, query: q, places: selectCompetitors(raw, { specialty, brand, limit: 5 }).places };
 }
 
 const fmt = (n: number | null | undefined): string => (n == null ? "—" : n.toLocaleString("ko-KR"));
@@ -170,31 +153,33 @@ async function computeSov(brand: string, keyword: string | null): Promise<Channe
   return { configured: naverLocalConfigured(), keyword, channels };
 }
 
-/** 경쟁도 → 클릭당 CPC 추정(원, 의료 파워링크 중앙값 근사). 실측 입찰가 없을 때 폴백. */
-function estimateCpc(competition: string | null): number {
-  if (competition === "높음") return 5500;
-  if (competition === "낮음") return 1500;
-  return 3200; // 중간·미상
-}
-
-/** 상위 키워드 + 입찰가 → 파워링크 광고 예산 시나리오. CPC는 실측(있으면)/추정. */
+/**
+ * 상위 키워드 + 네이버 검색광고 실측 입찰가 → 파워링크 예산 시나리오.
+ * 정직성 원칙: CPC는 **실측 입찰가만** 사용한다. 추정치를 지어내지 않는다.
+ * 실측 CPC가 하나도 없으면 시나리오는 산출하지 않는다(빈 배열 → UI가 미연결 안내).
+ */
 function buildBudget(rows: KeywordScan["rows"], bids: Map<string, number | null>): StrategyBudget {
   const top = rows.slice(0, 8);
-  let anyMeasured = false;
   const brows = top.map((r) => {
     const measured = bids.get(r.keyword) ?? null;
-    if (measured != null) anyMeasured = true;
-    return { keyword: r.keyword, total: r.total, competition: r.competition, cpc: measured ?? estimateCpc(r.competition), measured: measured != null };
+    return { keyword: r.keyword, total: r.total, competition: r.competition, cpc: measured, measured: measured != null };
   });
-  // 월 예산 = Σ(월검색량 × 목표 CTR × CPC). 상위노출 가정 CTR 시나리오.
+  const measuredRows = brows.filter((r) => r.cpc != null);
+  const measuredCount = measuredRows.length;
+  // 실측 CPC가 없으면 예산 산출 불가(추정 금지) → 시나리오 비움.
+  if (measuredCount === 0) {
+    return { bidConnected: false, measuredCount: 0, rows: brows, scenarios: [] };
+  }
+  // 월 예산 = Σ(월검색량 × 목표 CTR × 실측 CPC). 실측된 키워드만 합산.
   const scen = (ctr: number) =>
-    Math.round(brows.reduce((s, r) => s + (r.total ?? 0) * ctr * r.cpc, 0) / 10000) * 10000;
+    Math.round(measuredRows.reduce((s, r) => s + (r.total ?? 0) * ctr * (r.cpc as number), 0) / 10000) * 10000;
+  const suffix = measuredCount < brows.length ? ` · 실측 ${measuredCount}개 키워드 기준` : "";
   const scenarios = [
-    { label: "보수", monthlyWon: scen(0.02), note: "핵심 소수 키워드·중하위 노출" },
-    { label: "표준", monthlyWon: scen(0.04), note: "주요 키워드 상위 노출 유지" },
-    { label: "공격", monthlyWon: scen(0.07), note: "전 키워드 상단 점유 확대" }
+    { label: "보수", monthlyWon: scen(0.02), note: `핵심 소수 키워드·중하위 노출${suffix}` },
+    { label: "표준", monthlyWon: scen(0.04), note: `주요 키워드 상위 노출 유지${suffix}` },
+    { label: "공격", monthlyWon: scen(0.07), note: `전 키워드 상단 점유 확대${suffix}` }
   ];
-  return { bidConnected: anyMeasured, rows: brows, scenarios };
+  return { bidConnected: true, measuredCount, rows: brows, scenarios };
 }
 
 /** 4개 실측 블록 → 통합 제안 브리프(마크다운). */
@@ -261,12 +246,19 @@ function buildBrief(s: {
   L.push("");
   // 7. 광고 예산 시나리오
   L.push(`## 7. 광고 예산 시나리오 (파워링크)`);
-  L.push(`> CPC ${s.budget.bidConnected ? "실측(네이버 검색광고 입찰가)" : "경쟁도 기반 추정"} · 예산=월검색량×CTR×CPC 가늠(실집행 전 참고).`);
-  L.push(`| 키워드 | 월검색수 | 경쟁 | CPC(원) |`);
-  L.push(`|---|---:|:--:|---:|`);
-  s.budget.rows.forEach((r) => L.push(`| ${r.keyword} | ${fmt(r.total)} | ${r.competition ?? "—"} | ${fmt(r.cpc)}${r.measured ? "" : "*"} |`));
-  L.push(`- 월 예산 가늠: ${s.budget.scenarios.map((sc) => `${sc.label} ${Math.round(sc.monthlyWon / 10000).toLocaleString("ko-KR")}만`).join(" · ")} (추정)`);
-  L.push(`  * CPC에 * 표시는 경쟁도 기반 추정(실측 입찰가 아님).`);
+  if (s.budget.bidConnected) {
+    L.push(`> CPC 실측(네이버 검색광고 입찰가) · 예산=월검색량×CTR×CPC 가늠(실집행 전 참고).`);
+    L.push(`| 키워드 | 월검색수 | 경쟁 | CPC(원, 실측) |`);
+    L.push(`|---|---:|:--:|---:|`);
+    s.budget.rows.forEach((r) => L.push(`| ${r.keyword} | ${fmt(r.total)} | ${r.competition ?? "—"} | ${r.cpc == null ? "미조회" : fmt(r.cpc)} |`));
+    L.push(`- 월 예산 가늠: ${s.budget.scenarios.map((sc) => `${sc.label} ${Math.round(sc.monthlyWon / 10000).toLocaleString("ko-KR")}만`).join(" · ")}${s.budget.measuredCount < s.budget.rows.length ? ` (실측 ${s.budget.measuredCount}개 키워드 기준)` : ""}`);
+  } else {
+    L.push(`> ⚠️ 네이버 검색광고 API 미연결 — CPC 실측 입찰가를 확보하지 못해 예산 시나리오는 산출하지 않습니다(추정치 사용 안 함).`);
+    L.push(`| 키워드 | 월검색수 | 경쟁 |`);
+    L.push(`|---|---:|:--:|`);
+    s.budget.rows.forEach((r) => L.push(`| ${r.keyword} | ${fmt(r.total)} | ${r.competition ?? "—"} |`));
+    L.push(`- NAVER_AD_API_KEY·SECRET·CUSTOMER_ID 연결 시 실측 입찰가 기반 예산이 자동 산출됩니다.`);
+  }
   L.push("");
   // 8. 채널 점유(본원 vs 경쟁)
   L.push(`## 8. 채널 점유 — 본원 vs 경쟁${s.sov.keyword ? ` (‘${s.sov.keyword}’)` : ""}`);
