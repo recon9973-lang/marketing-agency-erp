@@ -18,9 +18,34 @@ import {
   type DemandRow,
   type FacilityRadius
 } from "@/server/data/region-insight";
-import { buildMarketReport, buildProposal, type MarketReport } from "@/server/market/report";
+import { buildMarketReport, buildProposal, type MarketReport, type ReportExtra } from "@/server/market/report";
 import { searchLocalPlaces, naverLocalConfigured, type LocalPlace } from "@/server/integrations/naver-local";
+import { resolveAdmCode, fetchRegionDemographics } from "@/server/integrations/sgis";
 import { isAiConfigured, generateMarketNarrative } from "@/server/ai/claude";
+
+/** 진료과 동종 필터를 적용한 경쟁사 상위 표본. */
+async function fetchCompetitors(label: string, specialty: string | null): Promise<LocalPlace[]> {
+  const q = `${label} ${specialty || ""}`.trim();
+  const raw = await searchLocalPlaces(q, 5).catch(() => []);
+  if (specialty) {
+    const term = specialty.replace(/\s+/g, "");
+    const same = raw.filter((p) => `${p.category}${p.name}`.replace(/\s+/g, "").includes(term));
+    if (same.length > 0) return same;
+  }
+  return raw;
+}
+
+/** 문서 생성에 연결된 실측 소스(네이버 경쟁사 · SGIS 연령·성별)를 모은다(모두 best-effort). */
+async function gatherReportExtra(label: string, specialty: string | null): Promise<ReportExtra> {
+  const [competitors, demographics] = await Promise.all([
+    fetchCompetitors(label, specialty),
+    (async () => {
+      const adm = await resolveAdmCode(label).catch(() => null);
+      return adm ? await fetchRegionDemographics(adm.admCd).catch(() => null) : null;
+    })()
+  ]);
+  return { competitors, demographics };
+}
 
 /** 리포트/제안서 마크다운에 AI 심층 분석을 덧붙인다(키 있을 때·실패 시 원본 유지). */
 async function withAiNarrative(report: MarketReport): Promise<MarketReport> {
@@ -65,7 +90,13 @@ export async function generateMarketReport(input: {
 }): Promise<ActionResult<MarketReport>> {
   return runAction(async (): Promise<MarketReport> => {
     await requireUser();
-    return withAiNarrative(buildMarketReport((input.region ?? "").trim(), input.specialty?.trim() || null, input.brand?.trim() || null));
+    const region = (input.region ?? "").trim();
+    const specialty = input.specialty?.trim() || null;
+    const brand = input.brand?.trim() || null;
+    const { resolve } = getLocationInsight(region);
+    if (!resolve.key) return buildMarketReport(region, specialty, brand);
+    const extra = await gatherReportExtra(resolve.label, specialty);
+    return withAiNarrative(buildMarketReport(region, specialty, brand, extra));
   });
 }
 
@@ -73,14 +104,23 @@ export async function generateMarketReport(input: {
 export async function searchCompetitors(input: {
   region: string;
   specialty?: string | null;
-}): Promise<ActionResult<{ configured: boolean; query: string; places: LocalPlace[] }>> {
+}): Promise<ActionResult<{ configured: boolean; query: string; places: LocalPlace[]; filtered: boolean }>> {
   return runAction(async () => {
     await requireUser();
     const { resolve } = getLocationInsight((input.region ?? "").trim());
     const label = resolve.key ? resolve.label : (input.region ?? "").trim();
-    const q = `${label} ${input.specialty?.trim() || ""}`.trim();
-    const places = await searchLocalPlaces(q, 5);
-    return { configured: naverLocalConfigured(), query: q, places };
+    const specialty = input.specialty?.trim() || "";
+    const q = `${label} ${specialty}`.trim();
+    const raw = await searchLocalPlaces(q, 5);
+    // 동종 필터: 진료과가 있으면 category/상호에 그 진료과가 들어간 곳만(요양병원 등 이종 제거).
+    // 필터 결과가 없으면 전체 표본으로 폴백.
+    let places = raw;
+    if (specialty) {
+      const term = specialty.replace(/\s+/g, "");
+      const same = raw.filter((p) => `${p.category}${p.name}`.replace(/\s+/g, "").includes(term));
+      if (same.length > 0) places = same;
+    }
+    return { configured: naverLocalConfigured(), query: q, places, filtered: specialty ? places.length < raw.length : false };
   });
 }
 
@@ -105,13 +145,12 @@ export async function generateProposal(input: {
 }): Promise<ActionResult<MarketReport>> {
   return runAction(async (): Promise<MarketReport> => {
     await requireUser();
-    return withAiNarrative(
-      buildProposal(
-        (input.region ?? "").trim(),
-        input.specialty?.trim() || null,
-        input.brand?.trim() || null,
-        input.monthlyBudget ?? 200
-      )
-    );
+    const region = (input.region ?? "").trim();
+    const specialty = input.specialty?.trim() || null;
+    const brand = input.brand?.trim() || null;
+    const { resolve } = getLocationInsight(region);
+    if (!resolve.key) return buildProposal(region, specialty, brand, input.monthlyBudget ?? 200);
+    const extra = await gatherReportExtra(resolve.label, specialty);
+    return withAiNarrative(buildProposal(region, specialty, brand, input.monthlyBudget ?? 200, extra));
   });
 }

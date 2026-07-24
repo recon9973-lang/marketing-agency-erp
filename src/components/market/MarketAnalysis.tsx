@@ -50,7 +50,7 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
   const [radiusRes, setRadiusRes] = useState<FacilityRadius | null>(null);
   const [radiusPending, startRadius] = useTransition();
   const [pptBusy, setPptBusy] = useState(false);
-  const [comp, setComp] = useState<{ configured: boolean; query: string; places: LocalPlace[] } | null>(null);
+  const [comp, setComp] = useState<{ configured: boolean; query: string; places: LocalPlace[]; filtered: boolean } | null>(null);
   const [compPending, startComp] = useTransition();
 
   function run(regionOverride?: string) {
@@ -340,7 +340,10 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-sm font-bold text-ink">🏥 경쟁사 상위 <span className="font-normal text-slate-400">네이버 지역검색</span></h3>
-                <p className="mt-0.5 text-[11px] text-slate-500">&lsquo;{res.resolve.label} {specialty}&rsquo; 상위 표본(최대 5 · 리뷰순). 개수 아님, 상위 샘플.</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  기준: 네이버 지역검색 &lsquo;{res.resolve.label} {specialty}&rsquo; · 리뷰·언급 많은 순 · 최대 5(표본, 개수 아님)
+                  {specialty && <span className="text-emerald-600"> · {specialty} 동종만</span>}
+                </p>
               </div>
               <button
                 onClick={runComp}

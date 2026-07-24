@@ -11,6 +11,33 @@ import {
   type HospitalSummary,
   type RegionPopulation
 } from "@/server/data/region-insight";
+import type { LocalPlace } from "@/server/integrations/naver-local";
+import type { RegionDemographics } from "@/server/integrations/sgis";
+
+/** 리포트에 덧붙일 실측 보강(연결된 소스: 네이버 경쟁사 · SGIS 연령·성별). */
+export type ReportExtra = { competitors?: LocalPlace[]; demographics?: RegionDemographics | null };
+
+const ORIENTAL = new Set(["한의원", "한방병원", "한방"]);
+
+function demographicsLines(d: RegionDemographics | null | undefined): string[] {
+  if (!d) return [];
+  const out: string[] = [];
+  if (d.genderResolved && d.female != null && d.male != null)
+    out.push(`- 성별(SGIS): 남 ${fmt(d.male)} · 여 ${fmt(d.female)} (여성 ${d.femaleRatio ?? "—"}%) ✅실측`);
+  if (d.ageResolved && d.ageBands.length)
+    out.push(`- 연령대(SGIS): ${d.ageBands.map((b) => `${b.label} ${b.ratio}%`).join(" · ")} ✅실측`);
+  if (d.femaleCore2039 != null)
+    out.push(`- 20~30대 여성 코어(SGIS): ${fmt(d.femaleCore2039)}명 — 미용·다이어트 핵심 타깃 ✅실측`);
+  return out;
+}
+
+function competitorLines(places: LocalPlace[] | undefined): string[] {
+  if (!places || places.length === 0) return [];
+  const out = [`## 경쟁사 상위 (네이버 지역검색 · 리뷰·언급순 표본)`, "", `| # | 상호 | 분류 | 주소 |`, `|---:|---|---|---|`];
+  places.slice(0, 5).forEach((p, i) => out.push(`| ${i + 1} | ${p.name} | ${p.category} | ${p.roadAddress || p.address} |`));
+  out.push("> 지역검색 API 상위 표본(최대 5, 개수 아님). 정밀 순위·리뷰수는 네이버 플레이스 별도 확인.");
+  return out;
+}
 
 const KCD: Record<string, string> = {
   A09: "감염성 위장염", B01: "수두", E03: "갑상선기능저하", E11: "2형 당뇨", E66: "비만",
@@ -71,7 +98,12 @@ function strategy(specialty: string | null): string[] {
   return base;
 }
 
-export function buildMarketReport(regionInput: string, specialty: string | null, brand?: string | null): MarketReport {
+export function buildMarketReport(
+  regionInput: string,
+  specialty: string | null,
+  brand?: string | null,
+  extra: ReportExtra = {}
+): MarketReport {
   const { resolve, population, hospitals } = getLocationInsight(regionInput);
   if (!resolve.key) {
     return {
@@ -103,6 +135,7 @@ export function buildMarketReport(regionInput: string, specialty: string | null,
     L.push(`- 총인구 **${fmt(population.total)}명** (행정동 ${population.dongs}개) · 전월 증감 ${population.delta >= 0 ? "▲" : "▼"}${fmt(Math.abs(population.delta))}`);
     L.push(`- 남 ${fmt(population.male)} (${pct(population.male, population.total)}%) · 여 ${fmt(population.female)} (${population.femaleRatio ?? "—"}%)`);
   } else L.push("- 🔴 인구 데이터 없음");
+  for (const line of demographicsLines(extra.demographics)) L.push(line);
   L.push("");
 
   // ② 병원 밀집도
@@ -120,16 +153,23 @@ export function buildMarketReport(regionInput: string, specialty: string | null,
 
   // ③ 수요
   if (specialty) {
-    L.push(`## 3. ${specialty} 수요 — 주상병 상위 ✅실측(전국)`);
-    L.push(`> 심평원 표시과목별 상병통계 — 전국 ${specialty} 의원의 주상병별 연간 환자수(지역 아님, 실수요 구조).`);
-    L.push("");
+    L.push(`## 3. ${specialty} 수요 — 주상병 상위`);
     if (demand.length) {
+      L.push(`> 심평원 표시과목별 상병통계 — 전국 ${specialty} 의원의 주상병별 연간 환자수(지역 아님, 실수요 구조) ✅실측`);
+      L.push("");
       L.push(`| 순위 | 주상병 | 환자수 |`);
       L.push(`|---:|---|---:|`);
       demand.slice(0, 12).forEach((d, i) => L.push(`| ${i + 1} | ${d.code} ${KCD[d.code] ?? ""} | ${fmt(d.patients)} |`));
+    } else if (ORIENTAL.has(specialty)) {
+      L.push(`> ⚠️ 심평원 상병통계는 **양방 표시과목만** 수록 — 한방(${specialty}) 주상병 수요는 이 데이터셋에 없음.`);
+      L.push(`- 🔴 한방 주상병 수요 미보유 → 심평원 **한방 진료통계** 파일 추가 시 실측 가능(현재 미연동).`);
     } else L.push("- 🔴 해당 진료과 수요 데이터 없음");
     L.push("");
   }
+
+  // 경쟁사(네이버 지역검색) — 연결 시 실측 표본
+  for (const line of competitorLines(extra.competitors)) L.push(line);
+  if (extra.competitors && extra.competitors.length) L.push("");
 
   // ④ 종합진단 / 전략
   L.push(`## ${specialty ? 4 : 3}. 종합진단`);
@@ -139,11 +179,20 @@ export function buildMarketReport(regionInput: string, specialty: string | null,
   for (const s of strategy(specialty)) L.push(`- ${s}`);
   L.push("");
 
-  // 부록
+  // 부록 — 실제 포함된 소스에 따라 등급을 동적으로 표기
+  const measured = ["인구·성별(행안부)", "병원 밀집도·종별(심평원)"];
+  if (demand.length) measured.push("진료과 주상병 수요(심평원)");
+  if (extra.demographics?.genderResolved || extra.demographics?.ageResolved) measured.push("연령×성별 코어(SGIS)");
+  if (extra.competitors && extra.competitors.length) measured.push("경쟁사 상위 표본(네이버 지역검색)");
+  const missing: string[] = ["지역별 진료인원(심평원 지역 진료통계 별도)"];
+  if (specialty && ORIENTAL.has(specialty) && !demand.length) missing.push("한방 주상병 수요(심평원 한방 진료통계)");
+  if (!(extra.demographics?.genderResolved || extra.demographics?.ageResolved)) missing.push("연령×성별 코어(SGIS 미연동/미해결)");
+  if (!(extra.competitors && extra.competitors.length)) missing.push("경쟁사 플레이스 순위·리뷰(네이버 미연동)");
+
   L.push(`## 부록 — 데이터 상태`);
-  L.push(`- ✅실측: 인구·성별(행안부), 병원 밀집도·종별(심평원), 진료과 주상병 수요(심평원)`);
+  L.push(`- ✅실측: ${measured.join(", ")}`);
   L.push(`- 🟡정성: 타깃 소구·양한방 공백 등 해석`);
-  L.push(`- 🔴미실측: 지역별 진료인원, 경쟁사 플레이스 순위·리뷰(네이버 지역검색 별도), 연령×성별 코어(SGIS 키 연동 시)`);
+  L.push(`- 🔴미실측: ${missing.join(", ")}`);
 
   return { ok: true, region: label, markdown: L.join("\n") };
 }
@@ -161,7 +210,8 @@ export function buildProposal(
   regionInput: string,
   specialty: string | null,
   brand?: string | null,
-  monthlyBudgetManwon = 200
+  monthlyBudgetManwon = 200,
+  extra: ReportExtra = {}
 ): MarketReport {
   const { resolve, population, hospitals } = getLocationInsight(regionInput);
   if (!resolve.key) {
@@ -195,6 +245,10 @@ export function buildProposal(
     L.push(`- 경쟁 병·의원 ${fmt(hospitals.total)}개 · 만명당 ${per ?? "—"}(전국 ${nationalPer}, **${dense}**)`);
   }
   if (demand.length) L.push(`- ${specialty} 실수요 상위: ${demand.slice(0, 3).map((d) => `${d.code} ${KCD[d.code] ?? ""}`).join(" · ")}`);
+  else if (specialty && ORIENTAL.has(specialty)) L.push(`- ⚠️ 한방 주상병 수요는 심평원 양방 상병통계에 없어 미반영(한방 진료통계 추가 시 실측).`);
+  for (const line of demographicsLines(extra.demographics)) L.push(line);
+  if (extra.competitors && extra.competitors.length)
+    L.push(`- 경쟁사 상위(네이버): ${extra.competitors.slice(0, 5).map((p) => p.name).join(" · ")}`);
   L.push("");
 
   L.push(`## 2. 목표 (3개월 · 목표치)`);
