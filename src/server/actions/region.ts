@@ -43,10 +43,28 @@ import { buildSpecialtyProfile, type SpecialtyProfile } from "@/server/market/sp
 import { isAiConfigured, generateMarketNarrative } from "@/server/ai/claude";
 import { storeDensityInRadius, publicDataConfigured, type StoreDensity } from "@/server/integrations/publicdata-store";
 
-/** 진료과 동종 필터를 적용한 경쟁사 상위 표본. */
-async function fetchCompetitors(label: string, specialty: string | null): Promise<LocalPlace[]> {
+/** 상호 정규화(공백·의료기관 접미어 제거) — 자기병원 판별용. */
+function normBrand(s: string): string {
+  return s
+    .replace(/\s+/g, "")
+    .replace(/(의원|병원|치과|한의원|한방병원|클리닉|centre|center|clinic)$/i, "")
+    .toLowerCase();
+}
+
+/** 검색 결과에서 클라이언트 자기병원(brand)을 제외. brand 없으면 원본 유지. */
+function excludeBrand(places: LocalPlace[], brand: string | null): LocalPlace[] {
+  const b = brand ? normBrand(brand) : "";
+  if (b.length < 2) return places;
+  return places.filter((p) => {
+    const n = normBrand(p.name);
+    return n.length >= 2 && !(n === b || n.includes(b) || b.includes(n));
+  });
+}
+
+/** 진료과 동종 필터 + 자기병원 제외를 적용한 경쟁사 상위 표본. */
+async function fetchCompetitors(label: string, specialty: string | null, brand: string | null = null): Promise<LocalPlace[]> {
   const q = `${label} ${specialty || ""}`.trim();
-  const raw = await searchLocalPlaces(q, 5).catch(() => []);
+  const raw = excludeBrand(await searchLocalPlaces(q, 5).catch(() => []), brand);
   if (specialty) {
     const term = specialty.replace(/\s+/g, "");
     const same = raw.filter((p) => `${p.category}${p.name}`.replace(/\s+/g, "").includes(term));
@@ -56,9 +74,9 @@ async function fetchCompetitors(label: string, specialty: string | null): Promis
 }
 
 /** 문서 생성에 연결된 실측 소스(네이버 경쟁사 · SGIS 연령·성별)를 모은다(모두 best-effort). */
-async function gatherReportExtra(label: string, specialty: string | null): Promise<ReportExtra> {
+async function gatherReportExtra(label: string, specialty: string | null, brand: string | null = null): Promise<ReportExtra> {
   const [competitors, demographics] = await Promise.all([
-    fetchCompetitors(label, specialty),
+    fetchCompetitors(label, specialty, brand),
     (async () => {
       const adm = await resolveAdmCode(label).catch(() => null);
       return adm ? await fetchRegionDemographics(adm.admCd).catch(() => null) : null;
@@ -169,7 +187,7 @@ export async function generateMarketReport(input: {
     const brand = input.brand?.trim() || null;
     const { resolve } = getLocationInsight(region);
     if (!resolve.key) return buildMarketReport(region, specialty, brand);
-    const extra = await gatherReportExtra(resolve.label, specialty);
+    const extra = await gatherReportExtra(resolve.label, specialty, brand);
     return withAiNarrative(buildMarketReport(region, specialty, brand, extra));
   });
 }
@@ -178,14 +196,17 @@ export async function generateMarketReport(input: {
 export async function searchCompetitors(input: {
   region: string;
   specialty?: string | null;
+  brand?: string | null;
 }): Promise<ActionResult<{ configured: boolean; query: string; places: LocalPlace[]; filtered: boolean }>> {
   return runAction(async () => {
     await requireUser();
     const { resolve } = getLocationInsight((input.region ?? "").trim());
     const label = resolve.key ? resolve.label : (input.region ?? "").trim();
     const specialty = input.specialty?.trim() || "";
+    const brand = input.brand?.trim() || null;
     const q = `${label} ${specialty}`.trim();
-    const raw = await searchLocalPlaces(q, 5);
+    // 자기병원(brand) 제외 후 동종 필터. 검색 표본을 넉넉히 뽑아 제외 후에도 5건 확보.
+    const raw = excludeBrand(await searchLocalPlaces(q, 8), brand).slice(0, 5);
     // 동종 필터: 진료과가 있으면 category/상호에 그 진료과가 들어간 곳만(요양병원 등 이종 제거).
     // 필터 결과가 없으면 전체 표본으로 폴백.
     let places = raw;
@@ -232,7 +253,7 @@ export async function generateProposal(input: {
     const brand = input.brand?.trim() || null;
     const { resolve } = getLocationInsight(region);
     if (!resolve.key) return buildProposal(region, specialty, brand, input.monthlyBudget ?? 200);
-    const extra = await gatherReportExtra(resolve.label, specialty);
+    const extra = await gatherReportExtra(resolve.label, specialty, brand);
     return withAiNarrative(buildProposal(region, specialty, brand, input.monthlyBudget ?? 200, extra));
   });
 }

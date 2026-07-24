@@ -105,7 +105,7 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
     if (!res?.resolve.key) return;
     setError(null);
     startComp(async () => {
-      const r = await searchCompetitors({ region: res.resolve.label, specialty: specialty || null });
+      const r = await searchCompetitors({ region: res.resolve.label, specialty: specialty || null, brand: brand || null });
       if (r.ok) setComp(r.data);
       else setError(r.error.message);
     });

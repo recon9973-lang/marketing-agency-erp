@@ -124,18 +124,31 @@ function scanCompliance(outcome: SeoAuditOutcome | null, prohibited?: string | n
   };
 }
 
-/** 진료과 동종 필터 경쟁사 상위 표본. */
-async function fetchCompetitors(label: string, specialty: string | null): Promise<StrategyCompetitors> {
+/** 상호 정규화(공백·의료기관 접미어 제거) — 자기병원 판별용. */
+function normName(s: string): string {
+  return s
+    .replace(/\s+/g, "")
+    .replace(/(의원|병원|치과|한의원|한방병원|클리닉|centre|center|clinic)$/i, "")
+    .toLowerCase();
+}
+
+/** 진료과 동종 필터 + 자기병원(brand) 제외 경쟁사 상위 표본. */
+async function fetchCompetitors(label: string, specialty: string | null, brand: string | null = null): Promise<StrategyCompetitors> {
   const q = `${label} ${specialty || ""}`.trim();
   if (!naverLocalConfigured()) return { configured: false, query: q, places: [] };
-  const raw = await searchLocalPlaces(q, 5).catch(() => []);
+  const b = brand ? normName(brand) : "";
+  const raw = (await searchLocalPlaces(q, 8).catch(() => [])).filter((p) => {
+    if (b.length < 2) return true;
+    const n = normName(p.name);
+    return n.length >= 2 && !(n === b || n.includes(b) || b.includes(n));
+  });
   let places = raw;
   if (specialty) {
     const term = specialty.replace(/\s+/g, "");
     const same = raw.filter((p) => `${p.category}${p.name}`.replace(/\s+/g, "").includes(term));
     if (same.length > 0) places = same;
   }
-  return { configured: true, query: q, places };
+  return { configured: true, query: q, places: places.slice(0, 5) };
 }
 
 const fmt = (n: number | null | undefined): string => (n == null ? "—" : n.toLocaleString("ko-KR"));
@@ -326,7 +339,7 @@ export async function analyzeMarketingStrategy(input: {
     const [keywords, seoOutcome, competitors, sov] = await Promise.all([
       scanKeywords(label, specialty),
       target ? runSeoAudit(target, seedKeyword).catch(() => null) : Promise.resolve(null),
-      fetchCompetitors(label, specialty),
+      fetchCompetitors(label, specialty, input.brand?.trim() || null),
       computeSov(brand, seedKeyword)
     ]);
     const seo = compactSeo(Boolean(target), seoOutcome);

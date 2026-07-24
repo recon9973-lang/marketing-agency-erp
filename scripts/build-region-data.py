@@ -265,7 +265,9 @@ for r in prows:
     prov[r[2].strip()][r[1].strip()] += to_int(r[3])
 province = {}
 for sido, c in prov.items():
-    province[sido] = [{"code": code, "patients": n} for code, n in c.most_common(30)]
+    # 진료과별 필터(피부과 L 등 좁은 과)가 상위 30개 안에서 3건 미만이라 폴백되던 문제 →
+    # 상위 150개까지 저장해 좁은 과도 관련 상병 충분히 매칭(UI는 상위 12개만 노출).
+    province[sido] = [{"code": code, "patients": n} for code, n in c.most_common(150)]
 meta["province_demand"] = len(province)
 json.dump(province, open(os.path.join(OUT, "province-demand.json"), "w"),
           ensure_ascii=False, separators=(",", ":"))
