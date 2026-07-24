@@ -242,9 +242,11 @@ export async function fetchBidEstimates(
       console.warn(`[naver-ad] 입찰가 조회 실패 ${res.status}`);
       return out;
     }
-    const json = (await res.json()) as { estimate?: Array<{ key?: string; bid?: number }> };
-    for (const e of json.estimate ?? []) {
-      if (typeof e.key === "string" && typeof e.bid === "number") out.set(e.key, e.bid);
+    // 네이버 응답: { device, items: [{ keyword, key, position, bid }] } (estimate 아님).
+    const json = (await res.json()) as { items?: Array<{ keyword?: string; key?: string; bid?: number }> };
+    for (const e of json.items ?? []) {
+      const k = (e.keyword ?? e.key ?? "").trim();
+      if (k && typeof e.bid === "number") out.set(k, e.bid);
     }
   } catch (e) {
     console.warn(`[naver-ad] 입찰가 조회 예외: ${String(e).slice(0, 120)}`);
