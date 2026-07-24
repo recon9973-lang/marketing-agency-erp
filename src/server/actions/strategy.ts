@@ -22,6 +22,7 @@ import {
 import { buildScorecard } from "@/server/market/scorecard";
 import { buildAcquisitionReview, consultingReviewMarkdown, type ConsultingReview } from "@/server/market/consulting-review";
 import { scanKeywords, buildSeedKeywords, type KeywordScan } from "@/server/market/keyword-scan";
+import { fetchBidEstimates } from "@/server/integrations/naver-search";
 import { buildJourneyFunnel, journeyFunnelMarkdown, type JourneyFunnel } from "@/server/market/journey-funnel";
 import { runSeoAudit, scorePct, type SeoAuditOutcome } from "@/server/seo-engine";
 import { searchLocalPlaces, naverLocalConfigured, type LocalPlace } from "@/server/integrations/naver-local";
@@ -42,6 +43,12 @@ export type StrategySeo = {
 
 export type StrategyCompetitors = { configured: boolean; query: string; places: LocalPlace[] };
 
+export type StrategyBudget = {
+  bidConnected: boolean; // 하나라도 실측 입찰가 확보(프로덕션·키 연결 시)
+  rows: { keyword: string; total: number | null; competition: string | null; cpc: number; measured: boolean }[];
+  scenarios: { label: string; monthlyWon: number; note: string }[];
+};
+
 export type StrategyCompliance = {
   scanned: boolean; // 홈페이지 텍스트를 실제 스캔했는지(URL·접근 성공 시)
   high: number;
@@ -60,6 +67,7 @@ export type MarketingStrategy = {
   seo: StrategySeo; // 홈페이지 검색·AI 노출 정밀진단
   compliance: StrategyCompliance; // 홈페이지 의료광고법 위험 스캔
   competitors: StrategyCompetitors; // 경쟁사 상위 표본
+  budget: StrategyBudget; // 파워링크 광고 예산 시나리오(CPC 입찰가)
   brief: string; // 통합 제안 브리프(마크다운)
 };
 
@@ -125,10 +133,37 @@ async function fetchCompetitors(label: string, specialty: string | null): Promis
 
 const fmt = (n: number | null | undefined): string => (n == null ? "—" : n.toLocaleString("ko-KR"));
 
+/** 경쟁도 → 클릭당 CPC 추정(원, 의료 파워링크 중앙값 근사). 실측 입찰가 없을 때 폴백. */
+function estimateCpc(competition: string | null): number {
+  if (competition === "높음") return 5500;
+  if (competition === "낮음") return 1500;
+  return 3200; // 중간·미상
+}
+
+/** 상위 키워드 + 입찰가 → 파워링크 광고 예산 시나리오. CPC는 실측(있으면)/추정. */
+function buildBudget(rows: KeywordScan["rows"], bids: Map<string, number | null>): StrategyBudget {
+  const top = rows.slice(0, 8);
+  let anyMeasured = false;
+  const brows = top.map((r) => {
+    const measured = bids.get(r.keyword) ?? null;
+    if (measured != null) anyMeasured = true;
+    return { keyword: r.keyword, total: r.total, competition: r.competition, cpc: measured ?? estimateCpc(r.competition), measured: measured != null };
+  });
+  // 월 예산 = Σ(월검색량 × 목표 CTR × CPC). 상위노출 가정 CTR 시나리오.
+  const scen = (ctr: number) =>
+    Math.round(brows.reduce((s, r) => s + (r.total ?? 0) * ctr * r.cpc, 0) / 10000) * 10000;
+  const scenarios = [
+    { label: "보수", monthlyWon: scen(0.02), note: "핵심 소수 키워드·중하위 노출" },
+    { label: "표준", monthlyWon: scen(0.04), note: "주요 키워드 상위 노출 유지" },
+    { label: "공격", monthlyWon: scen(0.07), note: "전 키워드 상단 점유 확대" }
+  ];
+  return { bidConnected: anyMeasured, rows: brows, scenarios };
+}
+
 /** 4개 실측 블록 → 통합 제안 브리프(마크다운). */
 function buildBrief(s: {
   brand: string; label: string; specialty: string | null; date: string;
-  acquisition: MarketingStrategy["acquisition"]; keywords: KeywordScan; journey: JourneyFunnel; seo: StrategySeo; compliance: StrategyCompliance; competitors: StrategyCompetitors;
+  acquisition: MarketingStrategy["acquisition"]; keywords: KeywordScan; journey: JourneyFunnel; seo: StrategySeo; compliance: StrategyCompliance; competitors: StrategyCompetitors; budget: StrategyBudget;
 }): string {
   const L: string[] = [];
   L.push(`# 마케팅 전략 브리프 — ${s.brand}`);
@@ -186,6 +221,15 @@ function buildBrief(s: {
     L.push(`- ⚠️ 위험 표현 **높음 ${s.compliance.high} · 중간 ${s.compliance.medium}** — 계약·심의 전 수정 권고.`);
     s.compliance.flags.slice(0, 10).forEach((f) => L.push(`  - [${f.severity === "high" ? "높음" : "중간"}] ${f.label}: "${f.matched}"`));
   }
+  L.push("");
+  // 7. 광고 예산 시나리오
+  L.push(`## 7. 광고 예산 시나리오 (파워링크)`);
+  L.push(`> CPC ${s.budget.bidConnected ? "실측(네이버 검색광고 입찰가)" : "경쟁도 기반 추정"} · 예산=월검색량×CTR×CPC 가늠(실집행 전 참고).`);
+  L.push(`| 키워드 | 월검색수 | 경쟁 | CPC(원) |`);
+  L.push(`|---|---:|:--:|---:|`);
+  s.budget.rows.forEach((r) => L.push(`| ${r.keyword} | ${fmt(r.total)} | ${r.competition ?? "—"} | ${fmt(r.cpc)}${r.measured ? "" : "*"} |`));
+  L.push(`- 월 예산 가늠: ${s.budget.scenarios.map((sc) => `${sc.label} ${Math.round(sc.monthlyWon / 10000).toLocaleString("ko-KR")}만`).join(" · ")} (추정)`);
+  L.push(`  * CPC에 * 표시는 경쟁도 기반 추정(실측 입찰가 아님).`);
   L.push("");
   L.push(`> 실측 근거 기반. 수치는 목표·해석이며 성과 보장이 아님. 의료광고법 준수(전후사진·최상급·효과보장 금지). 위험 스캔은 1차 필터이며 심의 통과를 보장하지 않음.`);
   return L.join("\n");
@@ -253,10 +297,14 @@ export async function analyzeMarketingStrategy(input: {
     const compliance = scanCompliance(seoOutcome); // 홈페이지 텍스트 재활용 → 의료광고 위험
 
     const journey = buildJourneyFunnel(keywords.rows);
-    const date = new Date().toISOString().slice(0, 10);
-    const brief = buildBrief({ brand, label, specialty, date, acquisition, keywords, journey, seo, compliance, competitors });
+    // 예산: 상위 키워드 입찰가(실측 시도) → 파워링크 예산 시나리오.
+    const bids = await fetchBidEstimates(keywords.rows.slice(0, 8).map((r) => r.keyword)).catch(() => new Map<string, number | null>());
+    const budget = buildBudget(keywords.rows, bids);
 
-    return { brand, regionLabel: label, specialty, resolved: Boolean(key), acquisition, keywords, journey, seo, compliance, competitors, brief };
+    const date = new Date().toISOString().slice(0, 10);
+    const brief = buildBrief({ brand, label, specialty, date, acquisition, keywords, journey, seo, compliance, competitors, budget });
+
+    return { brand, regionLabel: label, specialty, resolved: Boolean(key), acquisition, keywords, journey, seo, compliance, competitors, budget, brief };
   });
 }
 

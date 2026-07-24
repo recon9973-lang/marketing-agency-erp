@@ -203,6 +203,55 @@ function sign(timestamp: string, method: string, path: string, secret: string): 
   return crypto.createHmac("sha256", secret).update(`${timestamp}.${method}.${path}`).digest("base64");
 }
 
+const BID_PATH = "/estimate/average-position-bid/keyword";
+
+/**
+ * 키워드 평균노출 입찰가(원) 추정 — 네이버 검색광고 Estimate API(POST).
+ * 예산 제안 근거. 미연동·오류·egress 차단 시 값 null(방어적). 프로덕션에서 실측.
+ * @param position 목표 평균 노출 순위(1~5). 기본 2위.
+ */
+export async function fetchBidEstimates(
+  keywords: string[],
+  device: "PC" | "MOBILE" = "MOBILE",
+  position = 2
+): Promise<Map<string, number | null>> {
+  const cleaned = [...new Set(keywords.map((k) => k.trim()).filter(Boolean))].slice(0, 20);
+  const out = new Map<string, number | null>();
+  for (const k of cleaned) out.set(k, null);
+  if (!naverSearchConfigured() || cleaned.length === 0) return out;
+
+  const apiKey = process.env.NAVER_AD_API_KEY as string;
+  const secret = process.env.NAVER_AD_SECRET as string;
+  const customerId = process.env.NAVER_AD_CUSTOMER_ID as string;
+  const timestamp = String(Date.now());
+  const signature = sign(timestamp, "POST", BID_PATH, secret);
+  const body = JSON.stringify({ device, items: cleaned.map((key) => ({ key, position })) });
+  try {
+    const res = await fetch(`${API_BASE}${BID_PATH}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Timestamp": timestamp,
+        "X-API-KEY": apiKey,
+        "X-Customer": customerId,
+        "X-Signature": signature
+      },
+      body
+    });
+    if (!res.ok) {
+      console.warn(`[naver-ad] 입찰가 조회 실패 ${res.status}`);
+      return out;
+    }
+    const json = (await res.json()) as { estimate?: Array<{ key?: string; bid?: number }> };
+    for (const e of json.estimate ?? []) {
+      if (typeof e.key === "string" && typeof e.bid === "number") out.set(e.key, e.bid);
+    }
+  } catch (e) {
+    console.warn(`[naver-ad] 입찰가 조회 예외: ${String(e).slice(0, 120)}`);
+  }
+  return out;
+}
+
 export type RelatedKeyword = {
   keyword: string;
   pc: number | null;
