@@ -56,3 +56,33 @@ export async function searchLocalPlaces(query: string, display = 5, sort: "comme
     clearTimeout(timer);
   }
 }
+
+const BLOG_ENDPOINT = "https://openapi.naver.com/v1/search/blog.json";
+
+/**
+ * 키워드의 네이버 블로그 발행 문서 수(포화도 산정용). 미연결/오류 시 null.
+ * 동일 오픈API 키(NAVER_CLIENT_*). total = 검색된 전체 문서 수(발행량 근사).
+ */
+export async function fetchBlogDocCount(keyword: string): Promise<number | null> {
+  if (!naverLocalConfigured() || !keyword.trim()) return null;
+  const url = `${BLOG_ENDPOINT}?query=${encodeURIComponent(keyword)}&display=1`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      cache: "no-store",
+      headers: {
+        "X-Naver-Client-Id": process.env.NAVER_CLIENT_ID as string,
+        "X-Naver-Client-Secret": process.env.NAVER_CLIENT_SECRET as string
+      }
+    });
+    if (!res.ok) return null;
+    const j = (await res.json()) as { total?: number };
+    return typeof j.total === "number" ? j.total : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}

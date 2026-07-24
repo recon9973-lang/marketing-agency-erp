@@ -5,7 +5,8 @@
  * 데이터: 행안부 주민등록(2026.6) · 심평원 병원정보/상병통계. 모두 ✅실측.
  */
 import { useState, useTransition } from "react";
-import { analyzeRegion, generateMarketReport, generateProposal, analyzeRadius, searchCompetitors, type RegionAnalysis, type FacilityRadiusResult } from "@/server/actions/region";
+import { analyzeRegion, generateMarketReport, generateProposal, analyzeRadius, searchCompetitors, scanMarketKeywords, type RegionAnalysis, type FacilityRadiusResult } from "@/server/actions/region";
+import type { KeywordScan } from "@/server/market/keyword-scan";
 import type { LocalPlace } from "@/server/integrations/naver-local";
 import { downloadMarketDeck } from "@/components/market/deck";
 import { Donut, RadiusMap, Sparkline, colorOfType } from "@/components/market/charts";
@@ -59,6 +60,8 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
   const [pptBusy, setPptBusy] = useState(false);
   const [comp, setComp] = useState<{ configured: boolean; query: string; places: LocalPlace[]; filtered: boolean } | null>(null);
   const [compPending, startComp] = useTransition();
+  const [kw, setKw] = useState<(KeywordScan & { regionLabel: string }) | null>(null);
+  const [kwPending, startKw] = useTransition();
 
   function run(regionOverride?: string) {
     const q = (regionOverride ?? region).trim();
@@ -67,9 +70,20 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
     setReport(null);
     setRadiusRes(null);
     setComp(null);
+    setKw(null);
     start(async () => {
-      const r = await analyzeRegion({ region: q, specialty: specialty || null });
+      const r = await analyzeRegion({ region: q, specialty: specialty || null, brand: brand || null });
       if (r.ok) setRes(r.data);
+      else setError(r.error.message);
+    });
+  }
+
+  function runKw() {
+    if (!res?.resolve.key) return;
+    setError(null);
+    startKw(async () => {
+      const r = await scanMarketKeywords({ region: res.resolve.label, specialty: specialty || null });
+      if (r.ok) setKw(r.data);
       else setError(r.error.message);
     });
   }
@@ -281,6 +295,67 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
               subtitle="상권 기회와 진입 대응 방향"
             />
           )}
+
+          {/* 키워드 실측 (제안 덱 "키워드 분석" — 검색량·경쟁도·블로그 포화도) */}
+          <div className={CARD}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-bold text-ink">🔎 키워드 실측 <span className="font-normal text-slate-400">지역+진료과 · 검색량·경쟁·포화도</span></h3>
+              <button
+                onClick={runKw}
+                disabled={kwPending}
+                className="rounded-lg border border-line bg-surface px-3 py-1.5 text-[12.5px] font-semibold text-slate-600 transition hover:bg-surface/60 disabled:opacity-50 dark:text-slate-300"
+              >
+                {kwPending ? "조회 중…" : kw ? "다시 조회" : "키워드 실측 조회"}
+              </button>
+            </div>
+            {kw && (
+              <>
+                <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                  <span className={kw.searchConnected ? "text-emerald-500" : "text-amber-500"}>{kw.searchConnected ? "✅ 검색량 실측(네이버 검색광고)" : "🟡 검색량 미연동(데모)"}</span>
+                  <span className={kw.blogConnected ? "text-emerald-500" : "text-amber-500"}>{kw.blogConnected ? "✅ 포화도 실측(네이버 블로그)" : "🟡 포화도 미연동"}</span>
+                </div>
+                {kw.rows.length > 0 ? (
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="w-full min-w-[560px] text-[12.5px]">
+                      <thead>
+                        <tr className="border-b border-line text-left text-[11px] text-slate-400">
+                          <th className="pb-2 pr-3 font-semibold">키워드</th>
+                          <th className="px-2 pb-2 text-right font-semibold">PC</th>
+                          <th className="px-2 pb-2 text-right font-semibold">Mobile</th>
+                          <th className="px-2 pb-2 text-right font-semibold">합계</th>
+                          <th className="px-2 pb-2 text-center font-semibold">경쟁도</th>
+                          <th className="px-2 pb-2 text-right font-semibold">블로그</th>
+                          <th className="px-2 pb-2 text-center font-semibold">포화도</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {kw.rows.map((r) => (
+                          <tr key={r.keyword} className="border-b border-line/60">
+                            <td className="py-2 pr-3 font-medium text-ink">
+                              {r.seed && <span className="mr-1 text-[10px] text-brand">●</span>}{r.keyword}
+                            </td>
+                            <td className="px-2 text-right tabular-nums text-slate-500">{fmt(r.pc)}</td>
+                            <td className="px-2 text-right tabular-nums text-slate-500">{fmt(r.mobile)}</td>
+                            <td className="px-2 text-right font-semibold tabular-nums text-ink">{fmt(r.total)}</td>
+                            <td className="px-2 text-center text-slate-500">{r.competition ?? "—"}</td>
+                            <td className="px-2 text-right tabular-nums text-slate-500">{fmt(r.blogDocs)}</td>
+                            <td className="px-2 text-center">
+                              {r.saturation ? (
+                                <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${r.saturation === "과열" ? "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300" : r.saturation === "여유" ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300" : "bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-300"}`}>{r.saturation}</span>
+                              ) : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <p className="mt-2 text-[10.5px] text-slate-400">● 지역 대표 키워드(시드) · 포화도 = 블로그 발행량 대비 검색수요(과열=콘텐츠 경쟁 심함). 검색량 낮아도 경쟁 과열이면 점유 확보 필요.</p>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-[12.5px] text-slate-400">키워드 결과가 없습니다(진료과 선택 시 정확도 상승).</p>
+                )}
+              </>
+            )}
+          </div>
 
           {/* 진료과 타깃 프로파일 */}
           {res.specialtyProfile && (

@@ -41,6 +41,7 @@ import { searchLocalPlaces, naverLocalConfigured, type LocalPlace } from "@/serv
 import { resolveAdmCode, fetchRegionDemographics, sgisConfigured, type RegionDemographics } from "@/server/integrations/sgis";
 import { buildSpecialtyProfile, type SpecialtyProfile } from "@/server/market/specialty-profile";
 import { buildAcquisitionReview, consultingReviewMarkdown, type ConsultingReview } from "@/server/market/consulting-review";
+import { scanKeywords, type KeywordScan } from "@/server/market/keyword-scan";
 import { isAiConfigured, generateMarketNarrative } from "@/server/ai/claude";
 import { storeDensityInRadius, publicDataConfigured, type StoreDensity } from "@/server/integrations/publicdata-store";
 
@@ -184,6 +185,20 @@ export async function analyzeRegion(input: {
       acquisition = { review: acqReview, markdown: acqMd };
     }
     return { resolve, population, hospitals, specialty, demand, orientalDemand, frequent, openings, province, demoMap, scorecard, demographics, specialtyProfile, income, access, acquisition, nationalPer };
+  });
+}
+
+/** 지역+진료과 → 키워드 실측 스캔(검색량·경쟁도·블로그 포화도). 제안 덱 "키워드 분석" 표. */
+export async function scanMarketKeywords(input: {
+  region: string;
+  specialty?: string | null;
+}): Promise<ActionResult<KeywordScan & { regionLabel: string }>> {
+  return runAction(async (): Promise<KeywordScan & { regionLabel: string }> => {
+    await requireUser();
+    const { resolve } = getLocationInsight((input.region ?? "").trim());
+    const label = resolve.key ? resolve.label : (input.region ?? "").trim();
+    const scan = await scanKeywords(label, input.specialty?.trim() || null);
+    return { ...scan, regionLabel: label };
   });
 }
 
