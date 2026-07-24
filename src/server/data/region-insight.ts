@@ -16,6 +16,7 @@ import populationJson from "./region/population-by-sgg.json";
 import hospitalsJson from "./region/hospitals-by-sgg.json";
 import demandJson from "./region/demand-by-specialty.json";
 import orientalJson from "./region/oriental-demand-by-sgg.json";
+import frequentJson from "./region/frequent-diseases.json";
 
 export type RegionPopulation = {
   total: number;
@@ -39,6 +40,17 @@ const oriental = orientalJson as Record<string, OrientalDemand>;
 /** 시군구 한방 진료통계(주상병 대분류별 진료인원, 최신연도). 없으면 null. */
 export function getOrientalDemand(key: string): OrientalDemand | null {
   return oriental[key] ?? null;
+}
+
+// 전국 다빈도 질병(3단 상병, 3년 추이) — 전체/한방.
+export type FrequentDisease = { io: string; code: string; name: string; rank: number; y0: number; y1: number; y2: number; trend: number | null };
+type FrequentFile = { years: { latest: number; prev: number; prev2: number }; data: Record<string, FrequentDisease[]> };
+const frequent = frequentJson as FrequentFile;
+
+export type FrequentKind = "전체" | "한방";
+/** 전국 다빈도 상병(3년 추이). kind: 전체(양방 중심)·한방. */
+export function getFrequentDiseases(kind: FrequentKind): { years: FrequentFile["years"]; rows: FrequentDisease[] } {
+  return { years: frequent.years, rows: frequent.data[kind] ?? [] };
 }
 
 // ── 지역 정규화 ─────────────────────────────────────────────

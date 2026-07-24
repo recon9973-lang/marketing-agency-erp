@@ -8,10 +8,20 @@ import {
   getLocationInsight,
   getDemandBySpecialty,
   getOrientalDemand,
+  getFrequentDiseases,
   nationalHospitalsPerTenThousand,
   type HospitalSummary,
   type RegionPopulation
 } from "@/server/data/region-insight";
+
+function frequentLines(specialty: string | null): string[] {
+  const kind = specialty && ORIENTAL.has(specialty) ? "한방" : "전체";
+  const { years, rows } = getFrequentDiseases(kind);
+  if (!rows.length) return [];
+  const out = [`## 전국 다빈도 상병 · 3년 추이 (${kind}) ✅실측`, `> 심평원 다빈도질병통계 ${years.latest} — 외래 환자수 상위·2년 증감률(${years.prev2}→${years.latest}).`, "", `| 상병 | ${years.latest} 환자수 | 추이 |`, `|---|---:|---:|`];
+  rows.slice(0, 10).forEach((r) => out.push(`| ${r.code} ${r.name} | ${fmt(r.y0)} | ${r.trend == null ? "—" : `${r.trend >= 0 ? "▲" : "▼"}${Math.abs(r.trend)}%`} |`));
+  return out;
+}
 import type { LocalPlace } from "@/server/integrations/naver-local";
 import type { RegionDemographics } from "@/server/integrations/sgis";
 
@@ -179,6 +189,10 @@ export function buildMarketReport(
   for (const line of competitorLines(extra.competitors)) L.push(line);
   if (extra.competitors && extra.competitors.length) L.push("");
 
+  // 전국 다빈도 상병·3년 추이(전체/한방)
+  for (const line of frequentLines(specialty)) L.push(line);
+  L.push("");
+
   // ④ 종합진단 / 전략
   L.push(`## ${specialty ? 4 : 3}. 종합진단`);
   for (const d of diagnose(population, hospitals, nationalPer)) L.push(`- ${d}`);
@@ -191,6 +205,7 @@ export function buildMarketReport(
   const measured = ["인구·성별(행안부)", "병원 밀집도·종별(심평원)"];
   if (demand.length) measured.push("진료과 주상병 수요(심평원)");
   if (orientalD && orientalD.byDx.length) measured.push("한방 지역 주상병 수요(심평원)");
+  measured.push("전국 다빈도 상병·3년 추이(심평원)");
   if (extra.demographics?.genderResolved || extra.demographics?.ageResolved) measured.push("연령×성별 코어(SGIS)");
   if (extra.competitors && extra.competitors.length) measured.push("경쟁사 상위 표본(네이버 지역검색)");
   const missing: string[] = ["양방 지역별 진료인원(심평원 지역 진료통계 별도)"];

@@ -11,6 +11,7 @@ import {
   getLocationInsight,
   getDemandBySpecialty,
   getOrientalDemand,
+  getFrequentDiseases,
   radiusForFacility,
   nationalHospitalsPerTenThousand,
   type RegionResolve,
@@ -18,7 +19,8 @@ import {
   type HospitalSummary,
   type DemandRow,
   type FacilityRadius,
-  type OrientalDemand
+  type OrientalDemand,
+  type FrequentDisease
 } from "@/server/data/region-insight";
 
 const ORIENTAL_SPECIALTIES = new Set(["한의원", "한방병원", "한방"]);
@@ -70,6 +72,7 @@ export type RegionAnalysis = {
   specialty: string | null;
   demand: DemandRow[];
   orientalDemand: OrientalDemand | null; // 한방 진료과 선택 시 지역 한방 주상병 수요
+  frequent: { kind: string; latest: number; prev2: number; rows: FrequentDisease[] }; // 전국 다빈도 3년 추이
   nationalPer: number; // 전국 인구 만명당 병·의원 수(경쟁강도 기준선)
 };
 
@@ -85,7 +88,10 @@ export async function analyzeRegion(input: {
     const demand = specialty ? getDemandBySpecialty(specialty) : [];
     const orientalDemand =
       specialty && ORIENTAL_SPECIALTIES.has(specialty) && resolve.key ? getOrientalDemand(resolve.key) : null;
-    return { resolve, population, hospitals, specialty, demand, orientalDemand, nationalPer: nationalHospitalsPerTenThousand() };
+    const fk = specialty && ORIENTAL_SPECIALTIES.has(specialty) ? "한방" : "전체";
+    const fq = getFrequentDiseases(fk);
+    const frequent = { kind: fk, latest: fq.years.latest, prev2: fq.years.prev2, rows: fq.rows };
+    return { resolve, population, hospitals, specialty, demand, orientalDemand, frequent, nationalPer: nationalHospitalsPerTenThousand() };
   });
 }
 

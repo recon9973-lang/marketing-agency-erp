@@ -5,5 +5,9 @@
   "hospital_points": 79764,
   "demand_specialties": 26,
   "oriental_year": 2024,
-  "oriental_sgg": 267
+  "oriental_sgg": 267,
+  "frequent_kinds": [
+    "전체",
+    "한방"
+  ]
 }

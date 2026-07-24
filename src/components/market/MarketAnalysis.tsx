@@ -357,6 +357,27 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
             </p>
           )}
 
+          {/* 전국 다빈도 상병 · 3년 추이 */}
+          {res.frequent.rows.length > 0 && (
+            <div className={CARD}>
+              <h3 className="text-sm font-bold text-ink">📈 전국 다빈도 상병 · 3년 추이 <span className="font-normal text-slate-400">{res.frequent.kind} · 심평원</span></h3>
+              <p className="mb-2 mt-0.5 text-[11px] text-slate-500">{res.frequent.latest} 외래 환자수 상위 · {res.frequent.prev2}→{res.frequent.latest} 증감(콘텐츠 소재·트렌드 근거)</p>
+              <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+                {res.frequent.rows.slice(0, 10).map((d) => (
+                  <div key={d.code} className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="truncate text-slate-600 dark:text-slate-300" title={`${d.code} ${d.name}`}><b className="text-ink">{d.code}</b> {d.name}</span>
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <span className="text-slate-500">{fmt(d.y0)}</span>
+                      {d.trend != null && (
+                        <span className={d.trend >= 0 ? "text-emerald-600" : "text-rose-500"}>{d.trend >= 0 ? "▲" : "▼"}{Math.abs(d.trend)}%</span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 경쟁사 상위 (네이버 지역검색) */}
           <div className={CARD}>
             <div className="flex flex-wrap items-center justify-between gap-2">

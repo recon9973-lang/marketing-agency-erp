@@ -74,7 +74,7 @@ def read_csv_cp949(path):
 
 def to_int(v):
     try:
-        return int(str(v).replace(",", "").strip())
+        return int(float(str(v).replace(",", "").strip()))
     except Exception:
         return 0
 
@@ -192,6 +192,35 @@ for key, dxs in odata.items():
 meta["oriental_year"] = latest
 meta["oriental_sgg"] = len(oriental)
 json.dump(oriental, open(os.path.join(OUT, "oriental-demand-by-sgg.json"), "w"),
+          ensure_ascii=False, separators=(",", ":"))
+
+# ── ⑤ 다빈도 질병통계(전국, 3단 상병, 3년 추이) — 전체/한방 ──────────
+def parse_frequent(path):
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    ws = wb[wb.sheetnames[0]]
+    # 헤더행: 0입원외래 1코드 2 3단질병명 3순위 4환자수(당해) 9환자수(-1) 14환자수(-2)
+    out = []
+    for r in ws.iter_rows(values_only=True):
+        if not r or r[0] not in ("외래", "입원"):
+            continue
+        y0, y1, y2 = to_int(r[4]), to_int(r[9]), to_int(r[14])
+        trend = round((y0 - y2) / y2 * 1000) / 10 if y2 else None  # 2년 증감률 %
+        out.append({"io": r[0], "code": str(r[1] or "").strip(), "name": str(r[2] or "").strip(),
+                    "rank": to_int(r[3]), "y0": y0, "y1": y1, "y2": y2, "trend": trend})
+    out.sort(key=lambda x: x["y0"], reverse=True)
+    return out[:60]
+
+frequent = {}
+years_freq = None
+for kind, fname in [("전체", "심평원다빈도_전체.xlsx"), ("한방", "심평원다빈도_한방.xlsx")]:
+    p = os.path.join(DATA, fname)
+    if os.path.exists(p):
+        frequent[kind] = parse_frequent(p)
+meta["frequent_kinds"] = list(frequent.keys())
+# 최신연도 라벨(파일명에 2025) — 표기용
+frequent_meta = {"latest": 2025, "prev": 2024, "prev2": 2023}
+json.dump({"years": frequent_meta, "data": frequent},
+          open(os.path.join(OUT, "frequent-diseases.json"), "w"),
           ensure_ascii=False, separators=(",", ":"))
 
 json.dump(meta, open(os.path.join(OUT, "meta.json"), "w"), ensure_ascii=False, indent=2)
