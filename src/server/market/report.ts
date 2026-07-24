@@ -12,6 +12,7 @@ import {
   getOpenings,
   getProvinceDemand,
   getDiseaseDemographics,
+  specialtyCodePredicate,
   nationalHospitalsPerTenThousand,
   type HospitalSummary,
   type RegionPopulation
@@ -29,16 +30,24 @@ function frequentLines(specialty: string | null): string[] {
   const kind = specialty && ORIENTAL.has(specialty) ? "한방" : "전체";
   const { years, rows } = getFrequentDiseases(kind);
   if (!rows.length) return [];
-  const out = [`## 전국 다빈도 상병 · 3년 추이 (${kind}) ✅실측`, `> 심평원 다빈도질병통계 ${years.latest} — 외래 환자수 상위·2년 증감률(${years.prev2}→${years.latest}) · 타깃=성별×연령.`, "", `| 상병 | ${years.latest} 환자수 | 추이 | 타깃 |`, `|---|---:|---:|---|`];
-  rows.slice(0, 10).forEach((r) => out.push(`| ${r.code} ${r.name} | ${fmt(r.y0)} | ${r.trend == null ? "—" : `${r.trend >= 0 ? "▲" : "▼"}${Math.abs(r.trend)}%`} | ${demoTag(r.code)} |`));
+  const pred = specialtyCodePredicate(specialty);
+  const filt = pred ? rows.filter((r) => pred(r.code)) : rows;
+  const useRows = pred && filt.length >= 3 ? filt : rows;
+  const label = pred && filt.length >= 3 ? `${specialty} 관련` : kind;
+  const out = [`## 전국 다빈도 상병 · 3년 추이 (${label}) ✅실측`, `> 심평원 다빈도질병통계 ${years.latest} — 외래 환자수 상위·2년 증감률(${years.prev2}→${years.latest}) · 타깃=성별×연령.`, "", `| 상병 | ${years.latest} 환자수 | 추이 | 타깃 |`, `|---|---:|---:|---|`];
+  useRows.slice(0, 10).forEach((r) => out.push(`| ${r.code} ${r.name} | ${fmt(r.y0)} | ${r.trend == null ? "—" : `${r.trend >= 0 ? "▲" : "▼"}${Math.abs(r.trend)}%`} | ${demoTag(r.code)} |`));
   return out;
 }
 
-function provinceLines(sido: string): string[] {
+function provinceLines(sido: string, specialty: string | null): string[] {
   const rows = getProvinceDemand(sido);
   if (!rows.length) return [];
-  const out = [`## ${sido} 지역 다빈도 상병 (양방·시도) ✅실측`, `> 심평원 시도별 진료통계(2024) — ${sido} 전 진료과 외래 환자수 상위 · 타깃=성별×연령.`, "", `| 상병 | 환자수 | 타깃 |`, `|---|---:|---|`];
-  rows.slice(0, 12).forEach((r) => out.push(`| ${r.code} | ${fmt(r.patients)} | ${demoTag(r.code)} |`));
+  const pred = specialtyCodePredicate(specialty);
+  const filt = pred ? rows.filter((r) => pred(r.code)) : rows;
+  const useRows = pred && filt.length >= 3 ? filt : rows;
+  const scope = pred && filt.length >= 3 ? `${specialty} 관련` : "전 진료과";
+  const out = [`## ${sido} 지역 다빈도 상병 (양방·시도) ✅실측`, `> 심평원 시도별 진료통계(2024) — ${sido} ${scope} 외래 환자수 상위 · 타깃=성별×연령.`, "", `| 상병 | 환자수 | 타깃 |`, `|---|---:|---|`];
+  useRows.slice(0, 12).forEach((r) => out.push(`| ${r.code} | ${fmt(r.patients)} | ${demoTag(r.code)} |`));
   return out;
 }
 import type { LocalPlace } from "@/server/integrations/naver-local";
@@ -76,7 +85,12 @@ const KCD: Record<string, string> = {
   H25: "노년백내장", I10: "고혈압", J00: "감기(급성비인두염)", J20: "급성기관지염", J30: "혈관운동성비염",
   K02: "치아우식(충치)", K05: "치은·치주질환", K21: "위식도역류", K29: "위염", L20: "아토피피부염",
   L30: "기타 피부염", L50: "두드러기", L70: "여드름", M54: "등·허리통증", M75: "어깨병변",
-  N39: "요로계질환", R51: "두통", S93: "발목·발 염좌", Z00: "일반건강검진"
+  N39: "요로계질환", R51: "두통", S93: "발목·발 염좌", Z00: "일반건강검진",
+  M17: "무릎 관절증", M23: "무릎 내부장애", M43: "기타 척추병증", M48: "척추관 협착",
+  M50: "경추 추간판", M51: "요추 추간판", M62: "근육 장애", M65: "윤활막·힘줄염",
+  M13: "기타 관절염", M19: "기타 관절증", M46: "기타 척추병", S33: "요추·골반 염좌",
+  S83: "무릎 인대손상", J06: "상기도 감염", K59: "기능성 장장애", N40: "전립선 비대",
+  H90: "청력 손실", L24: "자극성 접촉피부염", H35: "기타 망막장애", G56: "말초신경병"
 };
 
 function fmt(n: number | null | undefined): string {
@@ -225,7 +239,7 @@ export function buildMarketReport(
   if (extra.competitors && extra.competitors.length) L.push("");
 
   // 지역(시도) 양방 다빈도 상병
-  for (const line of provinceLines(resolve.key ? resolve.key.split("|")[0] : "")) L.push(line);
+  for (const line of provinceLines(resolve.key ? resolve.key.split("|")[0] : "", specialty)) L.push(line);
   L.push("");
 
   // 전국 다빈도 상병·3년 추이(전체/한방)

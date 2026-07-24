@@ -71,6 +71,32 @@ export function getProvinceDemand(sido: string): ProvinceRow[] {
   return province[sido] ?? [];
 }
 
+// 진료과 → 관련 주상병(KCD 3단 접두). 광범위 진료과(내과·가정의학·소아 등)는 필터 없음(전체).
+const SPECIALTY_CHAPTERS: Record<string, string[]> = {
+  정형외과: ["M", "S", "T"],
+  재활의학과: ["M", "S", "G8", "G9", "I6"],
+  피부과: ["L"],
+  성형외과: ["L", "S", "Q", "T"],
+  안과: ["H0", "H1", "H2", "H3", "H4", "H5"],
+  이비인후과: ["H6", "H7", "H8", "H9", "J0", "J3"],
+  산부인과: ["N7", "N8", "N9", "O"],
+  비뇨의학과: ["N0", "N1", "N2", "N3", "N4", "C6"],
+  신경과: ["G"],
+  정신건강의학과: ["F"],
+  치과: ["K0", "K1"],
+  외과: ["K3", "K4", "K5", "K6", "C"],
+  신경외과: ["M4", "M5", "S1", "G"]
+};
+/** 진료과 관련 상병 판별자. 매핑 없으면 null(=전체 표시). */
+export function specialtyCodePredicate(specialty: string | null | undefined): ((code: string) => boolean) | null {
+  const ch = specialty ? SPECIALTY_CHAPTERS[specialty] : null;
+  if (!ch) return null;
+  return (code: string) => {
+    const c = (code || "").trim().toUpperCase();
+    return ch.some((p) => c.startsWith(p));
+  };
+}
+
 export type DiseaseDemo = { total: number; male: number; female: number; femaleRatio: number | null; ageTop: { band: string; share: number }[] };
 const diseaseDemo = diseaseDemoJson as Record<string, DiseaseDemo>;
 /** 상병(3단코드) 성별×연령 타깃. 없으면 null. */

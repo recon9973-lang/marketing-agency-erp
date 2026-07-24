@@ -21,7 +21,12 @@ const KCD: Record<string, string> = {
   K21: "위식도역류", K29: "위염·십이지장염", K30: "소화불량", L20: "아토피피부염", L21: "지루피부염",
   L23: "알레르기접촉피부염", L30: "기타 피부염", L50: "두드러기", L70: "여드름", M25: "관절통",
   M54: "등·허리통증", M75: "어깨병변", M79: "연조직질환", N39: "요로계질환", R05: "기침",
-  R51: "두통", S93: "발목·발 염좌", Z00: "일반건강검진", Z01: "특수검사"
+  R51: "두통", S93: "발목·발 염좌", Z00: "일반건강검진", Z01: "특수검사",
+  M17: "무릎 관절증", M23: "무릎 내부장애", M43: "기타 척추병증", M48: "척추관 협착",
+  M50: "경추 추간판", M51: "요추 추간판", M62: "근육 장애", M65: "윤활막·힘줄염",
+  M13: "기타 관절염", M19: "기타 관절증", M46: "기타 척추병", S33: "요추·골반 염좌",
+  S83: "무릎 인대손상", J06: "상기도 감염", K59: "기능성 장장애", N40: "전립선 비대",
+  H90: "청력 손실", L24: "자극성 접촉피부염", H35: "기타 망막장애", G56: "말초신경병"
 };
 
 function fmt(n: number | null | undefined): string {
@@ -430,44 +435,51 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
           {/* 전국 다빈도 상병 · 3년 추이 */}
           {res.frequent.rows.length > 0 && (
             <div className={CARD}>
-              <h3 className="text-sm font-bold text-ink">📈 전국 다빈도 상병 · 3년 추이 <span className="font-normal text-slate-400">{res.frequent.kind} · 심평원</span></h3>
-              <p className="mb-2 mt-0.5 text-[11px] text-slate-500">{res.frequent.latest} 외래 환자수 상위 · {res.frequent.prev2}→{res.frequent.latest} 증감(콘텐츠 소재·트렌드 근거)</p>
-              <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
-                {res.frequent.rows.slice(0, 10).map((d) => (
-                  <div key={d.code} className="flex items-center justify-between gap-2 text-[11px]">
-                    <span className="truncate text-slate-600 dark:text-slate-300" title={`${d.code} ${d.name}`}>
-                      <b className="text-ink">{d.code}</b> {d.name}
-                      {demoTag(d.code) && <span className="ml-1 text-rose-500/80">({demoTag(d.code)})</span>}
-                    </span>
-                    <span className="flex shrink-0 items-center gap-1.5">
-                      <Sparkline values={[d.y2, d.y1, d.y0]} width={44} height={16} />
-                      <span className="text-slate-500">{fmt(d.y0)}</span>
-                      {d.trend != null && (
-                        <span className={d.trend >= 0 ? "text-emerald-600" : "text-rose-500"}>{d.trend >= 0 ? "▲" : "▼"}{Math.abs(d.trend)}%</span>
-                      )}
-                    </span>
+              <h3 className="text-sm font-bold text-ink">📈 전국 다빈도 상병 · 3년 추이 <span className="font-normal text-slate-400">{res.frequent.specialtyFiltered ? `${res.specialty} 관련` : res.frequent.kind} · 심평원</span></h3>
+              <p className="mb-2 mt-0.5 text-[11px] text-slate-500">
+                {res.frequent.latest} 외래 환자수 상위 · {res.frequent.prev2}→{res.frequent.latest} 증감
+                {res.frequent.specialtyFiltered ? ` · ${res.specialty} 관련 상병만` : "(전 상병)"}
+              </p>
+              {(() => {
+                const maxF = Math.max(1, ...res.frequent.rows.slice(0, 10).map((d) => d.y0));
+                return (
+                  <div className="space-y-1">
+                    {res.frequent.rows.slice(0, 10).map((d) => (
+                      <div key={d.code} className="flex items-center gap-2 text-[11px]">
+                        <span className="w-48 shrink-0 truncate text-slate-600 dark:text-slate-300" title={`${d.code} ${d.name}`}><b className="text-ink">{d.code}</b> {d.name}</span>
+                        {demoTag(d.code) && <span className="w-20 shrink-0 truncate text-rose-500/80">{demoTag(d.code)}</span>}
+                        <div className="h-2.5 flex-1 overflow-hidden rounded bg-surface"><div className="h-full rounded bg-sky-500" style={{ width: `${(d.y0 / maxF) * 100}%` }} /></div>
+                        <Sparkline values={[d.y2, d.y1, d.y0]} width={40} height={16} />
+                        <span className="w-16 shrink-0 text-right text-slate-500">{fmt(d.y0)}</span>
+                        <span className={`w-11 shrink-0 text-right ${(d.trend ?? 0) >= 0 ? "text-emerald-600" : "text-rose-500"}`}>{d.trend == null ? "" : `${d.trend >= 0 ? "▲" : "▼"}${Math.abs(d.trend)}%`}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                );
+              })()}
             </div>
           )}
 
           {/* 양방 시도 다빈도 상병 (지역 수요) */}
           {res.province.rows.length > 0 && (
             <div className={CARD}>
-              <h3 className="text-sm font-bold text-ink">🗺️ {res.province.sido} 지역 다빈도 상병 <span className="font-normal text-slate-400">양방 · 심평원(시도)</span></h3>
-              <p className="mb-2 mt-0.5 text-[11px] text-slate-500">{res.province.sido} 전 진료과 외래 환자수 상위(2024) · 괄호=성별×연령 타깃</p>
-              <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
-                {res.province.rows.slice(0, 12).map((d) => (
-                  <div key={d.code} className="flex items-center justify-between gap-2 text-[11px]">
-                    <span className="truncate text-slate-600 dark:text-slate-300" title={d.code}>
-                      <b className="text-ink">{d.code}</b> {KCD[d.code] ?? ""}
-                      {demoTag(d.code) && <span className="ml-1 text-rose-500/80">({demoTag(d.code)})</span>}
-                    </span>
-                    <span className="shrink-0 text-slate-500">{fmt(d.patients)}</span>
+              <h3 className="text-sm font-bold text-ink">🗺️ {res.province.sido} 지역 다빈도 상병 <span className="font-normal text-slate-400">{res.province.specialtyFiltered ? `${res.specialty} 관련` : "양방"} · 심평원(시도)</span></h3>
+              <p className="mb-2 mt-0.5 text-[11px] text-slate-500">{res.province.sido} {res.province.specialtyFiltered ? `${res.specialty} 관련 상병` : "전 진료과"} 외래 환자수 상위(2024) · 괄호=성별×연령 타깃</p>
+              {(() => {
+                const maxP2 = Math.max(1, ...res.province.rows.slice(0, 12).map((d) => d.patients));
+                return (
+                  <div className="space-y-1">
+                    {res.province.rows.slice(0, 12).map((d) => (
+                      <div key={d.code} className="flex items-center gap-2 text-[11px]">
+                        <span className="w-44 shrink-0 truncate text-slate-600 dark:text-slate-300" title={d.code}><b className="text-ink">{d.code}</b> {KCD[d.code] ?? ""}</span>
+                        {demoTag(d.code) && <span className="w-20 shrink-0 truncate text-rose-500/80">{demoTag(d.code)}</span>}
+                        <div className="h-2.5 flex-1 overflow-hidden rounded bg-surface"><div className="h-full rounded bg-emerald-500" style={{ width: `${(d.patients / maxP2) * 100}%` }} /></div>
+                        <span className="w-16 shrink-0 text-right text-slate-500">{fmt(d.patients)}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                );
+              })()}
             </div>
           )}
 
