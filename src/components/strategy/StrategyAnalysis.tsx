@@ -9,7 +9,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { analyzeMarketingStrategy, saveStrategyReport, type MarketingStrategy } from "@/server/actions/strategy";
 import { ConsultingReviewPanel } from "@/components/insights/ConsultingReviewPanel";
-import { Copy, Check, Save } from "lucide-react";
+import { downloadStrategyDeck } from "@/components/strategy/deck";
+import { Copy, Check, Save, Presentation } from "lucide-react";
 
 const SPECIALTIES = [
   "", "내과", "정형외과", "성형외과", "피부과", "이비인후과", "안과", "산부인과", "소아청소년과",
@@ -39,7 +40,21 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
   const [pending, start] = useTransition();
   const [copied, setCopied] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const [pptBusy, setPptBusy] = useState(false);
   const router = useRouter();
+
+  async function downloadPpt() {
+    if (!res) return;
+    setPptBusy(true);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await downloadStrategyDeck(res, today);
+    } catch {
+      setError("PPT 생성에 실패했습니다.");
+    } finally {
+      setPptBusy(false);
+    }
+  }
 
   function run() {
     const q = region.trim();
@@ -136,6 +151,9 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
               </button>
               <button onClick={copyBrief} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-card px-3 py-1.5 text-[12.5px] font-semibold text-slate-600 transition hover:bg-surface/60 dark:text-slate-300">
                 {copied ? <><Check className="h-3.5 w-3.5 text-emerald-500" /> 복사됨</> : <><Copy className="h-3.5 w-3.5" /> 브리프 복사</>}
+              </button>
+              <button onClick={downloadPpt} disabled={pptBusy} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-[12.5px] font-semibold text-white transition hover:opacity-90 disabled:opacity-50">
+                <Presentation className="h-3.5 w-3.5" /> {pptBusy ? "생성 중…" : "PPT 다운로드"}
               </button>
             </div>
           </div>
