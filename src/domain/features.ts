@@ -11,6 +11,7 @@ export type FeatureKey =
   | "geo"
   | "keywords"
   | "market"
+  | "strategy"
   | "seo"
   | "worklog"
   | "manuscript"
@@ -29,6 +30,7 @@ export const CONTROLLABLE_FEATURES: { key: FeatureKey; label: string; href: stri
   { key: "geo", label: "GEO", href: "/geo", group: "분석·GEO" },
   { key: "keywords", label: "검색량 조회", href: "/keywords", group: "분석·GEO" },
   { key: "market", label: "상권분석", href: "/market", group: "분석·GEO" },
+  { key: "strategy", label: "마케팅 전략", href: "/strategy", group: "분석·GEO" },
   { key: "seo", label: "SEO 진단", href: "/seo", group: "분석·GEO" },
   { key: "worklog", label: "업무 보고", href: "/worklog", group: "분석·GEO" },
   // 제작

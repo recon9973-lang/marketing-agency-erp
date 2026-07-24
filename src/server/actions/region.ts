@@ -40,8 +40,6 @@ import { buildScorecard, type Scorecard } from "@/server/market/scorecard";
 import { searchLocalPlaces, naverLocalConfigured, type LocalPlace } from "@/server/integrations/naver-local";
 import { resolveAdmCode, fetchRegionDemographics, sgisConfigured, type RegionDemographics } from "@/server/integrations/sgis";
 import { buildSpecialtyProfile, type SpecialtyProfile } from "@/server/market/specialty-profile";
-import { buildAcquisitionReview, consultingReviewMarkdown, type ConsultingReview } from "@/server/market/consulting-review";
-import { scanKeywords, type KeywordScan } from "@/server/market/keyword-scan";
 import { isAiConfigured, generateMarketNarrative } from "@/server/ai/claude";
 import { storeDensityInRadius, publicDataConfigured, type StoreDensity } from "@/server/integrations/publicdata-store";
 
@@ -97,14 +95,12 @@ export type RegionAnalysis = {
   specialtyProfile: SpecialtyProfile | null; // 진료과 타깃 인구 프로파일
   income: RegionIncome | null; // 시도 1인당 개인소득 상대지수(구매력 축)
   access: RegionAccess | null; // 시군구 광역 대중교통 접근 등급
-  acquisition: { review: ConsultingReview; markdown: string } | null; // 신규 수주 진단·대응 방향
   nationalPer: number; // 전국 인구 만명당 병·의원 수(경쟁강도 기준선)
 };
 
 export async function analyzeRegion(input: {
   region: string;
   specialty?: string | null;
-  brand?: string | null;
 }): Promise<ActionResult<RegionAnalysis>> {
   return runAction(async (): Promise<RegionAnalysis> => {
     await requireUser();
@@ -156,49 +152,7 @@ export async function analyzeRegion(input: {
     const income = sido ? getRegionIncome(sido) : null;
     const access = resolve.key ? getRegionAccess(resolve.key) : null;
     const specialtyProfile = buildSpecialtyProfile(specialty, demographics, { hasIncome: Boolean(income), hasAccess: Boolean(access) });
-    // 신규 수주 진단(90% 케이스) — 상권 기회 → 진입 대응 방향.
-    let acquisition: { review: ConsultingReview; markdown: string } | null = null;
-    if (resolve.key) {
-      const acqReview = buildAcquisitionReview({
-        hospitalName: input.brand?.trim() || "(신규 병원)",
-        region: resolve.label,
-        specialty,
-        populationTotal: population?.total ?? null,
-        femaleRatio: population?.femaleRatio ?? null,
-        populationDelta: population?.delta ?? null,
-        perTenThousand: hospitals?.perTenThousand ?? null,
-        nationalPer,
-        openingsY1: openings?.y1 ?? null,
-        scoreGrade: scorecard?.grade ?? null,
-        scoreOverall: scorecard?.overall ?? null,
-        incomeIndex: income?.index ?? null,
-        accessLevel: access?.level ?? null,
-        accessLabel: access?.label ?? null,
-        demandRows: demand.length
-      });
-      const acqMd = consultingReviewMarkdown(acqReview, {
-        region: resolve.label,
-        departments: specialty ? [specialty] : [],
-        date: new Date().toISOString().slice(0, 10),
-        title: "신규 수주 진단"
-      });
-      acquisition = { review: acqReview, markdown: acqMd };
-    }
-    return { resolve, population, hospitals, specialty, demand, orientalDemand, frequent, openings, province, demoMap, scorecard, demographics, specialtyProfile, income, access, acquisition, nationalPer };
-  });
-}
-
-/** 지역+진료과 → 키워드 실측 스캔(검색량·경쟁도·블로그 포화도). 제안 덱 "키워드 분석" 표. */
-export async function scanMarketKeywords(input: {
-  region: string;
-  specialty?: string | null;
-}): Promise<ActionResult<KeywordScan & { regionLabel: string }>> {
-  return runAction(async (): Promise<KeywordScan & { regionLabel: string }> => {
-    await requireUser();
-    const { resolve } = getLocationInsight((input.region ?? "").trim());
-    const label = resolve.key ? resolve.label : (input.region ?? "").trim();
-    const scan = await scanKeywords(label, input.specialty?.trim() || null);
-    return { ...scan, regionLabel: label };
+    return { resolve, population, hospitals, specialty, demand, orientalDemand, frequent, openings, province, demoMap, scorecard, demographics, specialtyProfile, income, access, nationalPer };
   });
 }
 

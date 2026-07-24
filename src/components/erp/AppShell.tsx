@@ -52,6 +52,7 @@ type ErpRoute =
   | "/seo"
   | "/geo"
   | "/market"
+  | "/strategy"
   | "/geo-studio"
   | "/geo-scan"
   | "/geo-cep"
@@ -159,6 +160,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       label: "상권분석",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: MapPin,
+      group: "분석·GEO"
+    },
+    {
+      href: "/strategy",
+      label: "마케팅 전략",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Target,
       group: "분석·GEO"
     },
     {
