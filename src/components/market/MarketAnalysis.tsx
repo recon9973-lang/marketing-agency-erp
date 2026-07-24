@@ -9,6 +9,7 @@ import { analyzeRegion, generateMarketReport, generateProposal, analyzeRadius, s
 import type { LocalPlace } from "@/server/integrations/naver-local";
 import { downloadMarketDeck } from "@/components/market/deck";
 import { Donut, RadiusMap, Sparkline, colorOfType } from "@/components/market/charts";
+import { ConsultingReviewPanel } from "@/components/insights/ConsultingReviewPanel";
 
 // 주요 KCD 3단위 상병코드 라벨(표준). 없는 코드는 코드 그대로 표기(날조 금지).
 const KCD: Record<string, string> = {
@@ -267,6 +268,18 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                 </div>
               </div>
             </div>
+          )}
+
+          {/* 신규 수주 진단 · 대응 방향 (컨설팅 상담 90% 케이스) */}
+          {res.acquisition && (
+            <ConsultingReviewPanel
+              review={res.acquisition.review}
+              markdown={res.acquisition.markdown}
+              region={res.resolve.label}
+              departments={res.specialty ? [res.specialty] : []}
+              title="신규 수주 진단"
+              subtitle="상권 기회와 진입 대응 방향"
+            />
           )}
 
           {/* 진료과 타깃 프로파일 */}

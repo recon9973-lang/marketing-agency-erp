@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { InsightsView } from "@/components/insights/InsightsView";
 import { ClientMarketPanel } from "@/components/market/ClientMarketPanel";
+import { ConsultingReviewPanel } from "@/components/insights/ConsultingReviewPanel";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { getClientInsight, listInsightClients } from "@/server/repositories/insights";
+import { getClientConsultingReview } from "@/server/actions/consulting-review";
 import { naverDatalabConfigured } from "@/server/integrations/naver-datalab";
 import { isIntegrationConfigured } from "@/server/integrations/status";
 import { db } from "@/server/db";
@@ -26,6 +28,8 @@ export default async function InsightsPage({
     ? await db.client.findUnique({ where: { id: selectedId }, select: { region: true } }).catch(() => null)
     : null;
   const clientRegion = selClient?.region || "";
+  const reviewRes = selectedId ? await getClientConsultingReview(selectedId).catch(() => null) : null;
+  const review = reviewRes && reviewRes.ok ? reviewRes.data : null;
 
   return (
     <section className="space-y-6">
@@ -34,6 +38,14 @@ export default async function InsightsPage({
         title="거래처 인사이트"
         description="담당 병원의 채널별 방문자·노출, 검색 순위, 핵심·연관 키워드를 한 화면에서 봅니다."
       />
+      {review && (
+        <ConsultingReviewPanel
+          review={review.review}
+          markdown={review.markdown}
+          region={review.region}
+          departments={review.departments}
+        />
+      )}
       {clientRegion && <ClientMarketPanel region={clientRegion} />}
       <InsightsView
         clients={clients}
