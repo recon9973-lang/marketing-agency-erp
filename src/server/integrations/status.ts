@@ -179,6 +179,16 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       fallback: "데이터랩/데모로 대체"
     },
     {
+      key: "publicDataStore",
+      label: "상권 활성도 (소상공인 상가정보)",
+      category: "데이터·광고",
+      configured: has("PUBLICDATA_SERVICE_KEY"),
+      envVars: ["PUBLICDATA_SERVICE_KEY"],
+      description: "반경 내 상가업소 수·업종 분포(유동인구 근사) — 상권분석 상권 활성도 축",
+      usedIn: "상권분석(/market) 반경 밀집도",
+      fallback: "미설정/차단 시 상권 활성도 미표시(egress 차단 가능성 있음)"
+    },
+    {
       key: "naverLocal",
       label: "네이버 지역검색 (경쟁사 플레이스)",
       category: "데이터·광고",

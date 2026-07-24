@@ -5,8 +5,7 @@
  * 데이터: 행안부 주민등록(2026.6) · 심평원 병원정보/상병통계. 모두 ✅실측.
  */
 import { useState, useTransition } from "react";
-import { analyzeRegion, generateMarketReport, generateProposal, analyzeRadius, searchCompetitors, type RegionAnalysis } from "@/server/actions/region";
-import type { FacilityRadius } from "@/server/data/region-insight";
+import { analyzeRegion, generateMarketReport, generateProposal, analyzeRadius, searchCompetitors, type RegionAnalysis, type FacilityRadiusResult } from "@/server/actions/region";
 import type { LocalPlace } from "@/server/integrations/naver-local";
 import { downloadMarketDeck } from "@/components/market/deck";
 import { Donut, RadiusMap, Sparkline, colorOfType } from "@/components/market/charts";
@@ -54,7 +53,7 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
   const [reportKind, setReportKind] = useState<"리포트" | "제안서">("리포트");
   const [reportPending, startReport] = useTransition();
   const [radiusKm, setRadiusKm] = useState(1);
-  const [radiusRes, setRadiusRes] = useState<FacilityRadius | null>(null);
+  const [radiusRes, setRadiusRes] = useState<FacilityRadiusResult | null>(null);
   const [radiusPending, startRadius] = useTransition();
   const [pptBusy, setPptBusy] = useState(false);
   const [comp, setComp] = useState<{ configured: boolean; query: string; places: LocalPlace[]; filtered: boolean } | null>(null);
@@ -594,6 +593,23 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                     />
                     <p className="mt-1 text-[10px] text-slate-400">검정 = 기준 업체 · 색상 = 종별 · 링 = 반경(전체 {radiusRes.all.total}곳)</p>
                   </div>
+                )}
+                {radiusRes.stores && radiusRes.stores.total > 0 && (
+                  <div className="rounded-xl border border-line bg-surface/40 px-3 py-2">
+                    <p className="text-[11px]">
+                      <span className="font-semibold text-ink">상권 활성도</span> · 반경 {radiusRes.radiusKm}km 상가업소 <b className="text-emerald-600">{fmt(radiusRes.stores.total)}개</b>
+                      <span className="ml-1 text-slate-400">소상공인 상권정보(유동인구 근사)</span>
+                    </p>
+                    {radiusRes.stores.byCategory.length > 0 && (
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        업종: {radiusRes.stores.byCategory.slice(0, 5).map((c) => `${c.name} ${c.count}`).join(" · ")}
+                        <span className="text-slate-400"> (표본 {radiusRes.stores.sampled})</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+                {radiusRes.storesConfigured === false && (
+                  <p className="text-[10px] text-slate-400">상권 활성도(상가업소)는 <code>PUBLICDATA_SERVICE_KEY</code> 연결 시 표시됩니다.</p>
                 )}
                 {radiusRes.sameType.nearest.length > 0 && (
                   <div>

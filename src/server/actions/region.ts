@@ -36,6 +36,7 @@ import { buildScorecard, type Scorecard } from "@/server/market/scorecard";
 import { searchLocalPlaces, naverLocalConfigured, type LocalPlace } from "@/server/integrations/naver-local";
 import { resolveAdmCode, fetchRegionDemographics } from "@/server/integrations/sgis";
 import { isAiConfigured, generateMarketNarrative } from "@/server/ai/claude";
+import { storeDensityInRadius, publicDataConfigured, type StoreDensity } from "@/server/integrations/publicdata-store";
 
 /** 진료과 동종 필터를 적용한 경쟁사 상위 표본. */
 async function fetchCompetitors(label: string, specialty: string | null): Promise<LocalPlace[]> {
@@ -180,14 +181,22 @@ export async function searchCompetitors(input: {
 }
 
 /** 업체명+지역 → 좌표 매칭 → 반경 밀집도(동종 경쟁·전체). 지오코딩 불필요. */
+export type FacilityRadiusResult = FacilityRadius & { stores: StoreDensity | null; storesConfigured: boolean };
+
 export async function analyzeRadius(input: {
   region: string;
   name: string;
   radiusKm?: number;
-}): Promise<ActionResult<FacilityRadius>> {
-  return runAction(async (): Promise<FacilityRadius> => {
+}): Promise<ActionResult<FacilityRadiusResult>> {
+  return runAction(async (): Promise<FacilityRadiusResult> => {
     await requireUser();
-    return radiusForFacility((input.region ?? "").trim(), (input.name ?? "").trim(), input.radiusKm ?? 1);
+    const km = input.radiusKm ?? 1;
+    const r = radiusForFacility((input.region ?? "").trim(), (input.name ?? "").trim(), km);
+    let stores: StoreDensity | null = null;
+    if (r.facility && publicDataConfigured()) {
+      stores = await storeDensityInRadius(r.facility.lng, r.facility.lat, km * 1000).catch(() => null);
+    }
+    return { ...r, stores, storesConfigured: publicDataConfigured() };
   });
 }
 
