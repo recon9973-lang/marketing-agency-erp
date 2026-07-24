@@ -18,6 +18,12 @@ vi.mock("@/server/db", () => ({
   }
 }));
 
+// unstable_cache는 이메일 경로(loadStaffByEmail)를 감싼다 — 테스트에선 pass-through로
+// 두어 mock DB(findFirst)가 실제로 호출되게 한다.
+vi.mock("next/cache", () => ({
+  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn
+}));
+
 describe("getCurrentUser", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -57,7 +63,8 @@ describe("getCurrentUser", () => {
       id: "user-1",
       name: "Agency Admin",
       email: "admin@agency.test",
-      role: "ADMIN"
+      role: "ADMIN",
+      deniedFeatures: []
     });
   });
 
@@ -97,7 +104,8 @@ describe("getCurrentUser", () => {
       id: "user-2",
       name: "Kakao Staff",
       email: "staff@agency.test",
-      role: "SUPER_ADMIN"
+      role: "SUPER_ADMIN",
+      deniedFeatures: []
     });
   });
 
@@ -136,7 +144,8 @@ describe("getCurrentUser", () => {
       id: "user-3",
       name: "Linked Staff",
       email: "other@agency.test",
-      role: "ADMIN"
+      role: "ADMIN",
+      deniedFeatures: []
     });
   });
 
