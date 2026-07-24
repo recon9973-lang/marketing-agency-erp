@@ -17,8 +17,10 @@ export function publicDataConfigured(): boolean {
 export type StoreDensity = {
   total: number; // 반경 내 상가업소 총수(totalCount)
   radiusM: number;
-  byCategory: { name: string; count: number }[]; // 상권업종 대분류 분포(표본 기반)
+  // 상권업종 대분류 분포. count=표본 실측치, estimate=전체 총수 환산 추정치.
+  byCategory: { name: string; count: number; estimate: number }[];
   sampled: number; // 분포 산출에 사용한 표본 수
+  projected: boolean; // estimate가 표본→전체 환산(추정)인지 여부
 };
 
 function num(v: unknown): number {
@@ -39,7 +41,7 @@ export async function storeDensityInRadius(cx: number, cy: number, radiusM = 500
     cx: String(cx),
     cy: String(cy),
     type: "json",
-    numOfRows: "200",
+    numOfRows: "1000", // 분포 대표성 확보용 표본 확대(단일 호출 최대치)
     pageNo: "1"
   });
   const controller = new AbortController();
@@ -64,8 +66,15 @@ export async function storeDensityInRadius(cx: number, cy: number, radiusM = 500
         (it.indsLclsNm as string) || (it.ctgryLrgNm as string) || (it.categoryLarge as string) || "기타";
       cat.set(name, (cat.get(name) ?? 0) + 1);
     }
-    const byCategory = [...cat.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
-    return { total: total || items.length, radiusM, byCategory, sampled: items.length };
+    const sampled = items.length;
+    const grand = total || sampled;
+    // 표본이 전체보다 작으면 표본 비율을 전체 총수로 환산해 실제 규모 추정.
+    const projected = sampled > 0 && grand > sampled;
+    const scale = projected ? grand / sampled : 1;
+    const byCategory = [...cat.entries()]
+      .map(([name, count]) => ({ name, count, estimate: Math.round(count * scale) }))
+      .sort((a, b) => b.count - a.count);
+    return { total: grand, radiusM, byCategory, sampled, projected };
   } catch {
     return null;
   } finally {

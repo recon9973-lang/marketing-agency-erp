@@ -407,6 +407,27 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                       <span>여 {fmt(pop.female)}</span>
                     </div>
                   </div>
+                  {/* 상권 인구 요약 — 행안부 기반 항상 표시 */}
+                  <div className="grid grid-cols-2 gap-2 pt-0.5">
+                    {[
+                      { k: "상권 규모", v: pop.total >= 300000 ? "대형" : pop.total >= 120000 ? "중형" : "소형", s: `${pop.dongs}개 행정동` },
+                      { k: "행정동 평균", v: fmt(Math.round(pop.total / Math.max(pop.dongs, 1))), s: "명/동" },
+                      { k: "성비 성격", v: (pop.femaleRatio ?? 50) >= 52 ? "여초" : (pop.femaleRatio ?? 50) <= 48 ? "남초" : "균형", s: `여 ${pop.femaleRatio ?? "—"}%` },
+                      { k: "전월 추세", v: pop.delta > 0 ? "유입" : pop.delta < 0 ? "감소" : "보합", s: `${pop.delta >= 0 ? "▲" : "▼"}${fmt(Math.abs(pop.delta))}` }
+                    ].map((x) => (
+                      <div key={x.k} className="rounded-lg border border-line bg-surface/50 p-2.5">
+                        <div className="text-[10.5px] text-slate-500">{x.k}</div>
+                        <div className="mt-0.5 text-base font-bold text-ink">{x.v}</div>
+                        <div className="text-[10px] text-slate-400">{x.s}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {res.income && (
+                    <div className="flex items-center justify-between rounded-lg border border-line bg-surface/50 px-3 py-2">
+                      <span className="text-[11px] font-semibold text-slate-500">💳 구매력 <span className="font-normal text-slate-400">시도 개인소득</span></span>
+                      <span className="text-[12px] text-ink">지수 <b>{res.income.index}</b> · {res.income.quintile}분위 ({res.income.rank}/{res.income.total}위)</span>
+                    </div>
+                  )}
                   {res.demographics?.ageResolved && res.demographics.ageBands.length > 0 && (
                     <div>
                       <p className="mb-1 text-[11px] font-semibold text-slate-500">연령대 분포 <span className="font-normal text-slate-400">SGIS 실측</span></p>
@@ -717,8 +738,10 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                     </p>
                     {radiusRes.stores.byCategory.length > 0 && (
                       <p className="mt-1 text-[11px] text-slate-500">
-                        업종: {radiusRes.stores.byCategory.slice(0, 5).map((c) => `${c.name} ${c.count}`).join(" · ")}
-                        <span className="text-slate-400"> (표본 {radiusRes.stores.sampled})</span>
+                        업종: {radiusRes.stores.byCategory.slice(0, 5).map((c) => `${c.name} ${fmt(radiusRes.stores!.projected ? c.estimate : c.count)}`).join(" · ")}
+                        <span className="text-slate-400">
+                          {radiusRes.stores.projected ? ` (전체 추정 · 표본 ${fmt(radiusRes.stores.sampled)})` : ` (표본 ${fmt(radiusRes.stores.sampled)})`}
+                        </span>
                       </p>
                     )}
                   </div>
