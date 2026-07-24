@@ -268,6 +268,7 @@ export type RadiusResult = {
   total: number;
   byType: Record<string, number>;
   nearest: { name: string; type: string; distanceKm: number }[];
+  points: { lat: number; lng: number; type: string }[]; // 지도 산점도용(반경 내 전체, 최대 400)
   available: boolean; // 좌표 데이터 로드 여부
 };
 
@@ -282,11 +283,12 @@ export function radiusDensity(
   typeFilter?: string
 ): RadiusResult {
   const pts = loadPoints();
-  if (!pts) return { total: 0, byType: {}, nearest: [], available: false };
+  if (!pts) return { total: 0, byType: {}, nearest: [], points: [], available: false };
   const degLat = radiusKm / 111;
   const degLng = radiusKm / (111 * Math.max(0.2, Math.cos((lat * Math.PI) / 180)));
   const byType: Record<string, number> = {};
   const hits: { name: string; type: string; distanceKm: number }[] = [];
+  const scatter: { lat: number; lng: number; type: string }[] = [];
   for (let i = 0; i < pts.lat.length; i++) {
     if (Math.abs(pts.lat[i] - lat) > degLat || Math.abs(pts.lng[i] - lng) > degLng) continue;
     const type = pts.types[pts.t[i]];
@@ -295,9 +297,10 @@ export function radiusDensity(
     if (d > radiusKm) continue;
     byType[type] = (byType[type] ?? 0) + 1;
     hits.push({ name: pts.n[i], type, distanceKm: Math.round(d * 100) / 100 });
+    if (scatter.length < 400) scatter.push({ lat: pts.lat[i], lng: pts.lng[i], type });
   }
   hits.sort((a, b) => a.distanceKm - b.distanceKm);
-  return { total: hits.length, byType, nearest: hits.slice(0, 20), available: true };
+  return { total: hits.length, byType, nearest: hits.slice(0, 20), points: scatter, available: true };
 }
 
 // ── 업체명 → 좌표 → 반경 밀집도 ──────────────────────────────

@@ -9,6 +9,7 @@ import { analyzeRegion, generateMarketReport, generateProposal, analyzeRadius, s
 import type { FacilityRadius } from "@/server/data/region-insight";
 import type { LocalPlace } from "@/server/integrations/naver-local";
 import { downloadMarketDeck } from "@/components/market/deck";
+import { Donut, RadiusMap, Sparkline, colorOfType } from "@/components/market/charts";
 
 // 주요 KCD 3단위 상병코드 라벨(표준). 없는 코드는 코드 그대로 표기(날조 금지).
 const KCD: Record<string, string> = {
@@ -279,6 +280,16 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                       </span>
                     )}
                   </div>
+                  <Donut
+                    segments={[
+                      { label: `남 ${fmt(pop.male)}`, value: pop.male, color: "#0ea5e9" },
+                      { label: `여 ${fmt(pop.female)}`, value: pop.female, color: "#fb7185" }
+                    ]}
+                    centerLabel={`${pop.femaleRatio ?? "—"}%`}
+                    centerSub="여성"
+                    size={116}
+                    thickness={18}
+                  />
                   {/* 성비 막대 */}
                   <div>
                     <div className="flex h-6 overflow-hidden rounded-lg text-[10px] font-bold text-white">
@@ -329,6 +340,18 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                       <span className="ml-1 text-slate-400">{res.openings.y1 >= 30 ? "· 신규 진입 활발(경쟁 심화)" : res.openings.y1 <= 3 ? "· 안정" : ""}</span>
                     </div>
                   )}
+                  <Donut
+                    segments={(() => {
+                      const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                      const top = entries.slice(0, 5).map(([t, v]) => ({ label: t, value: v, color: colorOfType(t) }));
+                      const etc = entries.slice(5).reduce((a, [, v]) => a + v, 0);
+                      return etc > 0 ? [...top, { label: "기타", value: etc, color: "#cbd5e1" }] : top;
+                    })()}
+                    centerLabel={fmt(hos.total)}
+                    centerSub="병·의원"
+                    size={116}
+                    thickness={18}
+                  />
                   {/* 종별 전체 막대 */}
                   <div className="space-y-1">
                     {Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([type, n]) => (
@@ -417,6 +440,7 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                       {demoTag(d.code) && <span className="ml-1 text-rose-500/80">({demoTag(d.code)})</span>}
                     </span>
                     <span className="flex shrink-0 items-center gap-1.5">
+                      <Sparkline values={[d.y2, d.y1, d.y0]} width={44} height={16} />
                       <span className="text-slate-500">{fmt(d.y0)}</span>
                       {d.trend != null && (
                         <span className={d.trend >= 0 ? "text-emerald-600" : "text-rose-500"}>{d.trend >= 0 ? "▲" : "▼"}{Math.abs(d.trend)}%</span>
@@ -548,6 +572,17 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                     <div className="text-[10px] text-slate-500">전체 병·의원</div>
                   </div>
                 </div>
+                {radiusRes.all.points.length > 0 && (
+                  <div className="flex flex-col items-center">
+                    <RadiusMap
+                      center={{ lat: radiusRes.facility.lat, lng: radiusRes.facility.lng }}
+                      points={radiusRes.all.points}
+                      radiusKm={radiusRes.radiusKm}
+                      highlightType={radiusRes.facility.type}
+                    />
+                    <p className="mt-1 text-[10px] text-slate-400">검정 = 기준 업체 · 색상 = 종별 · 링 = 반경(전체 {radiusRes.all.total}곳)</p>
+                  </div>
+                )}
                 {radiusRes.sameType.nearest.length > 0 && (
                   <div>
                     <p className="mb-1 text-[11px] font-semibold text-slate-500">가까운 동종 경쟁 (거리순)</p>
