@@ -244,6 +244,48 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
             )}
             <p className="mt-2 text-[10.5px] text-slate-400">지역검색 상위 표본(최대 5). 정밀 순위·리뷰수는 플레이스 별도 확인.</p>
           </div>
+
+          {/* ⑤ 검색 여정·퍼널 */}
+          {res.journey && (
+            <div className={CARD}>
+              <h3 className="text-sm font-bold text-ink">⑤ 검색 여정·퍼널 <span className="font-normal text-slate-400">키워드 의도 → 채널·메시지·KPI</span></h3>
+              {/* 여정 단계별 키워드 */}
+              <div className="mt-3 flex flex-col gap-1.5">
+                {(["문제인식", "정보탐색", "비교", "병원검토", "예약"] as const).map((stage) => {
+                  const ks = res.journey.keywords.filter((k) => k.stage === stage);
+                  if (!ks.length) return null;
+                  return (
+                    <div key={stage} className="flex flex-wrap items-center gap-1.5">
+                      <span className="w-16 shrink-0 text-[11px] font-semibold text-brand">{stage}</span>
+                      {ks.map((k) => (
+                        <span key={k.keyword} className="rounded-full border border-line bg-surface/60 px-2 py-0.5 text-[11px] text-slate-600 dark:text-slate-300">{k.keyword}</span>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+              {/* 퍼널 전략 카드 */}
+              <div className="mt-4 grid gap-2.5 md:grid-cols-3">
+                {res.journey.funnel.map((f) => {
+                  const tone = f.funnel === "인지" ? "border-sky-200 dark:border-sky-900/50" : f.funnel === "고려" ? "border-amber-200 dark:border-amber-900/50" : "border-emerald-200 dark:border-emerald-900/50";
+                  const dot = f.funnel === "인지" ? "bg-sky-500" : f.funnel === "고려" ? "bg-amber-500" : "bg-emerald-500";
+                  return (
+                    <div key={f.funnel} className={`rounded-xl border ${tone} bg-card p-3`}>
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-[12.5px] font-bold text-ink"><span className={`h-2 w-2 rounded-full ${dot}`} />{f.funnel}</span>
+                        <span className="text-[11px] tabular-nums text-slate-400">검색수 {f.searchVolume.toLocaleString("ko-KR")}</span>
+                      </div>
+                      <p className="mt-1.5 text-[11.5px] font-semibold text-slate-600 dark:text-slate-300">{f.goal}</p>
+                      <p className="mt-1 text-[11px] text-slate-500">{f.message}</p>
+                      <p className="mt-1.5 text-[10.5px] text-slate-400">채널: {f.channels.join(" · ")}</p>
+                      <p className="text-[10.5px] text-slate-400">KPI: {f.kpi}</p>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-[10.5px] text-slate-400">키워드 의도(정보/비교/전환)로 분류 → 퍼널 단계별 채널·메시지·KPI 매핑. 검색수는 실측 키워드 합계.</p>
+            </div>
+          )}
         </>
       )}
     </div>

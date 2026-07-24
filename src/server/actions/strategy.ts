@@ -19,6 +19,7 @@ import {
 import { buildScorecard } from "@/server/market/scorecard";
 import { buildAcquisitionReview, consultingReviewMarkdown, type ConsultingReview } from "@/server/market/consulting-review";
 import { scanKeywords, buildSeedKeywords, type KeywordScan } from "@/server/market/keyword-scan";
+import { buildJourneyFunnel, journeyFunnelMarkdown, type JourneyFunnel } from "@/server/market/journey-funnel";
 import { runSeoAudit, scorePct } from "@/server/seo-engine";
 import { searchLocalPlaces, naverLocalConfigured, type LocalPlace } from "@/server/integrations/naver-local";
 
@@ -44,6 +45,7 @@ export type MarketingStrategy = {
   resolved: boolean; // 상권 키 해결(상권 근거 확보) 여부
   acquisition: { review: ConsultingReview; markdown: string } | null; // 수주 진단·대응 방향
   keywords: KeywordScan; // 키워드 실측(검색량·경쟁·포화도)
+  journey: JourneyFunnel; // 검색 여정·퍼널(키워드 의도 분류 → 채널·메시지·KPI)
   seo: StrategySeo; // 홈페이지 검색·AI 노출 정밀진단
   competitors: StrategyCompetitors; // 경쟁사 상위 표본
   brief: string; // 통합 제안 브리프(마크다운)
@@ -92,7 +94,7 @@ const fmt = (n: number | null | undefined): string => (n == null ? "—" : n.toL
 /** 4개 실측 블록 → 통합 제안 브리프(마크다운). */
 function buildBrief(s: {
   brand: string; label: string; specialty: string | null; date: string;
-  acquisition: MarketingStrategy["acquisition"]; keywords: KeywordScan; seo: StrategySeo; competitors: StrategyCompetitors;
+  acquisition: MarketingStrategy["acquisition"]; keywords: KeywordScan; journey: JourneyFunnel; seo: StrategySeo; competitors: StrategyCompetitors;
 }): string {
   const L: string[] = [];
   L.push(`# 마케팅 전략 브리프 — ${s.brand}`);
@@ -138,6 +140,9 @@ function buildBrief(s: {
   if (!s.competitors.configured) L.push(`- 네이버 지역검색 미연동.`);
   else if (s.competitors.places.length) s.competitors.places.forEach((p, i) => L.push(`${i + 1}. ${p.name} — ${p.category} · ${p.roadAddress || p.address}`));
   else L.push(`- 표본 없음.`);
+  L.push("");
+  // 5. 검색 여정·퍼널
+  L.push(journeyFunnelMarkdown(s.journey));
   L.push("");
   L.push(`> 실측 근거 기반. 수치는 목표·해석이며 성과 보장이 아님. 의료광고법 준수(전후사진·최상급·효과보장 금지).`);
   return L.join("\n");
@@ -201,9 +206,10 @@ export async function analyzeMarketingStrategy(input: {
       fetchCompetitors(label, specialty)
     ]);
 
+    const journey = buildJourneyFunnel(keywords.rows);
     const date = new Date().toISOString().slice(0, 10);
-    const brief = buildBrief({ brand, label, specialty, date, acquisition, keywords, seo, competitors });
+    const brief = buildBrief({ brand, label, specialty, date, acquisition, keywords, journey, seo, competitors });
 
-    return { brand, regionLabel: label, specialty, resolved: Boolean(key), acquisition, keywords, seo, competitors, brief };
+    return { brand, regionLabel: label, specialty, resolved: Boolean(key), acquisition, keywords, journey, seo, competitors, brief };
   });
 }
