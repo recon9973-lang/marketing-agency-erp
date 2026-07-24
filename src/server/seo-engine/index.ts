@@ -21,7 +21,7 @@ const UA_BROWSER =
 const UA_GOOGLEBOT =
   "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
 
-export type SeoAuditOk = { ok: true; result: SeoEngineResult; fetchedWith: string };
+export type SeoAuditOk = { ok: true; result: SeoEngineResult; fetchedWith: string; html: string };
 export type SeoAuditErr = { ok: false; reason: string };
 export type SeoAuditOutcome = SeoAuditOk | SeoAuditErr;
 
@@ -103,7 +103,7 @@ export async function runSeoAudit(url: string, keyword?: string | null): Promise
       doc: document,
       keyword: keyword || undefined
     }) as SeoEngineResult;
-    return { ok: true, result, fetchedWith };
+    return { ok: true, result, fetchedWith, html: page.text };
   } catch (err) {
     return { ok: false, reason: `ENGINE_${(err as Error).message || "ERROR"}` };
   }

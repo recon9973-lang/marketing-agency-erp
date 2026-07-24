@@ -20,8 +20,9 @@ import { buildScorecard } from "@/server/market/scorecard";
 import { buildAcquisitionReview, consultingReviewMarkdown, type ConsultingReview } from "@/server/market/consulting-review";
 import { scanKeywords, buildSeedKeywords, type KeywordScan } from "@/server/market/keyword-scan";
 import { buildJourneyFunnel, journeyFunnelMarkdown, type JourneyFunnel } from "@/server/market/journey-funnel";
-import { runSeoAudit, scorePct } from "@/server/seo-engine";
+import { runSeoAudit, scorePct, type SeoAuditOutcome } from "@/server/seo-engine";
 import { searchLocalPlaces, naverLocalConfigured, type LocalPlace } from "@/server/integrations/naver-local";
+import { checkMedicalLaw } from "@/server/compliance/medical-law";
 
 export type StrategySeo = {
   attempted: boolean; // URL 입력해 진단 시도했는지
@@ -38,6 +39,13 @@ export type StrategySeo = {
 
 export type StrategyCompetitors = { configured: boolean; query: string; places: LocalPlace[] };
 
+export type StrategyCompliance = {
+  scanned: boolean; // 홈페이지 텍스트를 실제 스캔했는지(URL·접근 성공 시)
+  high: number;
+  medium: number;
+  flags: { label: string; severity: string; matched: string }[]; // 상위 표본
+};
+
 export type MarketingStrategy = {
   brand: string;
   regionLabel: string;
@@ -47,19 +55,18 @@ export type MarketingStrategy = {
   keywords: KeywordScan; // 키워드 실측(검색량·경쟁·포화도)
   journey: JourneyFunnel; // 검색 여정·퍼널(키워드 의도 분류 → 채널·메시지·KPI)
   seo: StrategySeo; // 홈페이지 검색·AI 노출 정밀진단
+  compliance: StrategyCompliance; // 홈페이지 의료광고법 위험 스캔
   competitors: StrategyCompetitors; // 경쟁사 상위 표본
   brief: string; // 통합 제안 브리프(마크다운)
 };
 
-/** SEO 감사 결과를 브리프·패널용으로 압축. URL 없으면 attempted=false. */
-async function auditSeo(url: string | null | undefined, keyword: string | null): Promise<StrategySeo> {
+/** SEO 감사 outcome → 브리프·패널용 압축(단일 fetch 재활용). URL 없으면 attempted=false. */
+function compactSeo(hasUrl: boolean, outcome: SeoAuditOutcome | null): StrategySeo {
   const empty = (over: Partial<StrategySeo>): StrategySeo => ({
     attempted: false, ok: false, domain: null, score: null, grade: null,
     categories: [], topFixes: [], version: null, fetchedWith: null, error: null, ...over
   });
-  const target = (url ?? "").trim();
-  if (!target) return empty({});
-  const outcome = await runSeoAudit(target, keyword).catch(() => null);
+  if (!hasUrl) return empty({});
   if (!outcome) return empty({ attempted: true, error: "ENGINE_ERROR" });
   if (!outcome.ok) return empty({ attempted: true, error: outcome.reason });
   const r = outcome.result;
@@ -72,6 +79,30 @@ async function auditSeo(url: string | null | undefined, keyword: string | null):
   return {
     attempted: true, ok: true, domain: r.domain, score: scorePct(r), grade: r.grade?.label ?? null,
     categories, topFixes, version: r.version, fetchedWith: outcome.fetchedWith, error: null
+  };
+}
+
+/** HTML → 가시 텍스트(스크립트·스타일·태그 제거). */
+function htmlToText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** 홈페이지 텍스트 → 의료광고법 위험 스캔(있으면). 거래처 금지어 있으면 함께 적용. */
+function scanCompliance(outcome: SeoAuditOutcome | null, prohibited?: string | null): StrategyCompliance {
+  if (!outcome || !outcome.ok || !outcome.html) return { scanned: false, high: 0, medium: 0, flags: [] };
+  const text = htmlToText(outcome.html).slice(0, 40000); // 방어적 상한
+  const r = checkMedicalLaw(text, prohibited ?? null);
+  return {
+    scanned: true,
+    high: r.highCount,
+    medium: r.mediumCount,
+    flags: r.flags.slice(0, 14).map((f) => ({ label: f.label, severity: f.severity, matched: f.matched }))
   };
 }
 
@@ -94,7 +125,7 @@ const fmt = (n: number | null | undefined): string => (n == null ? "—" : n.toL
 /** 4개 실측 블록 → 통합 제안 브리프(마크다운). */
 function buildBrief(s: {
   brand: string; label: string; specialty: string | null; date: string;
-  acquisition: MarketingStrategy["acquisition"]; keywords: KeywordScan; journey: JourneyFunnel; seo: StrategySeo; competitors: StrategyCompetitors;
+  acquisition: MarketingStrategy["acquisition"]; keywords: KeywordScan; journey: JourneyFunnel; seo: StrategySeo; compliance: StrategyCompliance; competitors: StrategyCompetitors;
 }): string {
   const L: string[] = [];
   L.push(`# 마케팅 전략 브리프 — ${s.brand}`);
@@ -144,7 +175,16 @@ function buildBrief(s: {
   // 5. 검색 여정·퍼널
   L.push(journeyFunnelMarkdown(s.journey));
   L.push("");
-  L.push(`> 실측 근거 기반. 수치는 목표·해석이며 성과 보장이 아님. 의료광고법 준수(전후사진·최상급·효과보장 금지).`);
+  // 6. 의료광고 리스크(홈페이지 스캔)
+  L.push(`## 6. 의료광고 리스크 (홈페이지 스캔)`);
+  if (!s.compliance.scanned) L.push(`- 홈페이지 미스캔(URL 없음/접근 실패) — URL 입력 시 의료법 §56 위험 표현 자동 점검.`);
+  else if (s.compliance.high + s.compliance.medium === 0) L.push(`- ✅ 위험 표현 미검출(자동 1차). 최종 게시 전 내부·전문 검토는 별도 유지.`);
+  else {
+    L.push(`- ⚠️ 위험 표현 **높음 ${s.compliance.high} · 중간 ${s.compliance.medium}** — 계약·심의 전 수정 권고.`);
+    s.compliance.flags.slice(0, 10).forEach((f) => L.push(`  - [${f.severity === "high" ? "높음" : "중간"}] ${f.label}: "${f.matched}"`));
+  }
+  L.push("");
+  L.push(`> 실측 근거 기반. 수치는 목표·해석이며 성과 보장이 아님. 의료광고법 준수(전후사진·최상급·효과보장 금지). 위험 스캔은 1차 필터이며 심의 통과를 보장하지 않음.`);
   return L.join("\n");
 }
 
@@ -199,17 +239,20 @@ export async function analyzeMarketingStrategy(input: {
       acquisition = { review, markdown };
     }
 
-    // 병렬 실측: 키워드 · 정밀진단 · 경쟁사
-    const [keywords, seo, competitors] = await Promise.all([
+    // 병렬 실측: 키워드 · 정밀진단(1회 fetch) · 경쟁사
+    const target = (input.url ?? "").trim();
+    const [keywords, seoOutcome, competitors] = await Promise.all([
       scanKeywords(label, specialty),
-      auditSeo(input.url, seedKeyword),
+      target ? runSeoAudit(target, seedKeyword).catch(() => null) : Promise.resolve(null),
       fetchCompetitors(label, specialty)
     ]);
+    const seo = compactSeo(Boolean(target), seoOutcome);
+    const compliance = scanCompliance(seoOutcome); // 홈페이지 텍스트 재활용 → 의료광고 위험
 
     const journey = buildJourneyFunnel(keywords.rows);
     const date = new Date().toISOString().slice(0, 10);
-    const brief = buildBrief({ brand, label, specialty, date, acquisition, keywords, journey, seo, competitors });
+    const brief = buildBrief({ brand, label, specialty, date, acquisition, keywords, journey, seo, compliance, competitors });
 
-    return { brand, regionLabel: label, specialty, resolved: Boolean(key), acquisition, keywords, journey, seo, competitors, brief };
+    return { brand, regionLabel: label, specialty, resolved: Boolean(key), acquisition, keywords, journey, seo, compliance, competitors, brief };
   });
 }

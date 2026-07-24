@@ -286,6 +286,32 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
               <p className="mt-2 text-[10.5px] text-slate-400">키워드 의도(정보/비교/전환)로 분류 → 퍼널 단계별 채널·메시지·KPI 매핑. 검색수는 실측 키워드 합계.</p>
             </div>
           )}
+
+          {/* ⑥ 의료광고 리스크 */}
+          <div className={CARD}>
+            <h3 className="text-sm font-bold text-ink">⑥ 의료광고 리스크 <span className="font-normal text-slate-400">홈페이지 문구 · 의료법 §56 1차 스캔</span></h3>
+            {!res.compliance.scanned ? (
+              <p className="mt-2 text-[12.5px] text-slate-400">홈페이지 URL을 입력하면 최상급·치료보장·후기·비급여 유인 등 위험 표현을 자동 점검합니다.</p>
+            ) : res.compliance.high + res.compliance.medium === 0 ? (
+              <p className="mt-2 text-[12.5px] text-emerald-600">✅ 위험 표현 미검출(자동 1차). 최종 게시 전 내부·전문 검토는 별도 유지하세요.</p>
+            ) : (
+              <>
+                <div className="mt-2 flex flex-wrap gap-2 text-[11.5px] font-semibold">
+                  <span className="rounded-full bg-rose-50 px-2.5 py-0.5 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300">높음 {res.compliance.high}</span>
+                  <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-amber-600 dark:bg-amber-950/30 dark:text-amber-300">중간 {res.compliance.medium}</span>
+                  <span className="text-slate-400">계약·심의 전 수정 권고</span>
+                </div>
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                  {res.compliance.flags.map((f, i) => (
+                    <li key={i} className={`rounded-md border px-2 py-1 text-[11px] ${f.severity === "high" ? "border-rose-200 bg-rose-50/60 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-300" : "border-amber-200 bg-amber-50/60 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300"}`}>
+                      <b>{f.label}</b> · “{f.matched}”
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <p className="mt-2 text-[10.5px] text-slate-400">1차 자동 필터 — 심의 통과를 보장하지 않습니다(의료법 §56). 전후사진·최상급·효과보장 표현 지양.</p>
+          </div>
         </>
       )}
     </div>
