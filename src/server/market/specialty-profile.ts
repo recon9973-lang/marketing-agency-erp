@@ -163,8 +163,24 @@ export type SpecialtyProfile = {
   hasAge: boolean; // SGIS 연령 실측 여부
 };
 
+/** 소득·접근성 데이터 확보 시 해당 지표 커버리지를 상향(정직 반영). */
+function applyCoverage(factors: ProfileFactor[], opts?: { hasIncome?: boolean; hasAccess?: boolean }): ProfileFactor[] {
+  if (!opts) return factors;
+  return factors.map((f) => {
+    // 소득·카드소비 → 시도 개인소득 확보 시 partial(광역 단위이므로 have 아님)
+    if (opts.hasIncome && /소득|카드소비/.test(f.label) && f.status === "missing") return { ...f, status: "partial" };
+    // 접근성 → 시군구 광역 대중교통 등급 확보 시 have
+    if (opts.hasAccess && /접근성/.test(f.label) && f.status === "missing") return { ...f, status: "have" };
+    return f;
+  });
+}
+
 /** 진료과 + SGIS 연령·성별 → 타깃 인구 프로파일. 매핑 없으면 null. */
-export function buildSpecialtyProfile(specialty: string | null, demo: RegionDemographics | null): SpecialtyProfile | null {
+export function buildSpecialtyProfile(
+  specialty: string | null,
+  demo: RegionDemographics | null,
+  opts?: { hasIncome?: boolean; hasAccess?: boolean }
+): SpecialtyProfile | null {
   if (!specialty) return null;
   const def = PROFILES[specialty];
   if (!def) return null;
@@ -183,7 +199,7 @@ export function buildSpecialtyProfile(specialty: string | null, demo: RegionDemo
     targetLabel: def.targetLabel,
     targetCount,
     targetShare,
-    factors: def.factors,
+    factors: applyCoverage(def.factors, opts),
     hasAge: Boolean(demo?.ageResolved)
   };
 }

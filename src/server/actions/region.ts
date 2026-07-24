@@ -15,6 +15,8 @@ import {
   getOpenings,
   getProvinceDemand,
   getDiseaseDemographics,
+  getRegionIncome,
+  getRegionAccess,
   specialtyCodePredicate,
   radiusForFacility,
   nationalHospitalsPerTenThousand,
@@ -27,7 +29,9 @@ import {
   type FrequentDisease,
   type Openings,
   type ProvinceRow,
-  type DiseaseDemo
+  type DiseaseDemo,
+  type RegionIncome,
+  type RegionAccess
 } from "@/server/data/region-insight";
 
 const ORIENTAL_SPECIALTIES = new Set(["한의원", "한방병원", "한방"]);
@@ -89,6 +93,8 @@ export type RegionAnalysis = {
   scorecard: Scorecard | null; // 상권 종합 스코어카드(등급·부문·강약점)
   demographics: RegionDemographics | null; // SGIS 연령·성별(있으면)
   specialtyProfile: SpecialtyProfile | null; // 진료과 타깃 인구 프로파일
+  income: RegionIncome | null; // 시도 1인당 개인소득 상대지수(구매력 축)
+  access: RegionAccess | null; // 시군구 광역 대중교통 접근 등급
   nationalPer: number; // 전국 인구 만명당 병·의원 수(경쟁강도 기준선)
 };
 
@@ -143,8 +149,10 @@ export async function analyzeRegion(input: {
       const adm = await resolveAdmCode(resolve.label).catch(() => null);
       demographics = adm ? await fetchRegionDemographics(adm.admCd).catch(() => null) : null;
     }
-    const specialtyProfile = buildSpecialtyProfile(specialty, demographics);
-    return { resolve, population, hospitals, specialty, demand, orientalDemand, frequent, openings, province, demoMap, scorecard, demographics, specialtyProfile, nationalPer };
+    const income = sido ? getRegionIncome(sido) : null;
+    const access = resolve.key ? getRegionAccess(resolve.key) : null;
+    const specialtyProfile = buildSpecialtyProfile(specialty, demographics, { hasIncome: Boolean(income), hasAccess: Boolean(access) });
+    return { resolve, population, hospitals, specialty, demand, orientalDemand, frequent, openings, province, demoMap, scorecard, demographics, specialtyProfile, income, access, nationalPer };
   });
 }
 

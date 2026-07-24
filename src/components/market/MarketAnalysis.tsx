@@ -286,6 +286,43 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                   <span className="text-[11px] text-amber-600">SGIS 연령 미연동 — 타깃 인구 수치는 SGIS 키 연결 시 표시(총인구·성비는 아래 ①)</span>
                 )}
               </div>
+              {(res.income || res.access) && (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {res.income && (
+                    <div className="rounded-lg border border-line bg-surface/50 p-2.5">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-[11px] font-semibold text-slate-500">💳 구매력 (시도 개인소득)</span>
+                        <span className="text-[10px] text-amber-500">🟡광역</span>
+                      </div>
+                      <div className="mt-1 flex items-end gap-1.5">
+                        <span className="text-xl font-bold text-ink">{res.income.index}</span>
+                        <span className="pb-0.5 text-[11px] text-slate-500">/ 전국=100 · {res.income.quintile}분위 ({res.income.rank}/{res.income.total}위)</span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-line">
+                        <div className="h-full rounded-full bg-indigo-500" style={{ width: `${Math.min(100, Math.max(8, (res.income.index - 85) * 5))}%` }} />
+                      </div>
+                    </div>
+                  )}
+                  {res.access && (
+                    <div className="rounded-lg border border-line bg-surface/50 p-2.5">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-[11px] font-semibold text-slate-500">🚇 광역 접근성</span>
+                        <span className="text-[10px] text-emerald-500">✅실측</span>
+                      </div>
+                      <div className="mt-1 flex items-end gap-1.5">
+                        <span className="text-xl font-bold text-ink">{res.access.label}</span>
+                        <span className="pb-0.5 text-[11px] text-slate-500">등급 {res.access.level}/3</span>
+                      </div>
+                      <div className="mt-1.5 flex gap-1">
+                        {[0, 1, 2, 3].map((i) => (
+                          <span key={i} className={`h-1.5 flex-1 rounded-full ${i <= res.access!.level ? "bg-sky-500" : "bg-line"}`} />
+                        ))}
+                      </div>
+                      <p className="mt-1 text-[10px] text-slate-400">{res.access.modes.join(" · ")}</p>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {res.specialtyProfile.factors.map((f) => (
                   <span
@@ -303,6 +340,30 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                 ))}
               </div>
               <p className="mt-1.5 text-[10px] text-slate-400">✓ 보유 · ◐ 부분(광역/근사) · 취소선 = 미보유(데이터 추가 필요)</p>
+            </div>
+          )}
+
+          {/* 구매력·접근성 (진료과 프로파일 없을 때 단독 노출) */}
+          {!res.specialtyProfile && (res.income || res.access) && (
+            <div className={`${CARD} grid gap-2 sm:grid-cols-2`}>
+              {res.income && (
+                <div>
+                  <span className="text-[11px] font-semibold text-slate-500">💳 구매력 (시도 개인소득) <span className="text-amber-500">🟡광역</span></span>
+                  <div className="mt-1 flex items-end gap-1.5">
+                    <span className="text-xl font-bold text-ink">{res.income.index}</span>
+                    <span className="pb-0.5 text-[11px] text-slate-500">/ 전국=100 · {res.income.quintile}분위 ({res.income.rank}/{res.income.total}위)</span>
+                  </div>
+                </div>
+              )}
+              {res.access && (
+                <div>
+                  <span className="text-[11px] font-semibold text-slate-500">🚇 광역 접근성 <span className="text-emerald-500">✅실측</span></span>
+                  <div className="mt-1 flex items-end gap-1.5">
+                    <span className="text-xl font-bold text-ink">{res.access.label}</span>
+                    <span className="pb-0.5 text-[11px] text-slate-500">등급 {res.access.level}/3 · {res.access.modes.join("·")}</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

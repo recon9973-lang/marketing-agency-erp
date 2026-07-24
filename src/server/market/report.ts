@@ -12,6 +12,8 @@ import {
   getOpenings,
   getProvinceDemand,
   getDiseaseDemographics,
+  getRegionIncome,
+  getRegionAccess,
   specialtyCodePredicate,
   nationalHospitalsPerTenThousand,
   type HospitalSummary,
@@ -56,8 +58,13 @@ import { buildScorecard } from "@/server/market/scorecard";
 import { buildSpecialtyProfile } from "@/server/market/specialty-profile";
 
 /** 진료과 타깃 프로파일 마크다운 라인. */
-function profileLines(specialty: string | null, demo: ReportExtra["demographics"]): string[] {
-  const p = buildSpecialtyProfile(specialty, demo ?? null);
+function profileLines(
+  specialty: string | null,
+  demo: ReportExtra["demographics"],
+  income: ReturnType<typeof getRegionIncome>,
+  access: ReturnType<typeof getRegionAccess>
+): string[] {
+  const p = buildSpecialtyProfile(specialty, demo ?? null, { hasIncome: Boolean(income), hasAccess: Boolean(access) });
   if (!p) return [];
   const out = [`## ${p.specialty} 타깃 프로파일`];
   if (p.hasAge && p.targetCount != null)
@@ -69,6 +76,8 @@ function profileLines(specialty: string | null, demo: ReportExtra["demographics"
   if (have.length) out.push(`- ✅ 보유: ${have.join(", ")}`);
   if (partial.length) out.push(`- 🟡 부분: ${partial.join(", ")}`);
   if (missing.length) out.push(`- 🔴 미보유(데이터 추가 필요): ${missing.join(", ")}`);
+  if (income) out.push(`- 구매력(시도 개인소득): 전국=100 대비 **${income.index}** · ${income.quintile}분위(${income.rank}/${income.total}위) 🟡광역단위`);
+  if (access) out.push(`- 광역 접근성: **${access.label}**(${access.modes.join("·")}, 등급 ${access.level}/3) ✅실측`);
   return out;
 }
 
@@ -206,8 +215,10 @@ export function buildMarketReport(
     L.push("");
   }
 
-  // 진료과 타깃 프로파일
-  for (const line of profileLines(specialty, extra.demographics)) L.push(line);
+  // 진료과 타깃 프로파일 (+ 구매력·접근성 축)
+  const rIncome = resolve.key ? getRegionIncome(resolve.key.split("|")[0]) : null;
+  const rAccess = resolve.key ? getRegionAccess(resolve.key) : null;
+  for (const line of profileLines(specialty, extra.demographics, rIncome, rAccess)) L.push(line);
   if (specialty) L.push("");
 
   // ① 인구
@@ -356,6 +367,10 @@ export function buildProposal(
   }
   if (demand.length) L.push(`- ${specialty} 실수요 상위: ${demand.slice(0, 3).map((d) => `${d.code} ${KCD[d.code] ?? ""}`).join(" · ")}`);
   else if (specialty && ORIENTAL.has(specialty)) L.push(`- ⚠️ 한방 주상병 수요는 심평원 양방 상병통계에 없어 미반영(한방 진료통계 추가 시 실측).`);
+  const pIncome = getRegionIncome(resolve.key.split("|")[0]);
+  const pAccess = getRegionAccess(resolve.key);
+  if (pIncome) L.push(`- 구매력(시도 개인소득): 전국=100 대비 ${pIncome.index} · ${pIncome.quintile}분위 🟡광역`);
+  if (pAccess) L.push(`- 광역 접근성: ${pAccess.label}(${pAccess.modes.join("·")}) ✅실측`);
   for (const line of demographicsLines(extra.demographics)) L.push(line);
   if (extra.competitors && extra.competitors.length)
     L.push(`- 경쟁사 상위(네이버): ${extra.competitors.slice(0, 5).map((p) => p.name).join(" · ")}`);

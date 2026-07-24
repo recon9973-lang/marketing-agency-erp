@@ -20,6 +20,8 @@ import frequentJson from "./region/frequent-diseases.json";
 import openingsJson from "./region/openings-by-sgg.json";
 import provinceJson from "./region/province-demand.json";
 import diseaseDemoJson from "./region/disease-demographics.json";
+import incomeJson from "./region/income-by-sido.json";
+import accessJson from "./region/access-by-sgg.json";
 
 export type RegionPopulation = {
   total: number;
@@ -69,6 +71,25 @@ const province = provinceJson as Record<string, ProvinceRow[]>;
 /** 시도(축약: 서울·부산…) 다빈도 상병(양방, 전 진료과). canonical key 의 시도부. */
 export function getProvinceDemand(sido: string): ProvinceRow[] {
   return province[sido] ?? [];
+}
+
+// 소득(시도 1인당 개인소득 상대지수) — 구매력 축. 출처: 통계청 지역소득(오디널 근사).
+export type RegionIncome = { index: number; quintile: number; rank: number; total: number };
+const income = incomeJson as Record<string, RegionIncome>;
+/** 시도(축약) 1인당 개인소득 상대지수·5분위·순위. 없으면 null. */
+export function getRegionIncome(sido: string): RegionIncome | null {
+  return income[sido] ?? null;
+}
+
+// 접근성(시군구 광역 대중교통 등급) — 광역 유입·접근 축. 3=환승거점 2=전철정차 1=KTX/광역 0=미약.
+export type RegionAccess = { level: number; modes: string[]; label: string };
+const access = accessJson as Record<string, { level: number; modes: string[] }>;
+const ACCESS_LABEL = ["철도 접근 미약", "KTX·광역철도 접근", "도시철도·전철 정차", "다노선 환승 거점"];
+/** 시군구(canonical key) 광역 대중교통 접근 등급. 없으면 null. */
+export function getRegionAccess(key: string): RegionAccess | null {
+  const a = access[key];
+  if (!a) return null;
+  return { level: a.level, modes: a.modes, label: ACCESS_LABEL[a.level] ?? ACCESS_LABEL[0] };
 }
 
 // 진료과 → 관련 주상병(KCD 3단 접두). 광범위 진료과(내과·가정의학·소아 등)는 필터 없음(전체).
