@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/server/session";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StrategyAnalysis } from "@/components/strategy/StrategyAnalysis";
+import { SavedStrategyReports } from "@/components/strategy/SavedStrategyReports";
+import { listStrategyReports } from "@/server/actions/strategy";
 
 export default async function StrategyPage({
   searchParams
@@ -13,6 +15,8 @@ export default async function StrategyPage({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const { region, specialty } = await searchParams;
+  const listed = await listStrategyReports().catch(() => null);
+  const reports = listed && listed.ok ? listed.data : [];
   return (
     <section className="space-y-4">
       <PageHeader
@@ -21,6 +25,7 @@ export default async function StrategyPage({
         description="병원·지역·진료과를 입력하면 상권 실측을 근거로 수주 매력도·진입 대응 방향과 키워드 실측(검색량·경쟁·포화도)을 생성합니다. 상권 데이터 자체는 상권분석 화면에서 봅니다."
       />
       <StrategyAnalysis presetRegion={region ?? ""} presetSpecialty={specialty ?? ""} />
+      <SavedStrategyReports reports={reports} />
     </section>
   );
 }

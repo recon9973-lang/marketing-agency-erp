@@ -260,6 +260,51 @@ export async function analyzeMarketingStrategy(input: {
   });
 }
 
+// 전략 트랙 저장 리포트 = clientId·leadId 모두 null(프로스펙트). 이 판별자로 목록/조회.
+export type StrategyReportListItem = {
+  id: string;
+  hospitalName: string;
+  address: string | null;
+  departments: string | null;
+  summary: string | null;
+  status: string;
+  createdAt: string;
+};
+export type StrategyReportFull = StrategyReportListItem & { brief: string | null; competitors: string | null };
+
+/** 전략 트랙에서 저장한 상담 리포트 최근 목록. */
+export async function listStrategyReports(limit = 20): Promise<ActionResult<StrategyReportListItem[]>> {
+  return runAction(async (): Promise<StrategyReportListItem[]> => {
+    await requireUser();
+    const orgId = await getDefaultOrgId();
+    const rows = await db.consultingReport.findMany({
+      where: { clientId: null, leadId: null, orgId },
+      orderBy: { createdAt: "desc" },
+      take: Math.min(Math.max(limit, 1), 50),
+      select: { id: true, hospitalName: true, address: true, departments: true, summary: true, status: true, createdAt: true }
+    });
+    return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
+  });
+}
+
+/** 저장된 전략 상담 리포트 상세(브리프 전문). */
+export async function getStrategyReport(id: string): Promise<ActionResult<StrategyReportFull>> {
+  return runAction(async (): Promise<StrategyReportFull> => {
+    await requireUser();
+    const orgId = await getDefaultOrgId();
+    const r = await db.consultingReport.findFirst({
+      where: { id: id.trim(), orgId },
+      select: { id: true, hospitalName: true, address: true, departments: true, summary: true, status: true, createdAt: true, marketAnalysis: true, competitors: true }
+    });
+    if (!r) throw new Error("리포트를 찾을 수 없습니다.");
+    return {
+      id: r.id, hospitalName: r.hospitalName, address: r.address, departments: r.departments,
+      summary: r.summary, status: r.status, createdAt: r.createdAt.toISOString(),
+      brief: r.marketAnalysis, competitors: typeof r.competitors === "string" ? r.competitors : null
+    };
+  });
+}
+
 /** 마케팅 전략 결과를 상담 리포트(ConsultingReport)로 저장 — 상담 이력·재조회. clientId 있으면 연결. */
 export async function saveStrategyReport(input: {
   brand: string;

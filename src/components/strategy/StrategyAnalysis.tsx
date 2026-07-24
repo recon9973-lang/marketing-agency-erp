@@ -6,6 +6,7 @@
  * 상권분석(/market)과 별개 트랙. 상권 데이터를 근거로 소비만.
  */
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { analyzeMarketingStrategy, saveStrategyReport, type MarketingStrategy } from "@/server/actions/strategy";
 import { ConsultingReviewPanel } from "@/components/insights/ConsultingReviewPanel";
 import { Copy, Check, Save } from "lucide-react";
@@ -38,6 +39,7 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
   const [pending, start] = useTransition();
   const [copied, setCopied] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const router = useRouter();
 
   function run() {
     const q = region.trim();
@@ -66,8 +68,10 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
       keywords: res.keywords.rows,
       competitors: res.competitors.places.map((p) => p.name).join(", ") || null
     });
-    if (r.ok) setSaveState("saved");
-    else {
+    if (r.ok) {
+      setSaveState("saved");
+      router.refresh(); // 저장된 리포트 목록 갱신
+    } else {
       setSaveState("idle");
       setError(r.error.message);
     }
