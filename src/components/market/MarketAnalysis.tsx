@@ -130,6 +130,12 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
     URL.revokeObjectURL(url);
   }
 
+  const demoTag = (code: string): string | null => {
+    const d = res?.demoMap[code.trim().slice(0, 3)];
+    if (!d) return null;
+    const age = d.ageTop[0]?.band;
+    return `여 ${d.femaleRatio ?? "—"}%${age ? ` · ${age}` : ""}`;
+  };
   const pop = res?.population;
   const hos = res?.hospitals;
   const counts = hos?.counts ?? {};
@@ -329,6 +335,7 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                       <span className="w-40 shrink-0 truncate text-slate-600 dark:text-slate-300" title={d.code}>
                         <b className="text-ink">{d.code}</b> {KCD[d.code] ?? ""}
                       </span>
+                      {demoTag(d.code) && <span className="w-24 shrink-0 truncate text-rose-500/80" title="성별×연령 타깃">{demoTag(d.code)}</span>}
                       <div className="h-3 flex-1 overflow-hidden rounded bg-surface">
                         <div className="h-full rounded bg-sky-500" style={{ width: `${(d.patients / maxPatients) * 100}%` }} />
                       </div>
@@ -371,13 +378,35 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
               <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
                 {res.frequent.rows.slice(0, 10).map((d) => (
                   <div key={d.code} className="flex items-center justify-between gap-2 text-[11px]">
-                    <span className="truncate text-slate-600 dark:text-slate-300" title={`${d.code} ${d.name}`}><b className="text-ink">{d.code}</b> {d.name}</span>
+                    <span className="truncate text-slate-600 dark:text-slate-300" title={`${d.code} ${d.name}`}>
+                      <b className="text-ink">{d.code}</b> {d.name}
+                      {demoTag(d.code) && <span className="ml-1 text-rose-500/80">({demoTag(d.code)})</span>}
+                    </span>
                     <span className="flex shrink-0 items-center gap-1.5">
                       <span className="text-slate-500">{fmt(d.y0)}</span>
                       {d.trend != null && (
                         <span className={d.trend >= 0 ? "text-emerald-600" : "text-rose-500"}>{d.trend >= 0 ? "▲" : "▼"}{Math.abs(d.trend)}%</span>
                       )}
                     </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 양방 시도 다빈도 상병 (지역 수요) */}
+          {res.province.rows.length > 0 && (
+            <div className={CARD}>
+              <h3 className="text-sm font-bold text-ink">🗺️ {res.province.sido} 지역 다빈도 상병 <span className="font-normal text-slate-400">양방 · 심평원(시도)</span></h3>
+              <p className="mb-2 mt-0.5 text-[11px] text-slate-500">{res.province.sido} 전 진료과 외래 환자수 상위(2024) · 괄호=성별×연령 타깃</p>
+              <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+                {res.province.rows.slice(0, 12).map((d) => (
+                  <div key={d.code} className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="truncate text-slate-600 dark:text-slate-300" title={d.code}>
+                      <b className="text-ink">{d.code}</b> {KCD[d.code] ?? ""}
+                      {demoTag(d.code) && <span className="ml-1 text-rose-500/80">({demoTag(d.code)})</span>}
+                    </span>
+                    <span className="shrink-0 text-slate-500">{fmt(d.patients)}</span>
                   </div>
                 ))}
               </div>

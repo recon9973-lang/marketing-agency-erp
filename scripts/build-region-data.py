@@ -254,6 +254,61 @@ json.dump({"years": frequent_meta, "data": frequent},
           open(os.path.join(OUT, "frequent-diseases.json"), "w"),
           ensure_ascii=False, separators=(",", ":"))
 
+# ── ⑥ 양방 시도별 상병 수요 (지역=시도 단위) ────────────────────
+prov_path = os.path.join(DATA, "심평원시도별상병.csv")
+prows = read_csv_cp949(prov_path)[1:]
+# 컬럼: 0진료년도 1주상병코드 2시도구분 3환자수 ...
+prov = collections.defaultdict(collections.Counter)
+for r in prows:
+    if len(r) < 4:
+        continue
+    prov[r[2].strip()][r[1].strip()] += to_int(r[3])
+province = {}
+for sido, c in prov.items():
+    province[sido] = [{"code": code, "patients": n} for code, n in c.most_common(30)]
+meta["province_demand"] = len(province)
+json.dump(province, open(os.path.join(OUT, "province-demand.json"), "w"),
+          ensure_ascii=False, separators=(",", ":"))
+
+# ── ⑦ 상병별 성별×연령 타깃 (전국, 5단→3단 집계) ────────────────
+sa_path = os.path.join(DATA, "심평원상병_성연령.csv")
+sarows = read_csv_cp949(sa_path)[1:]
+# 컬럼: 0진료년도 1주상병코드(5단) 2성별 3연령군(예 05_20~24세) 4환자수 ...
+
+def decade_band(agelabel):
+    try:
+        lo = int(agelabel.split("_")[1].split("~")[0].replace("세", "").replace(" 이상", ""))
+    except Exception:
+        return "기타"
+    if lo < 20:
+        return "10대이하"
+    if lo >= 60:
+        return "60대+"
+    return f"{lo // 10 * 10}대"
+
+sa = collections.defaultdict(lambda: {"m": 0, "f": 0, "age": collections.Counter()})
+for r in sarows:
+    if len(r) < 5:
+        continue
+    code3 = r[1].strip()[:3]
+    pat = to_int(r[4])
+    d = sa[code3]
+    if r[2].strip() == "남":
+        d["m"] += pat
+    else:
+        d["f"] += pat
+    d["age"][decade_band(r[3].strip())] += pat
+disease_demo = {}
+ranked = sorted(sa.items(), key=lambda x: x[1]["m"] + x[1]["f"], reverse=True)[:200]
+for code, d in ranked:
+    total = d["m"] + d["f"]
+    ages = [{"band": b, "share": round(n / total * 1000) / 10} for b, n in d["age"].most_common(3)] if total else []
+    disease_demo[code] = {"total": total, "male": d["m"], "female": d["f"],
+                          "femaleRatio": round(d["f"] / total * 1000) / 10 if total else None, "ageTop": ages}
+meta["disease_demographics"] = len(disease_demo)
+json.dump(disease_demo, open(os.path.join(OUT, "disease-demographics.json"), "w"),
+          ensure_ascii=False, separators=(",", ":"))
+
 json.dump(meta, open(os.path.join(OUT, "meta.json"), "w"), ensure_ascii=False, indent=2)
 
 # 요약 출력

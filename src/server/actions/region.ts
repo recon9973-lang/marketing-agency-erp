@@ -13,6 +13,8 @@ import {
   getOrientalDemand,
   getFrequentDiseases,
   getOpenings,
+  getProvinceDemand,
+  getDiseaseDemographics,
   radiusForFacility,
   nationalHospitalsPerTenThousand,
   type RegionResolve,
@@ -22,7 +24,9 @@ import {
   type FacilityRadius,
   type OrientalDemand,
   type FrequentDisease,
-  type Openings
+  type Openings,
+  type ProvinceRow,
+  type DiseaseDemo
 } from "@/server/data/region-insight";
 
 const ORIENTAL_SPECIALTIES = new Set(["한의원", "한방병원", "한방"]);
@@ -76,6 +80,8 @@ export type RegionAnalysis = {
   orientalDemand: OrientalDemand | null; // 한방 진료과 선택 시 지역 한방 주상병 수요
   frequent: { kind: string; latest: number; prev2: number; rows: FrequentDisease[] }; // 전국 다빈도 3년 추이
   openings: Openings | null; // 최근 개원 추세(경쟁 심화 신호)
+  province: { sido: string; rows: ProvinceRow[] }; // 양방 시도별 다빈도 상병
+  demoMap: Record<string, DiseaseDemo>; // 상병(3단)별 성별×연령 타깃
   nationalPer: number; // 전국 인구 만명당 병·의원 수(경쟁강도 기준선)
 };
 
@@ -95,7 +101,18 @@ export async function analyzeRegion(input: {
     const fq = getFrequentDiseases(fk);
     const frequent = { kind: fk, latest: fq.years.latest, prev2: fq.years.prev2, rows: fq.rows };
     const openings = resolve.key ? getOpenings(resolve.key) : null;
-    return { resolve, population, hospitals, specialty, demand, orientalDemand, frequent, openings, nationalPer: nationalHospitalsPerTenThousand() };
+    const sido = resolve.key ? resolve.key.split("|")[0] : "";
+    const province = { sido, rows: getProvinceDemand(sido) };
+    const demoMap: Record<string, DiseaseDemo> = {};
+    const codes = new Set<string>();
+    demand.forEach((d) => codes.add(d.code.slice(0, 3)));
+    fq.rows.forEach((r) => codes.add(r.code.slice(0, 3)));
+    province.rows.forEach((r) => codes.add(r.code.slice(0, 3)));
+    codes.forEach((c) => {
+      const d = getDiseaseDemographics(c);
+      if (d) demoMap[c] = d;
+    });
+    return { resolve, population, hospitals, specialty, demand, orientalDemand, frequent, openings, province, demoMap, nationalPer: nationalHospitalsPerTenThousand() };
   });
 }
 

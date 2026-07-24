@@ -10,17 +10,35 @@ import {
   getOrientalDemand,
   getFrequentDiseases,
   getOpenings,
+  getProvinceDemand,
+  getDiseaseDemographics,
   nationalHospitalsPerTenThousand,
   type HospitalSummary,
   type RegionPopulation
 } from "@/server/data/region-insight";
 
+/** 상병(3단) 성별×연령 타깃 태그. 예: '여 62% · 30대'. 없으면 빈 문자열. */
+function demoTag(code: string): string {
+  const d = getDiseaseDemographics(code);
+  if (!d) return "";
+  const age = d.ageTop[0]?.band;
+  return `여 ${d.femaleRatio ?? "—"}%${age ? ` · ${age}` : ""}`;
+}
+
 function frequentLines(specialty: string | null): string[] {
   const kind = specialty && ORIENTAL.has(specialty) ? "한방" : "전체";
   const { years, rows } = getFrequentDiseases(kind);
   if (!rows.length) return [];
-  const out = [`## 전국 다빈도 상병 · 3년 추이 (${kind}) ✅실측`, `> 심평원 다빈도질병통계 ${years.latest} — 외래 환자수 상위·2년 증감률(${years.prev2}→${years.latest}).`, "", `| 상병 | ${years.latest} 환자수 | 추이 |`, `|---|---:|---:|`];
-  rows.slice(0, 10).forEach((r) => out.push(`| ${r.code} ${r.name} | ${fmt(r.y0)} | ${r.trend == null ? "—" : `${r.trend >= 0 ? "▲" : "▼"}${Math.abs(r.trend)}%`} |`));
+  const out = [`## 전국 다빈도 상병 · 3년 추이 (${kind}) ✅실측`, `> 심평원 다빈도질병통계 ${years.latest} — 외래 환자수 상위·2년 증감률(${years.prev2}→${years.latest}) · 타깃=성별×연령.`, "", `| 상병 | ${years.latest} 환자수 | 추이 | 타깃 |`, `|---|---:|---:|---|`];
+  rows.slice(0, 10).forEach((r) => out.push(`| ${r.code} ${r.name} | ${fmt(r.y0)} | ${r.trend == null ? "—" : `${r.trend >= 0 ? "▲" : "▼"}${Math.abs(r.trend)}%`} | ${demoTag(r.code)} |`));
+  return out;
+}
+
+function provinceLines(sido: string): string[] {
+  const rows = getProvinceDemand(sido);
+  if (!rows.length) return [];
+  const out = [`## ${sido} 지역 다빈도 상병 (양방·시도) ✅실측`, `> 심평원 시도별 진료통계(2024) — ${sido} 전 진료과 외래 환자수 상위 · 타깃=성별×연령.`, "", `| 상병 | 환자수 | 타깃 |`, `|---|---:|---|`];
+  rows.slice(0, 12).forEach((r) => out.push(`| ${r.code} | ${fmt(r.patients)} | ${demoTag(r.code)} |`));
   return out;
 }
 import type { LocalPlace } from "@/server/integrations/naver-local";
@@ -172,9 +190,9 @@ export function buildMarketReport(
     if (demand.length) {
       L.push(`> 심평원 표시과목별 상병통계 — 전국 ${specialty} 의원의 주상병별 연간 환자수(지역 아님, 실수요 구조) ✅실측`);
       L.push("");
-      L.push(`| 순위 | 주상병 | 환자수 |`);
-      L.push(`|---:|---|---:|`);
-      demand.slice(0, 12).forEach((d, i) => L.push(`| ${i + 1} | ${d.code} ${KCD[d.code] ?? ""} | ${fmt(d.patients)} |`));
+      L.push(`| 순위 | 주상병 | 환자수 | 타깃(성·연령) |`);
+      L.push(`|---:|---|---:|---|`);
+      demand.slice(0, 12).forEach((d, i) => L.push(`| ${i + 1} | ${d.code} ${KCD[d.code] ?? ""} | ${fmt(d.patients)} | ${demoTag(d.code)} |`));
     } else if (ORIENTAL.has(specialty) && orientalD && orientalD.byDx.length) {
       L.push(`> 심평원 한방 진료통계(${orientalD.year}) — ${label} 한방기관 외래+입원 주상병(대분류)별 진료인원 ✅실측(지역)`);
       L.push("");
@@ -191,6 +209,10 @@ export function buildMarketReport(
   // 경쟁사(네이버 지역검색) — 연결 시 실측 표본
   for (const line of competitorLines(extra.competitors)) L.push(line);
   if (extra.competitors && extra.competitors.length) L.push("");
+
+  // 지역(시도) 양방 다빈도 상병
+  for (const line of provinceLines(resolve.key ? resolve.key.split("|")[0] : "")) L.push(line);
+  L.push("");
 
   // 전국 다빈도 상병·3년 추이(전체/한방)
   for (const line of frequentLines(specialty)) L.push(line);
@@ -209,10 +231,11 @@ export function buildMarketReport(
   if (demand.length) measured.push("진료과 주상병 수요(심평원)");
   if (orientalD && orientalD.byDx.length) measured.push("한방 지역 주상병 수요(심평원)");
   measured.push("전국 다빈도 상병·3년 추이(심평원)");
+  measured.push("양방 시도 다빈도 상병 + 상병별 성별×연령 타깃(심평원)");
   if (resolve.key && getOpenings(resolve.key)) measured.push("개원 추세(심평원 병원정보)");
   if (extra.demographics?.genderResolved || extra.demographics?.ageResolved) measured.push("연령×성별 코어(SGIS)");
   if (extra.competitors && extra.competitors.length) measured.push("경쟁사 상위 표본(네이버 지역검색)");
-  const missing: string[] = ["양방 지역별 진료인원(심평원 지역 진료통계 별도)"];
+  const missing: string[] = ["양방 시군구 단위 진료인원(현재 시도 단위까지 보유)"];
   if (specialty && ORIENTAL.has(specialty) && !(orientalD && orientalD.byDx.length)) missing.push("이 지역 한방 진료통계 미매칭");
   if (!(extra.demographics?.genderResolved || extra.demographics?.ageResolved)) missing.push("연령×성별 코어(SGIS 미연동/미해결)");
   if (!(extra.competitors && extra.competitors.length)) missing.push("경쟁사 플레이스 순위·리뷰(네이버 미연동)");

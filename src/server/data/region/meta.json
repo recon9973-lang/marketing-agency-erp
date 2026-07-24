@@ -10,5 +10,7 @@
   "frequent_kinds": [
     "전체",
     "한방"
-  ]
+  ],
+  "province_demand": 17,
+  "disease_demographics": 200
 }

@@ -18,6 +18,8 @@ import demandJson from "./region/demand-by-specialty.json";
 import orientalJson from "./region/oriental-demand-by-sgg.json";
 import frequentJson from "./region/frequent-diseases.json";
 import openingsJson from "./region/openings-by-sgg.json";
+import provinceJson from "./region/province-demand.json";
+import diseaseDemoJson from "./region/disease-demographics.json";
 
 export type RegionPopulation = {
   total: number;
@@ -59,6 +61,21 @@ export type Openings = { y1: number; y3: number; total: number };
 const openings = openingsJson as Record<string, Openings>;
 export function getOpenings(key: string): Openings | null {
   return openings[key] ?? null;
+}
+
+// 양방 시도별 상병 수요(2024) + 상병별 성별×연령 타깃(2025).
+export type ProvinceRow = { code: string; patients: number };
+const province = provinceJson as Record<string, ProvinceRow[]>;
+/** 시도(축약: 서울·부산…) 다빈도 상병(양방, 전 진료과). canonical key 의 시도부. */
+export function getProvinceDemand(sido: string): ProvinceRow[] {
+  return province[sido] ?? [];
+}
+
+export type DiseaseDemo = { total: number; male: number; female: number; femaleRatio: number | null; ageTop: { band: string; share: number }[] };
+const diseaseDemo = diseaseDemoJson as Record<string, DiseaseDemo>;
+/** 상병(3단코드) 성별×연령 타깃. 없으면 null. */
+export function getDiseaseDemographics(code: string): DiseaseDemo | null {
+  return diseaseDemo[code?.trim().slice(0, 3)] ?? null;
 }
 
 // ── 지역 정규화 ─────────────────────────────────────────────
