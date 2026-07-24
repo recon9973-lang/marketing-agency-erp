@@ -101,12 +101,16 @@ export function resolveRegionKey(input: string): RegionResolve {
     // 시도만 맞고 구 미상 → 후보 없음(시도 전체 집계는 미지원)
   }
 
-  // 3) 시도 없거나 파싱 실패 → 구명 포함 스캔
+  // 3) 시도 없거나 파싱 실패 → 구명 부분 매칭 스캔(양방향)
+  //    예: '마산' → '창원마산회원구'·'창원마산합포구'(창원 통합), '해운대' → '해운대구'
   const needle = normDistrict(s);
-  const hits = KEYS.filter((k) => {
-    const d = k.split("|")[1];
-    return d && needle.includes(d);
-  });
+  const hits =
+    needle.length >= 2
+      ? KEYS.filter((k) => {
+          const d = k.split("|")[1];
+          return d && (needle.includes(d) || d.includes(needle));
+        })
+      : [];
   if (hits.length === 1) return { key: hits[0], label: labelOf(hits[0]), candidates: [] };
   if (hits.length > 1)
     return {

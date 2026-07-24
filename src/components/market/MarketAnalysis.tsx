@@ -28,10 +28,13 @@ function fmt(n: number | null | undefined): string {
 }
 
 const CARD = "rounded-2xl border border-line bg-card p-4";
+// 심평원 표시과목별 상병통계의 진료과(양방 26종) + 한방(수요통계는 양방만 → ③ 미제공, 경쟁/밀집도는 정상)
 const SPECIALTIES = [
   "", "내과", "정형외과", "성형외과", "피부과", "이비인후과", "안과", "산부인과", "소아청소년과",
-  "치과", "정신건강의학과", "재활의학과", "비뇨의학과", "가정의학과", "신경과", "외과", "마취통증의학과"
+  "치과", "정신건강의학과", "재활의학과", "비뇨의학과", "가정의학과", "신경과", "외과", "마취통증의학과",
+  "한의원", "한방병원"
 ];
+const ORIENTAL = new Set(["한의원", "한방병원", "한방"]);
 
 export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { presetRegion?: string; presetSpecialty?: string }) {
   const [region, setRegion] = useState(presetRegion);
@@ -320,6 +323,8 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                     </div>
                   ))}
                 </div>
+              ) : ORIENTAL.has(res.specialty) ? (
+                <p className="text-sm text-amber-600">한방(한의원·한방병원)은 심평원 <b>양방 표시과목</b> 상병통계에 없어 ③ 수요는 제공되지 않습니다. ① 인구·② 밀집도·경쟁사는 정상입니다.</p>
               ) : (
                 <p className="text-sm text-slate-400">해당 진료과 수요 데이터 없음</p>
               )}
