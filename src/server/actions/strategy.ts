@@ -389,6 +389,33 @@ export async function getStrategyReport(id: string): Promise<ActionResult<Strate
   });
 }
 
+/** 전략 저장 리포트 상태 전환(DRAFT↔SHARED). 전략 저장분(clientId·leadId null)만. */
+export async function updateStrategyReportStatus(id: string, status: "DRAFT" | "SHARED"): Promise<ActionResult<{ ok: true }>> {
+  return runAction(async (): Promise<{ ok: true }> => {
+    await requireUser();
+    const orgId = await getDefaultOrgId();
+    const r = await db.consultingReport.updateMany({
+      where: { id: id.trim(), orgId, clientId: null, leadId: null },
+      data: { status }
+    });
+    if (r.count === 0) throw new Error("리포트를 찾을 수 없습니다.");
+    return { ok: true as const };
+  });
+}
+
+/** 전략 저장 리포트 삭제. 전략 저장분(clientId·leadId null)만 — 리드/거래처 컨설팅은 보호. */
+export async function deleteStrategyReport(id: string): Promise<ActionResult<{ ok: true }>> {
+  return runAction(async (): Promise<{ ok: true }> => {
+    await requireUser();
+    const orgId = await getDefaultOrgId();
+    const r = await db.consultingReport.deleteMany({
+      where: { id: id.trim(), orgId, clientId: null, leadId: null }
+    });
+    if (r.count === 0) throw new Error("리포트를 찾을 수 없습니다.");
+    return { ok: true as const };
+  });
+}
+
 /** 마케팅 전략 결과를 상담 리포트(ConsultingReport)로 저장 — 상담 이력·재조회. clientId 있으면 연결. */
 export async function saveStrategyReport(input: {
   brand: string;
