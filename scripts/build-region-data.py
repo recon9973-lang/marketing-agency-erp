@@ -167,6 +167,33 @@ meta["demand_specialties"] = len(demand)
 json.dump(demand, open(os.path.join(OUT, "demand-by-specialty.json"), "w"),
           ensure_ascii=False, separators=(",", ":"))
 
+# ── ④ 한방 진료통계 → 시군구별 주상병(대분류) 진료인원(최신연도) ───────
+oriental_path = os.path.join(DATA, "심평원한방진료.csv")
+orows = read_csv_cp949(oriental_path)[1:]
+# 컬럼: 0진료개시년도 1진료형태(한방기관외래/입원) 2시도명 3시군구명 4주상병분류(대분류) 5진료인원 6진료비(천원)
+years = [to_int(r[0]) for r in orows if len(r) >= 7 and to_int(r[0])]
+latest = max(years) if years else 0
+# key → dx → {out, in}
+odata = collections.defaultdict(lambda: collections.defaultdict(lambda: {"out": 0, "in": 0}))
+for r in orows:
+    if len(r) < 7 or to_int(r[0]) != latest:
+        continue
+    key = canon_from_mois(r[2], r[3])
+    dxc = odata[key][r[4].strip()]
+    if "외래" in r[1]:
+        dxc["out"] += to_int(r[5])
+    else:
+        dxc["in"] += to_int(r[5])
+oriental = {}
+for key, dxs in odata.items():
+    rows_ = [{"dx": dx, "patients": v["out"] + v["in"], "out": v["out"], "in": v["in"]} for dx, v in dxs.items()]
+    rows_.sort(key=lambda x: x["patients"], reverse=True)
+    oriental[key] = {"year": latest, "total": sum(x["patients"] for x in rows_), "byDx": rows_[:15]}
+meta["oriental_year"] = latest
+meta["oriental_sgg"] = len(oriental)
+json.dump(oriental, open(os.path.join(OUT, "oriental-demand-by-sgg.json"), "w"),
+          ensure_ascii=False, separators=(",", ":"))
+
 json.dump(meta, open(os.path.join(OUT, "meta.json"), "w"), ensure_ascii=False, indent=2)
 
 # 요약 출력

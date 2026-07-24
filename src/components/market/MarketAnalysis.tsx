@@ -306,9 +306,16 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
           {res.specialty ? (
             <div className={CARD}>
               <h3 className="mb-1 text-sm font-bold text-ink">
-                ③ {res.specialty} 수요 — 주상병 상위 <span className="font-normal text-slate-400">심평원 표시과목별 상병통계(2025, 전국)</span>
+                ③ {res.specialty} 수요 — 주상병 상위{" "}
+                <span className="font-normal text-slate-400">
+                  {ORIENTAL.has(res.specialty) ? "심평원 한방 진료통계(지역)" : "심평원 표시과목별 상병통계(2025, 전국)"}
+                </span>
               </h3>
-              <p className="mb-3 text-[11px] text-slate-500">전국 {res.specialty} 의원의 주상병별 연간 환자수 — 실수요 구조(지역 아님).</p>
+              <p className="mb-3 text-[11px] text-slate-500">
+                {ORIENTAL.has(res.specialty)
+                  ? `${res.resolve.label} 한방기관 외래+입원 주상병(대분류)별 진료인원 — 지역 실수요.`
+                  : `전국 ${res.specialty} 의원의 주상병별 연간 환자수 — 실수요 구조(지역 아님).`}
+              </p>
               {res.demand.length > 0 ? (
                 <div className="space-y-1">
                   {res.demand.slice(0, 12).map((d) => (
@@ -323,8 +330,23 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                     </div>
                   ))}
                 </div>
+              ) : ORIENTAL.has(res.specialty) && res.orientalDemand && res.orientalDemand.byDx.length ? (
+                <div className="space-y-1">
+                  <p className="mb-1 text-[11px] text-emerald-600">
+                    심평원 한방 진료통계({res.orientalDemand.year}) · {res.resolve.label} 한방기관 외래+입원 · 총 {fmt(res.orientalDemand.total)}명 ✅실측(지역)
+                  </p>
+                  {res.orientalDemand.byDx.slice(0, 10).map((d) => (
+                    <div key={d.dx} className="flex items-center gap-2 text-[11px]">
+                      <span className="w-56 shrink-0 truncate text-slate-600 dark:text-slate-300" title={d.dx}>{d.dx}</span>
+                      <div className="h-3 flex-1 overflow-hidden rounded bg-surface">
+                        <div className="h-full rounded bg-sky-500" style={{ width: `${(d.patients / (res.orientalDemand!.byDx[0]?.patients || 1)) * 100}%` }} />
+                      </div>
+                      <span className="w-16 shrink-0 text-right font-semibold text-ink">{fmt(d.patients)}</span>
+                    </div>
+                  ))}
+                </div>
               ) : ORIENTAL.has(res.specialty) ? (
-                <p className="text-sm text-amber-600">한방(한의원·한방병원)은 심평원 <b>양방 표시과목</b> 상병통계에 없어 ③ 수요는 제공되지 않습니다. ① 인구·② 밀집도·경쟁사는 정상입니다.</p>
+                <p className="text-sm text-amber-600">이 지역 한방 진료통계가 매칭되지 않았습니다(구 통합·명칭 변경 등). ① 인구·② 밀집도·경쟁사는 정상입니다.</p>
               ) : (
                 <p className="text-sm text-slate-400">해당 진료과 수요 데이터 없음</p>
               )}

@@ -15,6 +15,7 @@ import zlib from "node:zlib";
 import populationJson from "./region/population-by-sgg.json";
 import hospitalsJson from "./region/hospitals-by-sgg.json";
 import demandJson from "./region/demand-by-specialty.json";
+import orientalJson from "./region/oriental-demand-by-sgg.json";
 
 export type RegionPopulation = {
   total: number;
@@ -27,9 +28,18 @@ export type RegionPopulation = {
 export type HospitalCounts = Record<string, number>; // 종별코드명 → 수
 export type DemandRow = { code: string; patients: number; claims: number; days: number };
 
+export type OrientalDx = { dx: string; patients: number; out: number; in: number };
+export type OrientalDemand = { year: number; total: number; byDx: OrientalDx[] };
+
 const population = populationJson as Record<string, RegionPopulation>;
 const hospitals = hospitalsJson as Record<string, HospitalCounts>;
 const demand = demandJson as Record<string, DemandRow[]>;
+const oriental = orientalJson as Record<string, OrientalDemand>;
+
+/** 시군구 한방 진료통계(주상병 대분류별 진료인원, 최신연도). 없으면 null. */
+export function getOrientalDemand(key: string): OrientalDemand | null {
+  return oriental[key] ?? null;
+}
 
 // ── 지역 정규화 ─────────────────────────────────────────────
 const SIDO: { names: string[]; abbr: string }[] = [

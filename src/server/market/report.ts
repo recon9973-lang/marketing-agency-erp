@@ -7,6 +7,7 @@ import "server-only";
 import {
   getLocationInsight,
   getDemandBySpecialty,
+  getOrientalDemand,
   nationalHospitalsPerTenThousand,
   type HospitalSummary,
   type RegionPopulation
@@ -116,6 +117,7 @@ export function buildMarketReport(
   }
   const label = resolve.label;
   const demand = specialty ? getDemandBySpecialty(specialty) : [];
+  const orientalD = specialty && ORIENTAL.has(specialty) && resolve.key ? getOrientalDemand(resolve.key) : null;
   const nationalPer = nationalHospitalsPerTenThousand();
   const now = new Date().toISOString().slice(0, 10);
   const client = brand?.trim() || "(일반형 · 병원명 자리)";
@@ -160,9 +162,15 @@ export function buildMarketReport(
       L.push(`| 순위 | 주상병 | 환자수 |`);
       L.push(`|---:|---|---:|`);
       demand.slice(0, 12).forEach((d, i) => L.push(`| ${i + 1} | ${d.code} ${KCD[d.code] ?? ""} | ${fmt(d.patients)} |`));
+    } else if (ORIENTAL.has(specialty) && orientalD && orientalD.byDx.length) {
+      L.push(`> 심평원 한방 진료통계(${orientalD.year}) — ${label} 한방기관 외래+입원 주상병(대분류)별 진료인원 ✅실측(지역)`);
+      L.push("");
+      L.push(`| 순위 | 주상병(대분류) | 진료인원 |`);
+      L.push(`|---:|---|---:|`);
+      orientalD.byDx.slice(0, 10).forEach((x, i) => L.push(`| ${i + 1} | ${x.dx} | ${fmt(x.patients)} |`));
+      L.push(`- 지역 한방 총 진료인원 **${fmt(orientalD.total)}명**(${orientalD.year}). 근골격·통증 중심 수요 구조.`);
     } else if (ORIENTAL.has(specialty)) {
-      L.push(`> ⚠️ 심평원 상병통계는 **양방 표시과목만** 수록 — 한방(${specialty}) 주상병 수요는 이 데이터셋에 없음.`);
-      L.push(`- 🔴 한방 주상병 수요 미보유 → 심평원 **한방 진료통계** 파일 추가 시 실측 가능(현재 미연동).`);
+      L.push(`- 🔴 이 지역 한방 진료통계 없음(구 통합·명칭 변경 등으로 미매칭).`);
     } else L.push("- 🔴 해당 진료과 수요 데이터 없음");
     L.push("");
   }
@@ -182,10 +190,11 @@ export function buildMarketReport(
   // 부록 — 실제 포함된 소스에 따라 등급을 동적으로 표기
   const measured = ["인구·성별(행안부)", "병원 밀집도·종별(심평원)"];
   if (demand.length) measured.push("진료과 주상병 수요(심평원)");
+  if (orientalD && orientalD.byDx.length) measured.push("한방 지역 주상병 수요(심평원)");
   if (extra.demographics?.genderResolved || extra.demographics?.ageResolved) measured.push("연령×성별 코어(SGIS)");
   if (extra.competitors && extra.competitors.length) measured.push("경쟁사 상위 표본(네이버 지역검색)");
-  const missing: string[] = ["지역별 진료인원(심평원 지역 진료통계 별도)"];
-  if (specialty && ORIENTAL.has(specialty) && !demand.length) missing.push("한방 주상병 수요(심평원 한방 진료통계)");
+  const missing: string[] = ["양방 지역별 진료인원(심평원 지역 진료통계 별도)"];
+  if (specialty && ORIENTAL.has(specialty) && !(orientalD && orientalD.byDx.length)) missing.push("이 지역 한방 진료통계 미매칭");
   if (!(extra.demographics?.genderResolved || extra.demographics?.ageResolved)) missing.push("연령×성별 코어(SGIS 미연동/미해결)");
   if (!(extra.competitors && extra.competitors.length)) missing.push("경쟁사 플레이스 순위·리뷰(네이버 미연동)");
 

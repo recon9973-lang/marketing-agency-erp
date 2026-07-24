@@ -3,5 +3,7 @@
   "hospital_sgg": 256,
   "hospital_no_coord": 8,
   "hospital_points": 79764,
-  "demand_specialties": 26
+  "demand_specialties": 26,
+  "oriental_year": 2024,
+  "oriental_sgg": 267
 }

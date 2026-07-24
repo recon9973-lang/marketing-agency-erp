@@ -10,14 +10,18 @@ import { requireUser } from "@/server/actions/_helpers";
 import {
   getLocationInsight,
   getDemandBySpecialty,
+  getOrientalDemand,
   radiusForFacility,
   nationalHospitalsPerTenThousand,
   type RegionResolve,
   type RegionPopulation,
   type HospitalSummary,
   type DemandRow,
-  type FacilityRadius
+  type FacilityRadius,
+  type OrientalDemand
 } from "@/server/data/region-insight";
+
+const ORIENTAL_SPECIALTIES = new Set(["한의원", "한방병원", "한방"]);
 import { buildMarketReport, buildProposal, type MarketReport, type ReportExtra } from "@/server/market/report";
 import { searchLocalPlaces, naverLocalConfigured, type LocalPlace } from "@/server/integrations/naver-local";
 import { resolveAdmCode, fetchRegionDemographics } from "@/server/integrations/sgis";
@@ -65,6 +69,7 @@ export type RegionAnalysis = {
   hospitals: HospitalSummary | null;
   specialty: string | null;
   demand: DemandRow[];
+  orientalDemand: OrientalDemand | null; // 한방 진료과 선택 시 지역 한방 주상병 수요
   nationalPer: number; // 전국 인구 만명당 병·의원 수(경쟁강도 기준선)
 };
 
@@ -78,7 +83,9 @@ export async function analyzeRegion(input: {
     const { resolve, population, hospitals } = getLocationInsight(region);
     const specialty = input.specialty?.trim() || null;
     const demand = specialty ? getDemandBySpecialty(specialty) : [];
-    return { resolve, population, hospitals, specialty, demand, nationalPer: nationalHospitalsPerTenThousand() };
+    const orientalDemand =
+      specialty && ORIENTAL_SPECIALTIES.has(specialty) && resolve.key ? getOrientalDemand(resolve.key) : null;
+    return { resolve, population, hospitals, specialty, demand, orientalDemand, nationalPer: nationalHospitalsPerTenThousand() };
   });
 }
 

@@ -113,6 +113,19 @@ export async function downloadMarketDeck({ analysis, brand, radius, today }: Dec
       s5.addText(fmt(d.patients), { x: 11, y, w: 1.7, h: 0.3, fontSize: 11, bold: true, color: C.ink, fontFace: FONT });
     });
     s5.addText("심평원 표시과목별 상병통계 — 전국 실수요 구조(지역 아님).", { x: 0.6, y: 6.5, w: 12, h: 0.4, fontSize: 10, color: C.sub, fontFace: FONT });
+  } else if (specialty && analysis.orientalDemand && analysis.orientalDemand.byDx.length) {
+    const od = analysis.orientalDemand;
+    const s5 = pptx.addSlide();
+    head(s5, `3. ${specialty} 지역 한방 수요 — 주상병(대분류)`, 5);
+    const rows = od.byDx.slice(0, 8);
+    const maxP = Math.max(1, ...rows.map((r) => r.patients));
+    rows.forEach((d, i) => {
+      const y = 1.6 + i * 0.6;
+      s5.addText(d.dx.replace(/\[.*?\]/, "").trim().slice(0, 22), { x: 0.6, y, w: 3.5, h: 0.3, fontSize: 11, color: C.ink, fontFace: FONT });
+      bar(s5, 4.2, y + 0.02, 6.5, d.patients / maxP, C.sky);
+      s5.addText(fmt(d.patients), { x: 11, y, w: 1.7, h: 0.3, fontSize: 11, bold: true, color: C.ink, fontFace: FONT });
+    });
+    s5.addText(`심평원 한방 진료통계(${od.year}) · 한방기관 외래+입원 · 총 ${fmt(od.total)}명 · 지역 실측`, { x: 0.6, y: 6.5, w: 12, h: 0.4, fontSize: 10, color: C.sub, fontFace: FONT });
   }
 
   // 6. 반경 경쟁 (좌표 있을 때)
