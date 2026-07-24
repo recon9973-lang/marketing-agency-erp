@@ -86,3 +86,34 @@ export async function fetchBlogDocCount(keyword: string): Promise<number | null>
     clearTimeout(timer);
   }
 }
+
+export type BlogItem = { title: string; bloggername: string; link: string };
+
+/** 키워드의 네이버 블로그 상위 결과(채널 점유 판정용). 미연결/오류 시 빈 배열. sort=sim(정확도). */
+export async function fetchBlogTop(keyword: string, display = 10): Promise<BlogItem[]> {
+  if (!naverLocalConfigured() || !keyword.trim()) return [];
+  const url = `${BLOG_ENDPOINT}?query=${encodeURIComponent(keyword)}&display=${Math.min(20, display)}&sort=sim`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      cache: "no-store",
+      headers: {
+        "X-Naver-Client-Id": process.env.NAVER_CLIENT_ID as string,
+        "X-Naver-Client-Secret": process.env.NAVER_CLIENT_SECRET as string
+      }
+    });
+    if (!res.ok) return [];
+    const j = (await res.json()) as { items?: Record<string, string>[] };
+    return (j.items ?? []).map((it) => ({
+      title: stripTags(it.title ?? ""),
+      bloggername: it.bloggername ?? "",
+      link: it.link ?? ""
+    }));
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}

@@ -129,7 +129,7 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
         <>
           {/* 통합 브리프 복사 */}
           <div className="flex items-center justify-between rounded-xl border border-line bg-surface/50 px-4 py-2.5">
-            <span className="text-[12.5px] font-semibold text-slate-500">📄 7개 실측 블록 종합 — 통합 제안 브리프</span>
+            <span className="text-[12.5px] font-semibold text-slate-500">📄 8개 실측 블록 종합 — 통합 제안 브리프</span>
             <div className="flex items-center gap-2">
               <button onClick={saveReport} disabled={saveState !== "idle"} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-card px-3 py-1.5 text-[12.5px] font-semibold text-slate-600 transition hover:bg-surface/60 disabled:opacity-60 dark:text-slate-300">
                 {saveState === "saved" ? <><Check className="h-3.5 w-3.5 text-emerald-500" /> 저장됨</> : saveState === "saving" ? "저장 중…" : <><Save className="h-3.5 w-3.5" /> 상담 리포트로 저장</>}
@@ -385,6 +385,35 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
                 ))}
               </div>
               <p className="mt-2 text-[10.5px] text-slate-400">* 표시 CPC = 경쟁도 기반 추정(실측 입찰가 아님). 예산 = 월검색량×CTR×CPC 가늠 — 실집행 전 참고치.</p>
+            </div>
+          )}
+
+          {/* ⑧ 채널 점유 (본원 vs 경쟁) */}
+          {res.sov && (
+            <div className={CARD}>
+              <h3 className="text-sm font-bold text-ink">⑧ 채널 점유 <span className="font-normal text-slate-400">본원 vs 경쟁{res.sov.keyword ? ` · ‘${res.sov.keyword}’` : ""}</span></h3>
+              {!res.sov.configured ? (
+                <p className="mt-2 text-[12.5px] text-slate-400">병원명(브랜드)을 입력하면 플레이스·블로그 상위에 본원 노출 여부를 실측합니다.</p>
+              ) : (
+                <div className="mt-3 space-y-3">
+                  {res.sov.channels.map((c) => {
+                    const ownPct = c.topN > 0 ? Math.round((c.ownSlots / c.topN) * 100) : 0;
+                    return (
+                      <div key={c.channel}>
+                        <div className="flex items-baseline justify-between text-[11.5px]">
+                          <span className="font-semibold text-ink">{c.channel}</span>
+                          <span className="text-slate-400">{c.ownSlots > 0 ? <span className="text-brand font-semibold">본원 {c.ownRank ? `${c.ownRank}위 노출` : `상위 ${c.ownSlots}건`}</span> : "본원 미노출"} · 상위 {c.topN}건</span>
+                        </div>
+                        <div className="mt-1 flex h-3 w-full overflow-hidden rounded-full bg-line">
+                          <div className="h-full bg-brand" style={{ width: `${ownPct}%` }} />
+                          <div className="h-full bg-slate-300 dark:bg-slate-600" style={{ width: `${100 - ownPct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <p className="text-[10.5px] text-slate-400"><span className="text-brand">■</span> 본원 · <span className="text-slate-400">■</span> 경쟁. 미노출 채널이 진입 우선순위. 플레이스·블로그 상위 노출 실측(프로덕션).</p>
+                </div>
+              )}
             </div>
           )}
         </>

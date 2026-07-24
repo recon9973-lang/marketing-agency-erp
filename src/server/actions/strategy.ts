@@ -25,7 +25,7 @@ import { scanKeywords, buildSeedKeywords, type KeywordScan } from "@/server/mark
 import { fetchBidEstimates } from "@/server/integrations/naver-search";
 import { buildJourneyFunnel, journeyFunnelMarkdown, type JourneyFunnel } from "@/server/market/journey-funnel";
 import { runSeoAudit, scorePct, type SeoAuditOutcome } from "@/server/seo-engine";
-import { searchLocalPlaces, naverLocalConfigured, type LocalPlace } from "@/server/integrations/naver-local";
+import { searchLocalPlaces, fetchBlogTop, naverLocalConfigured, type LocalPlace } from "@/server/integrations/naver-local";
 import { checkMedicalLaw } from "@/server/compliance/medical-law";
 
 export type StrategySeo = {
@@ -49,6 +49,12 @@ export type StrategyBudget = {
   scenarios: { label: string; monthlyWon: number; note: string }[];
 };
 
+export type ChannelSov = {
+  configured: boolean; // 병원명 있고 조회 가능(프로스펙트 "(신규 병원)"이면 false)
+  keyword: string | null; // 점유 판정 키워드(지역+진료과)
+  channels: { channel: string; topN: number; ownSlots: number; ownRank: number | null }[];
+};
+
 export type StrategyCompliance = {
   scanned: boolean; // 홈페이지 텍스트를 실제 스캔했는지(URL·접근 성공 시)
   high: number;
@@ -68,6 +74,7 @@ export type MarketingStrategy = {
   compliance: StrategyCompliance; // 홈페이지 의료광고법 위험 스캔
   competitors: StrategyCompetitors; // 경쟁사 상위 표본
   budget: StrategyBudget; // 파워링크 광고 예산 시나리오(CPC 입찰가)
+  sov: ChannelSov; // 채널 점유(본원 vs 경쟁, 플레이스·블로그)
   brief: string; // 통합 제안 브리프(마크다운)
 };
 
@@ -133,6 +140,23 @@ async function fetchCompetitors(label: string, specialty: string | null): Promis
 
 const fmt = (n: number | null | undefined): string => (n == null ? "—" : n.toLocaleString("ko-KR"));
 
+/** 핵심 키워드 채널 점유(본원 vs 경쟁) — 플레이스·블로그 상위 노출 실측(덱 p6). 병원명 없으면 미조회. */
+async function computeSov(brand: string, keyword: string | null): Promise<ChannelSov> {
+  const b = brand.replace(/\s+/g, "");
+  if (!b || b === "(신규병원)" || !keyword) return { configured: false, keyword, channels: [] };
+  const [places, blogs] = await Promise.all([
+    searchLocalPlaces(keyword, 5).catch(() => []),
+    fetchBlogTop(keyword, 10).catch(() => [])
+  ]);
+  const placeRank = places.findIndex((p) => p.name.replace(/\s+/g, "").includes(b));
+  const blogSlots = blogs.filter((x) => `${x.title}${x.bloggername}`.replace(/\s+/g, "").includes(b)).length;
+  const channels = [
+    { channel: "플레이스", topN: places.length || 5, ownSlots: placeRank >= 0 ? 1 : 0, ownRank: placeRank >= 0 ? placeRank + 1 : null },
+    { channel: "블로그", topN: blogs.length || 10, ownSlots: blogSlots, ownRank: null }
+  ];
+  return { configured: naverLocalConfigured(), keyword, channels };
+}
+
 /** 경쟁도 → 클릭당 CPC 추정(원, 의료 파워링크 중앙값 근사). 실측 입찰가 없을 때 폴백. */
 function estimateCpc(competition: string | null): number {
   if (competition === "높음") return 5500;
@@ -163,7 +187,7 @@ function buildBudget(rows: KeywordScan["rows"], bids: Map<string, number | null>
 /** 4개 실측 블록 → 통합 제안 브리프(마크다운). */
 function buildBrief(s: {
   brand: string; label: string; specialty: string | null; date: string;
-  acquisition: MarketingStrategy["acquisition"]; keywords: KeywordScan; journey: JourneyFunnel; seo: StrategySeo; compliance: StrategyCompliance; competitors: StrategyCompetitors; budget: StrategyBudget;
+  acquisition: MarketingStrategy["acquisition"]; keywords: KeywordScan; journey: JourneyFunnel; seo: StrategySeo; compliance: StrategyCompliance; competitors: StrategyCompetitors; budget: StrategyBudget; sov: ChannelSov;
 }): string {
   const L: string[] = [];
   L.push(`# 마케팅 전략 브리프 — ${s.brand}`);
@@ -231,6 +255,17 @@ function buildBrief(s: {
   L.push(`- 월 예산 가늠: ${s.budget.scenarios.map((sc) => `${sc.label} ${Math.round(sc.monthlyWon / 10000).toLocaleString("ko-KR")}만`).join(" · ")} (추정)`);
   L.push(`  * CPC에 * 표시는 경쟁도 기반 추정(실측 입찰가 아님).`);
   L.push("");
+  // 8. 채널 점유(본원 vs 경쟁)
+  L.push(`## 8. 채널 점유 — 본원 vs 경쟁${s.sov.keyword ? ` (‘${s.sov.keyword}’)` : ""}`);
+  if (!s.sov.configured) L.push(`- 병원명 미입력 — 병원명을 넣으면 플레이스·블로그 상위에 본원 노출 여부를 실측합니다.`);
+  else {
+    s.sov.channels.forEach((c) => {
+      const own = c.ownSlots > 0 ? `본원 노출(${c.ownRank ? `${c.ownRank}위` : `상위 ${c.ownSlots}건`})` : "본원 미노출";
+      L.push(`- ${c.channel}: ${own} · 상위 ${c.topN}건 중 경쟁 ${Math.max(0, c.topN - c.ownSlots)}건`);
+    });
+    L.push(`- → 미노출 채널이 진입 우선순위(경쟁이 점유 중인 지점).`);
+  }
+  L.push("");
   L.push(`> 실측 근거 기반. 수치는 목표·해석이며 성과 보장이 아님. 의료광고법 준수(전후사진·최상급·효과보장 금지). 위험 스캔은 1차 필터이며 심의 통과를 보장하지 않음.`);
   return L.join("\n");
 }
@@ -288,10 +323,11 @@ export async function analyzeMarketingStrategy(input: {
 
     // 병렬 실측: 키워드 · 정밀진단(1회 fetch) · 경쟁사
     const target = (input.url ?? "").trim();
-    const [keywords, seoOutcome, competitors] = await Promise.all([
+    const [keywords, seoOutcome, competitors, sov] = await Promise.all([
       scanKeywords(label, specialty),
       target ? runSeoAudit(target, seedKeyword).catch(() => null) : Promise.resolve(null),
-      fetchCompetitors(label, specialty)
+      fetchCompetitors(label, specialty),
+      computeSov(brand, seedKeyword)
     ]);
     const seo = compactSeo(Boolean(target), seoOutcome);
     const compliance = scanCompliance(seoOutcome); // 홈페이지 텍스트 재활용 → 의료광고 위험
@@ -302,9 +338,9 @@ export async function analyzeMarketingStrategy(input: {
     const budget = buildBudget(keywords.rows, bids);
 
     const date = new Date().toISOString().slice(0, 10);
-    const brief = buildBrief({ brand, label, specialty, date, acquisition, keywords, journey, seo, compliance, competitors, budget });
+    const brief = buildBrief({ brand, label, specialty, date, acquisition, keywords, journey, seo, compliance, competitors, budget, sov });
 
-    return { brand, regionLabel: label, specialty, resolved: Boolean(key), acquisition, keywords, journey, seo, compliance, competitors, budget, brief };
+    return { brand, regionLabel: label, specialty, resolved: Boolean(key), acquisition, keywords, journey, seo, compliance, competitors, budget, sov, brief };
   });
 }
 
