@@ -8,6 +8,8 @@
  * 인증: 헤더 X-Naver-Client-Id / X-Naver-Client-Secret
  */
 
+import { naverOpenApiCreds, naverOpenApiConfigured } from "./naver-credentials";
+
 const ENDPOINT = "https://openapi.naver.com/v1/datalab/search";
 
 export type TrendPoint = { period: string; ratio: number };
@@ -24,7 +26,7 @@ export type KeywordTrend = {
 };
 
 export function naverDatalabConfigured(): boolean {
-  return Boolean(process.env.NAVER_CLIENT_ID && process.env.NAVER_CLIENT_SECRET);
+  return naverOpenApiConfigured();
 }
 
 /** 최근 6개월 범위(YYYY-MM-DD). now를 주입하면 테스트가 결정적. */
@@ -65,8 +67,8 @@ export async function fetchKeywordTrends(keywords: string[], now = new Date()): 
   const response = await fetch(ENDPOINT, {
     method: "POST",
     headers: {
-      "X-Naver-Client-Id": process.env.NAVER_CLIENT_ID as string,
-      "X-Naver-Client-Secret": process.env.NAVER_CLIENT_SECRET as string,
+      "X-Naver-Client-Id": naverOpenApiCreds()?.id ?? "",
+      "X-Naver-Client-Secret": naverOpenApiCreds()?.secret ?? "",
       "Content-Type": "application/json"
     },
     body: JSON.stringify({

@@ -5,11 +5,13 @@ import "server-only";
  * ⚠️ display 최대 5, total 은 표시수 캡(개수 아님) → "상위 표본"으로만 사용(스킬 §④).
  * env: NAVER_CLIENT_ID / NAVER_CLIENT_SECRET (네이버 검색 오픈API). 없으면 미연결.
  */
+import { naverOpenApiCreds, naverOpenApiConfigured } from "./naver-credentials";
+
 const ENDPOINT = "https://openapi.naver.com/v1/search/local.json";
 const TIMEOUT_MS = 8000;
 
 export function naverLocalConfigured(): boolean {
-  return Boolean(process.env.NAVER_CLIENT_ID && process.env.NAVER_CLIENT_SECRET);
+  return naverOpenApiConfigured();
 }
 
 function stripTags(s: string): string {
@@ -36,8 +38,8 @@ export async function searchLocalPlaces(query: string, display = 5, sort: "comme
       signal: controller.signal,
       cache: "no-store",
       headers: {
-        "X-Naver-Client-Id": process.env.NAVER_CLIENT_ID as string,
-        "X-Naver-Client-Secret": process.env.NAVER_CLIENT_SECRET as string
+        "X-Naver-Client-Id": naverOpenApiCreds()?.id ?? "",
+        "X-Naver-Client-Secret": naverOpenApiCreds()?.secret ?? ""
       }
     });
     if (!res.ok) return [];
@@ -73,8 +75,8 @@ export async function fetchBlogDocCount(keyword: string): Promise<number | null>
       signal: controller.signal,
       cache: "no-store",
       headers: {
-        "X-Naver-Client-Id": process.env.NAVER_CLIENT_ID as string,
-        "X-Naver-Client-Secret": process.env.NAVER_CLIENT_SECRET as string
+        "X-Naver-Client-Id": naverOpenApiCreds()?.id ?? "",
+        "X-Naver-Client-Secret": naverOpenApiCreds()?.secret ?? ""
       }
     });
     if (!res.ok) return null;
@@ -100,8 +102,8 @@ export async function fetchBlogTop(keyword: string, display = 10): Promise<BlogI
       signal: controller.signal,
       cache: "no-store",
       headers: {
-        "X-Naver-Client-Id": process.env.NAVER_CLIENT_ID as string,
-        "X-Naver-Client-Secret": process.env.NAVER_CLIENT_SECRET as string
+        "X-Naver-Client-Id": naverOpenApiCreds()?.id ?? "",
+        "X-Naver-Client-Secret": naverOpenApiCreds()?.secret ?? ""
       }
     });
     if (!res.ok) return [];

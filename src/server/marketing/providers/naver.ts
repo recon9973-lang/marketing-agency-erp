@@ -26,8 +26,9 @@ const SEARCH_BASE = "https://openapi.naver.com/v1/search";
 const DATALAB_URL = "https://openapi.naver.com/v1/datalab/search";
 
 function creds(): { id: string; secret: string } | null {
-  const id = process.env.NAVER_SEARCH_CLIENT_ID;
-  const secret = process.env.NAVER_SEARCH_CLIENT_SECRET;
+  // 이름이 배포마다 갈려도 동작하도록 두 쌍 모두 허용(SEARCH 우선, 없으면 공통).
+  const id = process.env.NAVER_SEARCH_CLIENT_ID || process.env.NAVER_CLIENT_ID;
+  const secret = process.env.NAVER_SEARCH_CLIENT_SECRET || process.env.NAVER_CLIENT_SECRET;
   if (!id || !secret) return null;
   return { id, secret };
 }
