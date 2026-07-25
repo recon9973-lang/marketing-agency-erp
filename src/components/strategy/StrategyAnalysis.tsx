@@ -10,7 +10,8 @@ import { useRouter } from "next/navigation";
 import { analyzeMarketingStrategy, saveStrategyReport, type MarketingStrategy } from "@/server/actions/strategy";
 import { ConsultingReviewPanel } from "@/components/insights/ConsultingReviewPanel";
 import { downloadStrategyDeck } from "@/components/strategy/deck";
-import { Copy, Check, Save, Presentation } from "lucide-react";
+import { StrategyPrintDoc, type PrintOrient } from "@/components/strategy/StrategyPrintDoc";
+import { Copy, Check, Save, Presentation, FileDown } from "lucide-react";
 
 const SPECIALTIES = [
   "", "내과", "정형외과", "성형외과", "피부과", "이비인후과", "안과", "산부인과", "소아청소년과",
@@ -41,6 +42,7 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
   const [copied, setCopied] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [pptBusy, setPptBusy] = useState(false);
+  const [orient, setOrient] = useState<PrintOrient>("landscape");
   const router = useRouter();
 
   async function downloadPpt() {
@@ -54,6 +56,13 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
     } finally {
       setPptBusy(false);
     }
+  }
+
+  /** 인쇄 방향 지정 후 브라우저 인쇄→PDF. setState 반영 후 인쇄되도록 짧게 지연. */
+  function savePdf(o: PrintOrient) {
+    if (!res) return;
+    setOrient(o);
+    setTimeout(() => window.print(), 90);
   }
 
   function run() {
@@ -155,6 +164,12 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
               <button onClick={downloadPpt} disabled={pptBusy} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-[12.5px] font-semibold text-white transition hover:opacity-90 disabled:opacity-50">
                 <Presentation className="h-3.5 w-3.5" /> {pptBusy ? "생성 중…" : "PPT 다운로드"}
               </button>
+              {/* PDF 저장 — 방향 선택(가로/세로) */}
+              <span className="inline-flex items-center overflow-hidden rounded-lg border border-line">
+                <span className="inline-flex items-center gap-1 px-2 py-1.5 text-[11.5px] font-semibold text-slate-500"><FileDown className="h-3.5 w-3.5" /> PDF</span>
+                <button onClick={() => savePdf("landscape")} className="border-l border-line px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 transition hover:bg-brand/10 hover:text-brand dark:text-slate-300" title="가로 A4로 인쇄/PDF 저장">가로</button>
+                <button onClick={() => savePdf("portrait")} className="border-l border-line px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 transition hover:bg-brand/10 hover:text-brand dark:text-slate-300" title="세로 A4로 인쇄/PDF 저장">세로</button>
+              </span>
             </div>
           </div>
 
@@ -442,6 +457,9 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { 
               )}
             </div>
           )}
+
+          {/* 인쇄/PDF 전용 문서(화면 숨김) — 가로/세로 선택은 위 PDF 버튼 */}
+          <StrategyPrintDoc strategy={res} orient={orient} today={new Date().toISOString().slice(0, 10)} />
         </>
       )}
     </div>
