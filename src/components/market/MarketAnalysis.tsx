@@ -8,6 +8,7 @@ import { useState, useTransition } from "react";
 import { analyzeRegion, generateMarketReport, generateProposal, analyzeRadius, searchCompetitors, type RegionAnalysis, type FacilityRadiusResult } from "@/server/actions/region";
 import type { LocalPlace } from "@/server/integrations/naver-local";
 import { downloadMarketDeck } from "@/components/market/deck";
+import { MarketPrintDoc, type PrintOrient } from "@/components/market/MarketPrintDoc";
 import { Donut, RadiusMap, Sparkline, colorOfType } from "@/components/market/charts";
 
 // 주요 KCD 3단위 상병코드 라벨(표준). 없는 코드는 코드 그대로 표기(날조 금지).
@@ -51,6 +52,7 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
   const [pending, start] = useTransition();
   const [report, setReport] = useState<string | null>(null);
   const [reportKind, setReportKind] = useState<"리포트" | "제안서">("리포트");
+  const [orient, setOrient] = useState<PrintOrient>("landscape");
   const [reportPending, startReport] = useTransition();
   const [radiusKm, setRadiusKm] = useState(1);
   const [radiusRes, setRadiusRes] = useState<FacilityRadiusResult | null>(null);
@@ -123,6 +125,13 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
     } finally {
       setPptBusy(false);
     }
+  }
+
+  /** 인쇄 방향 지정 후 브라우저 인쇄→PDF. setState 반영 후 인쇄. */
+  function savePdf(o: PrintOrient) {
+    if (!res?.resolve.key) return;
+    setOrient(o);
+    setTimeout(() => window.print(), 90);
   }
 
   function downloadReport() {
@@ -806,6 +815,12 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                 >
                   {pptBusy ? "생성 중…" : "PPT 다운로드"}
                 </button>
+                {/* PDF 저장 — 방향 선택(가로/세로) */}
+                <span className="inline-flex items-center overflow-hidden rounded-lg border border-slate-300 dark:border-slate-600">
+                  <span className="px-2.5 py-2 text-[13px] font-semibold text-slate-500">PDF</span>
+                  <button onClick={() => savePdf("landscape")} className="border-l border-slate-300 px-3 py-2 text-[13px] font-semibold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-emerald-950/40" title="가로 A4로 인쇄/PDF 저장">가로</button>
+                  <button onClick={() => savePdf("portrait")} className="border-l border-slate-300 px-3 py-2 text-[13px] font-semibold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-emerald-950/40" title="세로 A4로 인쇄/PDF 저장">세로</button>
+                </span>
                 {report && (
                   <button
                     onClick={downloadReport}
@@ -822,6 +837,9 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
               </pre>
             )}
           </div>
+
+          {/* 인쇄/PDF 전용 문서(화면 숨김) — 가로/세로 선택은 위 PDF 버튼 */}
+          <MarketPrintDoc analysis={res} orient={orient} today={new Date().toISOString().slice(0, 10)} />
         </>
       )}
     </div>
