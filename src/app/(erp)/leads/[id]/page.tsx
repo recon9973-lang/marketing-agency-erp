@@ -62,6 +62,33 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         actions={<StatusBadge tone={toneForStatus(lead.status)}>{statusLabel}</StatusBadge>}
       />
 
+      {/* 계약 전 컨설팅 미팅 준비 — 리드 정보로 상권분석·마케팅 전략 바로 실행(프리필). */}
+      <div className="rounded-xl border border-brand/30 bg-brand-soft/40 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-1.5 text-sm font-bold text-ink">🩺 컨설팅 미팅 준비</h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              이 리드 정보(병원명·지역{lead.department ? "·진료과" : ""}{lead.websiteUrl ? "·홈페이지" : ""})로 분석을 바로 시작합니다 — 계약 전 대면 미팅 자료.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href={{ pathname: "/market", query: { region: lead.region ?? "", specialty: lead.department ?? "", brand: lead.hospitalName } }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-card px-3.5 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 dark:border-emerald-800/60 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+            >
+              🗺️ 상권분석
+            </Link>
+            <Link
+              href={{ pathname: "/strategy", query: { region: lead.region ?? "", specialty: lead.department ?? "", brand: lead.hospitalName, url: lead.websiteUrl ?? "" } }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3.5 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+            >
+              🎯 마케팅 전략
+            </Link>
+          </div>
+        </div>
+        {!lead.region && <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">※ 리드에 지역이 없어 분석 화면에서 지역(구·동)을 입력해야 합니다.</p>}
+      </div>
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* 기본 정보 */}
         <div className="rounded-xl border border-line bg-panel p-4">

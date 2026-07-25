@@ -45,10 +45,10 @@ const SPECIALTIES = [
 const ORIENTAL = new Set(["한의원", "한방병원", "한방"]);
 const GRADE_BG: Record<string, string> = { A: "bg-emerald-600", B: "bg-sky-600", C: "bg-amber-500", D: "bg-rose-500" };
 
-export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { presetRegion?: string; presetSpecialty?: string }) {
+export function MarketAnalysis({ presetRegion = "", presetSpecialty = "", presetBrand = "" }: { presetRegion?: string; presetSpecialty?: string; presetBrand?: string }) {
   const [region, setRegion] = useState(presetRegion);
   const [specialty, setSpecialty] = useState(presetSpecialty);
-  const [brand, setBrand] = useState("");
+  const [brand, setBrand] = useState(presetBrand);
   const [res, setRes] = useState<RegionAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();

@@ -10,11 +10,11 @@ import { listMarketReports } from "@/server/actions/market-reports";
 export default async function MarketPage({
   searchParams
 }: {
-  searchParams: Promise<{ region?: string; specialty?: string }>;
+  searchParams: Promise<{ region?: string; specialty?: string; brand?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const { region, specialty } = await searchParams;
+  const { region, specialty, brand } = await searchParams;
   const listed = await listMarketReports().catch(() => null);
   const reports = listed && listed.ok ? listed.data : [];
   return (
@@ -24,7 +24,7 @@ export default async function MarketPage({
         title="상권분석"
         description="지역(주소 또는 구)과 진료과를 입력하면 인구·성별, 병원 밀집도·종별, 진료과 수요를 행안부·심평원 실측 데이터로 즉시 분석합니다."
       />
-      <MarketAnalysis presetRegion={region ?? ""} presetSpecialty={specialty ?? ""} />
+      <MarketAnalysis presetRegion={region ?? ""} presetSpecialty={specialty ?? ""} presetBrand={brand ?? ""} />
       <SavedMarketReports reports={reports} />
     </section>
   );

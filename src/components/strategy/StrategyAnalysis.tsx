@@ -31,11 +31,11 @@ function scoreTone(n: number): string {
 const CARD = "rounded-2xl border border-line bg-card p-4";
 const INPUT = "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand";
 
-export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "" }: { presetRegion?: string; presetSpecialty?: string }) {
-  const [brand, setBrand] = useState("");
+export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "", presetBrand = "", presetUrl = "" }: { presetRegion?: string; presetSpecialty?: string; presetBrand?: string; presetUrl?: string }) {
+  const [brand, setBrand] = useState(presetBrand);
   const [region, setRegion] = useState(presetRegion);
   const [specialty, setSpecialty] = useState(presetSpecialty);
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState(presetUrl);
   const [res, setRes] = useState<MarketingStrategy | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
