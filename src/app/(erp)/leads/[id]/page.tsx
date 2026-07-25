@@ -12,7 +12,7 @@ import { LeadEditForm } from "@/components/leads/LeadEditForm";
 import { LeadQuotesPanel } from "@/components/leads/LeadQuotesPanel";
 import { ConvertLeadButton } from "@/components/leads/ConvertLeadButton";
 import { LeadConsultingPanel } from "@/components/leads/LeadConsultingPanel";
-import { getLeadConsulting } from "@/server/repositories/consulting";
+import { getLeadConsulting, listLeadAnalyses } from "@/server/repositories/consulting";
 import { isAiConfigured } from "@/server/ai/claude";
 import { leadStatusLabels } from "@/domain/sales/lead-stages";
 import { Role } from "@/domain/types";
@@ -41,10 +41,11 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const lead = await getLead(user, id);
   if (!lead) notFound();
 
-  const [quotes, marketers, consultingReport] = await Promise.all([
+  const [quotes, marketers, consultingReport, leadAnalyses] = await Promise.all([
     listLeadQuotes(lead.id),
     db.user.findMany({ where: { role: Role.MARKETER, status: "ACTIVE" }, select: { id: true, name: true } }).catch(() => []),
-    getLeadConsulting(lead.id).catch(() => null)
+    getLeadConsulting(lead.id).catch(() => null),
+    listLeadAnalyses(lead.id).catch(() => [])
   ]);
   const canRunConsulting = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN || lead.assigneeId === user.id;
 
@@ -73,13 +74,13 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           </div>
           <div className="flex items-center gap-2">
             <Link
-              href={{ pathname: "/market", query: { region: lead.region ?? "", specialty: lead.department ?? "", brand: lead.hospitalName } }}
+              href={{ pathname: "/market", query: { region: lead.region ?? "", specialty: lead.department ?? "", brand: lead.hospitalName, leadId: lead.id } }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-card px-3.5 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 dark:border-emerald-800/60 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
             >
               🗺️ 상권분석
             </Link>
             <Link
-              href={{ pathname: "/strategy", query: { region: lead.region ?? "", specialty: lead.department ?? "", brand: lead.hospitalName, url: lead.websiteUrl ?? "" } }}
+              href={{ pathname: "/strategy", query: { region: lead.region ?? "", specialty: lead.department ?? "", brand: lead.hospitalName, url: lead.websiteUrl ?? "", leadId: lead.id } }}
               className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3.5 py-2 text-sm font-semibold text-white transition hover:opacity-90"
             >
               🎯 마케팅 전략
@@ -87,6 +88,28 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           </div>
         </div>
         {!lead.region && <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">※ 리드에 지역이 없어 분석 화면에서 지역(구·동)을 입력해야 합니다.</p>}
+
+        {leadAnalyses.length > 0 && (
+          <div className="mt-3 border-t border-brand/20 pt-3">
+            <p className="text-xs font-semibold text-slate-500">🗂️ 이 리드에 저장된 분석 <span className="font-normal text-slate-400">{leadAnalyses.length}건</span></p>
+            <ul className="mt-1.5 space-y-1.5">
+              {leadAnalyses.map((a) => (
+                <li key={a.id}>
+                  <details className="rounded-lg border border-line bg-card px-3 py-2">
+                    <summary className="flex cursor-pointer items-center gap-2 text-[12.5px]">
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${a.track === "market" ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300" : "bg-brand-soft text-brand-strong"}`}>{a.track === "market" ? "상권분석" : "마케팅 전략"}</span>
+                      <span className="font-semibold text-ink">{a.title}</span>
+                      {a.departments && <span className="text-[11px] text-slate-400">{a.departments}</span>}
+                      {a.summary && <span className="text-[11px] text-slate-500">{a.summary}</span>}
+                      <span className="ml-auto text-[11px] tabular-nums text-slate-400">{a.createdAt.slice(0, 10)}</span>
+                    </summary>
+                    {a.markdown && <pre className="mt-2 max-h-[360px] overflow-auto rounded-md border border-line bg-surface/50 p-2.5 text-[11px] leading-relaxed text-ink whitespace-pre-wrap">{a.markdown}</pre>}
+                  </details>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

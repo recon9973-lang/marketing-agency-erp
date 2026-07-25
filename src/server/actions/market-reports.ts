@@ -95,6 +95,7 @@ export async function saveMarketReport(input: {
   region: string;
   specialty?: string | null;
   brand?: string | null;
+  leadId?: string | null;
 }): Promise<ActionResult<{ id: string }>> {
   return runAction(async (): Promise<{ id: string }> => {
     const user = await requireUser();
@@ -122,6 +123,7 @@ export async function saveMarketReport(input: {
     const saved = await db.consultingReport.create({
       data: {
         authorId: user.id,
+        leadId: input.leadId?.trim() || null, // 리드에서 실행 시 그 리드에 귀속
         hospitalName: brand || resolve.label,
         address: resolve.label,
         departments: specialty,

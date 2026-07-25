@@ -449,6 +449,7 @@ export async function saveStrategyReport(input: {
   keywords?: unknown;
   competitors?: string | null;
   clientId?: string | null;
+  leadId?: string | null;
 }): Promise<ActionResult<{ id: string }>> {
   return runAction(async (): Promise<{ id: string }> => {
     const user = await requireUser();
@@ -458,6 +459,7 @@ export async function saveStrategyReport(input: {
     const report = await db.consultingReport.create({
       data: {
         clientId: input.clientId?.trim() || null,
+        leadId: input.leadId?.trim() || null, // 리드에서 실행 시 그 리드에 귀속
         authorId: user.id,
         hospitalName: input.brand?.trim() || "(신규 병원)",
         address: input.region?.trim() || null,

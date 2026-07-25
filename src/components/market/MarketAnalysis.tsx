@@ -11,6 +11,7 @@ import { downloadMarketDeck } from "@/components/market/deck";
 import { MarketPrintDoc, type PrintOrient } from "@/components/market/MarketPrintDoc";
 import { saveMarketReport } from "@/server/actions/market-reports";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Donut, RadiusMap, Sparkline, colorOfType } from "@/components/market/charts";
 
 // 주요 KCD 3단위 상병코드 라벨(표준). 없는 코드는 코드 그대로 표기(날조 금지).
@@ -45,7 +46,7 @@ const SPECIALTIES = [
 const ORIENTAL = new Set(["한의원", "한방병원", "한방"]);
 const GRADE_BG: Record<string, string> = { A: "bg-emerald-600", B: "bg-sky-600", C: "bg-amber-500", D: "bg-rose-500" };
 
-export function MarketAnalysis({ presetRegion = "", presetSpecialty = "", presetBrand = "" }: { presetRegion?: string; presetSpecialty?: string; presetBrand?: string }) {
+export function MarketAnalysis({ presetRegion = "", presetSpecialty = "", presetBrand = "", presetLeadId = "" }: { presetRegion?: string; presetSpecialty?: string; presetBrand?: string; presetLeadId?: string }) {
   const [region, setRegion] = useState(presetRegion);
   const [specialty, setSpecialty] = useState(presetSpecialty);
   const [brand, setBrand] = useState(presetBrand);
@@ -135,7 +136,7 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "", preset
   async function saveReport() {
     if (!res?.resolve.key) return;
     setSaveState("saving");
-    const r = await saveMarketReport({ region: res.resolve.label, specialty: specialty || null, brand: brand || null });
+    const r = await saveMarketReport({ region: res.resolve.label, specialty: specialty || null, brand: brand || null, leadId: presetLeadId || null });
     if (r.ok) {
       setSaveState("saved");
       router.refresh(); // 저장된 리포트 목록 갱신
@@ -833,12 +834,20 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "", preset
                 >
                   {pptBusy ? "생성 중…" : "PPT 다운로드"}
                 </button>
+                {/* 크로스 프리필 — 같은 조건으로 마케팅 전략 이어가기(중복 입력 방지) */}
+                <Link
+                  href={{ pathname: "/strategy", query: { region: res.resolve.label, specialty: specialty || "", brand: brand || "", ...(presetLeadId ? { leadId: presetLeadId } : {}) } }}
+                  className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                  title="이 병원·지역·진료과로 마케팅 전략 화면 열기"
+                >
+                  🎯 마케팅 전략으로
+                </Link>
                 <button
                   onClick={saveReport}
                   disabled={saveState !== "idle"}
                   className="rounded-lg border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60 dark:border-emerald-800/60 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
                 >
-                  {saveState === "saved" ? "저장됨 ✓" : saveState === "saving" ? "저장 중…" : "상권분석 저장"}
+                  {saveState === "saved" ? "저장됨 ✓" : saveState === "saving" ? "저장 중…" : presetLeadId ? "이 리드에 저장" : "상권분석 저장"}
                 </button>
                 {/* PDF 저장 — 방향 선택(가로/세로) */}
                 <span className="inline-flex items-center overflow-hidden rounded-lg border border-slate-300 dark:border-slate-600">

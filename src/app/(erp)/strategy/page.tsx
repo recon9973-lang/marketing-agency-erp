@@ -10,11 +10,11 @@ import { listStrategyReports } from "@/server/actions/strategy";
 export default async function StrategyPage({
   searchParams
 }: {
-  searchParams: Promise<{ region?: string; specialty?: string; brand?: string; url?: string }>;
+  searchParams: Promise<{ region?: string; specialty?: string; brand?: string; url?: string; leadId?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const { region, specialty, brand, url } = await searchParams;
+  const { region, specialty, brand, url, leadId } = await searchParams;
   const listed = await listStrategyReports().catch(() => null);
   const reports = listed && listed.ok ? listed.data : [];
   return (
@@ -24,7 +24,7 @@ export default async function StrategyPage({
         title="마케팅 전략"
         description="병원·지역·진료과를 입력하면 상권 실측을 근거로 수주 매력도·진입 대응 방향과 키워드 실측(검색량·경쟁·포화도)을 생성합니다. 상권 데이터 자체는 상권분석 화면에서 봅니다."
       />
-      <StrategyAnalysis presetRegion={region ?? ""} presetSpecialty={specialty ?? ""} presetBrand={brand ?? ""} presetUrl={url ?? ""} />
+      <StrategyAnalysis presetRegion={region ?? ""} presetSpecialty={specialty ?? ""} presetBrand={brand ?? ""} presetUrl={url ?? ""} presetLeadId={leadId ?? ""} />
       <SavedStrategyReports reports={reports} />
     </section>
   );

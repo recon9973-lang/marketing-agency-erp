@@ -7,6 +7,7 @@
  */
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { analyzeMarketingStrategy, saveStrategyReport, type MarketingStrategy } from "@/server/actions/strategy";
 import { ConsultingReviewPanel } from "@/components/insights/ConsultingReviewPanel";
 import { downloadStrategyDeck } from "@/components/strategy/deck";
@@ -31,7 +32,7 @@ function scoreTone(n: number): string {
 const CARD = "rounded-2xl border border-line bg-card p-4";
 const INPUT = "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand";
 
-export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "", presetBrand = "", presetUrl = "" }: { presetRegion?: string; presetSpecialty?: string; presetBrand?: string; presetUrl?: string }) {
+export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "", presetBrand = "", presetUrl = "", presetLeadId = "" }: { presetRegion?: string; presetSpecialty?: string; presetBrand?: string; presetUrl?: string; presetLeadId?: string }) {
   const [brand, setBrand] = useState(presetBrand);
   const [region, setRegion] = useState(presetRegion);
   const [specialty, setSpecialty] = useState(presetSpecialty);
@@ -90,7 +91,8 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "", pres
       brief: res.brief,
       summary: res.acquisition?.review.headline ?? null,
       keywords: res.keywords.rows,
-      competitors: res.competitors.places.map((p) => p.name).join(", ") || null
+      competitors: res.competitors.places.map((p) => p.name).join(", ") || null,
+      leadId: presetLeadId || null // 리드에서 실행 시 그 리드에 귀속
     });
     if (r.ok) {
       setSaveState("saved");
@@ -155,8 +157,16 @@ export function StrategyAnalysis({ presetRegion = "", presetSpecialty = "", pres
           <div className="flex items-center justify-between rounded-xl border border-line bg-surface/50 px-4 py-2.5">
             <span className="text-[12.5px] font-semibold text-slate-500">📄 8개 실측 블록 종합 — 통합 제안 브리프</span>
             <div className="flex items-center gap-2">
+              {/* 크로스 프리필 — 같은 조건으로 상권분석 이어가기(중복 입력 방지) */}
+              <Link
+                href={{ pathname: "/market", query: { region: res.regionLabel, specialty: res.specialty ?? "", brand: res.brand, ...(presetLeadId ? { leadId: presetLeadId } : {}) } }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-card px-3 py-1.5 text-[12.5px] font-semibold text-emerald-700 transition hover:bg-emerald-50 dark:border-emerald-800/60 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+                title="이 병원·지역·진료과로 상권분석 화면 열기"
+              >
+                🗺️ 상권분석으로
+              </Link>
               <button onClick={saveReport} disabled={saveState !== "idle"} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-card px-3 py-1.5 text-[12.5px] font-semibold text-slate-600 transition hover:bg-surface/60 disabled:opacity-60 dark:text-slate-300">
-                {saveState === "saved" ? <><Check className="h-3.5 w-3.5 text-emerald-500" /> 저장됨</> : saveState === "saving" ? "저장 중…" : <><Save className="h-3.5 w-3.5" /> 상담 리포트로 저장</>}
+                {saveState === "saved" ? <><Check className="h-3.5 w-3.5 text-emerald-500" /> 저장됨</> : saveState === "saving" ? "저장 중…" : <><Save className="h-3.5 w-3.5" /> {presetLeadId ? "이 리드에 저장" : "상담 리포트로 저장"}</>}
               </button>
               <button onClick={copyBrief} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-card px-3 py-1.5 text-[12.5px] font-semibold text-slate-600 transition hover:bg-surface/60 dark:text-slate-300">
                 {copied ? <><Check className="h-3.5 w-3.5 text-emerald-500" /> 복사됨</> : <><Copy className="h-3.5 w-3.5" /> 브리프 복사</>}
