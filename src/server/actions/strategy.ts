@@ -27,6 +27,7 @@ import { buildJourneyFunnel, journeyFunnelMarkdown, type JourneyFunnel } from "@
 import { runSeoAudit, scorePct, type SeoAuditOutcome } from "@/server/seo-engine";
 import { searchLocalPlaces, fetchBlogTop, naverLocalConfigured, type LocalPlace } from "@/server/integrations/naver-local";
 import { selectCompetitors } from "@/server/market/competitor-filter";
+import { findOrCreateLeadForAnalysis } from "@/server/repositories/lead-link";
 import { checkMedicalLaw } from "@/server/compliance/medical-law";
 
 export type StrategySeo = {
@@ -456,10 +457,15 @@ export async function saveStrategyReport(input: {
     const brief = (input.brief ?? "").trim();
     if (!brief) throw new Error("빈 브리프는 저장할 수 없습니다.");
     const orgId = await getDefaultOrgId();
+    // 리드 귀속: 명시 leadId가 있으면 그것, 없으면 업체 기준으로 찾거나 1개만 생성(중복 방지).
+    // clientId(거래처 연결)로 저장하는 경우엔 리드 자동생성 안 함.
+    const leadId = input.leadId?.trim() || (input.clientId?.trim() ? null : await findOrCreateLeadForAnalysis({
+      brand: input.brand, region: input.region, specialty: input.specialty ?? null, url: null, userId: user.id, userRole: user.role, orgId
+    }));
     const report = await db.consultingReport.create({
       data: {
         clientId: input.clientId?.trim() || null,
-        leadId: input.leadId?.trim() || null, // 리드에서 실행 시 그 리드에 귀속
+        leadId, // 리드에서 실행 시/업체 기준 자동 귀속
         authorId: user.id,
         hospitalName: input.brand?.trim() || "(신규 병원)",
         address: input.region?.trim() || null,

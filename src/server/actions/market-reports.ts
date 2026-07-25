@@ -16,6 +16,7 @@ import { getLocationInsight } from "@/server/data/region-insight";
 import { buildScorecard } from "@/server/market/scorecard";
 import { getOpenings, nationalHospitalsPerTenThousand } from "@/server/data/region-insight";
 import { buildMarketReport } from "@/server/market/report";
+import { findOrCreateLeadForAnalysis } from "@/server/repositories/lead-link";
 
 export type MarketReportListItem = {
   id: string;
@@ -120,10 +121,14 @@ export async function saveMarketReport(input: {
     const summary = sc ? `종합 ${sc.grade}등급 (${sc.overall}/100)` : null;
 
     const orgId = await getDefaultOrgId();
+    // 리드 귀속: 명시 leadId가 있으면 그것, 없으면 업체 기준으로 찾거나 1개만 생성(중복 방지).
+    const leadId = input.leadId?.trim() || (await findOrCreateLeadForAnalysis({
+      brand, region: resolve.label, specialty, url: null, userId: user.id, userRole: user.role, orgId
+    }));
     const saved = await db.consultingReport.create({
       data: {
         authorId: user.id,
-        leadId: input.leadId?.trim() || null, // 리드에서 실행 시 그 리드에 귀속
+        leadId,
         hospitalName: brand || resolve.label,
         address: resolve.label,
         departments: specialty,
