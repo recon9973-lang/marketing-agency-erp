@@ -974,8 +974,10 @@ model ConsultingReport {
   departments    String?
   keywords       Json? // 산출 키워드 요약
   competitors    Json? // 경쟁 병원 분석
-  marketAnalysis String? // 상권 분석
+  marketAnalysis String? // 상권 분석(마케팅 전략=브리프, 상권분석=리포트 마크다운 저장)
   summary        String? // 요약
+  // 프로스펙트 저장 트랙 구분: "strategy"(마케팅 전략) | "market"(상권분석). null=레거시(전략 취급).
+  track          String? // 트랙(전략/상권) — clientId·leadId 모두 null인 프로스펙트 저장 구분
   status         String   @default("DRAFT") // DRAFT | SHARED
   orgId          String?
   createdAt      DateTime @default(now())
@@ -988,6 +990,7 @@ model ConsultingReport {
   @@index([leadId])
   @@index([authorId])
   @@index([orgId])
+  @@index([track])
 }
 
 /// 견적서 — 가격대별 3종(BASIC/STANDARD/PREMIUM). 상품 마스터 기반 구성.

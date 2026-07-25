@@ -9,6 +9,8 @@ import { analyzeRegion, generateMarketReport, generateProposal, analyzeRadius, s
 import type { LocalPlace } from "@/server/integrations/naver-local";
 import { downloadMarketDeck } from "@/components/market/deck";
 import { MarketPrintDoc, type PrintOrient } from "@/components/market/MarketPrintDoc";
+import { saveMarketReport } from "@/server/actions/market-reports";
+import { useRouter } from "next/navigation";
 import { Donut, RadiusMap, Sparkline, colorOfType } from "@/components/market/charts";
 
 // 주요 KCD 3단위 상병코드 라벨(표준). 없는 코드는 코드 그대로 표기(날조 금지).
@@ -53,6 +55,8 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
   const [report, setReport] = useState<string | null>(null);
   const [reportKind, setReportKind] = useState<"리포트" | "제안서">("리포트");
   const [orient, setOrient] = useState<PrintOrient>("landscape");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const router = useRouter();
   const [reportPending, startReport] = useTransition();
   const [radiusKm, setRadiusKm] = useState(1);
   const [radiusRes, setRadiusRes] = useState<FacilityRadiusResult | null>(null);
@@ -124,6 +128,20 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
       setError("PPT 생성 중 오류가 발생했습니다.");
     } finally {
       setPptBusy(false);
+    }
+  }
+
+  /** 상권분석 결과를 저장 리포트로 남긴다(마케팅 전략의 상담 리포트 저장과 대칭). */
+  async function saveReport() {
+    if (!res?.resolve.key) return;
+    setSaveState("saving");
+    const r = await saveMarketReport({ region: res.resolve.label, specialty: specialty || null, brand: brand || null });
+    if (r.ok) {
+      setSaveState("saved");
+      router.refresh(); // 저장된 리포트 목록 갱신
+    } else {
+      setSaveState("idle");
+      setError(r.error.message);
     }
   }
 
@@ -814,6 +832,13 @@ export function MarketAnalysis({ presetRegion = "", presetSpecialty = "" }: { pr
                   className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   {pptBusy ? "생성 중…" : "PPT 다운로드"}
+                </button>
+                <button
+                  onClick={saveReport}
+                  disabled={saveState !== "idle"}
+                  className="rounded-lg border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60 dark:border-emerald-800/60 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+                >
+                  {saveState === "saved" ? "저장됨 ✓" : saveState === "saving" ? "저장 중…" : "상권분석 저장"}
                 </button>
                 {/* PDF 저장 — 방향 선택(가로/세로) */}
                 <span className="inline-flex items-center overflow-hidden rounded-lg border border-slate-300 dark:border-slate-600">

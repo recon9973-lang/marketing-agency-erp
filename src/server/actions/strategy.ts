@@ -385,7 +385,7 @@ export async function listStrategyReports(limit = 20): Promise<ActionResult<Stra
     await requireUser();
     const orgId = await getDefaultOrgId();
     const rows = await db.consultingReport.findMany({
-      where: { clientId: null, leadId: null, orgId },
+      where: { clientId: null, leadId: null, orgId, track: { not: "market" } }, // 상권분석 저장분 제외(전략/레거시만)
       orderBy: { createdAt: "desc" },
       take: Math.min(Math.max(limit, 1), 50),
       select: { id: true, hospitalName: true, address: true, departments: true, summary: true, status: true, createdAt: true }
@@ -418,7 +418,7 @@ export async function updateStrategyReportStatus(id: string, status: "DRAFT" | "
     await requireUser();
     const orgId = await getDefaultOrgId();
     const r = await db.consultingReport.updateMany({
-      where: { id: id.trim(), orgId, clientId: null, leadId: null },
+      where: { id: id.trim(), orgId, clientId: null, leadId: null, track: { not: "market" } },
       data: { status }
     });
     if (r.count === 0) throw new Error("리포트를 찾을 수 없습니다.");
@@ -432,7 +432,7 @@ export async function deleteStrategyReport(id: string): Promise<ActionResult<{ o
     await requireUser();
     const orgId = await getDefaultOrgId();
     const r = await db.consultingReport.deleteMany({
-      where: { id: id.trim(), orgId, clientId: null, leadId: null }
+      where: { id: id.trim(), orgId, clientId: null, leadId: null, track: { not: "market" } }
     });
     if (r.count === 0) throw new Error("리포트를 찾을 수 없습니다.");
     return { ok: true as const };
@@ -466,6 +466,7 @@ export async function saveStrategyReport(input: {
         competitors: input.competitors?.trim() ? input.competitors.trim() : Prisma.JsonNull,
         marketAnalysis: brief,
         summary: input.summary?.trim() || null,
+        track: "strategy", // 마케팅 전략 트랙
         status: "DRAFT",
         orgId
       }
