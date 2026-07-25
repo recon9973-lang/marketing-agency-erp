@@ -28,9 +28,11 @@ import {
   Target,
   Star,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  LogOut
 } from "lucide-react";
 import Link from "next/link";
+import { logout } from "@/server/actions/logout";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { toggleUserFavorite } from "@/server/actions/favorites";
@@ -489,16 +491,37 @@ export function AppShell({
           })}
         </nav>
 
-        {!collapsed && (
+        {!collapsed ? (
           <div className="mt-3 flex items-center gap-2.5 border-t border-line px-2 pt-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-soft text-sm font-bold text-brand-strong">
               {ROLE_LABEL[role].charAt(0)}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-ink">{ROLE_LABEL[role]}</p>
               <p className="text-[10px] text-slate-400">Marketing ERP</p>
             </div>
+            <form action={logout}>
+              <button
+                type="submit"
+                title="로그아웃"
+                aria-label="로그아웃"
+                className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1.5 text-[11px] font-semibold text-slate-500 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 dark:hover:border-rose-900/40 dark:hover:bg-rose-950/20"
+              >
+                <LogOut className="h-3.5 w-3.5" /> 로그아웃
+              </button>
+            </form>
           </div>
+        ) : (
+          <form action={logout} className="mt-3 border-t border-line px-2 pt-3">
+            <button
+              type="submit"
+              title="로그아웃"
+              aria-label="로그아웃"
+              className="flex h-9 w-full items-center justify-center rounded-lg border border-line text-slate-500 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 dark:hover:border-rose-900/40 dark:hover:bg-rose-950/20"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </form>
         )}
       </aside>
 
@@ -528,6 +551,16 @@ export function AppShell({
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-soft text-sm font-bold text-brand-strong">
               {ROLE_LABEL[role].charAt(0)}
             </div>
+            <form action={logout}>
+              <button
+                type="submit"
+                title="로그아웃"
+                aria-label="로그아웃"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-line text-slate-500 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 dark:hover:border-rose-900/40 dark:hover:bg-rose-950/20"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </form>
           </div>
 
           {/* 즐겨찾기 바 — 검색바 바로 아래. 사이드바 별표로 고정한 페이지 바로가기. */}
