@@ -250,6 +250,12 @@ export default function NewJourneymap() {
                       setCustomDept("");
                     }
                   }}
+                  // 한글 조합 중 Enter가 소비되어 확정이 안 되는 경우 대비 — 포커스를 벗어나면 자동 확정
+                  onBlur={() => {
+                    const v = customDept.trim();
+                    if (v && !profile.departments.includes(v)) set("departments", [...profile.departments, v]);
+                    setCustomDept("");
+                  }}
                   placeholder="+ 직접 입력 후 Enter (예: 재활의학과)"
                   className="min-w-56 rounded-full border px-3 py-1 text-sm focus:border-blue-500 focus:outline-none"
                 />
