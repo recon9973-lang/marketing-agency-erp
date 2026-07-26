@@ -16,6 +16,7 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { DetailPanel } from "@/components/journeymap/DetailPanel";
+import { DiagnosisView } from "@/components/journeymap/DiagnosisView";
 import { KeywordNode, type KeywordFlowNode } from "@/components/journeymap/KeywordNode";
 import { classifyStage, isBrandKeyword } from "@/lib/journeymap/classify";
 import { CollectProgress, runCollection } from "@/lib/journeymap/collector";
@@ -52,6 +53,7 @@ function MapInner() {
   const [riskOnly, setRiskOnly] = useState(false);
   const [brandOnly, setBrandOnly] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [viewTab, setViewTab] = useState<"map" | "diagnosis">("map");
   const startedRef = useRef(false);
   const flowRef = useRef<HTMLDivElement>(null);
   const { fitView } = useReactFlow();
@@ -282,6 +284,20 @@ function MapInner() {
         <h1 className="font-bold">
           {project.mainKeyword} <span className="text-slate-400">×</span> {project.profile.name}
         </h1>
+        <div className="flex rounded-lg border p-0.5 text-sm">
+          <button
+            onClick={() => setViewTab("map")}
+            className={`rounded-md px-3 py-1 ${viewTab === "map" ? "bg-slate-900 font-semibold text-white" : "text-slate-500 hover:text-slate-900"}`}
+          >
+            🗺️ 마인드맵
+          </button>
+          <button
+            onClick={() => setViewTab("diagnosis")}
+            className={`rounded-md px-3 py-1 ${viewTab === "diagnosis" ? "bg-slate-900 font-semibold text-white" : "text-slate-500 hover:text-slate-900"}`}
+          >
+            📊 진단
+          </button>
+        </div>
         <span className="text-xs text-slate-400">노드 {kwCount}개</span>
         {(redCount > 0 || yellowCount > 0) && (
           <button
@@ -324,6 +340,11 @@ function MapInner() {
         </div>
       </header>
 
+      {viewTab === "diagnosis" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <DiagnosisView project={project} />
+        </div>
+      ) : (
       <div className="flex min-h-0 flex-1">
         <aside className="w-52 shrink-0 space-y-5 overflow-y-auto border-r bg-white px-4 py-4 text-sm">
           <div>
@@ -477,6 +498,7 @@ function MapInner() {
           />
         )}
       </div>
+      )}
     </div>
   );
 }
