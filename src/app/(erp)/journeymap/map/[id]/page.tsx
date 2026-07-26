@@ -402,8 +402,9 @@ function MapInner() {
                 <span className="font-semibold text-slate-600">월 N</span> — 네이버 월간 검색량(PC+모바일 합)
               </li>
               <li>
-                <span className="font-semibold text-slate-600">시드/N/G/지식iN/직접</span> — 키워드 출처: 시드=자동
-                생성한 출발 키워드, N=네이버 자동완성, G=구글 자동완성, 지식iN=실제 환자 질문, 직접=직접 입력
+                <span className="font-semibold text-slate-600">시드/N/G/연관/지식iN/직접</span> — 키워드 출처: 시드=자동
+                생성한 출발 키워드, N=네이버 자동완성, G=구글 자동완성, 연관=검색광고 연관키워드(검색량 포함),
+                지식iN=실제 환자 질문, 직접=직접 입력
               </li>
               <li>
                 <span className="font-semibold text-slate-600">🟡 노란 동그라미</span> — 의료법 <b>주의</b> 표현 포함

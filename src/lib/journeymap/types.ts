@@ -1,7 +1,7 @@
 export type Stage = "exploration" | "comparison" | "decision" | "retention";
 export type NodeKind = "center" | "branch" | "keyword";
 export type RiskLevel = "none" | "yellow" | "red";
-export type Source = "naver_ac" | "google_ac" | "naver_kin" | "seed" | "user";
+export type Source = "naver_ac" | "google_ac" | "naver_kin" | "naver_rel" | "seed" | "user";
 
 export interface RiskReason {
   ruleId: string;

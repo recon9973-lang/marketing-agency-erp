@@ -113,6 +113,8 @@ export function DetailPanel({
                   ? "구글"
                   : node.source === "naver_kin"
                   ? "지식iN"
+                  : node.source === "naver_rel"
+                  ? "연관검색어"
                   : node.source === "seed"
                   ? "시드"
                   : "직접"}{" "}

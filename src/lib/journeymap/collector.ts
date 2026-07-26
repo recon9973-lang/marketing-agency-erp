@@ -233,7 +233,75 @@ export async function runCollection(
     await new Promise((r) => setTimeout(r, 120));
   }
 
+  // ── 연관키워드 확장: 검색광고 API가 반환하는 연관키워드를 검색량과 함께 추가
+  // (예: "춘천 정형외과" → 춘천 정형외과 추천/야간진료/일요일, 동네별·브랜드별 변형)
+  report("collecting", 70, "검색광고 연관키워드 확장 중…");
+  try {
+    const hintSeeds = Array.from(new Set([mainKeyword, ...seeds])).slice(0, 5);
+    const res = await fetch("/api/journeymap/volume", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keywords: hintSeeds, includeRelated: true }),
+    });
+    const data = await res.json();
+    if (!data.unconfigured) {
+      let added = 0;
+      for (const rel of data.related || []) {
+        if (nodes.length - 5 >= options.maxNodes || added >= 50) break;
+        if (!isRelevant(rel.keyword, mainKeyword, profile)) continue;
+        if (hasForeignRegion(rel.keyword, own)) continue;
+        const child = addKeywordNode(rel.keyword, null, 2, "naver_rel");
+        if (child) {
+          child.volumePc = rel.volumePc;
+          child.volumeMo = rel.volumeMo;
+          child.competition = rel.competition;
+          added++;
+        }
+      }
+    }
+  } catch {
+    /* 연관키워드 확장 실패는 무시 */
+  }
+
   const kwNodes = nodes.filter((n) => n.kind === "keyword");
+
+  // ── 브랜드 확인: 네이버 플레이스에서 병원명 대조 — 유사 명칭 타 병원이 있으면 브랜드 노드에 경고
+  // (예: "그랜드연합의원"(정형외과) 검색 시 "그랜드연합내과의원"(내과) 후기가 섞이는 문제)
+  if (profile.name) {
+    report("enriching", 72, "병원명 실제 대조 중… (네이버 플레이스)");
+    try {
+      const q = profile.regionSigungu ? `${profile.regionSigungu} ${profile.name}` : profile.name;
+      const res = await fetch(`/api/journeymap/local?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      const items: { title: string; category: string; address: string }[] = data.items || [];
+      const nameNorm = normKey(profile.name);
+      // 병원명 핵심부(의원/병원/치과/한의원 등 접미 제거)
+      const core = nameNorm.replace(/(치과의원|한의원|의원|병원|클리닉|치과)$/g, "");
+      const similars = items.filter((it) => {
+        const t = normKey(it.title);
+        return t !== nameNorm && core.length >= 2 && t.includes(core);
+      });
+      if (similars.length > 0) {
+        const list = similars.map((s) => `${s.title}(${s.category.split(">").pop() || ""})`).join(", ");
+        for (const n of kwNodes) {
+          if (!n.isBrand) continue;
+          n.riskReasons = [
+            {
+              ruleId: "brand-ambiguity",
+              matched: profile.name,
+              law: "브랜드 혼동 주의 (의료법 아님)",
+              description: `유사 명칭 병원이 존재합니다: ${list}. 이 키워드의 검색 결과·후기에 타 병원 콘텐츠가 섞일 수 있습니다.`,
+              suggestion: "콘텐츠·광고에는 정확한 전체 병원명과 지역·진료과를 함께 표기해 혼동을 방지하세요.",
+            },
+            ...n.riskReasons,
+          ];
+          if (n.riskLevel === "none") n.riskLevel = "yellow";
+        }
+      }
+    } catch {
+      /* 플레이스 확인 실패는 무시 */
+    }
+  }
 
   // ── 지표 결합: 월간 검색량·경쟁도·CPC (네이버 검색광고 API, 5개씩 배치)
   report("enriching", 74, "월간 검색량·CPC 조회 중… (네이버 검색광고 API)");
@@ -242,7 +310,7 @@ export async function runCollection(
     // 상위 우선: 시드·얕은 심도 먼저, 최대 150개(30배치)
     // 지식iN 질문 문장은 검색광고 API에 데이터가 없어 제외
     const targets = [...kwNodes]
-      .filter((n) => n.source !== "naver_kin")
+      .filter((n) => n.source !== "naver_kin" && n.volumePc == null && n.volumeMo == null)
       .sort((a, b) => a.depth - b.depth)
       .slice(0, 150);
     const byKey = new Map(targets.map((n) => [n.keyword, n]));
