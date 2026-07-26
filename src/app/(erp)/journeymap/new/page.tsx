@@ -51,6 +51,8 @@ function TagInput({
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={(e) => {
+          // 한글 IME 조합 중 Enter는 무시 — 마지막 글자가 별도 태그로 추가되는 현상 방지
+          if (e.nativeEvent.isComposing || e.keyCode === 229) return;
           if (e.key === "Enter" || e.key === ",") {
             e.preventDefault();
             add();
