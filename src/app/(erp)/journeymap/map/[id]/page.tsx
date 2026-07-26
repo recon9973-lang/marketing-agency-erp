@@ -370,9 +370,46 @@ function MapInner() {
               );
             })}
           </div>
-          <p className="border-t pt-3 text-[10px] leading-relaxed text-slate-400">
-            리스크 안내는 참고용이며 법률 자문을 대체하지 않습니다.
-          </p>
+          <div className="border-t pt-3">
+            <p className="mb-2 text-xs font-bold text-slate-500">▸ 범례 (표시 설명)</p>
+            <ul className="space-y-1.5 text-[11px] leading-snug text-slate-500">
+              <li>
+                <span className="font-semibold text-slate-600">● 색 점</span> — 여정 단계:{" "}
+                <span style={{ color: STAGE_META.exploration.color }}>탐색</span>·
+                <span style={{ color: STAGE_META.comparison.color }}>비교</span>·
+                <span style={{ color: STAGE_META.decision.color }}>결정</span>·
+                <span style={{ color: STAGE_META.retention.color }}>유지</span>
+              </li>
+              <li>
+                <span className="font-semibold text-slate-600">점수</span> — 공략 가치(0~100). 검색량·구체성이 높고
+                리스크가 없을수록 높음. 높은 순으로 콘텐츠를 만들면 됩니다
+              </li>
+              <li>
+                <span className="font-semibold text-slate-600">월 N</span> — 네이버 월간 검색량(PC+모바일 합)
+              </li>
+              <li>
+                <span className="font-semibold text-slate-600">시드/N/G/지식iN/직접</span> — 키워드 출처: 시드=자동
+                생성한 출발 키워드, N=네이버 자동완성, G=구글 자동완성, 지식iN=실제 환자 질문, 직접=직접 입력
+              </li>
+              <li>
+                <span className="font-semibold text-slate-600">🟡 노란 동그라미</span> — 의료법 <b>주의</b> 표현 포함
+                (예: &ldquo;후기&rdquo;). 🔴는 <b>금지</b> 표현. 노드를 클릭하면 사유·대체 표현이 나옵니다
+              </li>
+              <li>
+                <span className="font-semibold text-slate-600">브랜드</span> — 병원명이 들어간 키워드 (굵은 테두리)
+              </li>
+              <li>
+                <span className="font-semibold text-slate-600">AI</span> — AI가 여정 단계를 다시 판별해준 키워드
+              </li>
+              <li>
+                <span className="font-semibold text-slate-600">− / +숫자</span> — 하위 키워드 접기/펼치기 (+숫자 =
+                숨겨진 개수)
+              </li>
+            </ul>
+            <p className="mt-2 border-t pt-2 text-[10px] leading-relaxed text-slate-400">
+              리스크 안내는 참고용이며 법률 자문을 대체하지 않습니다.
+            </p>
+          </div>
         </aside>
 
         <div className="min-w-0 flex-1" ref={flowRef}>
