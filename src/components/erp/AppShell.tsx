@@ -59,8 +59,8 @@ type ErpRoute =
   | "/strategy"
   | "/geo-studio"
   | "/geo-scan"
+  | "/geo-monitor"
   | "/geo-cep"
-  | "/geo-path"
   | "/geo-planner"
   | "/geo-learning"
   | "/geo-content"
@@ -183,7 +183,7 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
     },
     {
       href: "/geo",
-      label: "GEO",
+      label: "GEO 진단",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Radar,
       group: "분석·GEO"
@@ -272,6 +272,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       label: "회의록",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Video,
+      group: "보고·결재"
+    },
+    {
+      href: "/geo-monitor",
+      label: "모니터링",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: LineChart,
       group: "보고·결재"
     },
     {

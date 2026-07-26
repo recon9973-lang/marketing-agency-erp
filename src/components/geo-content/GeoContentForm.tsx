@@ -74,7 +74,15 @@ export function GeoContentForm() {
           />
         </label>
         <label className="mt-3 block text-xs font-medium text-slate-600">
-          원문 (SEO 콘텐츠)
+          페이지 URL로 진단 (선택 — SEO 진단처럼 주소만 넣으면 본문을 자동 수집)
+          <input
+            name="url"
+            placeholder="https://병원홈페이지.com/치료안내"
+            className="mt-1 w-full rounded-lg border border-line bg-card px-2.5 py-1.5 text-sm text-ink focus:border-emerald-400 focus:outline-none"
+          />
+        </label>
+        <label className="mt-3 block text-xs font-medium text-slate-600">
+          원문 (직접 붙여넣기 — URL을 입력하면 URL이 우선합니다)
           <textarea
             name="content"
             rows={7}

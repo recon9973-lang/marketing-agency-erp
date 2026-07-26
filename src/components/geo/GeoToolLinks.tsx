@@ -9,7 +9,7 @@ type Tool = { href: string; code: string; label: string; desc: string; passClien
 const TOOLS: Tool[] = [
   { href: "/geo-scan", code: "M1", label: "스캐너", desc: "4-AI 브랜드 인용율 스캔", passClient: true },
   { href: "/geo-cep", code: "M2", label: "CEP 파인더", desc: "카테고리 진입점 발굴·클러스터", passClient: true },
-  { href: "/geo-path", code: "M4", label: "여정 분석", desc: "질문 여정·갭 경로", passClient: true },
+  { href: "/journeymap", code: "M4", label: "키워드 여정맵", desc: "키워드 발굴·검색여정·진단", passClient: false },
   { href: "/geo-content", code: "M3", label: "콘텐츠 진단", desc: "E-E-A-T·FAQ·BLUF 점검", passClient: false },
   { href: "/geo-planner", code: "M5", label: "캠페인 플래너", desc: "목표→채널믹스→ROI→일정", passClient: false },
   { href: "/geo-studio", code: "◎", label: "GEO 스튜디오", desc: "통합 대시보드·주간 리포트", passClient: true }

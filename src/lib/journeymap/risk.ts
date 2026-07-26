@@ -97,3 +97,15 @@ export function scanRisk(keyword: string): { level: RiskLevel; reasons: RiskReas
 }
 
 export const RISK_DISCLAIMER = "본 안내는 참고용이며 법률 자문을 대체하지 않습니다.";
+
+// 의료법 조문 원문 링크(국가법령정보센터) — 리스크 사유의 "제N조"를 인식해 해당 조문으로 연결
+export function lawUrl(law: string): string | null {
+  const m = law.match(/제(\d+)조/);
+  if (m && law.includes("의료법")) {
+    return `https://www.law.go.kr/${encodeURIComponent("법령")}/${encodeURIComponent("의료법")}/${encodeURIComponent(`제${m[1]}조`)}`;
+  }
+  return null;
+}
+
+// 의료광고 사전심의 안내(대한의사협회 의료광고심의위원회)
+export const AD_REVIEW_URL = "https://www.admedical.org/";

@@ -75,6 +75,43 @@ function hasForeignRegion(kw: string, own: string): boolean {
   return false;
 }
 
+
+// 일반 의료·검색 표현 사전 — 잔여 토큰 검사에서 "정상 단어"로 취급
+const GENERIC_TERMS = [
+  "정형외과", "피부과", "치과", "성형외과", "내과", "이비인후과", "안과", "한의원", "산부인과", "비뇨의학과",
+  "재활의학과", "신경외과", "신경과", "마취통증의학과", "통증의학과", "가정의학과", "정신건강의학과", "소아과", "외과",
+  "병원", "의원", "클리닉", "센터", "의료원", "보건소", "요양병원", "재활병원",
+  "잘하는곳", "잘하는", "잘하", "유명한", "유명", "추천", "후기", "가격", "비용", "가성비", "저렴", "싼곳",
+  "예약", "근처", "위치", "어디", "베스트", "순위", "리스트", "모음",
+  "야간", "야간진료", "일요일", "토요일", "주말", "평일", "새벽", "공휴일", "24시", "응급", "당일", "점심시간",
+  "진료", "진료시간", "전문", "전문의", "수술", "비수술", "시술", "치료", "검사", "주사", "약",
+  "도수치료", "도수", "물리치료", "재활", "추나", "충격파", "체외충격파", "프롤로", "신경차단술",
+  "디스크", "목디스크", "허리디스크", "협착증", "측만증", "거북목", "일자목", "오십견", "회전근개",
+  "족저근막염", "염좌", "골절", "탈구", "인대", "연골", "관절", "관절염", "십자인대", "반월상",
+  "통증", "어깨", "허리", "목", "무릎", "발목", "손목", "팔꿈치", "손가락", "발가락", "고관절", "척추", "골반",
+  "엑스레이", "초음파", "도수재활", "체형교정", "교정", "자세교정",
+  "임플란트", "틀니", "교정", "미백", "충치", "신경치료", "발치", "사랑니", "스케일링",
+  "보톡스", "필러", "리프팅", "실리프팅", "레이저", "제모", "여드름", "기미", "점", "흉터", "모공",
+];
+
+// 잔여 토큰 검사 — 내 지역·프로필·일반 용어를 모두 제거한 뒤 정체불명 한글 토큰(≥2자)이 남으면
+// 미등재 타지역(동 단위)·타 병원 브랜드로 판단해 제외. 전국 단위로 섞여 오는
+// 검색광고 연관키워드·초성 확장에만 적용(자동완성 재귀에는 미적용 — 오탐 최소화).
+function hasUnknownLocalToken(kw: string, mainKeyword: string, profile: HospitalProfile): boolean {
+  let t = normKey(kw);
+  const strips = [
+    mainKeyword, profile.name, profile.regionSigungu, profile.regionDong,
+    ...profile.departments, ...profile.mainTreatments, ...profile.competitors, ...GENERIC_TERMS,
+  ]
+    .filter(Boolean)
+    .map(normKey)
+    .filter((x) => x.length >= 2)
+    .sort((a, b) => b.length - a.length);
+  for (const x of strips) t = t.split(x).join("");
+  t = t.replace(/[0-9a-z\s\-·.,!?~()%&+]/g, "");
+  return t.length >= 2;
+}
+
 function isRelevant(kw: string, mainKeyword: string, profile: HospitalProfile): boolean {
   const k = normKey(kw);
   const anchors = [mainKeyword, profile.name, ...profile.mainTreatments, ...profile.departments, ...profile.competitors]
@@ -192,6 +229,7 @@ export async function runCollection(
         for (const kw of r.value) {
           if (!isRelevant(kw, mainKeyword, profile)) continue;
           if (hasForeignRegion(kw, own)) continue;
+          if (hasUnknownLocalToken(kw, mainKeyword, profile)) continue; // 미등재 타지역·타병원 잔여 토큰
           naverCount++;
           const child = addKeywordNode(kw, null, 2, "naver_ac");
           if (child && queue.length < 60) queue.push({ node: child, level: 2 });
@@ -298,6 +336,7 @@ export async function runCollection(
         if (nodes.length - 5 >= options.maxNodes || added >= 50) break;
         if (!isRelevant(rel.keyword, mainKeyword, profile)) continue;
         if (hasForeignRegion(rel.keyword, own)) continue;
+        if (hasUnknownLocalToken(rel.keyword, mainKeyword, profile)) continue; // 미등재 타지역·타병원 잔여 토큰
         const child = addKeywordNode(rel.keyword, null, 2, "naver_rel");
         if (child) {
           child.volumePc = rel.volumePc;
