@@ -39,29 +39,30 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 
 export function DiagnosisView({ project }: { project: Project }) {
   const kwNodes = useMemo(() => project.nodes.filter((n) => n.kind === "keyword"), [project.nodes]);
+  const centerNode = useMemo(() => project.nodes.find((n) => n.kind === "center"), [project.nodes]);
 
   const psych = useMemo(() => buildPsychProfile(project.nodes), [project.nodes]);
   const faq = useMemo(() => buildFaqSchema(project.nodes), [project.nodes]);
   const clinicSchema = useMemo(() => buildClinicSchema(project.profile), [project.profile]);
 
-  const totalVolume = kwNodes.reduce((s, n) => s + (n.volumePc ?? 0) + (n.volumeMo ?? 0), 0);
+  const totalVolume =
+    kwNodes.reduce((s, n) => s + (n.volumePc ?? 0) + (n.volumeMo ?? 0), 0) +
+    ((centerNode?.volumePc ?? 0) + (centerNode?.volumeMo ?? 0));
   const withVolume = kwNodes.filter((n) => (n.volumePc ?? 0) + (n.volumeMo ?? 0) > 0);
   const red = kwNodes.filter((n) => n.riskLevel === "red");
   const yellow = kwNodes.filter((n) => n.riskLevel === "yellow");
 
-  // 기회 키워드: 검색량 실측이 있고 리스크 없는 키워드를 점수순으로
-  const opportunities = useMemo(
-    () =>
-      [...kwNodes]
-        .filter((n) => n.riskLevel === "none")
-        .sort((a, b) => {
-          const va = (a.volumePc ?? 0) + (a.volumeMo ?? 0);
-          const vb = (b.volumePc ?? 0) + (b.volumeMo ?? 0);
-          return vb - va || b.score - a.score;
-        })
-        .slice(0, 10),
-    [kwNodes]
-  );
+  // 기회 키워드: 메인 키워드(중심 노드) 포함, 검색량 실측 우선·리스크 없는 키워드를 정렬
+  const opportunities = useMemo(() => {
+    const pool = [...(centerNode ? [centerNode] : []), ...kwNodes].filter((n) => n.riskLevel === "none");
+    return pool
+      .sort((a, b) => {
+        const va = (a.volumePc ?? 0) + (a.volumeMo ?? 0);
+        const vb = (b.volumePc ?? 0) + (b.volumeMo ?? 0);
+        return vb - va || b.score - a.score;
+      })
+      .slice(0, 10);
+  }, [kwNodes, centerNode]);
 
   const stageCounts = STAGES.map((s) => ({
     stage: s,
@@ -208,7 +209,14 @@ export function DiagnosisView({ project }: { project: Project }) {
           <tbody>
             {opportunities.map((n) => (
               <tr key={n.id} className="border-b last:border-0">
-                <td className="py-1.5">{n.keyword}</td>
+                <td className="py-1.5">
+                  {n.keyword}
+                  {n.kind === "center" && (
+                    <span className="ml-1.5 rounded bg-slate-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                      메인
+                    </span>
+                  )}
+                </td>
                 <td style={{ color: n.stage ? STAGE_META[n.stage].color : undefined }}>
                   {n.stage ? STAGE_META[n.stage].label.slice(2) : "-"}
                 </td>
