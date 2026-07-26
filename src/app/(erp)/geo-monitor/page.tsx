@@ -34,7 +34,7 @@ export default async function GeoMonitorPage({ searchParams }: { searchParams: P
 
   const [rows, publishedPages, mentionSeries, guardedSeries, engineRadar, standing, questionSeries] = selectedId
     ? await Promise.all([
-        listGeoMatrix(selectedId),
+        listGeoMatrix(selectedId).catch(() => []),
         listPublishedPages(selectedId).catch(() => []),
         getMentionRateSeries(selectedId).catch(() => []),
         getGuardedRankSeries(selectedId).catch(() => []),

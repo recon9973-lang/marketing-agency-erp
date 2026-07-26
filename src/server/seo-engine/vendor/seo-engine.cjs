@@ -25,7 +25,10 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var VERSION = '1.7.0';
+  var VERSION = '1.8.0';
+  // 배포 캐시버전(index.html의 seo-engine.js?v=와 동일하게 유지). 결과 푸터에 노출해
+  // "새 엔진이 실제로 로드됐는지"를 사용자가 즉시 확인할 수 있게 한다(캐시 오인 방지).
+  var BUILD = '2.1.8';
 
   // ── Core Web Vitals — Google 공식 임계값 (web.dev/vitals, PageSpeed Insights 기준) ──
   //   LCP: good ≤ 2.5s · needs-improvement ≤ 4.0s · poor > 4.0s   (초 단위)
@@ -98,6 +101,9 @@
     var html = input.html || '';
     var robots = input.robots || '';
     var isHttps = (typeof input.isHttps === 'boolean') ? input.isHttps : /^https:/i.test(url);
+    // 응답 헤더(보안·압축 신호). 키는 소문자. 없으면 빈 객체 → 관련 항목은 '정밀필요'로 낮춤.
+    var H = input.headers || null;
+    var hget = function (k) { return (H && H[k] != null) ? String(H[k]) : ''; };
     var doc = parseDoc(html, input.doc);
     var domain = url.replace(/^https?:\/\//i, '').split('/')[0] || url;
 
@@ -186,19 +192,57 @@
 
     // 기술·크롤링
     var hasViewport = !!metaByName('viewport');
-    var hasFavicon = !!(doc && doc.querySelector('link[rel~="icon"],link[rel="shortcut icon"],link[rel="apple-touch-icon"]'));
+    // favicon 실측: <link rel=icon> 태그 OR 실제 /favicon.ico(HTTP 200) 존재 → 거짓 음성 방지.
+    var faviconStatus = (typeof input.faviconStatus === 'number') ? input.faviconStatus : null;
+    var hasFaviconTag = !!(doc && doc.querySelector('link[rel~="icon"],link[rel="shortcut icon"],link[rel="apple-touch-icon"]'));
+    var hasFavicon = hasFaviconTag || faviconStatus === 200;
     var canonical = q('link[rel="canonical"]', 'href');
     var lang = doc ? (doc.documentElement.getAttribute('lang') || '').trim() : '';
     var robotsMeta = (metaByName('robots') || metaByName('googlebot'));
     var notNoindex = !/noindex/i.test(robotsMeta);
-    var robotsTxtOk = robots.trim().length > 0;
+    // robots.txt 유효성: 단순 '비어있지 않음'은 소프트 404(HTML을 200으로 주는 호스팅)를 오탐한다.
+    // → ① HTTP 200 (상태코드 있으면), ② HTML이 아님, ③ 실제 지시어(user-agent/disallow/allow/sitemap) 포함.
+    var robotsStatus = (typeof input.robotsStatus === 'number') ? input.robotsStatus : null;
+    var _robotsBody = (robots || '').trim();
+    var robotsIsHtml = /^<(?:!doctype|html|\?xml|head|body)/i.test(_robotsBody);
+    var robotsHasDirective = /(^|\n)\s*(user-agent|disallow|allow|sitemap|crawl-delay)\s*:/i.test(_robotsBody);
+    var robotsTxtOk = _robotsBody.length > 0 && !robotsIsHtml && robotsHasDirective
+      && (robotsStatus === null || robotsStatus === 200);
+    var robotsTxtNote = robotsTxtOk ? '크롤러 수집 규칙 파일 제공'
+      : (robotsStatus && robotsStatus !== 200) ? ('robots.txt 없음 — HTTP ' + robotsStatus + ' 응답')
+      : (robotsIsHtml || (!robotsHasDirective && _robotsBody.length > 0)) ? 'robots.txt 없음 — 페이지(HTML)가 대신 응답(소프트 404)'
+      : 'robots.txt 없음 — /robots.txt 파일을 추가하세요';
     var crawlOk = robotsAllows(robots, 'Googlebot') && robotsAllows(robots, 'Yeti') && robotsAllows(robots, '*');
 
     // 검색 노출
-    var hasLd = /application\/ld\+json/i.test(html);
+    // 구조화 데이터: 단순 존재가 아니라 JSON-LD가 '파싱 가능'한지 검증(깨진 JSON 거짓 양성 방지).
+    var _ldBlocks = html.match(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi) || [];
+    var ldValid = false;
+    for (var _lx = 0; _lx < _ldBlocks.length; _lx++) {
+      try {
+        var _inner = _ldBlocks[_lx].replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '').trim();
+        var _obj = JSON.parse(_inner);
+        if (_obj && (typeof _obj === 'object')) { ldValid = true; break; }
+      } catch (e) {}
+    }
+    var hasLd = ldValid; // 파싱 성공한 JSON-LD가 하나라도 있어야 통과
+    var ldNote = _ldBlocks.length === 0 ? 'JSON-LD 없음 — Schema.org 구조화 데이터 추가 권장'
+      : ldValid ? 'Schema.org JSON-LD — Google 페이지 이해·리치결과'
+      : '⚠ JSON-LD ' + _ldBlocks.length + '개 발견됐지만 파싱 실패(문법 오류) — 검증 필요';
     var ogTitle = metaByProp('og:title'), ogDesc = metaByProp('og:description');
     var ogOk = !!ogTitle && !!ogDesc;
-    var hasSitemap = /^\s*sitemap\s*:/im.test(robots);
+    // sitemap 실측: robots.txt 선언 OR 실제 /sitemap.xml(HTTP 200 + XML) 존재.
+    var sitemapDeclared = /^\s*sitemap\s*:/im.test(robots);
+    var sitemapStatus = (typeof input.sitemapStatus === 'number') ? input.sitemapStatus : null;
+    var sitemapFileOk = sitemapStatus === 200 && input.sitemapIsXml === true;
+    var hasSitemap = sitemapDeclared || sitemapFileOk;
+    var sitemapNote = hasSitemap
+      ? (sitemapFileOk && sitemapDeclared ? '/sitemap.xml 존재 + robots 선언 — 최적'
+        : sitemapFileOk ? '/sitemap.xml 존재(200) — robots.txt에도 선언 권장'
+        : 'robots.txt에 Sitemap 선언됨')
+      : (sitemapStatus && sitemapStatus !== 200 ? ('sitemap.xml 없음 — /sitemap.xml HTTP ' + sitemapStatus)
+        : 'sitemap.xml 없음 — 생성 후 robots.txt에 선언');
+
 
     // SPA 감지
     var bodyText = doc && doc.body ? doc.body.textContent.replace(/\s+/g, ' ').trim() : '';
@@ -215,10 +259,67 @@
     // JS로 흔히 주입되는 신호: 정적에 있으면 pass, 없으면 renderSuspect일 때 pending(null), 아니면 fail
     var jsItem = function (v) { return v === true ? true : (renderSuspect ? null : false); };
 
+    // ── 보안 헤더 · 정적 속도 신호 (NXT 벤치마크 반영) ─────────────
+    // 헤더(H)가 없으면(구버전 프록시·수집 실패) 해당 항목은 '정밀필요(null)'로 둔다(거짓 실패 방지).
+    var hdrItem = function (v) { return H ? (v === true) : null; };
+    var csp = hget('content-security-policy');
+    var hasHsts = /max-age=\s*[1-9]/i.test(hget('strict-transport-security'));
+    var hasNosniff = /nosniff/i.test(hget('x-content-type-options'));
+    var hasFrameGuard = !!hget('x-frame-options') || /frame-ancestors/i.test(csp);
+    var hasReferrer = !!hget('referrer-policy');
+    var hasCSP = !!csp;
+    var enc = hget('content-encoding').toLowerCase();
+    var hasCompression = /gzip|br|deflate|zstd/.test(enc);
+    // 정적 속도: 차세대 이미지(webp/avif)·이미지 지연로딩(loading="lazy")
+    var imgTags = doc ? Array.prototype.slice.call(doc.querySelectorAll('img')) : [];
+    var srcBlob = imgTags.map(function (im) { return (im.getAttribute('src') || '') + ' ' + (im.getAttribute('srcset') || '') + ' ' + (im.getAttribute('data-src') || ''); }).join(' ');
+    // 실측 승격(#45): 실제 <img> src/srcset/data-src·<picture> source에 webp/avif가 있는지만 본다.
+    // (과거 html 전체 정규식은 CSS·스크립트 문자열까지 걸려 오탐 → 실측으로 승격하며 제거)
+    var usesNextGen = /\.(webp|avif)(\?|#|\s|$)/i.test(srcBlob) || !!(doc && doc.querySelector('picture source[type="image/webp"],picture source[type="image/avif"]'));
+    var lazyImgs = imgTags.filter(function (im) { return (im.getAttribute('loading') || '').toLowerCase() === 'lazy'; }).length;
+    var hasLazy = imgTags.length === 0 || (lazyImgs / imgTags.length) >= 0.5;
+    var lazyNote = imgTags.length === 0 ? '이미지 없음' : (lazyImgs + '/' + imgTags.length + '개 지연로딩(loading="lazy")');
+    // 이미지 최적화: 과다 개수·대용량 인라인(base64) 점검
+    var bigInline = imgTags.filter(function (im) { var s = im.getAttribute('src') || ''; return s.indexOf('data:') === 0 && s.length > 30000; }).length;
+    var imgOptOk = imgTags.length <= 50 && bigInline === 0;
+    var imgOptNote = imgTags.length === 0 ? '이미지 없음' : (imgTags.length + '개' + (bigInline ? ' · 대용량 인라인 ' + bigInline + '개' : ''));
+
+    // 페이지 핵심 키워드 시드 자동 추출(meta keywords·제목·H1 기반) → 클라이언트가 검색량 조회에 사용(NXT 벤치마크).
+    // seeds[0]만 실제 조회에 쓰이므로 '지역+시술' 2-gram을 최우선으로 뽑는다(브랜드·문장·형용사 배제).
+    var _metaKw = metaByName('keywords');
+    var _h1txt = (doc && doc.querySelector('h1')) ? (doc.querySelector('h1').textContent || '').trim() : '';
+    var _KWSTOP = /^(병원|의원|클리닉|치과|한의원|피부과|정형외과|성형외과|내과|안과|가정의학과|공식|공식홈페이지|홈페이지|home|소개|대표|원장|진료|안내|예약|상담|문의|오시는길|비용|가격|후기|추천|전문|전문의|잘하는|최고|국내|대한민국|믿을|나오나요|어때|어디|메인|main|blog|블로그|센터|의료원|마케팅|에이전시|no|the|and|for|of|www|com|net|kr)$/i;
+    var _KWCITY = /(서울|부산|대구|인천|광주|대전|울산|세종|수원|성남|고양|용인|창원|청주|천안|전주|안산|안양|김해|포항|제주)/;
+    var _kwRegion = function (w) { return _KWCITY.test(w) || /(역|구|동|시|군|읍|면)$/.test(w); };
+    var _KWVERB = /(하는|나요|습니다|입니다|하세요|세요|해요|어요|아요|되는|있는|겠다|까요|였|더라|든지|하기|보기)$/;
+    var _KWJOSA = /(으로|에서|에게|까지|부터|이나|을|를)$/; // 명사 끝(과·은·는·이·가·의·와·도·만·로)은 보존
+    var _KWBRAND = /(의원|병원|한의원|의료원|메디컬|메디칼|센터)$/;
+    function _kwClean(s) { return String(s || '').replace(/[|·•\-–—:_/()\[\]{}"'~!?,.]/g, ' ').replace(/\s+/g, ' ').trim(); }
+    function _kwNorm(w) { return w.replace(_KWJOSA, ''); }
+    function _kwIsNoun(w) {
+      if (_KWVERB.test(w)) return false;           // 동사/형용사 어미는 원형에서 판정
+      var n = _kwNorm(w);
+      return n.length >= 2 && n.length <= 12 && /[가-힣A-Za-z]/.test(n) && !_KWSTOP.test(n) && !_KWBRAND.test(n) && !/^\d+$/.test(n);
+    }
+    var keywordSeeds = (function () {
+      var out = [], seen = {};
+      function add(s) { s = _kwClean(s); if (!s || seen[s] || s.length < 2 || s.length > 20) return; seen[s] = 1; out.push(s); }
+      if (_metaKw) _metaKw.split(/[,|]/).slice(0, 4).forEach(function (k) { k = _kwClean(k); if (k && k.length <= 20 && !_KWSTOP.test(k)) add(k); });
+      var h1c = _kwClean(_h1txt);
+      var h1ok = h1c && h1c.split(' ').length <= 5 && !/나요|어때|어디|무엇|인가요|있나요/.test(h1c); // 문장형 H1은 노이즈 → 제외
+      var src = _kwClean((title || '') + ' ' + (h1ok ? h1c : ''));
+      var nouns = []; src.split(' ').forEach(function (w) { if (_kwIsNoun(w)) nouns.push(_kwNorm(w)); });
+      for (var i = 0; i < nouns.length - 1 && out.length < 3; i++) if (_kwRegion(nouns[i])) add(nouns[i] + ' ' + nouns[i + 1]);
+      for (var a = 0; a < nouns.length - 1 && out.length < 4; a++) add(nouns[a] + ' ' + nouns[a + 1]);
+      for (var b = 0; b < nouns.length && out.length < 5; b++) if (!_kwRegion(nouns[b]) || nouns[b].length >= 4) add(nouns[b]);
+      return out.slice(0, 4);
+    })();
+
     // ── 신뢰·전문성(E-E-A-T) · 엔티티 신호 — 의료(YMYL) 가중 ─────────
     // 근거: [171]신뢰성 최우선·YMYL(건강) 가중 · [145]기사 author/datePublished/dateModified
     //       [185]Organization(sameAs·주소) · [121]LocalBusiness(주소·영업시간) · [39][1]생성형AI=기존SEO
-    // 주의(공식 문서 반영): FAQ 리치결과 지원중단(2026)·llms.txt 불필요·"단어 수" 순위요인 아님 → 미채택.
+    // 주의(공식 문서 반영): FAQ 리치결과 지원중단(2026)·llms.txt 불필요·"단어 수" 순위요인 아님 → SEO 점수 미채택.
+    //   llms.txt·전화번호 구조화는 구글 순위 신호가 아니라 생성형 AI(GEO) 신호 → 'GEO 점수 진단' 도구에서만 채점한다.
     var ldText = '';
     try {
       var _ldN = doc ? doc.querySelectorAll('script[type="application/ld+json"]') : [];
@@ -226,24 +327,35 @@
     } catch (e) {}
     if (!ldText && html) { var _ldM = html.match(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi); if (_ldM) ldText = _ldM.join(' '); }
     var bodyHead = bodyText.slice(0, 6000);
-    var hasAuthor = !!metaByName('author')
+    // 정직성·오탐 방지(#45): 마크업(실측)이 있으면 '통과(true)', 마크업 없이 본문 단어·정황만
+    // 있으면 '확인 필요(null)'로 강등(점수 미인정), 둘 다 없으면 미흡(false, JS렌더 의심 시 null).
+    // → 본문에 '전문의' 단어가 있다고 저자 표기를 통과시키던 오탐을 제거한다.
+    function markTri(markup, hint){ return markup ? true : (hint ? null : (renderSuspect ? null : false)); }
+    var hasAuthorMarkup = !!metaByName('author')
       || /"author"\s*:/i.test(ldText)
-      || (doc && !!doc.querySelector('[rel="author"],[itemprop="author"],[class*="author"],[class*="byline"],[class*="writer"]'))
-      || /(작성자|글쓴이|감수|검수|대표원장|전문의|의료진|원장)/.test(bodyHead);
+      || (doc && !!doc.querySelector('[rel="author"],[itemprop="author"],[class*="author"],[class*="byline"],[class*="writer"]'));
+    var hasAuthorText = /(작성자|글쓴이|감수|검수|대표원장|전문의|의료진|원장)/.test(bodyHead);
+    var hasAuthor = markTri(hasAuthorMarkup, hasAuthorText);
     var hasDates = /"date(Published|Modified)"\s*:/i.test(ldText)
       || (doc && !!doc.querySelector('time[datetime],[itemprop="datePublished"],[itemprop="dateModified"]'))
       || !!metaByProp('article:published_time') || !!metaByProp('article:modified_time');
-    var hasOrg = /"@type"\s*:\s*"?(Organization|LocalBusiness|MedicalOrganization|MedicalClinic|Hospital|Dentist|Physician)"?/i.test(ldText)
-      || /\d{3}-\d{2}-\d{5}/.test(bodyText)
-      || /(상호|대표자|사업자등록번호|의료기관)/.test(bodyHead);
-    var hasContact = (doc && !!doc.querySelector('a[href^="tel:"]'))
-      || /0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}/.test(bodyText)
+    // 실측: Organization류 JSON-LD 또는 사업자등록번호 패턴 / 추정: 본문의 상호·대표자 등 단어
+    var hasOrgMarkup = /"@type"\s*:\s*"?(Organization|LocalBusiness|MedicalOrganization|MedicalClinic|Hospital|Dentist|Physician)"?/i.test(ldText)
+      || /\d{3}-\d{2}-\d{5}/.test(bodyText);
+    var hasOrgText = /(상호|대표자|사업자등록번호|의료기관)/.test(bodyHead);
+    var hasOrg = markTri(hasOrgMarkup, hasOrgText);
+    // 실측: tel: 링크 또는 JSON-LD의 schema.org telephone/address 속성 / 추정: 본문에 전화번호 형태 문자열
+    var hasContactMarkup = (doc && !!doc.querySelector('a[href^="tel:"]'))
       || /"(telephone|address)"\s*:/i.test(ldText);
+    var hasContactText = /0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}/.test(bodyText);
+    var hasContact = markTri(hasContactMarkup, hasContactText);
     var extLinks = realAnchors.filter(function (a) {
       var h = a.getAttribute('href') || '';
       return /^https?:\/\//i.test(h) && h.indexOf(domain) === -1;
     }).length;
-    var hasEntity = /"sameAs"\s*:/i.test(ldText) || extLinks >= 2;
+    // 실측: sameAs 구조화 신호 / 추정: 외부링크 2개 이상(엔티티 그라운딩 정황)
+    var hasEntitySameAs = /"sameAs"\s*:/i.test(ldText);
+    var hasEntity = markTri(hasEntitySameAs, extLinks >= 2);
 
     // ── 콘텐츠 최적화(작성 가이드) — 포커스 키워드 배치·구조·스캔성 ──
     // 근거: [89]서술형 제목·헤딩·사람중심 콘텐츠, [39]구조·스캔 가능성.
@@ -284,26 +396,31 @@
         ['인덱싱 허용', 'meta robots noindex 미설정 — 색인 가능성', 8, notNoindex, 'Google'],
         ['Canonical 태그', '중복 URL 정규화 — 대표 주소 지정', 6, !!canonical, 'Google'],
         ['Viewport(모바일)', '모바일 반응형 메타 — 모바일 우선 인덱싱', 8, hasViewport, 'Google'],
-        ['HTML lang 속성', '페이지 언어 명시 — 검색엔진 언어 인식', 3, !!lang, 'Google']
+        ['HTML lang 속성', '페이지 언어 명시 — 검색엔진 언어 인식', 3, !!lang, 'Google'],
+        ['HTTP 압축', 'gzip/br 압축 — 전송량↓·로딩↑ (' + (enc || '미적용') + ')', 4, hdrItem(hasCompression), '공통'],
+        ['차세대 이미지(WebP)', 'WebP/AVIF 사용 — 이미지 용량↓·속도↑', 3, jsItem(usesNextGen), 'Google'],
+        ['이미지 지연로딩', 'loading="lazy" — 초기 로딩 속도 개선 (' + lazyNote + ')', 2, jsItem(hasLazy), 'Google'],
+        ['이미지 최적화', '과다 이미지·대용량 인라인 점검 (' + imgOptNote + ')', 2, jsItem(imgOptOk), 'Google']
       ],
       // 검색 노출 강화 = 리치결과·공유 향상용 '보너스' 신호. 구조화 데이터는 Google이 페이지 이해·
       // 리치결과에 활용하므로 비중을 올리고(5), 나머지 공유·보조 신호는 낮게 유지한다.
+      // (llms.txt·전화번호 구조화는 SEO 순위 신호가 아니라 GEO 신호 → 'GEO 점수 진단' 도구에서만 채점.)
       search: [
-        ['구조화 데이터', 'Schema.org JSON-LD — Google 페이지 이해·리치결과', 5, jsItem(hasLd), 'Google'],
+        ['구조화 데이터', ldNote, 5, jsItem(hasLd), 'Google'],
         ['Open Graph 태그', 'og:title·og:description — 공유 미리보기(보너스)', 2, jsItem(ogOk), '네이버'],
-        ['sitemap.xml 선언', 'robots.txt에 Sitemap: 선언 — 수집 촉진', 4, hasSitemap, '공통'],
+        ['sitemap.xml 선언', sitemapNote, 4, hasSitemap, '공통'],
         ['파비콘', '검색결과에 표시되는 사이트 아이콘', 2, hasFavicon, 'Google'],
-        ['robots.txt 존재', '크롤러 수집 규칙 파일 제공', 3, robotsTxtOk, '공통']
+        ['robots.txt 존재', robotsTxtNote, 3, robotsTxtOk, '공통']
       ],
       // 신뢰·전문성(E-E-A-T) = 의료(YMYL) 가중 신호. Google: E-E-A-T 중 '신뢰성'이 최우선이며
       // YMYL(건강)에 특히 가중([171]). 직접 순위요소는 아니나 병원 사이트엔 전환·품질 신뢰의 핵심.
       // 생성형 AI 노출도 기존 SEO+엔티티 신호로 충분([39][1]) — 별도 AEO 최적화 불필요.
       trust: [
-        ['저자·의료진 정보', '작성자/감수 의료진·전문성 표기 — 의료(YMYL) 신뢰 신호 [171·145]', 5, jsItem(hasAuthor), 'Google'],
-        ['조직·병원 정보', 'Organization/LocalBusiness 또는 상호·사업자번호 — 실체 신뢰 [185·121]', 4, jsItem(hasOrg), 'Google'],
+        ['저자·의료진 정보', '작성자/감수 의료진 — meta·JSON-LD author 마크업 실측 · 본문 단어만 있으면 확인 필요 [171·145]', 5, hasAuthor, 'Google'],
+        ['조직·병원 정보', 'Organization/LocalBusiness JSON-LD 또는 사업자번호 실측 · 본문 단어만 있으면 확인 필요 [185·121]', 4, hasOrg, 'Google'],
         ['발행·수정일(최신성)', 'datePublished/dateModified·게시일 — 콘텐츠 최신성 [145]', 3, jsItem(hasDates), 'Google'],
-        ['연락처·접근성', '전화(tel:)·주소 노출 — 신뢰·전환 [121]', 2, hasContact, '공통'],
-        ['엔티티 신호(sameAs)', 'sameAs·권위있는 외부연결 — 생성형 AI/지식패널 그라운딩 [185·39]', 2, jsItem(hasEntity), 'Google']
+        ['연락처·접근성', 'tel: 링크 또는 JSON-LD telephone/address 실측 · 본문 번호만 있으면 확인 필요 [121]', 2, hasContact, '공통'],
+        ['엔티티 신호(sameAs)', 'JSON-LD sameAs 실측 · 외부링크 정황만 있으면 확인 필요 [185·39]', 2, hasEntity, 'Google']
       ],
       // 콘텐츠 최적화(작성 가이드) = Rank Math류 '글 최적화'를 Google 근거로 안전하게 구현.
       // 포커스 키워드는 keyword 입력 시에만 '배치(위치)'를 평가(밀도/스터핑은 미채택). 구조·스캔성은 상시.
@@ -312,10 +429,19 @@
         ['포커스 키워드 — 본문·소제목', '"' + keyword + '" H1/소제목/첫 문단 반영', 3, jsItem(kwInBody), 'Google'],
         ['포커스 키워드 — 메타·URL', '"' + keyword + '" 메타 설명·URL 반영', 2, jsItem(kwInMeta), 'Google']
       ] : []).concat([
-        ['소제목 구조', longContent ? (hasSubheads ? '긴 본문에 H2/H3 소제목 — 스캔 용이' : '긴 본문에 소제목 부족 — H2/H3 추가 권장') : '본문 분량 적정(소제목 선택)', 3, longContent ? jsItem(hasSubheads) : true, 'Google'],
-        ['문단 가독성', '지나치게 긴 문단 없음 — 스캔 가능성', 2, jsItem(paraOk), 'Google'],
-        ['스캔 구조(목록·표)', '목록·표로 정보 구조화 — AI/사용자 스캔', 2, jsItem(hasScan), 'Google']
+        ['소제목 구조', longContent ? (hasSubheads ? '긴 본문에 H2/H3 소제목 — 스캔 용이' : '긴 본문에 소제목 부족 — H2/H3 추가 권장') : '본문 분량 적정(소제목 선택)', 3, longContent ? jsItem(hasSubheads) : true, 'Google', '추정 기준'],
+        ['문단 가독성', '지나치게 긴 문단 없음 — 스캔 가능성', 2, jsItem(paraOk), 'Google', '추정 기준'],
+        ['스캔 구조(목록·표)', '목록·표로 정보 구조화 — AI/사용자 스캔', 2, jsItem(hasScan), 'Google', '추정 기준']
       ]),
+      // 보안(응답 헤더) = NXT 벤치마크. 방문자 신뢰·클릭재킹/스니핑 방어. 헤더 미수집 시 정밀필요.
+      security: [
+        ['HTTPS 보안 연결', 'SSL 적용 — 전송 구간 암호화(신뢰 기본)', 4, isHttps, '공통'],
+        ['HSTS 적용', 'Strict-Transport-Security — HTTPS 강제(다운그레이드 공격 방어)', 3, hdrItem(hasHsts), '공통'],
+        ['콘텐츠 스니핑 차단', 'X-Content-Type-Options: nosniff — MIME 스니핑 방어', 3, hdrItem(hasNosniff), '공통'],
+        ['클릭재킹 차단', 'X-Frame-Options 또는 CSP frame-ancestors — iframe 삽입 방어', 3, hdrItem(hasFrameGuard), '공통'],
+        ['Referrer 정책', 'Referrer-Policy — 외부 이동 시 참조정보 제어', 2, hdrItem(hasReferrer), '공통'],
+        ['콘텐츠 보안 정책(CSP)', 'Content-Security-Policy — XSS·주입 방어(보너스)', 2, hdrItem(hasCSP), '공통']
+      ],
       // 속도(Core Web Vitals) = Google PageSpeed Insights / Lighthouse 실측 전용. PSI 없이는
       // 절대 점수를 만들지 않고 pending(정밀 필요) 유지. 배점 합계 10(성능4·LCP3·CLS2·INP1).
       speed: [
@@ -328,17 +454,66 @@
 
     var _res = buildResult(url, domain, isHttps, isSPA, checks, null);
     _res.renderSuspect = renderSuspect;
+    _res.keywordSeeds = keywordSeeds;
     return _res;
   }
 
+  // 종합 100점 = 6개 테마 가중치 합(속도는 별도 +α 게이지, 종합 미포함).
+  // 배점 근거: Google Search Central 우선순위 — 핵심 콘텐츠 신호·기술기반을 가장 무겁게,
+  // E-E-A-T(의료 YMYL) 가중, 리치결과·보안은 보조. weight 합 = 100.
   var CAT_DEF = [
-    { key: 'content', label: '콘텐츠 & 메타', icon: '📝', color: '#533afd' },
-    { key: 'tech', label: '기술·크롤링', icon: '⚙️', color: '#06b6d4' },
-    { key: 'search', label: '검색 노출 강화', icon: '🔍', color: '#8b5cf6' },
-    { key: 'trust', label: '신뢰·전문성(E-E-A-T)', icon: '🩺', color: '#10b981' },
-    { key: 'writing', label: '콘텐츠 최적화', icon: '✍️', color: '#f43f5e' },
-    { key: 'speed', label: '속도(CWV)', icon: '⚡', color: '#f59e0b' }
+    { key: 'content', label: '콘텐츠 & 메타', icon: '📝', color: '#533afd', weight: 28 },
+    { key: 'tech', label: '기술·크롤링', icon: '⚙️', color: '#06b6d4', weight: 26 },
+    { key: 'trust', label: '신뢰·전문성(E-E-A-T)', icon: '🩺', color: '#10b981', weight: 14 },
+    { key: 'search', label: '검색 노출 강화', icon: '🔍', color: '#8b5cf6', weight: 12 },
+    { key: 'writing', label: '콘텐츠 최적화', icon: '✍️', color: '#f43f5e', weight: 10 },
+    { key: 'security', label: '보안(응답 헤더)', icon: '🔒', color: '#0ea5e9', weight: 10 },
+    { key: 'speed', label: '속도(CWV) · +α', icon: '⚡', color: '#f59e0b', weight: 0 }
   ];
+
+  // 실패(미충족) 항목에 보여줄 '바로 붙여넣는' 수정 코드 스니펫. 검사 항목명(it[0])이 키.
+  // <head> 삽입/robots.txt/본문 예시를 그대로 복사할 수 있게 최소·정확하게 유지한다.
+  var FIX = {
+    '제목(title) 태그': '<!-- <head> 안, 페이지당 1개 · 10~60자 -->\n<title>병원명 · 지역 · 진료과목 핵심키워드</title>',
+    '메타 디스크립션': '<!-- <head> 안 · 50~160자 · 페이지마다 고유 -->\n<meta name="description" content="지역 진료과목 병원 소개 — 핵심 진료·특장점을 한 문장으로 요약">',
+    'H1 대표 제목': '<!-- 페이지 대표 제목, 페이지당 1개만 -->\n<h1>지역 진료과목 — 병원명</h1>',
+    '이미지 ALT 텍스트': '<!-- 모든 의미있는 이미지에 alt -->\n<img src="clinic.jpg" alt="OO병원 임플란트 상담 장면">',
+    '의미있는 링크 텍스트': '<!-- "여기 클릭"·"더보기" 대신 서술형 -->\n<a href="/implant">임플란트 진료 안내 보기</a>',
+    '서술형 URL': '좋음: /implant-consult\n피함: /page?id=12983  (임의 숫자·세션ID)',
+    'HTTPS 보안 연결': '# http → https 301 리다이렉트 + SSL 인증서 적용\n# (호스팅/CDN에서 강제 HTTPS 켜기)',
+    '검색로봇 수집 허용': '# robots.txt — Googlebot·Yeti(네이버) 차단 금지\nUser-agent: *\nAllow: /',
+    '인덱싱 허용': '<!-- noindex 제거 또는 index로 -->\n<meta name="robots" content="index, follow">',
+    'Canonical 태그': '<!-- <head> 안, 이 페이지의 대표 주소 -->\n<link rel="canonical" href="https://도메인/현재-경로">',
+    'Viewport(모바일)': '<!-- <head> 최상단 -->\n<meta name="viewport" content="width=device-width, initial-scale=1">',
+    'HTML lang 속성': '<html lang="ko">',
+    '구조화 데이터': '<script type="application/ld+json">\n{\n  "@context":"https://schema.org",\n  "@type":"MedicalClinic",\n  "name":"OO병원",\n  "address":"서울시 ...",\n  "telephone":"02-123-4567"\n}\n</script>',
+    'Open Graph 태그': '<meta property="og:title" content="OO병원 — 지역 진료과목">\n<meta property="og:description" content="핵심 진료 소개">\n<meta property="og:image" content="https://도메인/og.jpg">',
+    'sitemap.xml 선언': '# robots.txt 마지막 줄\nSitemap: https://도메인/sitemap.xml',
+    '파비콘': '<link rel="icon" href="/favicon.ico">',
+    'robots.txt 존재': '# /robots.txt 파일 생성\nUser-agent: *\nAllow: /\nSitemap: https://도메인/sitemap.xml',
+    '저자·의료진 정보': '<!-- 작성/감수 의료진 명시 (YMYL 신뢰) -->\n<p class="byline">감수: OOO 대표원장 · OO과 전문의</p>',
+    '조직·병원 정보': '<script type="application/ld+json">\n{"@context":"https://schema.org","@type":"Organization",\n "name":"OO병원","url":"https://도메인","telephone":"02-123-4567"}\n</script>',
+    '발행·수정일(최신성)': '<time datetime="2026-07-20">2026년 7월 20일 게시</time>\n<!-- 또는 JSON-LD datePublished / dateModified -->',
+    '연락처·접근성': '<a href="tel:0212345678">02-1234-5678</a>\n<address>서울시 OO구 OO로 00</address>',
+    '엔티티 신호(sameAs)': '<!-- Organization JSON-LD 안 -->\n"sameAs":["https://blog.naver.com/OO","https://www.instagram.com/OO"]',
+    '소제목 구조': '<h2>진료 안내</h2>\n<h3>임플란트</h3>\n<!-- 긴 본문은 H2/H3로 구획 -->',
+    '문단 가독성': '<!-- 500자 넘는 문단은 2~3개로 분할, 핵심은 목록으로 -->',
+    '스캔 구조(목록·표)': '<ul>\n  <li>진료시간 안내</li>\n  <li>비급여 항목 안내</li>\n</ul>',
+    'HSTS 적용': '# 응답 헤더(서버·CDN 설정)\nStrict-Transport-Security: max-age=31536000; includeSubDomains',
+    '콘텐츠 스니핑 차단': '# 응답 헤더\nX-Content-Type-Options: nosniff',
+    '클릭재킹 차단': '# 응답 헤더 (둘 중 하나)\nX-Frame-Options: SAMEORIGIN\n# 또는 CSP: frame-ancestors \'self\'',
+    'Referrer 정책': '# 응답 헤더\nReferrer-Policy: strict-origin-when-cross-origin',
+    '콘텐츠 보안 정책(CSP)': "# 응답 헤더 (예시 — 사이트에 맞게 조정)\nContent-Security-Policy: default-src 'self'; img-src 'self' data: https:",
+    'HTTP 압축': '# 서버/CDN에서 gzip 또는 brotli 압축 켜기\n# Nginx: gzip on;  ·  Vercel/Cloudflare: 기본 제공',
+    '차세대 이미지(WebP)': '<picture>\n  <source srcset="img.webp" type="image/webp">\n  <img src="img.jpg" alt="설명">\n</picture>',
+    '이미지 지연로딩': '<img src="img.webp" alt="설명" loading="lazy">',
+    '이미지 최적화': '<!-- 대용량 인라인(data:base64)은 외부 파일로, 이미지 수는 필요한 만큼만 -->\n<img src="/img/photo.webp" alt="설명" loading="lazy" width="800" height="600">'
+  };
+  var fixFor = function (name) {
+    if (FIX[name]) return FIX[name];
+    if (/포커스 키워드/.test(name)) return '<!-- 타깃 키워드를 제목·H1·첫 문단·메타에 자연스럽게 1~2회 -->';
+    return '';
+  };
 
   function gradeFor(total, max) {
     var pct = max ? total / max : 0;
@@ -350,38 +525,50 @@
   }
 
   function buildResult(url, domain, isHttps, isSPA, checks, psi) {
+    // 각 테마 기여 = 가중치 × (통과 배점 / 테마 전체 배점).
+    // '확인 필요(pending)' 항목은 아직 입증 안 된 점수이므로 분모(전체 배점)에 남겨 0점으로 반영하되,
+    // 실패로 단정하지 않고 정밀분석(PSI)·수정으로 회복 가능하게 둔다(정직 + 오탐 방지 균형).
     var categories = CAT_DEF.map(function (cat) {
       var items = checks[cat.key].map(function (it) {
-        return { name: it[0], desc: it[1], points: it[2], pass: it[3], source: it[4] };
+        return { name: it[0], desc: it[1], points: it[2], pass: it[3], source: it[4], est: it[5] || false, fix: fixFor(it[0]) };
       });
-      var max = items.reduce(function (s, it) { return s + it.points; }, 0);
-      var pending = items.some(function (it) { return it.pass === null; });
-      var score = items.reduce(function (s, it) { return s + (it.pass === true ? it.points : 0); }, 0);
+      var rawMax = items.reduce(function (s, it) { return s + it.points; }, 0);
+      var earned = items.reduce(function (s, it) { return s + (it.pass === true ? it.points : 0); }, 0);
+      var pendingPoints = items.reduce(function (s, it) { return s + (it.pass === null ? it.points : 0); }, 0);
+      var pendingCount = items.filter(function (it) { return it.pass === null; }).length;
+      var pendingFlag = pendingCount > 0;
+      var w = cat.weight || 0;
+      var ratio = rawMax ? (earned / rawMax) : 0;               // 0..1 (pending은 미획득)
+      var pct = Math.round(ratio * 100);                        // 테마 달성률 %
+      // '확인 필요' 배점이 전체에서 차지하는 비율 — 막대에 별도 구간으로 표시(회복 가능분).
+      var pendPct = rawMax ? Math.round(pendingPoints / rawMax * 100) : 0;
+      var isSpeed = (cat.key === 'speed');
+      var dispScore = isSpeed ? earned : +(w * ratio).toFixed(1);
+      var dispMax = isSpeed ? rawMax : w;
       return {
-        key: cat.key, label: cat.label, icon: cat.icon, color: cat.color,
-        max: max, score: score, pending: pending,
-        pct: pending ? 0 : Math.round(score / max * 100), items: items
+        key: cat.key, label: cat.label, icon: cat.icon, color: cat.color, weight: w,
+        score: dispScore, max: dispMax, pct: pct, pendPct: pendPct,
+        pending: pendingFlag, pendingCount: pendingCount,
+        rawEarned: earned, rawMax: rawMax, items: items
       };
     });
-    // 종합 SEO 점수는 속도(성능)를 제외한다 — Google SEO 점수·경쟁사(NXT)와 동일 기준.
-    // Google PSI도 SEO(검색최적화)와 성능(속도)을 별도 게이지로 분리하므로, 속도는 별도 표기한다.
-    var inHeadline = function (c) { return c.key !== 'speed'; };
-    var scored = categories.filter(function (c) { return !c.pending && inHeadline(c); });
-    var baseTotal = scored.reduce(function (s, c) { return s + c.score; }, 0);
-    var baseMax = scored.reduce(function (s, c) { return s + c.max; }, 0);
-    var hasPSI = !!psi;
-    var headlineCats = categories.filter(inHeadline);
-    var total = hasPSI ? headlineCats.reduce(function (s, c) { return s + c.score; }, 0) : baseTotal;
-    var max = hasPSI ? headlineCats.reduce(function (s, c) { return s + c.max; }, 0) : baseMax;
-    // 속도(성능)는 종합점수에서 분리해 별도 게이지로 노출(Google 성능 점수와 동일 위상)
+
+    // 종합 100점 = 속도 제외한 6개 테마 가중점수의 합(가중치 합 = 100 → 항상 0~100).
+    var headline = categories.filter(function (c) { return c.key !== 'speed'; });
+    var total = Math.round(headline.reduce(function (s, c) { return s + c.score; }, 0));
+    var max = 100;
+    var improvable = Math.max(0, 100 - total);                  // 100까지 회복 가능한 점수
     var speedCat = categories.filter(function (c) { return c.key === 'speed'; })[0] || null;
-    // 다양한 집계 수치
-    var passed = 0, failed = 0, pending = 0, improvable = 0;
+    // 추정(정황) 기반 항목이 하나라도 있으면 UI에 범례를 노출한다(#45).
+    var hasEstimated = categories.some(function (c) { return c.items.some(function (it) { return !!it.est; }); });
+
+    // 항목 단위 집계(통과/미흡/확인필요·통과율)
+    var passed = 0, failed = 0, pending = 0;
     categories.forEach(function (c) {
       c.items.forEach(function (it) {
         if (it.pass === null) pending++;
         else if (it.pass) passed++;
-        else { failed++; improvable += it.points; }
+        else failed++;
       });
     });
     var rated = passed + failed;
@@ -393,8 +580,9 @@
     };
     return {
       version: VERSION, url: url, domain: domain, isHttps: isHttps, isSPA: isSPA,
-      categories: categories, baseTotal: baseTotal, baseMax: baseMax, speedCat: speedCat,
-      total: total, max: max, hasPSI: hasPSI, psi: psi || null,
+      categories: categories, baseTotal: total, baseMax: 100, speedCat: speedCat,
+      total: total, max: max, hasPSI: !!psi, psi: psi || null,
+      hasEstimated: hasEstimated,
       summary: summary, grade: gradeFor(total, max)
     };
   }
@@ -466,14 +654,16 @@
         return [it.name, it.desc, it.points, finalPass, it.source];
       });
     });
-    var merged = buildResult(result.url, result.domain, result.isHttps, result.isSPA, checks, {
-      seo: Math.round((cats.seo ? cats.seo.score : 0) * 100),
+    var _mergedRes = buildResult(result.url, result.domain, result.isHttps, result.isSPA, checks, {
+      // 요청하지 않은 카테고리는 null → 게이지에 '—'로 표시(0점 오해 방지).
+      seo: cats.seo ? Math.round(cats.seo.score * 100) : null,
       perf: perf,
-      accessibility: Math.round((cats.accessibility ? cats.accessibility.score : 0) * 100),
-      bestPractices: Math.round((cats['best-practices'] ? cats['best-practices'].score : 0) * 100),
+      accessibility: cats.accessibility ? Math.round(cats.accessibility.score * 100) : null,
+      bestPractices: cats['best-practices'] ? Math.round(cats['best-practices'].score * 100) : null,
       crux: crux
     });
-    return merged;
+    _mergedRes.keywordSeeds = result.keywordSeeds; // 키워드 시드 유지(PSI 병합 후에도)
+    return _mergedRes;
   }
 
   // ── 인포그래픽 (SVG, 의존성 0) ─────────────────────────────────
@@ -494,14 +684,25 @@
       '</svg>';
   }
 
-  function bar(label, score, max, color, pending) {
-    var pct = pending ? 0 : (max ? Math.round(score / max * 100) : 0);
-    return '<div style="display:flex;align-items:center;gap:10px;margin:7px 0;font-size:13px">' +
-      '<span style="width:120px;flex-shrink:0;color:#334155;font-weight:600">' + esc(label) + '</span>' +
-      '<span style="flex:1;height:9px;background:#eef0f5;border-radius:9px;overflow:hidden">' +
-      '<span style="display:block;height:100%;width:' + pct + '%;background:' + color + ';border-radius:9px;transition:width .8s ease"></span></span>' +
-      '<span style="width:64px;text-align:right;font-weight:700;color:' + (pending ? '#9ca3af' : color) + '">' +
-      (pending ? '정밀필요' : score + '/' + max) + '</span></div>';
+  // 막대 = 통과분(진한 색) + 확인 필요분(빗금 앰버) + 미흡분(회색). 확인 필요가 있어도
+  // 이미 획득한 점수만큼은 반드시 채워 보여준다(예: 6.7/28 → 24% 채움). 오른쪽엔 배점·확인건수.
+  function bar(c) {
+    var earnedPct = c.max ? Math.round(c.score / c.max * 100) : 0;
+    var pendPct = c.pendPct || 0;
+    if (earnedPct + pendPct > 100) pendPct = Math.max(0, 100 - earnedPct); // 반올림 오버플로 방지
+    var pendSeg = pendPct > 0
+      ? '<span title="확인 필요 — 정밀분석(PSI)에서 인정 가능" style="height:100%;width:' + pendPct +
+        '%;background:repeating-linear-gradient(45deg,#fcd34d,#fcd34d 4px,#fef3c7 4px,#fef3c7 8px)"></span>'
+      : '';
+    var pendTag = c.pendingCount
+      ? '<span style="color:#b45309;font-weight:800"> · 확인 ' + c.pendingCount + '</span>' : '';
+    return '<div style="display:flex;align-items:center;gap:11px;margin:9px 0;font-size:14px">' +
+      '<span style="width:132px;flex-shrink:0;color:#1e293b;font-weight:700">' + esc(c.label) + '</span>' +
+      '<span style="flex:1;height:11px;background:#eaeef3;border-radius:9px;overflow:hidden;display:flex">' +
+      '<span style="height:100%;width:' + earnedPct + '%;background:' + c.color + ';transition:width .8s ease"></span>' +
+      pendSeg + '</span>' +
+      '<span style="width:88px;text-align:right;font-weight:800;font-size:13.5px;color:' + c.color + '">' +
+      c.score + '/' + c.max + pendTag + '</span></div>';
   }
 
   function renderInfographic(result, opts) {
@@ -510,7 +711,7 @@
     var g = result.grade;
     var gauge = donut(result.total, result.max, g.color, g.label);
     var bars = result.categories.filter(function (c) { return c.key !== 'speed'; })
-      .map(function (c) { return bar(c.label, c.score, c.max, c.color, c.pending); }).join('');
+      .map(function (c) { return bar(c); }).join('');
     // 속도(성능)는 종합점수와 분리된 별도 게이지 — Google 성능 점수와 동일 위상
     var sc = result.speedCat;
     var speedGauge = '';
@@ -536,7 +737,12 @@
     var psiBadges = '';
     if (result.psi) {
       var p = result.psi;
-      var b = function (lbl, v, col) { return '<span style="background:#f4f6fa;border-radius:8px;padding:8px 12px;font-size:12px">' + lbl + ' <strong style="color:' + col + '">' + v + '</strong></span>'; };
+      // 값이 null(미요청 카테고리)이면 '—'로 표시하고 회색 처리.
+      var b = function (lbl, v, col) {
+        var has = (v !== null && v !== undefined);
+        return '<span style="background:#f4f6fa;border-radius:8px;padding:8px 12px;font-size:12px">' + lbl +
+          ' <strong style="color:' + (has ? col : '#9ca3af') + '">' + (has ? v : '—') + '</strong></span>';
+      };
       psiBadges = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">' +
         b('SEO', p.seo, '#4285F4') + b('성능', p.perf, p.perf >= 90 ? '#16a34a' : p.perf >= 50 ? '#d97706' : '#dc2626') +
         b('접근성', p.accessibility, '#06b6d4') + b('권장사항', p.bestPractices, '#8b5cf6') + '</div>';
@@ -550,39 +756,54 @@
       }
     }
 
-    // 집계 수치 스트립
-    var sm = result.summary || { passed: 0, failed: 0, pending: 0, passRate: 0, improvable: 0 };
-    var stat = function (v, l, col) {
-      return '<div style="flex:1;min-width:84px;text-align:center;background:#f8fafc;border:1px solid #eef0f5;border-radius:10px;padding:10px 6px">' +
-        '<div style="font-size:20px;font-weight:800;color:' + col + '">' + v + '</div>' +
-        '<div style="font-size:11px;color:#64748b;margin-top:2px">' + l + '</div></div>';
+    // 집계 수치 스트립 — 각 수치에 '기준(최대치·분모)'을 함께 표기해 맥락 없이 숫자만 뜨지 않게 한다.
+    var sm = result.summary || { passed: 0, failed: 0, pending: 0, totalItems: 0, passRate: 0, improvable: 0 };
+    var rated = sm.passed + sm.failed;                          // 판정된 항목(확인 필요 제외)
+    var stat = function (v, l, sub, col) {
+      return '<div style="flex:1;min-width:112px;text-align:center;background:#f8fafc;border:1px solid #e8ecf1;border-radius:12px;padding:13px 8px">' +
+        '<div style="font-size:26px;font-weight:900;color:' + col + ';line-height:1.1">' + v + '</div>' +
+        '<div style="font-size:12.5px;color:#334155;font-weight:700;margin-top:5px">' + l + '</div>' +
+        '<div style="font-size:11px;color:#94a3b8;font-weight:600;margin-top:2px">' + sub + '</div></div>';
     };
     var statsStrip = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">' +
-      stat(sm.passed, '통과 항목', '#16a34a') + stat(sm.failed, '미흡 항목', '#dc2626') +
-      stat('+' + sm.improvable, '개선 시 점수', brand) + stat(sm.passRate + '%', '통과율', '#0ea5e9') + '</div>';
+      stat(sm.passed, '통과 항목', '전체 ' + sm.totalItems + '개 중', '#16a34a') +
+      stat(sm.failed, '미흡 항목', '확인 필요 ' + sm.pending + '건 별도', '#dc2626') +
+      stat(result.total + '<span style="font-size:15px;color:#94a3b8">/100</span>', '현재 종합점수', '개선 시 +' + sm.improvable + ' → 100점', brand) +
+      stat(sm.passRate + '%', '통과율', '통과 ' + sm.passed + ' / 판정 ' + rated + '건', '#0ea5e9') + '</div>';
     // 카테고리 요약 테이블
     var tableRows = result.categories.map(function (c) {
       var passN = c.items.filter(function (it) { return it.pass === true; }).length;
-      return '<tr><td style="padding:8px 10px;border-top:1px solid #eef0f5">' + c.icon + ' ' + esc(c.label) + '</td>' +
-        '<td style="padding:8px 10px;border-top:1px solid #eef0f5;text-align:center;color:' + (c.pending ? '#9ca3af' : c.color) + ';font-weight:700">' + (c.pending ? '정밀필요' : c.score + '/' + c.max) + '</td>' +
-        '<td style="padding:8px 10px;border-top:1px solid #eef0f5;text-align:center;color:#64748b">' + passN + '/' + c.items.length + '</td>' +
-        '<td style="padding:8px 10px;border-top:1px solid #eef0f5;text-align:center;color:#64748b">' + (c.pending ? '—' : c.pct + '%') + '</td></tr>';
+      var pendMark = c.pendingCount ? ' <span style="color:#b45309;font-weight:700">·확인' + c.pendingCount + '</span>' : '';
+      return '<tr><td style="padding:11px 12px;border-top:1px solid #eef1f5;font-size:14px;font-weight:600;color:#1e293b">' + c.icon + ' ' + esc(c.label) + '</td>' +
+        '<td style="padding:11px 12px;border-top:1px solid #eef1f5;text-align:center;color:' + c.color + ';font-weight:800;font-size:14px">' + c.score + '/' + c.max + '</td>' +
+        '<td style="padding:11px 12px;border-top:1px solid #eef1f5;text-align:center;color:#475569;font-size:13.5px">' + passN + '/' + c.items.length + pendMark + '</td>' +
+        '<td style="padding:11px 12px;border-top:1px solid #eef1f5;text-align:center;color:#475569;font-size:13.5px;font-weight:700">' + c.pct + '%</td></tr>';
     }).join('');
-    var table = '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;border:1px solid #eef0f5;border-radius:10px;overflow:hidden">' +
-      '<thead><tr style="background:#f4f6fa;font-size:12px;color:#475569">' +
-      '<th style="padding:9px 10px;text-align:left">카테고리</th><th style="padding:9px 10px">점수</th><th style="padding:9px 10px">통과</th><th style="padding:9px 10px">비율</th></tr></thead>' +
+    var table = '<table style="width:100%;border-collapse:collapse;margin-bottom:18px;border:1px solid #e8ecf1;border-radius:12px;overflow:hidden">' +
+      '<thead><tr style="background:#f1f4f8;font-size:12.5px;color:#334155;font-weight:800">' +
+      '<th style="padding:11px 12px;text-align:left">테마 (가중치)</th><th style="padding:11px 12px">가중점수</th><th style="padding:11px 12px">통과</th><th style="padding:11px 12px">달성률</th></tr></thead>' +
       '<tbody>' + tableRows + '</tbody></table>';
 
     return '<div class="seoeng" style="font-family:inherit;color:#0f172a">' +
       '<div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;padding-bottom:18px;border-bottom:1px solid #e3e8ee;margin-bottom:18px">' +
         '<div style="flex-shrink:0;text-align:center">' + gauge +
-          '<div style="font-size:13px;font-weight:700;color:' + g.color + ';margin-top:2px">' + esc(g.label) + '</div>' +
-          '<div style="font-size:11px;color:#94a3b8">' + esc(result.domain) + ' · ' + esc(g.desc) + '</div></div>' +
+          '<div style="font-size:15px;font-weight:800;color:' + g.color + ';margin-top:4px">' + esc(g.label) + '</div>' +
+          '<div style="font-size:12px;color:#64748b;margin-top:1px">종합 SEO 100점 만점</div>' +
+          '<div style="font-size:12px;color:#94a3b8;margin-top:1px">' + esc(result.domain) + '</div></div>' +
         '<div style="flex:1;min-width:220px">' + bars +
-          (result.categories.some(function (c) { return c.pending; }) && !result.psi ?
-            '<div style="font-size:11px;color:#9ca3af;margin-top:4px">※ 종합 SEO 점수는 속도(성능) 제외 — Google SEO 점수와 동일 기준. 속도는 정밀 분석(PSI) 시 별도 게이지로 측정됩니다</div>' : '') +
+          (result.summary && result.summary.pending ?
+            '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:#64748b;font-weight:600">' +
+              '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:9px;border-radius:3px;background:#533afd"></span>통과(획득)</span>' +
+              '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:9px;border-radius:3px;background:repeating-linear-gradient(45deg,#fcd34d,#fcd34d 3px,#fef3c7 3px,#fef3c7 6px)"></span>확인 필요(회복 가능)</span>' +
+              '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:9px;border-radius:3px;background:#eaeef3"></span>미흡</span>' +
+            '</div>' : '') +
+          (result.summary && result.summary.pending && !result.psi ?
+            '<div style="font-size:12px;color:#b45309;margin-top:6px;font-weight:600">※ <b>확인 필요</b> 항목은 정적 수집으로 통과를 입증하지 못한 것(0점 반영) — 이미 적용돼 있으면 <b>정밀 분석(PSI)</b>에서 인정되고, 없으면 각 항목의 수정 코드를 적용하세요.</div>' : '') +
+          (result.hasEstimated ?
+            '<div style="font-size:12px;color:#92400e;margin-top:6px;font-weight:600">※ <span style="background:#fef3c7;border:1px solid #fcd34d;border-radius:5px;padding:1px 5px;font-weight:800">추정</span> 배지는 마크업 등 <b>실측</b>이 아니라 정황(정규식·임계값)으로 판단한 항목입니다 — <b>구조화 데이터(JSON-LD)</b>로 명시하면 실측으로 확정됩니다.</div>' : '') +
+          '<div style="font-size:12px;color:#64748b;margin-top:5px">※ 종합점수는 <b>속도(성능) 제외</b>(별도 +α 게이지) — Google이 SEO와 속도를 분리하는 것과 동일 기준.</div>' +
           (result.renderSuspect && !result.psi ?
-            '<div style="font-size:11.5px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;margin-top:8px;line-height:1.5">⚠️ 이 사이트는 <b>JS 렌더링/봇 차단</b>으로 정적 분석이 제한적입니다. 메타·구조화데이터가 자바스크립트로 주입되면 정적 수집으로는 보이지 않아 <b>정밀필요</b>로 표시했습니다. 정확한 점수는 <b>정밀 분석(PSI)</b>을 실행하세요.</div>' : '') +
+            '<div style="font-size:11.5px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;margin-top:8px;line-height:1.5">⚠️ 이 사이트는 <b>JS 렌더링/봇 차단</b>으로 정적 분석이 제한적입니다. 메타·구조화데이터가 자바스크립트로 주입되면 정적 수집으로는 보이지 않아 <b>확인 필요</b>로 표시했습니다. 정확한 점수는 <b>정밀 분석(PSI)</b>을 실행하세요.</div>' : '') +
         '</div>' +
         speedGauge +
       '</div>' +
@@ -596,30 +817,56 @@
         '<a href="https://pagespeed.web.dev/" target="_blank" rel="noopener" style="color:#4285F4;font-weight:700">PageSpeed Insights(Lighthouse)</a> · ' +
         '2차: <a href="https://searchadvisor.naver.com/guide" target="_blank" rel="noopener" style="color:#03C75A;font-weight:700">네이버 서치어드바이저</a> · ' +
         '속도는 Google Core Web Vitals 공식 임계값(LCP≤2.5s·CLS≤0.10·INP≤200ms) 기준 · 순위 보장 아님, 1차 데이터는 Search Console 확인 권장' +
+        '<span style="float:right;color:#cbd5e1;font-weight:700">엔진 v' + BUILD + '</span>' +
       '</div></div>';
   }
 
   function renderItems(result) {
     return result.categories.map(function (c) {
       var rows = c.items.map(function (it) {
-        var badge = it.source ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:5px;color:#fff;background:' + srcColor(it.source) + '">' + it.source + '</span>' : '';
+        var badge = it.source ? '<span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:5px;margin-left:6px;color:#fff;background:' + srcColor(it.source) + '">' + it.source + '</span>' : '';
+        // '추정' 배지: 마크업 등 실측이 아니라 정황(정규식·임계값)으로 판단한 항목 — 실측과 구분(#45).
+        var estLabel = (it.est === true) ? '추정' : (typeof it.est === 'string' ? it.est : '');
+        if (estLabel) badge += '<span title="정적 수집 기반 추정 — 마크업 등 실측 신호가 아니라 정황(정규식·임계값)으로 판단했습니다. 정밀 분석(PSI)·구조화 데이터로 확정하세요." style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:5px;margin-left:5px;color:#92400e;background:#fef3c7;border:1px solid #fcd34d">' + estLabel + '</span>';
+        // 항목: 아이콘 + (이름 / 설명 2줄) + 점수. 이름은 크고 진하게, 설명은 대비 있게.
         if (it.pass === null) {
-          return '<div style="display:flex;gap:9px;align-items:flex-start;padding:7px 0;border-top:1px solid #f1f3f7">' +
-            '<span style="flex-shrink:0;width:18px;height:18px;border-radius:50%;background:#f3f4f6;color:#9ca3af;font-size:11px;text-align:center;line-height:18px">?</span>' +
-            '<span style="flex:1;font-size:13px;color:#9ca3af">' + esc(it.name) + badge + ' <span style="color:#b0b7c3">— ' + esc(it.desc) + '</span></span>' +
-            '<span style="color:#9ca3af;font-size:12px">—/' + it.points + '</span></div>';
+          // '확인 필요' = 정적 수집으로 통과/실패를 단정할 수 없는 항목(JS 주입·헤더 미수집).
+          // 오탐 방지를 위해 실패로 찍지 않되, 설명 + 수정 코드로 '다른 항목처럼' 조치 가능하게 한다.
+          var pendBlock = it.fix ?
+            '<div style="margin:4px 0 10px 33px">' +
+            '<div style="font-size:12.5px;font-weight:800;color:#b45309;margin-bottom:5px">🔎 정적 수집으로 확인 안 됨 — 이미 있다면 <b>정밀 분석(PSI)</b>에서 인정됩니다. 없다면 아래를 추가하세요</div>' +
+            '<pre style="margin:0;background:#0f172a;color:#e2e8f0;border-radius:9px;padding:12px 14px;font-size:12.5px;line-height:1.6;overflow-x:auto;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">' +
+            esc(it.fix) + '</pre></div>' : '';
+          return '<div style="display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-top:1px solid #eef1f5">' +
+            '<span style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:#fef3c7;color:#b45309;font-size:13px;font-weight:800;text-align:center;line-height:22px">!</span>' +
+            '<span style="flex:1;min-width:0"><span style="font-size:15px;font-weight:700;color:#0f172a">' + esc(it.name) + '</span>' + badge +
+              '<div style="font-size:13px;color:#5b6675;margin-top:2px;line-height:1.5">' + esc(it.desc) + '</div></span>' +
+            '<span style="color:#b45309;font-size:13px;font-weight:800;flex-shrink:0">확인 필요</span></div>' + pendBlock;
         }
         var ok = it.pass;
-        return '<div style="display:flex;gap:9px;align-items:flex-start;padding:7px 0;border-top:1px solid #f1f3f7">' +
-          '<span style="flex-shrink:0;width:18px;height:18px;border-radius:50%;font-size:11px;text-align:center;line-height:18px;color:#fff;background:' + (ok ? '#16a34a' : '#dc2626') + '">' + (ok ? '✓' : '✗') + '</span>' +
-          '<span style="flex:1;font-size:13px"><strong style="font-weight:' + (ok ? 600 : 700) + '">' + esc(it.name) + '</strong>' + badge + ' <span style="color:#64748b">— ' + esc(it.desc) + '</span></span>' +
-          '<span style="font-size:12px;font-weight:700;color:' + (ok ? '#16a34a' : '#dc2626') + '">' + (ok ? '+' + it.points : '0/' + it.points) + '</span></div>';
+        var codeBlock = '';
+        if (!ok && it.fix) {
+          codeBlock = '<div style="margin:4px 0 10px 33px">' +
+            '<div style="font-size:12.5px;font-weight:800;color:#dc2626;margin-bottom:5px">🔧 이렇게 고치세요 — 아래 코드를 삽입</div>' +
+            '<pre style="margin:0;background:#0f172a;color:#e2e8f0;border-radius:9px;padding:12px 14px;font-size:12.5px;line-height:1.6;overflow-x:auto;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">' +
+            esc(it.fix) + '</pre></div>';
+        }
+        return '<div style="display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-top:1px solid #eef1f5">' +
+          '<span style="flex-shrink:0;width:22px;height:22px;border-radius:50%;font-size:13px;font-weight:800;text-align:center;line-height:22px;color:#fff;background:' + (ok ? '#16a34a' : '#dc2626') + '">' + (ok ? '✓' : '✗') + '</span>' +
+          '<span style="flex:1;min-width:0"><span style="font-size:15px;font-weight:' + (ok ? 700 : 800) + ';color:#0f172a">' + esc(it.name) + '</span>' + badge +
+            '<div style="font-size:13px;color:#5b6675;margin-top:2px;line-height:1.5">' + esc(it.desc) + '</div></span>' +
+          '<span style="font-size:14px;font-weight:800;flex-shrink:0;color:' + (ok ? '#16a34a' : '#dc2626') + '">' + (ok ? '+' + it.points : '0/' + it.points) + '</span></div>' +
+          codeBlock;
       }).join('');
-      return '<div style="border:1px solid #e3e8ee;border-radius:12px;overflow:hidden;margin-bottom:12px">' +
-        '<div style="display:flex;align-items:center;gap:9px;padding:11px 14px;background:#f8fafc">' +
-          '<span>' + c.icon + '</span><span style="font-weight:700;font-size:14px">' + esc(c.label) + '</span>' +
-          '<span style="margin-left:auto;font-weight:700;color:' + (c.pending ? '#9ca3af' : c.color) + '">' + (c.pending ? '정밀 분석 필요' : c.score + '/' + c.max + '점') + '</span></div>' +
-        '<div style="padding:4px 14px 10px">' + rows + '</div></div>';
+      // 카테고리 헤더: 아이콘·이름 크게, 우측에 가중점수/가중치(+달성률·상태) 명확히.
+      var headRight = (c.score + '/' + c.max + '점 · ' + c.pct + '%')
+        + (c.pendingCount ? ' · 확인 ' + c.pendingCount + '건' : '');
+      return '<div style="border:1px solid #e3e8ee;border-radius:14px;overflow:hidden;margin-bottom:14px">' +
+        '<div style="display:flex;align-items:center;gap:10px;padding:14px 16px;background:linear-gradient(180deg,#f8fafc,#f1f4f8);border-bottom:1px solid #e8ecf1">' +
+          '<span style="font-size:19px">' + c.icon + '</span>' +
+          '<span style="font-weight:800;font-size:16.5px;color:#0f172a">' + esc(c.label) + '</span>' +
+          '<span style="margin-left:auto;font-weight:800;font-size:14px;color:' + c.color + '">' + headRight + '</span></div>' +
+        '<div style="padding:4px 16px 12px">' + rows + '</div></div>';
     }).join('');
   }
 

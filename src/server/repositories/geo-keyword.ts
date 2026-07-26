@@ -9,18 +9,6 @@ export type GeoKeywordRow = {
   selected: boolean;
 };
 
-export async function listGeoKeywords(clientId: string): Promise<GeoKeywordRow[]> {
-  try {
-    const rows = await db.geoKeyword.findMany({
-      where: { clientId },
-      orderBy: [{ selected: "desc" }, { volume: "desc" }, { term: "asc" }]
-    });
-    return rows.map((r) => ({ id: r.id, term: r.term, volume: r.volume, source: r.source, selected: r.selected }));
-  } catch {
-    // 테이블 미생성(마이그레이션 지연) 등에도 화면이 죽지 않게.
-    return [];
-  }
-}
 
 export async function listSelectedGeoKeywords(clientId: string): Promise<string[]> {
   try {

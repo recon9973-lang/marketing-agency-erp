@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireStaff } from "../guard";
 
 export const dynamic = "force-dynamic";
 
 // 네이버·구글 자동완성 프록시 (브라우저 CORS 우회)
 export async function GET(req: NextRequest) {
+  const denied = await requireStaff();
+  if (denied) return denied;
   const q = req.nextUrl.searchParams.get("q") || "";
   const source = req.nextUrl.searchParams.get("source") || "naver";
   if (!q.trim()) return NextResponse.json({ items: [] });

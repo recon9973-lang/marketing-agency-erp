@@ -87,13 +87,26 @@ type ErpRoute =
   | "/vault"
   | "/integrations"
   | "/settings"
-  | "/account";
+  | "/account"
+  | "/notices";
 
-// 업무 흐름 기반 그룹 — 컨설팅·계약 → 분석·GEO → 제작 → 보고 → 관리.
-type NavGroup = "홈" | "영업·계약" | "분석·GEO" | "제작" | "보고·결재" | "관리";
+// 업무 워크플로우 순서 그대로 그룹핑:
+// ① 분석·진단·컨설팅 보고서 → ② 대면 미팅·보고서 제출 → ③ 계약
+// → ④ 마케팅 업무 진행(실행) → ⑤ 월간리포트·결재 → ⑥ 모니터링 → 관리.
+type NavGroup =
+  | "홈"
+  | "① 분석·진단"
+  | "② 미팅·제안"
+  | "③ 계약"
+  | "④ 실행"
+  | "⑤ 리포트·결재"
+  | "⑥ 모니터링"
+  | "관리";
 
 // 사이드바 섹션 렌더 순서(홈은 상단 고정이라 제외).
-const NAV_SECTIONS: NavGroup[] = ["영업·계약", "분석·GEO", "제작", "보고·결재", "관리"];
+const NAV_SECTIONS: NavGroup[] = [
+  "① 분석·진단", "② 미팅·제안", "③ 계약", "④ 실행", "⑤ 리포트·결재", "⑥ 모니터링", "관리"
+];
 
 export type NavItem = {
   href: ErpRoute;
@@ -108,7 +121,7 @@ const HREF_TO_FEATURE = new Map<string, FeatureKey>(CONTROLLABLE_FEATURES.map((f
 
 export function getNavigationItems(role: Role, canAccessSettings = false, deniedFeatures: FeatureKey[] = []): NavItem[] {
   const items: NavItem[] = [
-    // 홈(상단 고정)
+    // ── 홈(상단 고정) ──
     {
       href: "/dashboard",
       label: "대시보드",
@@ -123,173 +136,174 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       icon: MessageSquare,
       group: "홈"
     },
-    // ── 영업·계약: 컨설팅(리드/무료진단) → 계약 → 담당자 배정(거래처) ──
+    // ── ① 분석·진단 — 리드 접수 → 상권·검색량·여정 분석 → SEO/GEO 진단 → 전략(컨설팅 보고서) ──
     {
       href: "/leads",
       label: "영업 리드",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Target,
-      group: "영업·계약"
-    },
-    {
-      href: "/contracts",
-      label: "계약서",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: FileSignature,
-      group: "영업·계약"
-    },
-    {
-      href: "/clients",
-      label: "거래처",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: BriefcaseBusiness,
-      group: "영업·계약"
-    },
-    // ── 분석·GEO: 상세분석(인사이트·검색량·GEO) → 업무계획(업무관리·캘린더) ──
-    {
-      href: "/insights",
-      label: "거래처 인사이트",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: LineChart,
-      group: "분석·GEO"
-    },
-    {
-      href: "/keywords",
-      label: "검색량 조회",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Search,
-      group: "분석·GEO"
+      group: "① 분석·진단"
     },
     {
       href: "/market",
       label: "상권분석",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: MapPin,
-      group: "분석·GEO"
+      group: "① 분석·진단"
     },
     {
-      href: "/strategy",
-      label: "마케팅 전략",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Target,
-      group: "분석·GEO"
-    },
-    {
-      href: "/seo",
-      label: "SEO 진단",
+      href: "/keywords",
+      label: "검색량 조회",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Search,
-      group: "분석·GEO"
-    },
-    {
-      href: "/geo",
-      label: "GEO 진단",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Radar,
-      group: "분석·GEO"
-    },
-    {
-      href: "/work",
-      label: "업무관리",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: ClipboardList,
-      group: "분석·GEO"
-    },
-    {
-      href: "/worklog",
-      label: "업무 보고",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Link2,
-      group: "분석·GEO"
+      group: "① 분석·진단"
     },
     {
       href: "/journeymap",
       label: "키워드 여정맵",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: MapIcon,
-      group: "분석·GEO"
+      group: "① 분석·진단"
+    },
+    {
+      href: "/seo",
+      label: "SEO 진단",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Search,
+      group: "① 분석·진단"
+    },
+    {
+      href: "/geo",
+      label: "GEO 진단",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Radar,
+      group: "① 분석·진단"
+    },
+    {
+      href: "/strategy",
+      label: "마케팅 전략",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Target,
+      group: "① 분석·진단"
+    },
+    // ── ② 대면 미팅·보고서 제출 ──
+    {
+      href: "/meetings",
+      label: "회의록",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Video,
+      group: "② 미팅·제안"
+    },
+    // ── ③ 계약 → 담당자 배정(거래처) ──
+    {
+      href: "/contracts",
+      label: "계약서",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: FileSignature,
+      group: "③ 계약"
+    },
+    {
+      href: "/clients",
+      label: "거래처",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: BriefcaseBusiness,
+      group: "③ 계약"
+    },
+    // ── ④ 마케팅 업무 진행 — 업무·일정 → 콘텐츠 제작 → 의료법 검수 → 승인(발행) ──
+    {
+      href: "/work",
+      label: "업무관리",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: ClipboardList,
+      group: "④ 실행"
     },
     {
       href: "/calendar",
       label: "캘린더",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: CalendarDays,
-      group: "분석·GEO"
+      group: "④ 실행"
     },
-    // ── 제작: 원고·이미지·디자인·AI·마케팅·매거진 → 의료법 검수 → 승인(발행) ──
     {
       href: "/manuscript",
       label: "원고 스튜디오",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: PenLine,
-      group: "제작"
+      group: "④ 실행"
     },
     {
       href: "/studio",
       label: "스튜디오",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Palette,
-      group: "제작"
+      group: "④ 실행"
     },
     {
       href: "/magazine",
       label: "매거진",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Newspaper,
-      group: "제작"
-    },
-    {
-      href: "/compliance",
-      label: "의료법 검수",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: ShieldCheck,
-      group: "제작"
+      group: "④ 실행"
     },
     {
       href: "/ideas",
       label: "아이디어",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Lightbulb,
-      group: "제작"
+      group: "④ 실행"
+    },
+    {
+      href: "/compliance",
+      label: "의료법 검수",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: ShieldCheck,
+      group: "④ 실행"
     },
     {
       href: "/approvals",
       label: "승인함",
       roles: [Role.SUPER_ADMIN, Role.ADMIN],
       icon: CircleCheck,
-      group: "보고·결재"
+      group: "④ 실행"
     },
-    // ── 보고·결재: 월간 보고서 → 주간보고 → 회의록 → 보관함 ──
+    // ── ⑤ 월간리포트 제출·결재 ──
+    {
+      href: "/worklog",
+      label: "업무 보고",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Link2,
+      group: "⑤ 리포트·결재"
+    },
     {
       href: "/reports",
       label: "결재",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: FileText,
-      group: "보고·결재"
-    },
-    {
-      href: "/meetings",
-      label: "회의록",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: Video,
-      group: "보고·결재"
-    },
-    {
-      href: "/geo-monitor",
-      label: "모니터링",
-      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
-      icon: LineChart,
-      group: "보고·결재"
+      group: "⑤ 리포트·결재"
     },
     {
       href: "/vault",
       label: "보관함",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Archive,
-      group: "보고·결재"
+      group: "⑤ 리포트·결재"
     },
-    // ── 관리(관리자): 입출금(정산/지출) → 연동 → 인사관리 ──
-    // 연차/휴가는 결재(/reports?doc=leave) 내부 탭으로 이동.
+    // ── ⑥ 모니터링 — 성과 관측·거래처 인사이트 ──
+    {
+      href: "/geo-monitor",
+      label: "모니터링",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: LineChart,
+      group: "⑥ 모니터링"
+    },
+    {
+      href: "/insights",
+      label: "거래처 인사이트",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: LineChart,
+      group: "⑥ 모니터링"
+    },
+    // ── 관리 ──
     {
       href: "/finance",
       label: "정산/지출",
@@ -317,7 +331,7 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: KeyRound,
       group: "관리"
-    }
+    },
   ];
 
   return items.filter((item) => {

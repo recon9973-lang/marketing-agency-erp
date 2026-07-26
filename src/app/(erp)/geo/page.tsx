@@ -1,6 +1,7 @@
 // 목표 경로: src/app/(erp)/geo/page.tsx
 //
-// GEO 모니터링 — 거래처 선택 → 워크플로우 스테퍼 + KPI 타일 + 업무 탭(현황/설계/기록/가이드).
+// GEO 진단 — 거래처 선택 → 9단계 스테퍼(질문 설계→인용 측정→CEP→대시보드→콘텐츠 진단→계획→생성→캠페인→학습).
+// 모니터링(추이·랭킹·월간 리포트 관측)은 워크플로우 마지막 단계로서 /geo-monitor 로 분리됨.
 // UI/UX 리디자인: 세로 스택 6패널 → 탭 정보구조, emerald 모듈 액센트(레퍼런스 샘플 #2 스타일).
 // "AI 답변 출현은 보장이 아닌 모니터링 지표" 고지를 상시 표기(기획서 §7).
 import Link from "next/link";
@@ -14,11 +15,9 @@ import { GeoTabs } from "@/components/geo/GeoTabs";
 import { GeoTrendBars } from "@/components/geo/GeoTrendBars";
 import { SovChart } from "@/components/geo/SovChart";
 import { MentionRateTrend } from "@/components/geo/MentionRateTrend";
-import { GuardedRankTrend } from "@/components/geo/GuardedRankTrend";
 import { ScorePair } from "@/components/geo/ScorePair";
 import { EngineRadar } from "@/components/geo/EngineRadar";
 import { MentionStanding } from "@/components/geo/MentionStanding";
-import { QuestionMentionTrend } from "@/components/geo/QuestionMentionTrend";
 import { GeoPhaseProgress } from "@/components/geo/GeoPhaseProgress";
 import { GeoToolLinks } from "@/components/geo/GeoToolLinks";
 import { GeoOpportunity } from "@/components/geo/GeoOpportunity";
@@ -34,14 +33,12 @@ import {
   getMentionRateSeries,
   getGuardedRankSeries,
   getEngineRadar,
-  getMentionStanding,
-  getQuestionMentionSeries
+  getMentionStanding
 } from "@/server/repositories/citation-score";
 import { listInsightClients } from "@/server/repositories/insights";
 import { getCurrentUser } from "@/server/session";
 import { GeoStageNav } from "@/components/geo/GeoStageNav";
 import { GeoSelfQuery } from "@/components/geo/GeoSelfQuery";
-import { GeoStagePanel } from "@/components/geo/GeoStagePanel";
 import { CdjFunnelMap } from "@/components/geo/CdjFunnelMap";
 import { listSelectedGeoKeywords } from "@/server/repositories/geo-keyword";
 import { naverSearchConfigured } from "@/server/integrations/naver-search";
@@ -62,53 +59,7 @@ import { listModelVersions } from "@/server/repositories/geo-model";
 import { getDefaultOrgId } from "@/server/org";
 import { Role } from "@/domain/types";
 import { ConnectionBadge } from "@/components/ui/ConnectionBadge";
-import { GEO_STAGES, geoStageOf, type GeoStageKey } from "@/domain/geo/stages";
-
-// P2.1: 각 단계의 CTA(현재는 전용 도구로 이어짐 — P2.2~에서 인라인 통합).
-const STAGE_CTA: Record<GeoStageKey, string> = {
-  questions: "질문 설계 열기",
-  citation: "AI 스캐너 열기",
-  cep: "CEP 파인더 열기",
-  dashboard: "대시보드",
-  "content-diagnosis": "콘텐츠 진단 열기",
-  plan: "GEO 주간 리포트 열기",
-  content: "콘텐츠 생성 열기",
-  campaign: "캠페인 플래너 열기",
-  learning: "학습 패널 열기"
-};
-const STAGE_TIER: Partial<Record<GeoStageKey, "measured" | "approx" | "demo">> = {
-  questions: "measured",
-  citation: "measured",
-  cep: "approx",
-  "content-diagnosis": "demo",
-  plan: "measured",
-  content: "measured",
-  campaign: "demo"
-};
-function stageHref(tab: GeoStageKey, clientId: string | null, brand: string, category: string): string {
-  const b = encodeURIComponent(brand || "");
-  const c = encodeURIComponent(category || "");
-  switch (tab) {
-    case "questions":
-      return `/geo?client=${clientId ?? ""}&tab=dashboard`;
-    case "citation":
-      return `/geo-scan?brand=${b}`;
-    case "cep":
-      return `/geo-cep?brand=${b}&category=${c}`;
-    case "content-diagnosis":
-      return "/geo-content";
-    case "plan":
-      return "/reports/geo-weekly";
-    case "content":
-      return "/ai-studio";
-    case "campaign":
-      return "/geo-planner";
-    case "learning":
-      return "/geo-learning";
-    default:
-      return "/geo";
-  }
-}
+import { geoStageOf, type GeoStageKey } from "@/domain/geo/stages";
 
 const KPI_ICONS = {
   question: (
@@ -145,9 +96,9 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
   const clients = await listInsightClients(user);
   const selectedId = clientParam && clients.some((c) => c.id === clientParam) ? clientParam : clients[0]?.id ?? null;
   const selectedName = clients.find((c) => c.id === selectedId)?.name ?? "";
-  const [rows, trend, selectedClient, publishedPages, mentionSeries, guardedSeries, engineRadar, standing, questionSeries] = selectedId
+  const [rows, trend, selectedClient, publishedPages, mentionSeries, guardedSeries, engineRadar, standing] = selectedId
     ? await Promise.all([
-        listGeoMatrix(selectedId),
+        listGeoMatrix(selectedId).catch(() => []),
         geoMonthlyTrend(selectedId),
         // 거래처의 진료과·지역을 질문 생성 기본값으로 자동 사용(이중 입력 제거)
         db.client
@@ -164,10 +115,9 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
         getMentionRateSeries(selectedId).catch(() => []), // B1 전체 언급률 일별
         getGuardedRankSeries(selectedId).catch(() => []), // C1 월보장 순위 일별
         getEngineRadar(selectedId).catch(() => ({ engines: [], beforeDate: null, nowDate: null })), // B2
-        getMentionStanding(selectedId, selectedName).catch(() => []), // B4
-        getQuestionMentionSeries(selectedId).catch(() => ({ dates: [], questions: [] })) // B3
+        getMentionStanding(selectedId, selectedName).catch(() => []) // B4
       ])
-    : [[], [], null, [], [], [], { engines: [], beforeDate: null, nowDate: null }, [], { dates: [], questions: [] }];
+    : [[], [], null, [], [], [], { engines: [], beforeDate: null, nowDate: null }, []];
   const summary = summarizeGeoMatrix(rows);
   const sov = computeGeoSov(rows); // 경쟁사 대비 SOV(파생·저장 없음)
 
@@ -524,15 +474,6 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
               </p>
             ))}
 
-          {!inlineTabs.includes(activeTab) && (
-            <GeoStagePanel
-              stage={GEO_STAGES.find((s) => s.key === activeTab)!}
-              clientName={selectedName}
-              ctaHref={stageHref(activeTab, selectedId, selectedName, defaultDepartment)}
-              ctaLabel={STAGE_CTA[activeTab]}
-              tier={STAGE_TIER[activeTab]}
-            />
-          )}
 
           {activeTab === "dashboard" && (
             <>

@@ -72,7 +72,7 @@ const QUICK: { href: Route; label: string; icon: typeof ClipboardList; tone: Ton
   { href: "/approvals" as Route, label: "승인함", icon: CircleCheck, tone: "amber" },
   { href: "/reports" as Route, label: "보고서", icon: FileText, tone: "violet" },
   { href: "/ai-studio" as Route, label: "AI 마케팅", icon: Sparkles, tone: "green" },
-  { href: "/image-studio" as Route, label: "이미지", icon: ImageIcon, tone: "blue" }
+  { href: "/studio?tab=image" as Route, label: "이미지", icon: ImageIcon, tone: "blue" }
 ];
 
 export function DashboardHome({
@@ -268,7 +268,7 @@ export function DashboardHome({
           <Reminder icon={CircleCheck} tone="amber" label="컨펌·검토 대기" value={summary.reviewNeededWorkCount} href={"/approvals" as Route} />
           <Reminder icon={CalendarClock} tone="blue" label="다가오는 마감" value={summary.upcomingDeadlineCount} href={"/work" as Route} />
           <Reminder icon={AlertTriangle} tone="rose" label="지연 업무" value={summary.delayedWorkCount} href={"/work" as Route} />
-          <Reminder icon={Plane} tone="green" label="휴가 승인 대기" value={summary.pendingLeaveCount} href={"/leave" as Route} />
+          <Reminder icon={Plane} tone="green" label="휴가 승인 대기" value={summary.pendingLeaveCount} href={"/reports?doc=leave" as Route} />
         </div>
       </section>
     </div>
