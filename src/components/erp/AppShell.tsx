@@ -8,6 +8,7 @@ import {
   FileText,
   Inbox,
   Kanban,
+  Map,
   PenLine,
   Plane,
   ShieldCheck
@@ -23,6 +24,7 @@ type ErpRoute =
   | "/portal-requests"
   | "/work"
   | "/manuscript"
+  | "/journeymap"
   | "/calendar"
   | "/finance"
   | "/leave"
@@ -79,6 +81,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false): NavIt
       label: "원고 스튜디오",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: PenLine,
+      group: "업무"
+    },
+    {
+      href: "/journeymap",
+      label: "키워드 여정맵",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: Map,
       group: "업무"
     },
     {

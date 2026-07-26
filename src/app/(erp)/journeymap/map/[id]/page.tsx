@@ -1,0 +1,417 @@
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Background,
+  Controls,
+  MiniMap,
+  ReactFlow,
+  ReactFlowProvider,
+  useReactFlow,
+  type Edge,
+  type NodeTypes,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+
+import { DetailPanel } from "@/components/journeymap/DetailPanel";
+import { KeywordNode, type KeywordFlowNode } from "@/components/journeymap/KeywordNode";
+import { classifyStage, isBrandKeyword } from "@/lib/journeymap/classify";
+import { CollectProgress, runCollection } from "@/lib/journeymap/collector";
+import { exportCsv, exportJson, exportPng, exportSvg } from "@/lib/journeymap/export";
+import { countDescendants, layoutTree } from "@/lib/journeymap/layout";
+import { scanRisk } from "@/lib/journeymap/risk";
+import { uid, useProjectStore } from "@/lib/journeymap/store";
+import { JNode, Stage, STAGES, STAGE_META } from "@/lib/journeymap/types";
+
+const nodeTypes: NodeTypes = { jnode: KeywordNode };
+
+export default function MapPage() {
+  return (
+    <ReactFlowProvider>
+      <MapInner />
+    </ReactFlowProvider>
+  );
+}
+
+function MapInner() {
+  const { id } = useParams<{ id: string }>();
+  const { projects, updateProject } = useProjectStore();
+  const project = projects.find((p) => p.id === id);
+
+  const [mounted, setMounted] = useState(false);
+  const [progress, setProgress] = useState<CollectProgress | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [stageFilter, setStageFilter] = useState<Record<Stage, boolean>>({
+    exploration: true,
+    comparison: true,
+    decision: true,
+    retention: true,
+  });
+  const [riskOnly, setRiskOnly] = useState(false);
+  const [brandOnly, setBrandOnly] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const startedRef = useRef(false);
+  const flowRef = useRef<HTMLDivElement>(null);
+  const { fitView } = useReactFlow();
+
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    const t = setTimeout(() => fitView({ padding: 0.15, duration: 300 }), 300);
+    return () => clearTimeout(t);
+  }, [stageFilter, riskOnly, brandOnly, project?.status, fitView]);
+
+  // ── 수집 실행
+  useEffect(() => {
+    if (!mounted || !project || project.status !== "collecting" || startedRef.current) return;
+    startedRef.current = true;
+    (async () => {
+      try {
+        const { nodes, failedSources } = await runCollection(
+          project.mainKeyword,
+          project.profile,
+          project.seeds,
+          project.options,
+          setProgress
+        );
+        updateProject(project.id, {
+          nodes,
+          status: failedSources.filter((s) => !s.includes("키 미설정")).length > 0 ? "partial_done" : "done",
+          sourceNote: failedSources.length > 0 ? `일부 기능 제외: ${failedSources.join(", ")}` : undefined,
+        });
+        setProgress(null);
+      } catch (e) {
+        updateProject(project.id, { status: "failed", sourceNote: String(e) });
+        setProgress(null);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, project?.id, project?.status]);
+
+  const patchNode = useCallback(
+    (nodeId: string, patch: Partial<JNode>) => {
+      if (!project) return;
+      updateProject(project.id, {
+        nodes: project.nodes.map((n) => (n.id === nodeId ? { ...n, ...patch } : n)),
+      });
+    },
+    [project, updateProject]
+  );
+
+  const toggleCollapse = useCallback(
+    (nodeId: string) => {
+      const n = project?.nodes.find((x) => x.id === nodeId);
+      if (n) patchNode(nodeId, { collapsed: !n.collapsed });
+    },
+    [project, patchNode]
+  );
+
+  const addChild = useCallback(
+    (parentId: string) => {
+      if (!project) return;
+      const kw = prompt("추가할 키워드를 입력하세요:");
+      if (!kw?.trim()) return;
+      const parent = project.nodes.find((n) => n.id === parentId);
+      const { stage, confidence } = classifyStage(kw, project.profile);
+      const risk = scanRisk(kw);
+      const node: JNode = {
+        id: uid(),
+        parentId,
+        keyword: kw.trim(),
+        kind: "keyword",
+        depth: (parent?.depth ?? 1) + 1,
+        stage: parent?.kind === "branch" ? parent.stage : stage,
+        stageConfidence: confidence,
+        stageOverridden: false,
+        source: "user",
+        score: 50,
+        riskLevel: risk.level,
+        riskReasons: risk.reasons,
+        isBrand: isBrandKeyword(kw, project.profile),
+        collapsed: false,
+      };
+      updateProject(project.id, { nodes: [...project.nodes, node] });
+      setSelectedId(node.id);
+    },
+    [project, updateProject]
+  );
+
+  const deleteNode = useCallback(
+    (nodeId: string) => {
+      if (!project) return;
+      const count = countDescendants(project.nodes, nodeId);
+      if (!confirm(`이 노드${count > 0 ? `와 하위 ${count}개 노드` : ""}를 삭제할까요?`)) return;
+      const toDelete = new Set<string>([nodeId]);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const n of project.nodes) {
+          if (n.parentId && toDelete.has(n.parentId) && !toDelete.has(n.id)) {
+            toDelete.add(n.id);
+            changed = true;
+          }
+        }
+      }
+      updateProject(project.id, { nodes: project.nodes.filter((n) => !toDelete.has(n.id)) });
+      setSelectedId(null);
+    },
+    [project, updateProject]
+  );
+
+  const { rfNodes, rfEdges } = useMemo(() => {
+    if (!project) return { rfNodes: [] as KeywordFlowNode[], rfEdges: [] as Edge[] };
+
+    const passes = (n: JNode): boolean => {
+      if (n.kind !== "keyword") return true;
+      if (n.stage && !stageFilter[n.stage]) return false;
+      if (riskOnly && n.riskLevel === "none") return false;
+      if (brandOnly && !n.isBrand) return false;
+      return true;
+    };
+    const byId = new Map(project.nodes.map((n) => [n.id, n]));
+    const keep = new Set<string>();
+    for (const n of project.nodes) {
+      if (!passes(n)) continue;
+      let cur: JNode | undefined = n;
+      while (cur) {
+        keep.add(cur.id);
+        cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+      }
+    }
+    const filtered = project.nodes.filter((n) => keep.has(n.id));
+    const laid = layoutTree(filtered);
+
+    const nodes: KeywordFlowNode[] = laid.map((n) => ({
+      id: n.id,
+      type: "jnode" as const,
+      position: { x: n.x, y: n.y },
+      selected: n.id === selectedId,
+      data: {
+        jnode: n,
+        hasChildren: project.nodes.some((c) => c.parentId === n.id),
+        hiddenCount: n.collapsed ? countDescendants(project.nodes, n.id) : 0,
+        onToggleCollapse: toggleCollapse,
+      },
+      draggable: true,
+    }));
+    const laidIds = new Set(laid.map((n) => n.id));
+    const edges: Edge[] = laid
+      .filter((n) => n.parentId && laidIds.has(n.parentId))
+      .map((n) => ({
+        id: `e_${n.parentId}_${n.id}`,
+        source: n.parentId!,
+        target: n.id,
+        style: {
+          stroke: n.stage ? STAGE_META[n.stage].color : "#94a3b8",
+          strokeWidth: n.kind === "branch" ? 2.5 : 1.5,
+          opacity: 0.6,
+        },
+      }));
+    return { rfNodes: nodes, rfEdges: edges };
+  }, [project, stageFilter, riskOnly, brandOnly, selectedId, toggleCollapse]);
+
+  if (!mounted) return null;
+  if (!project) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+        <p>프로젝트를 찾을 수 없습니다.</p>
+        <Link href="/journeymap" className="text-blue-600 underline">
+          마인드맵 목록으로 이동
+        </Link>
+      </div>
+    );
+  }
+
+  // ── 수집 진행 화면
+  if (project.status === "collecting" || progress) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center px-6">
+        <div className="w-full max-w-md rounded-2xl border bg-white p-8 shadow-sm">
+          <p className="mb-1 text-center text-lg font-bold">
+            🔄 &ldquo;{project.mainKeyword} × {project.profile.name}&rdquo; 수집 중…
+          </p>
+          <p className="mb-6 text-center text-xs text-slate-500">약 1~3분 소요됩니다</p>
+          <div className="mb-2 h-3 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${progress?.percent ?? 2}%` }} />
+          </div>
+          <p className="mb-4 text-right text-sm font-bold text-blue-600">{progress?.percent ?? 0}%</p>
+          <div className="space-y-1.5 text-sm">
+            <p>{(progress?.percent ?? 0) > 4 ? "✅" : "🔄"} 시드 확장 ({project.seeds.length}개)</p>
+            <p>
+              {progress?.phase === "collecting" ? "🔄" : (progress?.percent ?? 0) > 70 ? "✅" : "⏳"} 키워드 수집 — 네이버{" "}
+              {progress?.naverCount ?? 0} · 구글 {progress?.googleCount ?? 0} · 지식iN {progress?.kinCount ?? 0}
+            </p>
+            <p>{progress?.phase === "enriching" ? "🔄" : (progress?.percent ?? 0) > 84 ? "✅" : "⏳"} 검색량·CPC 결합 (검색광고 API)</p>
+            <p>
+              {progress?.phase === "classifying" ? "🔄" : (progress?.percent ?? 0) > 92 ? "✅" : "⏳"} AI 분류 보정·스코어링·리스크 스캔
+            </p>
+            {progress?.failedSources && progress.failedSources.length > 0 && (
+              <p className="text-amber-600">⚠️ 제외됨: {progress.failedSources.join(", ")}</p>
+            )}
+          </div>
+          <p className="mt-5 truncate text-center text-xs text-slate-400">{progress?.message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const selectedNode = project.nodes.find((n) => n.id === selectedId) || null;
+  const redCount = project.nodes.filter((n) => n.riskLevel === "red").length;
+  const yellowCount = project.nodes.filter((n) => n.riskLevel === "yellow").length;
+  const kwCount = project.nodes.filter((n) => n.kind === "keyword").length;
+
+  return (
+    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+      <header className="flex items-center gap-4 border-b bg-white px-4 py-2.5">
+        <Link href="/journeymap" className="text-sm text-slate-500 hover:text-slate-900">
+          ← 목록
+        </Link>
+        <h1 className="font-bold">
+          {project.mainKeyword} <span className="text-slate-400">×</span> {project.profile.name}
+        </h1>
+        <span className="text-xs text-slate-400">노드 {kwCount}개</span>
+        {(redCount > 0 || yellowCount > 0) && (
+          <button
+            onClick={() => setRiskOnly((v) => !v)}
+            className={`rounded-full border px-3 py-1 text-xs ${riskOnly ? "border-red-300 bg-red-50" : "hover:bg-slate-50"}`}
+          >
+            🔴 {redCount} · 🟡 {yellowCount} — {riskOnly ? "전체 보기" : "리스크만 보기"}
+          </button>
+        )}
+        {project.sourceNote && <span className="text-xs text-amber-600">⚠️ {project.sourceNote}</span>}
+        <div className="relative ml-auto">
+          <button
+            onClick={() => setExportOpen((v) => !v)}
+            className="rounded-lg bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
+          >
+            내보내기 ▾
+          </button>
+          {exportOpen && (
+            <div className="absolute right-0 top-10 z-50 w-44 rounded-lg border bg-white py-1 shadow-lg">
+              {[
+                { label: "PNG (1x)", fn: () => flowRef.current && exportPng(flowRef.current, `journeymap_${project.mainKeyword}.png`, 1) },
+                { label: "PNG (2x 고해상도)", fn: () => flowRef.current && exportPng(flowRef.current, `journeymap_${project.mainKeyword}@2x.png`, 2) },
+                { label: "SVG", fn: () => flowRef.current && exportSvg(flowRef.current, `journeymap_${project.mainKeyword}.svg`) },
+                { label: "CSV (키워드 표)", fn: () => exportCsv(project) },
+                { label: "JSON (트리 구조)", fn: () => exportJson(project) },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  onClick={() => {
+                    item.fn();
+                    setExportOpen(false);
+                  }}
+                  className="block w-full px-4 py-2 text-left text-sm hover:bg-slate-50"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+        <aside className="w-52 shrink-0 space-y-5 overflow-y-auto border-r bg-white px-4 py-4 text-sm">
+          <div>
+            <p className="mb-2 text-xs font-bold text-slate-500">▸ 여정 단계 필터</p>
+            {STAGES.map((s) => (
+              <label key={s} className="mb-1.5 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={stageFilter[s]}
+                  onChange={(e) => setStageFilter((f) => ({ ...f, [s]: e.target.checked }))}
+                />
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: STAGE_META[s].color }} />
+                {STAGE_META[s].label}
+                <span className="ml-auto text-xs text-slate-400">
+                  {project.nodes.filter((n) => n.kind === "keyword" && n.stage === s).length}
+                </span>
+              </label>
+            ))}
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-bold text-slate-500">▸ 표시</p>
+            <label className="mb-1.5 flex items-center gap-2">
+              <input type="checkbox" checked={riskOnly} onChange={(e) => setRiskOnly(e.target.checked)} />
+              리스크 노드만
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={brandOnly} onChange={(e) => setBrandOnly(e.target.checked)} />
+              브랜드 키워드만
+            </label>
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-bold text-slate-500">▸ 인사이트</p>
+            {STAGES.map((s) => {
+              const top = project.nodes
+                .filter((n) => n.kind === "keyword" && n.stage === s)
+                .sort((a, b) => b.score - a.score)[0];
+              return (
+                <div key={s} className="mb-2 rounded-lg p-2" style={{ background: STAGE_META[s].light }}>
+                  <p className="text-[11px] font-bold" style={{ color: STAGE_META[s].color }}>
+                    {STAGE_META[s].label} TOP
+                  </p>
+                  <p className="truncate text-xs">{top ? top.keyword : "—"}</p>
+                </div>
+              );
+            })}
+          </div>
+          <p className="border-t pt-3 text-[10px] leading-relaxed text-slate-400">
+            리스크 안내는 참고용이며 법률 자문을 대체하지 않습니다.
+          </p>
+        </aside>
+
+        <div className="min-w-0 flex-1" ref={flowRef}>
+          <ReactFlow
+            key={`${riskOnly}-${brandOnly}-${STAGES.map((s) => stageFilter[s]).join("")}`}
+            nodes={rfNodes}
+            edges={rfEdges}
+            nodeTypes={nodeTypes}
+            onNodeClick={(_, n) => setSelectedId(n.id)}
+            onNodeDoubleClick={(_, n) => {
+              const jn = project.nodes.find((x) => x.id === n.id);
+              if (!jn || jn.kind !== "keyword") return;
+              const kw = prompt("키워드 수정:", jn.keyword);
+              if (kw?.trim() && kw.trim() !== jn.keyword) {
+                const risk = scanRisk(kw.trim());
+                patchNode(jn.id, { keyword: kw.trim(), riskLevel: risk.level, riskReasons: risk.reasons });
+              }
+            }}
+            onNodeDragStop={(_, n) => patchNode(n.id, { position: { x: n.position.x, y: n.position.y } })}
+            onPaneClick={() => {
+              setSelectedId(null);
+              setExportOpen(false);
+            }}
+            fitView
+            minZoom={0.1}
+            maxZoom={4}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background gap={20} color="#e2e8f0" />
+            <Controls position="bottom-left" />
+            <MiniMap
+              position="bottom-right"
+              nodeColor={(n) => {
+                const jn = (n.data as { jnode?: JNode })?.jnode;
+                return jn?.stage ? STAGE_META[jn.stage].color : "#334155";
+              }}
+            />
+          </ReactFlow>
+        </div>
+
+        {selectedNode && (
+          <DetailPanel
+            node={selectedNode}
+            onUpdate={patchNode}
+            onAddChild={addChild}
+            onDelete={deleteNode}
+            onClose={() => setSelectedId(null)}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
