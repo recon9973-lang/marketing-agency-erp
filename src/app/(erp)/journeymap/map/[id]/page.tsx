@@ -57,7 +57,7 @@ function MapInner() {
   const [foreignIds, setForeignIds] = useState<string[]>([]);
   const startedRef = useRef(false);
   const flowRef = useRef<HTMLDivElement>(null);
-  const { fitView } = useReactFlow();
+  const { fitView, getNodes } = useReactFlow();
   const [colorMode, setColorMode] = useState<"light" | "dark">("light");
 
   useEffect(() => setMounted(true), []);
@@ -334,9 +334,9 @@ function MapInner() {
           {exportOpen && (
             <div className="absolute right-0 top-10 z-50 w-44 rounded-lg border bg-white py-1 shadow-lg">
               {[
-                { label: "PNG (1x)", fn: () => flowRef.current && exportPng(flowRef.current, `journeymap_${project.mainKeyword}.png`, 1) },
-                { label: "PNG (2x 고해상도)", fn: () => flowRef.current && exportPng(flowRef.current, `journeymap_${project.mainKeyword}@2x.png`, 2) },
-                { label: "SVG", fn: () => flowRef.current && exportSvg(flowRef.current, `journeymap_${project.mainKeyword}.svg`) },
+                { label: "PNG (1x)", fn: () => flowRef.current && exportPng(flowRef.current, getNodes(), `journeymap_${project.mainKeyword}.png`, 1) },
+                { label: "PNG (2x 고해상도)", fn: () => flowRef.current && exportPng(flowRef.current, getNodes(), `journeymap_${project.mainKeyword}@2x.png`, 2) },
+                { label: "SVG", fn: () => flowRef.current && exportSvg(flowRef.current, getNodes(), `journeymap_${project.mainKeyword}.svg`) },
                 { label: "CSV (키워드 표)", fn: () => exportCsv(project) },
                 { label: "JSON (트리 구조)", fn: () => exportJson(project) },
               ].map((item) => (

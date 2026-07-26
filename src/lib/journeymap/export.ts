@@ -1,6 +1,7 @@
 "use client";
 
 import { toPng, toSvg } from "html-to-image";
+import { getNodesBounds, type Node as RFNode } from "@xyflow/react";
 import { JNode, Project, STAGE_META } from "./types";
 
 function download(dataUrl: string, filename: string) {
@@ -17,19 +18,44 @@ function downloadBlob(content: string, mime: string, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
-export async function exportPng(el: HTMLElement, filename: string, scale = 2) {
-  const dataUrl = await toPng(el, {
+// ── 이미지 내보내기 — 화면에 보이는 부분이 아니라 "노드 전체 범위"를 캡처한다.
+// 컨테이너를 그대로 찍으면 화면 밖 노드가 잘리므로, 노드 좌표 전체 경계를 계산해
+// 그 크기의 캔버스에 viewport를 재배치(translate·zoom 1)해서 찍는다.
+const EXPORT_PADDING = 48;
+const MAX_PIXELS = 16000; // 브라우저 캔버스 한계 보호 — 초과 시 배율 자동 축소
+
+function fullBounds(flowEl: HTMLElement, rfNodes: RFNode[]) {
+  const viewportEl = flowEl.querySelector(".react-flow__viewport") as HTMLElement | null;
+  if (!viewportEl || rfNodes.length === 0) return null;
+  const b = getNodesBounds(rfNodes);
+  const width = Math.ceil(b.width + EXPORT_PADDING * 2);
+  const height = Math.ceil(b.height + EXPORT_PADDING * 2);
+  const transform = `translate(${-b.x + EXPORT_PADDING}px, ${-b.y + EXPORT_PADDING}px) scale(1)`;
+  return { viewportEl, width, height, transform };
+}
+
+export async function exportPng(flowEl: HTMLElement, rfNodes: RFNode[], filename: string, scale = 2) {
+  const full = fullBounds(flowEl, rfNodes);
+  if (!full) return;
+  const safeScale = Math.min(scale, MAX_PIXELS / Math.max(full.width, full.height));
+  const dataUrl = await toPng(full.viewportEl, {
     backgroundColor: "#ffffff",
-    pixelRatio: scale,
-    filter: (node) => !node.classList?.contains("react-flow__minimap") && !node.classList?.contains("react-flow__controls"),
+    pixelRatio: safeScale,
+    width: full.width,
+    height: full.height,
+    style: { width: `${full.width}px`, height: `${full.height}px`, transform: full.transform },
   });
   download(dataUrl, filename);
 }
 
-export async function exportSvg(el: HTMLElement, filename: string) {
-  const dataUrl = await toSvg(el, {
+export async function exportSvg(flowEl: HTMLElement, rfNodes: RFNode[], filename: string) {
+  const full = fullBounds(flowEl, rfNodes);
+  if (!full) return;
+  const dataUrl = await toSvg(full.viewportEl, {
     backgroundColor: "#ffffff",
-    filter: (node) => !node.classList?.contains("react-flow__minimap") && !node.classList?.contains("react-flow__controls"),
+    width: full.width,
+    height: full.height,
+    style: { width: `${full.width}px`, height: `${full.height}px`, transform: full.transform },
   });
   download(dataUrl, filename);
 }
