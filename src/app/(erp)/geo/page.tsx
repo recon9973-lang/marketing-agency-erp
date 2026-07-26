@@ -42,15 +42,12 @@ import { getCurrentUser } from "@/server/session";
 import { GeoStageNav } from "@/components/geo/GeoStageNav";
 import { GeoSelfQuery } from "@/components/geo/GeoSelfQuery";
 import { GeoStagePanel } from "@/components/geo/GeoStagePanel";
-import { GeoKeywordPanel } from "@/components/geo/GeoKeywordPanel";
 import { CdjFunnelMap } from "@/components/geo/CdjFunnelMap";
-import { listGeoKeywords, listSelectedGeoKeywords } from "@/server/repositories/geo-keyword";
+import { listSelectedGeoKeywords } from "@/server/repositories/geo-keyword";
 import { naverSearchConfigured } from "@/server/integrations/naver-search";
 import { discoverCepsLive, cepRealConfigured } from "@/server/geo-studio/cep/live-finder";
 import { discoverCeps } from "@/server/geo-studio/cep/finder";
 import { ClusterBubbleMap, type BubbleCep } from "@/components/geo-cep/ClusterBubbleMap";
-import { analyzeJourney, analyzeJourneyLive, type JourneyReport } from "@/server/geo-studio/path/analyzer";
-import { JourneyGraph, type RawNode } from "@/components/geo-path/JourneyGraph";
 import { GeoContentForm } from "@/components/geo-content/GeoContentForm";
 import { SavedContentDiagnoses } from "@/components/geo-content/SavedContentDiagnoses";
 import { listContentDiagnoses } from "@/server/repositories/geo-content-diagnosis";
@@ -69,11 +66,9 @@ import { GEO_STAGES, geoStageOf, type GeoStageKey } from "@/domain/geo/stages";
 
 // P2.1: 각 단계의 CTA(현재는 전용 도구로 이어짐 — P2.2~에서 인라인 통합).
 const STAGE_CTA: Record<GeoStageKey, string> = {
-  keyword: "검색량 조회 열기",
   questions: "질문 설계 열기",
   citation: "AI 스캐너 열기",
   cep: "CEP 파인더 열기",
-  journey: "여정 분석 열기",
   dashboard: "대시보드",
   "content-diagnosis": "콘텐츠 진단 열기",
   plan: "GEO 주간 리포트 열기",
@@ -82,11 +77,9 @@ const STAGE_CTA: Record<GeoStageKey, string> = {
   learning: "학습 패널 열기"
 };
 const STAGE_TIER: Partial<Record<GeoStageKey, "measured" | "approx" | "demo">> = {
-  keyword: "measured",
   questions: "measured",
   citation: "measured",
   cep: "approx",
-  journey: "approx",
   "content-diagnosis": "demo",
   plan: "measured",
   content: "measured",
@@ -96,16 +89,12 @@ function stageHref(tab: GeoStageKey, clientId: string | null, brand: string, cat
   const b = encodeURIComponent(brand || "");
   const c = encodeURIComponent(category || "");
   switch (tab) {
-    case "keyword":
-      return "/keywords";
     case "questions":
       return `/geo?client=${clientId ?? ""}&tab=dashboard`;
     case "citation":
       return `/geo-scan?brand=${b}`;
     case "cep":
       return `/geo-cep?brand=${b}&category=${c}`;
-    case "journey":
-      return "/geo-path";
     case "content-diagnosis":
       return "/geo-content";
     case "plan":
@@ -237,11 +226,9 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
     "";
   const defaultRegion = selectedClient?.region ?? "";
 
-  // 단계1(키워드) 인라인 데이터 — 해당 탭에서만 조회.
-  const geoKeywordRows = activeTab === "keyword" && selectedId ? await listGeoKeywords(selectedId) : [];
   const naverConfigured = naverSearchConfigured();
   // 단계2·4·5·대시보드에서 참고할 채택 키워드.
-  const needsKw = ["dashboard", "questions", "cep", "journey"].includes(activeTab);
+  const needsKw = ["dashboard", "questions", "cep"].includes(activeTab);
   const selectedKw = needsKw && selectedId ? await listSelectedGeoKeywords(selectedId) : [];
 
   // 단계4(CEP) — 브랜드=거래처명, 카테고리=진료과. 채택 키워드를 시드로.
@@ -263,21 +250,6 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
       cepCeps = ((mock?.ceps ?? []) as unknown) as BubbleCep[];
       cepTier = "demo";
       cepNote = "네이버 연관어·임베딩 미연결 — 데모 군집입니다. 연동 시 실측으로 바뀝니다.";
-    }
-  }
-
-  // 단계5(여정) — 시드 질의=채택 키워드 최상위(없으면 진료과).
-  const journeySeed = selectedKw[0] ?? defaultDepartment ?? selectedName;
-  let journeyReport: JourneyReport | null = null;
-  let journeyTier: "approx" | "demo" = "demo";
-  if (activeTab === "journey" && selectedId && journeySeed) {
-    const live = await analyzeJourneyLive(selectedName || "브랜드", journeySeed).catch(() => null);
-    if (live) {
-      journeyReport = live;
-      journeyTier = "approx";
-    } else {
-      journeyReport = analyzeJourney(selectedName || "브랜드", journeySeed);
-      journeyTier = "demo";
     }
   }
 
@@ -310,11 +282,9 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
   // 화면 안에 인라인 통합된 탭(그 외는 단계 안내 패널).
   const inlineTabs: GeoStageKey[] = [
     "dashboard",
-    "keyword",
     "questions",
     "citation",
     "cep",
-    "journey",
     "content-diagnosis",
     "content",
     "plan",
@@ -350,8 +320,8 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
     <section className="space-y-4">
       <PageHeader
         eyebrow="SEO·GEO 실행 프로그램"
-        title="GEO"
-        description="키워드 선별 → 질문 → 4대 AI 인용 → CEP → 여정 → 통합 대시보드 → 콘텐츠 → 계획 → 캠페인 → 학습을 한 화면에서 이어서 진행합니다."
+        title="GEO 진단"
+        description="질문 → 4대 AI 인용 → CEP → 진단 대시보드 → 콘텐츠 진단·생성 → 계획 → 캠페인 → 학습. 키워드 발굴은 키워드 여정맵, 관측 추이는 모니터링 메뉴에서."
       />
 
       {/* 미보장 고지 — 상시 표기 */}
@@ -399,21 +369,16 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
           {/* GEO 11단계 통합 탭바 */}
           <GeoStageNav clientId={selectedId} active={activeTab} />
 
-          {/* 단계1 — 키워드 */}
-          {activeTab === "keyword" && selectedId && (
-            <GeoKeywordPanel clientId={selectedId} clientName={selectedName} rows={geoKeywordRows} configured={naverConfigured} />
-          )}
-
           {/* 단계2 — 질문 추출 (채택 키워드 연동) */}
           {activeTab === "questions" && selectedId && (
             <div className="space-y-4">
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
                 <p className="text-xs text-emerald-800">
-                  단계1에서 채택한 <b>{selectedKw.length}개</b> 키워드가 질문 생성에 반영됩니다.
+                  채택된 <b>{selectedKw.length}개</b> 키워드가 질문 생성에 반영됩니다. (키워드 발굴은 키워드 여정맵에서)
                   {selectedKw.length > 0 && <span className="ml-1 text-emerald-600">{selectedKw.slice(0, 8).join(" · ")}</span>}
                   {selectedKw.length === 0 && (
-                    <a href={`/geo?client=${selectedId}&tab=keyword`} className="ml-1 font-semibold underline">
-                      먼저 키워드를 채택하세요 →
+                    <a href="/journeymap" className="ml-1 font-semibold underline">
+                      키워드 여정맵에서 키워드를 발굴하세요 →
                     </a>
                   )}
                 </p>
@@ -475,27 +440,6 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
                 <p className="rounded-2xl border border-dashed border-line bg-surface/50 px-4 py-10 text-center text-sm text-slate-500">
                   진료과(카테고리)가 설정되면 CEP 군집을 표시합니다. 거래처 상세에서 업종/진료과를 지정하세요.
                 </p>
-              )}
-            </div>
-          )}
-
-          {/* 단계5 — 여정 (검색 경로 네트워크) */}
-          {activeTab === "journey" && selectedId && (
-            <div className="space-y-3">
-              <div className="rounded-2xl border border-line bg-card p-5">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white">5</span>
-                  <h3 className="text-base font-bold text-ink">여정 — 검색 경로 분석</h3>
-                  <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${journeyTier === "approx" ? "border-sky-200 bg-sky-50 text-sky-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
-                    {journeyTier === "approx" ? "근사(연관어 인접)" : "데모"}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-slate-500">
-                  시드 질의 <b className="text-slate-600">{journeySeed}</b> 기준 검색 전·후 경로. {journeyReport ? `노드 ${journeyReport.total_nodes} · 브랜드 언급률 ${journeyReport.brand_mention_rate}%` : ""}
-                </p>
-              </div>
-              {journeyReport && (
-                <JourneyGraph tree={journeyReport.tree as unknown as RawNode} primaryPath={journeyReport.top_paths[0] ?? []} brand={selectedName} />
               )}
             </div>
           )}
@@ -649,70 +593,19 @@ export default async function GeoPage({ searchParams }: { searchParams: Promise<
                   seoNote={seoScore === null ? "월보장 키워드 미등록" : `월보장 ${guardHeld}/${guardedSeries.length}건 순위 유지`}
                 />
 
-                {/* 언급률·순위 추이 — GEO(성과) / SEO(토대) 연결·분리 (GEO 모듈 설계 §1·§4 B1·C1) */}
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                  <div className="rounded-2xl border border-line bg-card p-4">
-                    <div className="mb-1 flex items-center gap-2">
-                      <span className="rounded-md bg-brand-soft px-2 py-0.5 text-[10px] font-bold text-brand-strong">GEO 트랙</span>
-                      <h3 className="text-sm font-bold text-ink">전체 언급률 추이</h3>
-                      <span className="text-[10px] font-bold text-brand">★ 북극성</span>
-                    </div>
-                    <p className="mb-3 text-[11px] text-slate-500">AI 답변이 우리 병원을 인용하는 비율 · 주 1회 관측 · 목표 25%</p>
-                    <MentionRateTrend points={mentionSeries} />
-                  </div>
-                  <div className="rounded-2xl border border-line bg-card p-4">
-                    <div className="mb-1 flex items-center gap-2">
-                      <span className="rounded-md bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700">SEO 트랙</span>
-                      <h3 className="text-sm font-bold text-ink">월보장 순위 추이</h3>
-                    </div>
-                    <p className="mb-3 text-[11px] text-slate-500">네이버 검색 순위(계약 약속) · 매일 자동 축적 · GEO의 토대</p>
-                    {guardedSeries.length > 0 ? (
-                      <GuardedRankTrend series={guardedSeries[0]} />
-                    ) : (
-                      <div className="rounded-xl border border-dashed border-line bg-surface/50 px-4 py-8 text-center text-sm text-slate-500">
-                        월보장 키워드를 등록하면 순위 추이가 표시됩니다.
-                        <span className="mt-1 block text-xs text-slate-400">거래처 상세 · 키워드에서 &ldquo;순위 보장&rdquo; 설정</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <GeoAutoWatch
-                  clientId={selectedId}
-                  configuredEngines={configuredEngines().map((e) => e.engine)}
-                  monitorableCount={rows.filter((r) => r.status === "APPROVED" || r.status === "MONITORING").length}
-                />
-                <GeoMatrix clientId={selectedId} rows={rows} />
-
-                {/* B2 레이더 + B4 언급현황 */}
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                  <div className="rounded-2xl border border-line bg-card p-4">
-                    <div className="mb-1 flex items-center gap-2">
-                      <span className="rounded-md bg-brand-soft px-2 py-0.5 text-[10px] font-bold text-brand-strong">B2</span>
-                      <h3 className="text-sm font-bold text-ink">AI 모델별 언급률</h3>
-                    </div>
-                    <p className="mb-3 text-[11px] text-slate-500">엔진별 분포 · 첫 관측 대비 현재</p>
-                    <EngineRadar data={engineRadar} />
-                  </div>
-                  <div className="rounded-2xl border border-line bg-card p-4">
-                    <div className="mb-1 flex items-center gap-2">
-                      <span className="rounded-md bg-brand-soft px-2 py-0.5 text-[10px] font-bold text-brand-strong">B4</span>
-                      <h3 className="text-sm font-bold text-ink">언급 현황 (우리 vs 경쟁사)</h3>
-                    </div>
-                    <p className="mb-3 text-[11px] text-slate-500">질문×엔진 최신 관측 기준 랭킹</p>
-                    <MentionStanding rows={standing} />
-                  </div>
-                </div>
-
-                {/* B3 질문별 언급률 추이 */}
-                <div className="rounded-2xl border border-line bg-card p-4">
-                  <div className="mb-1 flex items-center gap-2">
-                    <span className="rounded-md bg-brand-soft px-2 py-0.5 text-[10px] font-bold text-brand-strong">B3</span>
-                    <h3 className="text-sm font-bold text-ink">질문별 언급률 추이</h3>
-                  </div>
-                  <p className="mb-3 text-[11px] text-slate-500">각 측정질문의 AI 언급률 변화(질문당 한 선)</p>
-                  <QuestionMentionTrend data={questionSeries} />
-                </div>
+                {/* 관측·추이 위젯은 '모니터링' 메뉴로 분리됨 */}
+                <a
+                  href={`/geo-monitor?client=${selectedId ?? ""}`}
+                  className="flex items-center justify-between rounded-2xl border border-line bg-card p-4 transition hover:border-emerald-300"
+                >
+                  <span>
+                    <span className="block text-sm font-bold text-ink">📈 모니터링에서 추이 보기</span>
+                    <span className="mt-0.5 block text-[11px] text-slate-500">
+                      전체 언급률·월보장 순위·AI 모델별 언급률·경쟁사 랭킹·질문별 추이 — 별도 메뉴로 분리되었습니다.
+                    </span>
+                  </span>
+                  <span className="text-slate-400">→</span>
+                </a>
 
                 {/* B7 기회점수 + B10 전략 방향성 */}
                 <GeoOpportunity score={oppScore} strategies={strategies} />

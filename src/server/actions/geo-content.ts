@@ -27,13 +27,51 @@ export type ContentAnalysis = {
   rewriteTier?: "ai" | "rule"; // ai=Claude 실측 재작성, rule=규칙 폴백
 };
 
+/** URL을 크롤링해 본문 텍스트를 추출 — /seo 진단처럼 URL만으로 진단 가능하게. */
+async function fetchUrlContent(url: string): Promise<{ text?: string; error?: string }> {
+  try {
+    const parsed = new URL(url.startsWith("http") ? url : `https://${url}`);
+    if (!/^https?:$/.test(parsed.protocol)) return { error: "http/https 주소만 지원합니다." };
+    const res = await fetch(parsed.toString(), {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; VenomERP-GEO-Diagnosis)" },
+      signal: AbortSignal.timeout(10000),
+      redirect: "follow"
+    });
+    if (!res.ok) return { error: `페이지를 불러오지 못했습니다 (HTTP ${res.status}).` };
+    const html = await res.text();
+    const text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    if (text.length < 100) return { error: "본문 텍스트를 충분히 추출하지 못했습니다. 본문을 직접 붙여넣어 주세요." };
+    return { text: text.slice(0, 50000) };
+  } catch {
+    return { error: "URL 접속에 실패했습니다. 주소를 확인하거나 본문을 직접 붙여넣어 주세요." };
+  }
+}
+
 /** useActionState용 — (prevState, formData) → 분석 결과. 네이티브 폼 POST(안정적). */
 export async function analyzeContentAction(_prev: ContentAnalysis | null, formData: FormData): Promise<ContentAnalysis> {
   try {
     await requireUser();
-    const content = String(formData.get("content") ?? "").slice(0, 50000);
+    let content = String(formData.get("content") ?? "").slice(0, 50000);
     const keyword = String(formData.get("keyword") ?? "").slice(0, 100).trim();
-    if (!content.trim()) return { error: "콘텐츠를 입력하세요." };
+    const url = String(formData.get("url") ?? "").trim();
+    // URL이 입력되면 URL을 우선 사용 — 크롤링해서 본문으로 (SEO 진단과 동일한 URL 진단)
+    if (url) {
+      const fetched = await fetchUrlContent(url);
+      if (fetched.error) return { error: fetched.error };
+      content = fetched.text ?? "";
+    }
+    if (!content.trim()) return { error: "URL을 입력하거나 콘텐츠 본문을 붙여넣으세요." };
 
     const score = analyzeGeo(content, keyword);
     const eeat = auditEeat(content);

@@ -16,7 +16,7 @@ const STAGES: Stage[] = [
   { id: "M1", label: "스캔", sub: "AI 인용 측정", href: "/geo-scan" },
   { id: "M2", label: "CEP 발굴", sub: "진입점 탐색", href: "/geo-cep" },
   { id: "M3", label: "콘텐츠", sub: "GEO 게이트", href: "/geo-content" },
-  { id: "M4", label: "여정", sub: "권위 분석", href: "/geo-path" },
+  { id: "M4", label: "여정", sub: "키워드 여정맵", href: "/journeymap" },
   { id: "M5", label: "캠페인", sub: "실행 계획", href: "/geo-planner" }
 ];
 
