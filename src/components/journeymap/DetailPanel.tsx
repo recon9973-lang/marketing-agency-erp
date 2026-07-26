@@ -1,0 +1,186 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { scanRisk, RISK_DISCLAIMER } from "@/lib/journeymap/risk";
+import { formatVolume, JNode, Stage, STAGES, STAGE_META } from "@/lib/journeymap/types";
+
+export function DetailPanel({
+  node,
+  onUpdate,
+  onAddChild,
+  onDelete,
+  onClose,
+}: {
+  node: JNode;
+  onUpdate: (id: string, patch: Partial<JNode>) => void;
+  onAddChild: (parentId: string) => void;
+  onDelete: (id: string) => void;
+  onClose: () => void;
+}) {
+  const [keyword, setKeyword] = useState(node.keyword);
+  useEffect(() => setKeyword(node.keyword), [node.id, node.keyword]);
+
+  const saveKeyword = () => {
+    const v = keyword.trim();
+    if (!v || v === node.keyword) return;
+    const risk = scanRisk(v);
+    onUpdate(node.id, { keyword: v, riskLevel: risk.level, riskReasons: risk.reasons });
+  };
+
+  const isKeyword = node.kind === "keyword";
+
+  return (
+    <aside className="flex w-72 shrink-0 flex-col border-l bg-white">
+      <div className="flex items-center justify-between border-b px-4 py-3">
+        <h3 className="text-sm font-bold">노드 상세</h3>
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-700">
+          ×
+        </button>
+      </div>
+
+      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 text-sm">
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-slate-500">키워드</label>
+          {isKeyword ? (
+            <input
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              onBlur={saveKeyword}
+              onKeyDown={(e) => e.key === "Enter" && saveKeyword()}
+              className="w-full rounded-lg border px-3 py-2 focus:border-blue-500 focus:outline-none"
+            />
+          ) : (
+            <p className="font-bold">{node.keyword}</p>
+          )}
+        </div>
+
+        {isKeyword && node.stage && (
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-500">
+              여정 단계 {node.stageOverridden && <span className="text-blue-500">(수동 변경됨)</span>}
+              {node.aiCorrected && <span className="text-violet-500"> (AI 보정됨)</span>}
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {STAGES.map((s: Stage) => (
+                <button
+                  key={s}
+                  onClick={() => onUpdate(node.id, { stage: s, stageOverridden: true })}
+                  className="rounded-full border px-2.5 py-1 text-xs"
+                  style={
+                    node.stage === s
+                      ? { background: STAGE_META[s].color, color: "#fff", borderColor: STAGE_META[s].color }
+                      : {}
+                  }
+                >
+                  {STAGE_META[s].label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400">분류 신뢰도 {(node.stageConfidence * 100).toFixed(0)}%</p>
+          </div>
+        )}
+
+        {isKeyword && (
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-slate-50 p-2.5">
+              <p className="text-[11px] text-slate-500">월간 검색량(PC)</p>
+              <p className="text-lg font-bold">{formatVolume(node.volumePc)}</p>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-2.5">
+              <p className="text-[11px] text-slate-500">월간 검색량(모바일)</p>
+              <p className="text-lg font-bold">{formatVolume(node.volumeMo)}</p>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-2.5">
+              <p className="text-[11px] text-slate-500">CPC(모바일 1위)</p>
+              <p className="text-lg font-bold">{node.cpc != null ? `${node.cpc.toLocaleString()}원` : "-"}</p>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-2.5">
+              <p className="text-[11px] text-slate-500">경쟁도</p>
+              <p className="text-lg font-bold">{node.competition ?? "-"}</p>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-2.5">
+              <p className="text-[11px] text-slate-500">S_intent 점수</p>
+              <p className="text-lg font-bold">{node.score}</p>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-2.5">
+              <p className="text-[11px] text-slate-500">출처 · 심도</p>
+              <p className="font-bold">
+                {node.source === "naver_ac"
+                  ? "네이버"
+                  : node.source === "google_ac"
+                  ? "구글"
+                  : node.source === "naver_kin"
+                  ? "지식iN"
+                  : node.source === "seed"
+                  ? "시드"
+                  : "직접"}{" "}
+                · L{node.depth}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {node.riskLevel !== "none" && (
+          <div
+            className={`rounded-lg border p-3 ${
+              node.riskLevel === "red" ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"
+            }`}
+          >
+            <p className="mb-2 text-xs font-bold">
+              {node.riskLevel === "red" ? "🔴 의료법 금지 표현" : "🟡 의료법 주의 표현"}
+            </p>
+            {node.riskReasons.map((r, i) => (
+              <div key={i} className="mb-2 text-xs">
+                <p className="font-semibold">
+                  &ldquo;{r.matched}&rdquo; — {r.law}
+                </p>
+                <p className="text-slate-600">{r.description}</p>
+                <p className="mt-0.5 text-slate-500">💡 {r.suggestion}</p>
+              </div>
+            ))}
+            <p className="mt-1 border-t pt-1.5 text-[10px] text-slate-400">{RISK_DISCLAIMER}</p>
+          </div>
+        )}
+
+        {isKeyword && (
+          <div className="mt-2 rounded-lg border bg-slate-50 p-3 text-xs text-slate-500">
+            <p>
+              🔗 실제 검색 결과:{" "}
+              <a
+                className="text-blue-600 underline"
+                href={`https://search.naver.com/search.naver?query=${encodeURIComponent(node.keyword)}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                네이버
+              </a>{" "}
+              ·{" "}
+              <a
+                className="text-blue-600 underline"
+                href={`https://www.google.com/search?q=${encodeURIComponent(node.keyword)}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                구글
+              </a>
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2 border-t px-4 py-3">
+        <button onClick={() => onAddChild(node.id)} className="w-full rounded-lg border px-3 py-2 text-sm hover:bg-slate-50">
+          + 하위 키워드 추가
+        </button>
+        {isKeyword && (
+          <button
+            onClick={() => onDelete(node.id)}
+            className="w-full rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+          >
+            노드 삭제 (하위 포함)
+          </button>
+        )}
+      </div>
+    </aside>
+  );
+}
