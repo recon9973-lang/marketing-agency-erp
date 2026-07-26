@@ -94,10 +94,9 @@ const GENERIC_TERMS = [
   "보톡스", "필러", "리프팅", "실리프팅", "레이저", "제모", "여드름", "기미", "점", "흉터", "모공",
 ];
 
-// 잔여 토큰 검사 — 내 지역·프로필·일반 용어를 모두 제거한 뒤 정체불명 한글 토큰(≥2자)이 남으면
-// 미등재 타지역(동 단위)·타 병원 브랜드로 판단해 제외. 전국 단위로 섞여 오는
-// 검색광고 연관키워드·초성 확장에만 적용(자동완성 재귀에는 미적용 — 오탐 최소화).
-function hasUnknownLocalToken(kw: string, mainKeyword: string, profile: HospitalProfile): boolean {
+// 잔여 토큰 추출 — 내 지역·프로필·일반 용어를 모두 제거한 뒤 정체불명 한글 토큰(≥2자)이 남으면
+// 그 토큰을 반환. 미등재 타지역(동 단위)·타 병원 브랜드 후보로 보고 아래 실측 검증에 넘긴다.
+function unknownResidualToken(kw: string, mainKeyword: string, profile: HospitalProfile): string | null {
   let t = normKey(kw);
   const strips = [
     mainKeyword, profile.name, profile.regionSigungu, profile.regionDong,
@@ -109,7 +108,50 @@ function hasUnknownLocalToken(kw: string, mainKeyword: string, profile: Hospital
     .sort((a, b) => b.length - a.length);
   for (const x of strips) t = t.split(x).join("");
   t = t.replace(/[0-9a-z\s\-·.,!?~()%&+]/g, "");
-  return t.length >= 2;
+  return t.length >= 2 ? t : null;
+}
+
+// 지명 형태 토큰인지 (동·읍·면·리·가·구·군·시로 끝나면 지명 가능성 높음)
+function looksLikePlace(token: string): boolean {
+  return /[가-힣](동|읍|면|리|가|구|군|시)$/.test(token);
+}
+
+// ── 실측 검증기 (원천 차단의 핵심) ────────────────────────────────
+// 정체불명 토큰을 네이버 지역검색으로 조회해 검색 결과 주소의 과반이 "자기 도시"면 통과,
+// 아니면 차단. 사전에 없는 전국의 동·읍·면·상호도 실측으로 판별된다.
+// 예) 포항 프로젝트: "양덕동" → 주소 과반 포항 → 유지 / "태전동" → 주소 과반 대구 → 차단.
+const GENERIC_GU = new Set(["동구", "서구", "남구", "북구", "중구"]); // 여러 도시에 공통 → 대조 기준에서 제외
+function makeLocalVerifier(profile: HospitalProfile) {
+  const cityTokens = new Set<string>();
+  for (const part of `${profile.regionSigungu || ""} ${profile.regionDong || ""}`.split(/\s+/)) {
+    const p = part.trim();
+    if (p.length < 2 || GENERIC_GU.has(p) || /(동|읍|면|리)$/.test(p)) continue; // 주소 대조는 시·군·특징적 구 단위로만
+    cityTokens.add(p);
+    const stripped = p.replace(/(특별시|광역시|특별자치시|특별자치도|시|군|구)$/, "");
+    if (stripped.length >= 2) cityTokens.add(stripped);
+  }
+  const cache = new Map<string, boolean>();
+  return async (token: string): Promise<boolean> => {
+    if (cityTokens.size === 0) return false; // 지역 미입력 → 검증 불가 → 안전하게 차단
+    const hit = cache.get(token);
+    if (hit !== undefined) return hit;
+    let ok = false;
+    try {
+      const res = await fetch(`/api/journeymap/local?q=${encodeURIComponent(token)}`);
+      const data = await res.json();
+      const items: { address?: string }[] = data.items || [];
+      if (items.length > 0) {
+        const ownHits = items.filter((it) =>
+          Array.from(cityTokens).some((c) => String(it.address || "").includes(c))
+        ).length;
+        ok = ownHits >= Math.ceil(items.length / 2); // 과반이 자기 도시 주소여야 통과
+      }
+    } catch {
+      ok = false; // 조회 실패 시 오염보다 누락을 택한다 (원천 차단 우선)
+    }
+    cache.set(token, ok);
+    return ok;
+  };
 }
 
 function isRelevant(kw: string, mainKeyword: string, profile: HospitalProfile): boolean {
@@ -177,6 +219,7 @@ export async function runCollection(
   const hitCount = new Map<string, number>();
   const nodeByKey = new Map<string, JNode>();
   const own = ownContext(mainKeyword, profile);
+  const verifyLocal = makeLocalVerifier(profile); // 정체불명 토큰 실측 검증(도시 대조·캐시)
 
   const addKeywordNode = (kw: string, parentId: string | null, depth: number, source: JNode["source"]): JNode | null => {
     const key = normKey(kw);
@@ -229,7 +272,8 @@ export async function runCollection(
         for (const kw of r.value) {
           if (!isRelevant(kw, mainKeyword, profile)) continue;
           if (hasForeignRegion(kw, own)) continue;
-          if (hasUnknownLocalToken(kw, mainKeyword, profile)) continue; // 미등재 타지역·타병원 잔여 토큰
+          const residual = unknownResidualToken(kw, mainKeyword, profile);
+          if (residual && !(await verifyLocal(residual))) continue; // 실측: 자기 도시 소속 아님 → 원천 차단
           naverCount++;
           const child = addKeywordNode(kw, null, 2, "naver_ac");
           if (child && queue.length < 60) queue.push({ node: child, level: 2 });
@@ -284,6 +328,11 @@ export async function runCollection(
         // 관련성 필터: 앵커 검사 + 타 지역 키워드 제외
         if (!isRelevant(kw, mainKeyword, profile)) continue;
         if (hasForeignRegion(kw, own)) continue;
+        {
+          // 자동완성 결과도 지명 형태(○○동·○○구 등) 잔여 토큰은 실측 검증해 타지역 차단
+          const residual = unknownResidualToken(kw, mainKeyword, profile);
+          if (residual && looksLikePlace(residual) && !(await verifyLocal(residual))) continue;
+        }
         if (source === "naver") naverCount++;
         else googleCount++;
         const child = addKeywordNode(kw, node.id, node.depth + 1, source === "naver" ? "naver_ac" : "google_ac");
@@ -336,7 +385,8 @@ export async function runCollection(
         if (nodes.length - 5 >= options.maxNodes || added >= 50) break;
         if (!isRelevant(rel.keyword, mainKeyword, profile)) continue;
         if (hasForeignRegion(rel.keyword, own)) continue;
-        if (hasUnknownLocalToken(rel.keyword, mainKeyword, profile)) continue; // 미등재 타지역·타병원 잔여 토큰
+        const residual = unknownResidualToken(rel.keyword, mainKeyword, profile);
+        if (residual && !(await verifyLocal(residual))) continue; // 실측: 자기 도시 소속 아님 → 원천 차단
         const child = addKeywordNode(rel.keyword, null, 2, "naver_rel");
         if (child) {
           child.volumePc = rel.volumePc;
