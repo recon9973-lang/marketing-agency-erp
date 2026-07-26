@@ -33,6 +33,7 @@ export interface JNode {
   cpc?: number | null; // 모바일 1위 예상 입찰가(원)
   competition?: string | null; // 낮음|중간|높음
   aiCorrected?: boolean; // LLM 분류 보정 여부
+  sourceUrl?: string | null; // 지식iN 원본 질문 링크 등
 }
 
 export interface HospitalProfile {

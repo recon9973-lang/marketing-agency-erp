@@ -26,7 +26,7 @@ async function fetchSuggest(q: string, source: "naver" | "google"): Promise<stri
   }
 }
 
-async function fetchKin(q: string): Promise<string[]> {
+async function fetchKin(q: string): Promise<{ title: string; link: string }[]> {
   try {
     const res = await fetch(`/api/journeymap/kin?q=${encodeURIComponent(q)}`);
     const data = await res.json();
@@ -84,15 +84,21 @@ function isRelevant(kw: string, mainKeyword: string, profile: HospitalProfile): 
   return anchors.some((a) => a && k.includes(a)) || (head.length >= 2 && k.includes(head));
 }
 
-// 지식iN 질문은 느슨하게 검색되므로 더 엄격한 앵커 검사:
-// 진료과·주력시술·메인키워드·병원명 중 하나는 반드시 포함해야 함
-// (예: "춘천 임플란트 잘하는곳" — 피부과 프로젝트면 제외)
+// 지식iN 질문은 느슨하게 검색되므로 더 엄격한 검사:
+// ① 진료과·주력시술·메인키워드·병원명 중 하나 포함(주제 연결)
+// ② 자기 지역·역세권·병원명 중 하나 포함(지역 연결) — 전국 단위 질문("정형외과 추천이요") 차단
 function kinRelevant(kw: string, mainKeyword: string, profile: HospitalProfile): boolean {
   const k = normKey(kw);
-  const anchors = [mainKeyword, profile.name, ...profile.departments, ...profile.mainTreatments]
+  const topicAnchors = [mainKeyword, profile.name, ...profile.departments, ...profile.mainTreatments]
     .filter(Boolean)
     .map(normKey);
-  return anchors.some((a) => a.length >= 2 && k.includes(a));
+  if (!topicAnchors.some((a) => a.length >= 2 && k.includes(a))) return false;
+  const localAnchors = [profile.regionSigungu, profile.regionDong, profile.name]
+    .filter(Boolean)
+    .map(normKey);
+  // 지역을 입력하지 않은 프로필이면 지역 검사는 생략
+  if (localAnchors.length === 0) return true;
+  return localAnchors.some((a) => a.length >= 2 && k.includes(a));
 }
 
 export async function runCollection(
@@ -180,9 +186,18 @@ export async function runCollection(
     if (options.sources.includes("google") && !failedSources.has("google")) {
       tasks.push(fetchSuggest(node.keyword, "google").then((items) => ({ source: "google" as const, items })));
     }
-    // 지식iN은 시드 레벨(level 1)에서만 수집 — 실제 환자 질문 문장
+    // 지식iN은 시드 레벨(level 1)에서만 수집 — 실제 환자 질문 문장.
+    // 검색어에 지역이 없으면 지역을 붙여 검색해 전국 단위 질문 유입을 줄임
+    let kinItems: { title: string; link: string }[] = [];
     if (options.sources.includes("kin") && level === 1 && !failedSources.has("kin")) {
-      tasks.push(fetchKin(node.keyword).then((items) => ({ source: "kin" as const, items })));
+      const region = normKey(profile.regionSigungu || "");
+      const kinQuery =
+        region && !normKey(node.keyword).includes(region) ? `${profile.regionSigungu} ${node.keyword}` : node.keyword;
+      try {
+        kinItems = await fetchKin(kinQuery);
+      } catch {
+        failedSources.add("kin");
+      }
     }
 
     const results = await Promise.allSettled(tasks);
@@ -191,27 +206,29 @@ export async function runCollection(
         const src = String(r.reason?.message || r.reason);
         if (src.includes("naver")) failedSources.add("naver");
         if (src.includes("google")) failedSources.add("google");
-        if (src.includes("kin")) failedSources.add("kin");
         continue;
       }
       const { source, items } = r.value;
       for (const kw of items) {
-        // 관련성 필터: 자동완성은 앵커 검사, 지식iN은 더 엄격한 앵커 검사
-        if (source === "kin" ? !kinRelevant(kw, mainKeyword, profile) : !isRelevant(kw, mainKeyword, profile)) continue;
-        // 타 지역 키워드 제외 (예: 춘천 프로젝트에 해운대·부천·서면 유입 차단)
+        // 관련성 필터: 앵커 검사 + 타 지역 키워드 제외
+        if (!isRelevant(kw, mainKeyword, profile)) continue;
         if (hasForeignRegion(kw, own)) continue;
         if (source === "naver") naverCount++;
-        else if (source === "google") googleCount++;
-        else kinCount++;
-        const child = addKeywordNode(
-          kw, node.id, node.depth + 1,
-          source === "naver" ? "naver_ac" : source === "google" ? "google_ac" : "naver_kin"
-        );
-        // 지식iN 질문 문장은 재귀 수집 대상에서 제외
-        if (child && source !== "kin" && level < maxLevel && queue.length < 60) {
+        else googleCount++;
+        const child = addKeywordNode(kw, node.id, node.depth + 1, source === "naver" ? "naver_ac" : "google_ac");
+        if (child && level < maxLevel && queue.length < 60) {
           queue.push({ node: child, level: level + 1 });
         }
       }
+    }
+
+    // 지식iN 결과: 주제 앵커 + 지역 앵커(엄격) + 타 지역 제외, 원본 질문 링크 저장
+    for (const item of kinItems) {
+      if (!kinRelevant(item.title, mainKeyword, profile)) continue;
+      if (hasForeignRegion(item.title, own)) continue;
+      kinCount++;
+      const child = addKeywordNode(item.title, node.id, node.depth + 1, "naver_kin");
+      if (child) child.sourceUrl = item.link || null;
     }
     await new Promise((r) => setTimeout(r, 120));
   }
