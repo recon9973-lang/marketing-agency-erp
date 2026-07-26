@@ -28,7 +28,8 @@ function norm(s: string): string {
 
 export function classifyStage(
   keyword: string,
-  profile: HospitalProfile
+  profile: HospitalProfile,
+  mainKeyword?: string
 ): { stage: Stage; confidence: number } {
   const k = norm(keyword);
   const kNoSpace = k.replace(/\s+/g, "");
@@ -45,17 +46,31 @@ export function classifyStage(
     return { stage: "retention", confidence: 0.9 };
   }
 
+  // 시그널 매칭 전, 메인 키워드·자기 지역·병원명은 제거 —
+  // 모든 하위 키워드에 공통으로 들어가므로 신호가 되지 못하는데,
+  // "피부과" 같은 단어가 결정 시그널로 잡혀 전부 결정으로 쏠리는 문제 방지
+  const stripTokens = [mainKeyword, profile.regionSigungu, profile.regionDong, profile.name]
+    .filter((t): t is string => !!t)
+    .map((t) => t.toLowerCase().replace(/\s+/g, ""))
+    .sort((a, b) => b.length - a.length);
+  let sigNoSpace = kNoSpace;
+  let sig = k;
+  for (const t of stripTokens) {
+    sigNoSpace = sigNoSpace.split(t).join("");
+    sig = sig.split(t).join(" ");
+  }
+
   // 시그널 점수 매칭
   const scores: Record<Stage, number> = { exploration: 0, comparison: 0, decision: 0, retention: 0 };
   (Object.keys(SIGNALS) as Stage[]).forEach((stage) => {
-    for (const sig of SIGNALS[stage]) {
-      const s = sig.toLowerCase();
-      if (s.includes(" ") ? k.includes(s) : kNoSpace.includes(s.replace(/\s+/g, ""))) {
+    for (const s0 of SIGNALS[stage]) {
+      const s = s0.toLowerCase();
+      if (s.includes(" ") ? sig.includes(s) : sigNoSpace.includes(s.replace(/\s+/g, ""))) {
         scores[stage] += s.length >= 2 ? 2 : 1;
       }
     }
   });
-  if (regionHit) scores.decision += 3;
+  if (regionHit) scores.decision += 1;
 
   const entries = (Object.entries(scores) as [Stage, number][]).sort((a, b) => b[1] - a[1]);
   const [best, second] = entries;

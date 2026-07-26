@@ -55,8 +55,19 @@ function MapInner() {
   const startedRef = useRef(false);
   const flowRef = useRef<HTMLDivElement>(null);
   const { fitView } = useReactFlow();
+  const [colorMode, setColorMode] = useState<"light" | "dark">("light");
 
   useEffect(() => setMounted(true), []);
+
+  // ERP 테마(data-theme)와 캔버스 다크모드 동기화 — 다크모드에서 미니맵이 흰 사각형으로 보이는 문제 해결
+  useEffect(() => {
+    const el = document.documentElement;
+    const update = () => setColorMode(el.getAttribute("data-theme") === "dark" ? "dark" : "light");
+    update();
+    const obs = new MutationObserver(update);
+    obs.observe(el, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => obs.disconnect();
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => fitView({ padding: 0.15, duration: 300 }), 300);
@@ -114,7 +125,7 @@ function MapInner() {
       const kw = prompt("추가할 키워드를 입력하세요:");
       if (!kw?.trim()) return;
       const parent = project.nodes.find((n) => n.id === parentId);
-      const { stage, confidence } = classifyStage(kw, project.profile);
+      const { stage, confidence } = classifyStage(kw, project.profile, project.mainKeyword);
       const risk = scanRisk(kw);
       const node: JNode = {
         id: uid(),
@@ -367,6 +378,7 @@ function MapInner() {
         <div className="min-w-0 flex-1" ref={flowRef}>
           <ReactFlow
             key={`${riskOnly}-${brandOnly}-${STAGES.map((s) => stageFilter[s]).join("")}`}
+            colorMode={colorMode}
             nodes={rfNodes}
             edges={rfEdges}
             nodeTypes={nodeTypes}
