@@ -138,26 +138,36 @@ export async function runCollection(
   const nodes: JNode[] = [center, ...branches];
   const seen = new Set<string>([normKey(mainKeyword)]);
   const hitCount = new Map<string, number>();
+  const nodeByKey = new Map<string, JNode>();
   const own = ownContext(mainKeyword, profile);
 
   const addKeywordNode = (kw: string, parentId: string | null, depth: number, source: JNode["source"]): JNode | null => {
     const key = normKey(kw);
     if (seen.has(key)) {
       hitCount.set(key, (hitCount.get(key) || 0) + 1);
+      // 다중 소스 실측 기록: 같은 키워드를 다른 소스도 발견하면 교집합 데이터로 남김
+      const existing = nodeByKey.get(key);
+      if (existing) {
+        if (!existing.sourcesAll) existing.sourcesAll = [existing.source];
+        if (!existing.sourcesAll.includes(source)) existing.sourcesAll.push(source);
+      }
       return null;
     }
     if (nodes.length - 5 >= options.maxNodes) return null;
     seen.add(key);
     hitCount.set(key, 1);
     const { stage, confidence } = classifyStage(kw, profile, mainKeyword);
+    // sourcesAll은 노드 생성 후 아래에서 세팅
     const risk = scanRisk(kw);
     const node: JNode = {
       id: uid(), parentId: parentId ?? branchByStage[stage].id, keyword: kw, kind: "keyword", depth,
       stage, stageConfidence: confidence, stageOverridden: false, source,
       score: 0, riskLevel: risk.level, riskReasons: risk.reasons,
       isBrand: isBrandKeyword(kw, profile), collapsed: false,
+      sourcesAll: [source],
     };
     nodes.push(node);
+    nodeByKey.set(key, node);
     return node;
   };
 
