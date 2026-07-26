@@ -19,7 +19,7 @@ import { DetailPanel } from "@/components/journeymap/DetailPanel";
 import { DiagnosisView } from "@/components/journeymap/DiagnosisView";
 import { KeywordNode, type KeywordFlowNode } from "@/components/journeymap/KeywordNode";
 import { classifyStage, isBrandKeyword } from "@/lib/journeymap/classify";
-import { CollectProgress, runCollection } from "@/lib/journeymap/collector";
+import { CollectProgress, findForeignNodeIds, runCollection } from "@/lib/journeymap/collector";
 import { exportCsv, exportJson, exportPng, exportSvg } from "@/lib/journeymap/export";
 import { countDescendants, layoutTree } from "@/lib/journeymap/layout";
 import { scanRisk } from "@/lib/journeymap/risk";
@@ -54,6 +54,7 @@ function MapInner() {
   const [brandOnly, setBrandOnly] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [viewTab, setViewTab] = useState<"map" | "diagnosis">("map");
+  const [foreignIds, setForeignIds] = useState<string[]>([]);
   const startedRef = useRef(false);
   const flowRef = useRef<HTMLDivElement>(null);
   const { fitView } = useReactFlow();
@@ -75,6 +76,21 @@ function MapInner() {
     const t = setTimeout(() => fitView({ padding: 0.15, duration: 300 }), 300);
     return () => clearTimeout(t);
   }, [stageFilter, riskOnly, brandOnly, project?.status, fitView]);
+
+  // ── 소급 타지역 검사: 저장된 맵을 열면 실측 검증으로 타지역 의심 노드를 찾아 배너 표시
+  useEffect(() => {
+    if (!mounted || !project || (project.status !== "done" && project.status !== "partial_done")) return;
+    let cancelled = false;
+    findForeignNodeIds(project.nodes, project.mainKeyword, project.profile)
+      .then((ids) => {
+        if (!cancelled && ids.length > 0) setForeignIds(ids);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, project?.id, project?.status]);
 
   // ── 수집 실행
   useEffect(() => {
@@ -339,6 +355,47 @@ function MapInner() {
           )}
         </div>
       </header>
+      {foreignIds.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          <span>
+            🧹 <b>타지역 의심 키워드 {foreignIds.length}개</b> 발견 —{" "}
+            {foreignIds
+              .slice(0, 3)
+              .map((fid) => project.nodes.find((n) => n.id === fid)?.keyword)
+              .filter(Boolean)
+              .join(", ")}
+            {foreignIds.length > 3 ? " 외" : ""} · 네이버 지역검색 실측 결과 우리 지역 소속이 아닙니다.
+          </span>
+          <button
+            onClick={() => {
+              const toDelete = new Set(foreignIds);
+              let changed = true;
+              while (changed) {
+                changed = false;
+                for (const n of project.nodes) {
+                  if (n.parentId && toDelete.has(n.parentId) && !toDelete.has(n.id)) {
+                    toDelete.add(n.id);
+                    changed = true;
+                  }
+                }
+              }
+              updateProject(project.id, { nodes: project.nodes.filter((n) => !toDelete.has(n.id)) });
+              setForeignIds([]);
+              setSelectedId(null);
+            }}
+            className="rounded-lg bg-amber-600 px-3 py-1 text-xs font-bold text-white hover:bg-amber-500"
+          >
+            모두 제거
+          </button>
+          <button
+            onClick={() => setForeignIds([])}
+            className="rounded-lg border border-amber-300 px-3 py-1 text-xs text-amber-700 hover:bg-amber-100"
+          >
+            무시
+          </button>
+        </div>
+      )}
+
 
       {viewTab === "diagnosis" ? (
         <div className="min-h-0 flex-1 overflow-y-auto">

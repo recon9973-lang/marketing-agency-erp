@@ -180,6 +180,34 @@ function kinRelevant(kw: string, mainKeyword: string, profile: HospitalProfile):
   return localAnchors.some((a) => a.length >= 2 && k.includes(a));
 }
 
+
+// ── 소급 정리 스캐너 — 이미 저장된 맵에 수집 필터(3중 방어)를 사후 적용한다.
+// 옛 버전으로 수집돼 타지역 키워드가 남아 있는 맵을 재수집 없이 정리하기 위한 용도.
+// kin(문장형)·user(수동 입력) 노드는 잔여 토큰 검사 대상에서 제외한다.
+export async function findForeignNodeIds(
+  nodes: JNode[],
+  mainKeyword: string,
+  profile: HospitalProfile
+): Promise<string[]> {
+  const own = ownContext(mainKeyword, profile);
+  const verifyLocal = makeLocalVerifier(profile);
+  const out: string[] = [];
+  for (const n of nodes) {
+    if (n.kind !== "keyword" || n.source === "user") continue;
+    if (hasForeignRegion(n.keyword, own)) {
+      out.push(n.id);
+      continue;
+    }
+    if (n.source === "naver_kin") continue;
+    const residual = unknownResidualToken(n.keyword, mainKeyword, profile);
+    if (!residual) continue;
+    // 연관키워드(전국 단위 유입원)는 모든 잔여 토큰, 그 외는 지명 형태만 검증
+    if (n.source !== "naver_rel" && !looksLikePlace(residual)) continue;
+    if (!(await verifyLocal(residual))) out.push(n.id);
+  }
+  return out;
+}
+
 export async function runCollection(
   mainKeyword: string,
   profile: HospitalProfile,
