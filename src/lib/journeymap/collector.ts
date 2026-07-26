@@ -168,6 +168,29 @@ export async function runCollection(
     if (n) queue.push({ node: n, level: 1 });
   }
 
+  // ── 초성 확장 (키워드마스터·블랙키위 방식): "메인키워드 + ㄱ~ㅎ"으로 자동완성을 훑어
+  // 일반 자동완성에 안 나오는 롱테일(일요일·입원·야간진료 등)을 발굴
+  if (options.sources.includes("naver") && !failedSources.has("naver")) {
+    const INITIALS = ["ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"];
+    report("collecting", 6, "초성 확장 수집 중… (메인키워드 + ㄱ~ㅎ)");
+    for (let i = 0; i < INITIALS.length; i += 4) {
+      if (nodes.length - 5 >= options.maxNodes) break;
+      const batch = INITIALS.slice(i, i + 4);
+      const results = await Promise.allSettled(batch.map((c) => fetchSuggest(`${mainKeyword} ${c}`, "naver")));
+      for (const r of results) {
+        if (r.status !== "fulfilled") continue;
+        for (const kw of r.value) {
+          if (!isRelevant(kw, mainKeyword, profile)) continue;
+          if (hasForeignRegion(kw, own)) continue;
+          naverCount++;
+          const child = addKeywordNode(kw, null, 2, "naver_ac");
+          if (child && queue.length < 60) queue.push({ node: child, level: 2 });
+        }
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+
   // ── BFS 수집: 자동완성(재귀) + 지식iN(시드 레벨만)
   const maxLevel = options.depth;
   const totalEstimate = Math.min(options.maxNodes, seeds.length * 12);
