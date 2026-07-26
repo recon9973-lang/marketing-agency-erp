@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   typedRoutes: true,
+  // 배포 커밋 SHA를 클라이언트 번들에 굽는다 — VersionWatch가 서버(/api/version)와
+  // 대조해 새 배포를 감지, "새 버전 새로고침" 배너를 띄운다.
+  env: {
+    NEXT_PUBLIC_BUILD_SHA: process.env.VERCEL_GIT_COMMIT_SHA || "dev"
+  },
   // 클라이언트 라우터 캐시 — 재방문 시 서버/Neon 재조회 없이 즉시 전환.
   // Next 15 기본 dynamic=0(항상 재조회) → 캐시 유지. 한 번 연 탭들 사이를 오갈 때
   // 서버 왕복 없이 즉시 전환된다(베놈 관리자 느낌). 서버액션의 revalidatePath로
