@@ -245,6 +245,21 @@ export async function runCollection(
     });
     const data = await res.json();
     if (!data.unconfigured) {
+      // 힌트로 보낸 메인 키워드·시드의 검색량도 함께 반영 (버리지 않음)
+      // — 특히 메인 키워드(중심 노드)는 검색량이 가장 큰 키워드인데 누락되어 있었음
+      for (const [kw, m] of Object.entries<{ volumePc: number | null; volumeMo: number | null; competition: string | null }>(
+        data.results || {}
+      )) {
+        const target =
+          normKey(kw) === normKey(mainKeyword)
+            ? center
+            : nodes.find((n) => n.kind === "keyword" && normKey(n.keyword) === normKey(kw));
+        if (target) {
+          target.volumePc = m.volumePc;
+          target.volumeMo = m.volumeMo;
+          target.competition = m.competition;
+        }
+      }
       let added = 0;
       for (const rel of data.related || []) {
         if (nodes.length - 5 >= options.maxNodes || added >= 50) break;

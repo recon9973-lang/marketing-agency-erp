@@ -20,11 +20,19 @@ function KeywordNodeInner({ data, selected }: NodeProps<KeywordFlowNode>) {
   const stageLight = n.stage ? STAGE_META[n.stage].light : "#f1f5f9";
 
   if (n.kind === "center") {
+    const centerVolume = n.volumePc != null || n.volumeMo != null ? (n.volumePc ?? 0) + (n.volumeMo ?? 0) : null;
     return (
       <div className="rounded-2xl bg-slate-900 px-6 py-3 text-white shadow-lg" style={{ minWidth: 180 }}>
         <Handle type="source" position={Position.Right} className="!bg-slate-400" />
         <p className="text-center text-base font-bold">{n.keyword}</p>
-        <p className="text-center text-[10px] text-slate-300">메인 키워드</p>
+        <p className="text-center text-[10px] text-slate-300">
+          메인 키워드
+          {centerVolume != null && (
+            <span className="ml-1.5 font-semibold text-amber-300">
+              월 {centerVolume >= 10000 ? `${(centerVolume / 10000).toFixed(1)}만` : centerVolume.toLocaleString()}
+            </span>
+          )}
+        </p>
       </div>
     );
   }
