@@ -18,7 +18,7 @@ export default async function ErpLayout({ children }: { children: ReactNode }) {
   const favorites = await listUserFavorites(user.id).catch(() => []);
 
   return (
-    <AppShell role={user.role} canAccessSettings={user.canAccessSettings} deniedFeatures={user.deniedFeatures} favorites={favorites}>
+    <AppShell role={user.role} userName={user.name} userEmail={user.email} canAccessSettings={user.canAccessSettings} deniedFeatures={user.deniedFeatures} favorites={favorites}>
       <KeepWarm />
       {children}
     </AppShell>

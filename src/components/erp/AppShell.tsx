@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { logout } from "@/server/actions/logout";
+import { UserMenu } from "@/components/erp/UserMenu";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { toggleUserFavorite } from "@/server/actions/favorites";
@@ -375,12 +376,16 @@ function NavLink({
 export function AppShell({
   children,
   role,
+  userName = "",
+  userEmail = "",
   canAccessSettings = false,
   deniedFeatures = [],
   favorites = []
 }: {
   children: ReactNode;
   role: Role;
+  userName?: string;
+  userEmail?: string;
   canAccessSettings?: boolean;
   deniedFeatures?: FeatureKey[];
   favorites?: FavoriteRow[];
@@ -548,9 +553,7 @@ export function AppShell({
               <ThemeToggle />
               <NotificationBell />
             </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-soft text-sm font-bold text-brand-strong">
-              {ROLE_LABEL[role].charAt(0)}
-            </div>
+            <UserMenu name={userName} email={userEmail} roleLabel={ROLE_LABEL[role]} />
             <form action={logout}>
               <button
                 type="submit"
