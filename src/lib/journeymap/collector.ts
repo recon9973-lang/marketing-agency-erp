@@ -41,6 +41,40 @@ function normKey(s: string): string {
   return s.toLowerCase().replace(/\s+/g, "");
 }
 
+// 타 지역 키워드 제외용 주요 지역·역세권 토큰 (프로필 지역/브랜드/메인 키워드에 포함된 토큰은 허용)
+const REGION_TOKENS = [
+  "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "제주", "서귀포",
+  "수원", "성남", "고양", "용인", "부천", "안산", "안양", "남양주", "화성", "평택",
+  "의정부", "시흥", "파주", "김포", "광명", "군포", "하남", "구리", "일산", "분당",
+  "판교", "평촌", "산본", "동탄", "광교", "정자", "서현", "야탑", "위례", "미사",
+  "춘천", "원주", "강릉", "속초", "청주", "충주", "천안", "아산", "세종시",
+  "전주", "군산", "익산", "목포", "여수", "순천", "포항", "경주", "구미", "안동",
+  "창원", "진주", "김해", "양산", "거제", "마산",
+  "강남", "서초", "송파", "강동", "강서", "양천", "영등포", "구로", "금천", "관악",
+  "동작", "마포", "서대문", "은평", "종로", "용산", "성동", "광진", "동대문", "중랑",
+  "성북", "강북", "도봉", "노원",
+  "압구정", "신사역", "청담", "논현", "역삼", "삼성동", "대치", "선릉", "교대", "사당",
+  "신촌", "홍대", "합정", "왕십리", "건대", "잠실", "천호", "목동", "여의도",
+  "해운대", "서면", "광안리", "센텀", "수영", "연산", "동래", "사상", "명지",
+];
+
+// 프로필 기준 "허용된" 텍스트 — 여기에 등장하는 지역 토큰은 자기 지역이므로 허용
+function ownContext(mainKeyword: string, profile: HospitalProfile): string {
+  return normKey(
+    [mainKeyword, profile.name, profile.regionSigungu, profile.regionDong, ...profile.competitors].filter(Boolean).join("|")
+  );
+}
+
+// 타 지역 키워드인지 검사 (예: 춘천 병원 프로젝트에 "해운대", "부천" 키워드 유입 차단)
+function hasForeignRegion(kw: string, own: string): boolean {
+  const k = normKey(kw);
+  for (const t of REGION_TOKENS) {
+    const tn = normKey(t);
+    if (k.includes(tn) && !own.includes(tn)) return true;
+  }
+  return false;
+}
+
 function isRelevant(kw: string, mainKeyword: string, profile: HospitalProfile): boolean {
   const k = normKey(kw);
   const anchors = [mainKeyword, profile.name, ...profile.mainTreatments, ...profile.departments, ...profile.competitors]
@@ -48,6 +82,17 @@ function isRelevant(kw: string, mainKeyword: string, profile: HospitalProfile): 
     .map(normKey);
   const head = normKey(mainKeyword).slice(0, 2);
   return anchors.some((a) => a && k.includes(a)) || (head.length >= 2 && k.includes(head));
+}
+
+// 지식iN 질문은 느슨하게 검색되므로 더 엄격한 앵커 검사:
+// 진료과·주력시술·메인키워드·병원명 중 하나는 반드시 포함해야 함
+// (예: "춘천 임플란트 잘하는곳" — 피부과 프로젝트면 제외)
+function kinRelevant(kw: string, mainKeyword: string, profile: HospitalProfile): boolean {
+  const k = normKey(kw);
+  const anchors = [mainKeyword, profile.name, ...profile.departments, ...profile.mainTreatments]
+    .filter(Boolean)
+    .map(normKey);
+  return anchors.some((a) => a.length >= 2 && k.includes(a));
 }
 
 export async function runCollection(
@@ -87,6 +132,7 @@ export async function runCollection(
   const nodes: JNode[] = [center, ...branches];
   const seen = new Set<string>([normKey(mainKeyword)]);
   const hitCount = new Map<string, number>();
+  const own = ownContext(mainKeyword, profile);
 
   const addKeywordNode = (kw: string, parentId: string | null, depth: number, source: JNode["source"]): JNode | null => {
     const key = normKey(kw);
@@ -97,7 +143,7 @@ export async function runCollection(
     if (nodes.length - 5 >= options.maxNodes) return null;
     seen.add(key);
     hitCount.set(key, 1);
-    const { stage, confidence } = classifyStage(kw, profile);
+    const { stage, confidence } = classifyStage(kw, profile, mainKeyword);
     const risk = scanRisk(kw);
     const node: JNode = {
       id: uid(), parentId: parentId ?? branchByStage[stage].id, keyword: kw, kind: "keyword", depth,
@@ -150,7 +196,10 @@ export async function runCollection(
       }
       const { source, items } = r.value;
       for (const kw of items) {
-        if (source !== "kin" && !isRelevant(kw, mainKeyword, profile)) continue;
+        // 관련성 필터: 자동완성은 앵커 검사, 지식iN은 더 엄격한 앵커 검사
+        if (source === "kin" ? !kinRelevant(kw, mainKeyword, profile) : !isRelevant(kw, mainKeyword, profile)) continue;
+        // 타 지역 키워드 제외 (예: 춘천 프로젝트에 해운대·부천·서면 유입 차단)
+        if (hasForeignRegion(kw, own)) continue;
         if (source === "naver") naverCount++;
         else if (source === "google") googleCount++;
         else kinCount++;
