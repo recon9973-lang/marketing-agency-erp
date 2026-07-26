@@ -13,6 +13,7 @@ import {
   FileText,
   Lightbulb,
   Link2,
+  Map as MapIcon,
   PenLine,
   Plug,
   ShieldCheck,
@@ -75,6 +76,7 @@ type ErpRoute =
   | "/ideas"
   | "/approvals"
   | "/keywords"
+  | "/journeymap"
   | "/marketing-studio"
   | "/meetings"
   | "/calendar"
@@ -198,6 +200,13 @@ export function getNavigationItems(role: Role, canAccessSettings = false, denied
       label: "업무 보고",
       roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
       icon: Link2,
+      group: "분석·GEO"
+    },
+    {
+      href: "/journeymap",
+      label: "키워드 여정맵",
+      roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.MARKETER],
+      icon: MapIcon,
       group: "분석·GEO"
     },
     {
