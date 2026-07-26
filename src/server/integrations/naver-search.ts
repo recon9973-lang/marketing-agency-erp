@@ -29,7 +29,7 @@ export type KeywordVolume = {
 
 export function naverSearchConfigured(): boolean {
   return Boolean(
-    process.env.NAVER_AD_API_KEY && process.env.NAVER_AD_SECRET && process.env.NAVER_AD_CUSTOMER_ID
+    process.env.NAVER_AD_API_KEY && (process.env.NAVER_AD_SECRET ?? process.env.NAVER_AD_SECRET_KEY) && process.env.NAVER_AD_CUSTOMER_ID
   );
 }
 
