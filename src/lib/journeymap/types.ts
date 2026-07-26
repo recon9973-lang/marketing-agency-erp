@@ -34,6 +34,7 @@ export interface JNode {
   competition?: string | null; // 낮음|중간|높음
   aiCorrected?: boolean; // LLM 분류 보정 여부
   sourceUrl?: string | null; // 지식iN 원본 질문 링크 등
+  sourcesAll?: Source[]; // 이 키워드를 발견한 모든 소스 (교집합 분석용 실측)
 }
 
 export interface HospitalProfile {

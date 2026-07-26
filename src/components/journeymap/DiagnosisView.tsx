@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { KeywordGap, SourceUpset, SourceVenn, StagePsychMatrix } from "@/components/journeymap/SetCharts";
 import { buildPsychProfile, PSYCH_META } from "@/lib/journeymap/qpc";
 import { buildClinicSchema, buildFaqSchema } from "@/lib/journeymap/schema";
 import { RISK_DISCLAIMER } from "@/lib/journeymap/risk";
@@ -186,6 +187,43 @@ export function DiagnosisView({ project }: { project: Project }) {
             )}
           </div>
         )}
+      </section>
+
+      {/* ③-1 교집합 분석: 벤 다이어그램 + 업셋 플롯 */}
+      <section className="rounded-xl border bg-white p-5">
+        <h3 className="mb-1 text-sm font-bold">
+          수집 소스 교집합 분석<GradeBadge grade="실측" />
+        </h3>
+        <p className="mb-4 text-xs text-slate-500">
+          같은 키워드를 여러 경로(네이버·구글·검색광고·지식iN)가 동시에 발견했다면 — 실제 수요가 교차 검증된
+          키워드입니다.
+        </p>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div>
+            <p className="mb-2 text-xs font-semibold text-slate-600">벤 다이어그램 (3개 소스)</p>
+            <SourceVenn nodes={project.nodes} />
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-semibold text-slate-600">업셋 플롯 (지식iN 포함 4개 소스 조합)</p>
+            <SourceUpset nodes={project.nodes} />
+          </div>
+        </div>
+      </section>
+
+      {/* ③-2 여정 × 심리 매트릭스 */}
+      <section className="rounded-xl border bg-white p-5">
+        <h3 className="mb-1 text-sm font-bold">
+          여정 단계 × 질문 심리 매트릭스<GradeBadge grade="산출" />
+        </h3>
+        <StagePsychMatrix nodes={project.nodes} />
+      </section>
+
+      {/* ③-3 키워드 갭 분석 */}
+      <section className="rounded-xl border bg-white p-5">
+        <h3 className="mb-1 text-sm font-bold">
+          키워드 갭 — 자사 vs 경쟁 브랜드 수요<GradeBadge grade="실측" />
+        </h3>
+        <KeywordGap nodes={project.nodes} profile={project.profile} />
       </section>
 
       {/* ④ 기회 키워드 TOP 10 */}
