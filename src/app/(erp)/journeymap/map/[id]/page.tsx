@@ -374,11 +374,25 @@ function MapInner() {
             <p className="mb-2 text-xs font-bold text-slate-500">▸ 범례 (표시 설명)</p>
             <ul className="space-y-1.5 text-[11px] leading-snug text-slate-500">
               <li>
-                <span className="font-semibold text-slate-600">● 색 점</span> — 여정 단계:{" "}
-                <span style={{ color: STAGE_META.exploration.color }}>탐색</span>·
-                <span style={{ color: STAGE_META.comparison.color }}>비교</span>·
-                <span style={{ color: STAGE_META.decision.color }}>결정</span>·
-                <span style={{ color: STAGE_META.retention.color }}>유지</span>
+                <span className="font-semibold text-slate-600">● 색 점 — 환자의 검색 여정 4단계</span>
+                <ul className="mt-1 space-y-0.5 pl-3">
+                  <li>
+                    <span style={{ color: STAGE_META.exploration.color }}>① 탐색</span> — 증상·원인을 알아보는 단계
+                    (예: &ldquo;허리디스크 초기증상&rdquo;)
+                  </li>
+                  <li>
+                    <span style={{ color: STAGE_META.comparison.color }}>② 비교</span> — 치료법·가격·후기를 비교하는
+                    단계 (예: &ldquo;도수치료 가격&rdquo;)
+                  </li>
+                  <li>
+                    <span style={{ color: STAGE_META.decision.color }}>③ 결정</span> — 병원을 고르고 예약하는 단계
+                    (예: &ldquo;춘천 정형외과 잘하는 곳&rdquo;)
+                  </li>
+                  <li>
+                    <span style={{ color: STAGE_META.retention.color }}>④ 유지</span> — 치료 후 관리·재방문 단계 (예:
+                    &ldquo;시술 후 주의사항&rdquo;)
+                  </li>
+                </ul>
               </li>
               <li>
                 <span className="font-semibold text-slate-600">점수</span> — 공략 가치(0~100). 검색량·구체성이 높고
