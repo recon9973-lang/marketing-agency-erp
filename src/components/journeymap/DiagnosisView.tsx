@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { KeywordGap, SourceUpset, SourceVenn, StagePsychMatrix } from "@/components/journeymap/SetCharts";
 import { buildPsychProfile, PSYCH_META } from "@/lib/journeymap/qpc";
 import { buildClinicSchema, buildFaqSchema } from "@/lib/journeymap/schema";
-import { RISK_DISCLAIMER } from "@/lib/journeymap/risk";
+import { lawUrl, RISK_DISCLAIMER } from "@/lib/journeymap/risk";
 import { formatVolume, Project, STAGE_META, STAGES } from "@/lib/journeymap/types";
 
 // 지표 등급 배지 (v2.1 §2 실측 우선 원칙 — F-953)
@@ -279,6 +279,16 @@ export function DiagnosisView({ project }: { project: Project }) {
                   {n.keyword}
                   <span className="ml-2 text-xs text-slate-500">
                     {n.riskReasons[0]?.law} — {n.riskReasons[0]?.description}
+                    {n.riskReasons[0] && lawUrl(n.riskReasons[0].law) && (
+                      <a
+                        href={lawUrl(n.riskReasons[0].law)!}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ml-1 text-blue-600 underline"
+                      >
+                        조문 ↗
+                      </a>
+                    )}
                   </span>
                 </span>
               </li>

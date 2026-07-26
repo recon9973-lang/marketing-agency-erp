@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { scanRisk, RISK_DISCLAIMER } from "@/lib/journeymap/risk";
+import { scanRisk, lawUrl, AD_REVIEW_URL, RISK_DISCLAIMER } from "@/lib/journeymap/risk";
 import { formatVolume, JNode, Stage, STAGES, STAGE_META } from "@/lib/journeymap/types";
 
 export function DetailPanel({
@@ -145,12 +145,22 @@ export function DetailPanel({
               <div key={i} className="mb-2 text-xs">
                 <p className="font-semibold">
                   &ldquo;{r.matched}&rdquo; — {r.law}
+                  {lawUrl(r.law) && (
+                    <a href={lawUrl(r.law)!} target="_blank" rel="noreferrer" className="ml-1.5 font-normal text-blue-600 underline">
+                      조문 보기 ↗
+                    </a>
+                  )}
                 </p>
                 <p className="text-slate-600">{r.description}</p>
                 <p className="mt-0.5 text-slate-500">💡 {r.suggestion}</p>
               </div>
             ))}
-            <p className="mt-1 border-t pt-1.5 text-[10px] text-slate-400">{RISK_DISCLAIMER}</p>
+            <p className="mt-1 border-t pt-1.5 text-[10px] text-slate-400">
+              {RISK_DISCLAIMER}{" "}
+              <a href={AD_REVIEW_URL} target="_blank" rel="noreferrer" className="text-blue-500 underline">
+                의료광고 사전심의 안내 ↗
+              </a>
+            </p>
           </div>
         )}
 
