@@ -222,11 +222,12 @@ export async function runCollection(
   report("enriching", 74, "월간 검색량·CPC 조회 중… (네이버 검색광고 API)");
   let volumeAvailable = false;
   {
-    // 상위 우선: 시드·얕은 심도 먼저, 최대 60개(12배치)
+    // 상위 우선: 시드·얕은 심도 먼저, 최대 150개(30배치)
+    // 지식iN 질문 문장은 검색광고 API에 데이터가 없어 제외
     const targets = [...kwNodes]
       .filter((n) => n.source !== "naver_kin")
       .sort((a, b) => a.depth - b.depth)
-      .slice(0, 60);
+      .slice(0, 150);
     const byKey = new Map(targets.map((n) => [n.keyword, n]));
     const batches: string[][] = [];
     const keys = Array.from(byKey.keys());

@@ -71,6 +71,7 @@ export default function NewJourneymap() {
   const { addProject, projects } = useProjectStore();
   const [step, setStep] = useState<1 | 2>(1);
   const [profile, setProfile] = useState<HospitalProfile>(EMPTY_PROFILE);
+  const [customDept, setCustomDept] = useState("");
   const [mainKeyword, setMainKeyword] = useState("");
   const [aiSeeds, setAiSeeds] = useState<string[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
@@ -207,7 +208,7 @@ export default function NewJourneymap() {
               <label className="mb-1 block text-sm font-semibold">
                 진료과 <span className="text-red-500">*</span> <span className="font-normal text-slate-400">(복수 선택)</span>
               </label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {DEPARTMENTS.map((d) => {
                   const on = profile.departments.includes(d);
                   return (
@@ -224,6 +225,34 @@ export default function NewJourneymap() {
                     </button>
                   );
                 })}
+                {/* 목록에 없는 진료과: 직접 추가한 항목은 선택된 칩으로 표시, ×로 제거 */}
+                {profile.departments
+                  .filter((d) => !DEPARTMENTS.includes(d))
+                  .map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => set("departments", profile.departments.filter((x) => x !== d))}
+                      className="rounded-full border border-blue-600 bg-blue-600 px-3 py-1 text-sm text-white"
+                      title="클릭하면 제거"
+                    >
+                      {d} ×
+                    </button>
+                  ))}
+                <input
+                  value={customDept}
+                  onChange={(e) => setCustomDept(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                    if (e.key === "Enter" || e.key === ",") {
+                      e.preventDefault();
+                      const v = customDept.trim();
+                      if (v && !profile.departments.includes(v)) set("departments", [...profile.departments, v]);
+                      setCustomDept("");
+                    }
+                  }}
+                  placeholder="+ 직접 입력 후 Enter (예: 재활의학과)"
+                  className="min-w-56 rounded-full border px-3 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                />
               </div>
             </div>
 
