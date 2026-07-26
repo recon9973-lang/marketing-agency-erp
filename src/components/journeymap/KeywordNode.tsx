@@ -96,7 +96,17 @@ function KeywordNodeInner({ data, selected }: NodeProps<KeywordFlowNode>) {
         <span>점수 {n.score}</span>
         {totalVolume != null && <span className="font-semibold text-slate-500">월 {totalVolume >= 10000 ? `${(totalVolume / 10000).toFixed(1)}만` : totalVolume.toLocaleString()}</span>}
         <span>
-          {n.source === "naver_ac" ? "N" : n.source === "google_ac" ? "G" : n.source === "naver_kin" ? "지식iN" : n.source === "seed" ? "시드" : "직접"}
+          {n.source === "naver_ac"
+            ? "N"
+            : n.source === "google_ac"
+            ? "G"
+            : n.source === "naver_kin"
+            ? "지식iN"
+            : n.source === "naver_rel"
+            ? "연관"
+            : n.source === "seed"
+            ? "시드"
+            : "직접"}
         </span>
         {n.aiCorrected && <span className="text-violet-500">AI</span>}
         {n.isBrand && <span className="font-bold text-slate-700">브랜드</span>}

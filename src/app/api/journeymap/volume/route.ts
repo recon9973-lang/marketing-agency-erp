@@ -43,9 +43,11 @@ export async function POST(req: NextRequest) {
   }
 
   let keywords: string[] = [];
+  let includeRelated = false;
   try {
     const body = await req.json();
     keywords = (body.keywords || []).slice(0, 5).map((k: string) => k.trim()).filter(Boolean);
+    includeRelated = !!body.includeRelated;
   } catch {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
@@ -64,17 +66,29 @@ export async function POST(req: NextRequest) {
 
     const results: Record<string, { volumePc: number | null; volumeMo: number | null; competition: string | null; cpc: number | null }> = {};
     const wanted = new Map(keywords.map((k) => [k.replace(/\s+/g, "").toLowerCase(), k]));
+    const related: { keyword: string; volumePc: number | null; volumeMo: number | null; competition: string | null }[] = [];
     for (const item of data.keywordList || []) {
-      const rel = String(item.relKeyword || "").toLowerCase();
+      const relRaw = String(item.relKeyword || "");
+      const rel = relRaw.toLowerCase();
       const orig = wanted.get(rel);
-      if (!orig) continue;
-      results[orig] = {
-        volumePc: parseCount(item.monthlyPcQcCnt),
-        volumeMo: parseCount(item.monthlyMobileQcCnt),
-        competition: COMP_LABEL[String(item.compIdx)] ?? String(item.compIdx ?? "") ?? null,
-        cpc: null,
-      };
+      if (orig) {
+        results[orig] = {
+          volumePc: parseCount(item.monthlyPcQcCnt),
+          volumeMo: parseCount(item.monthlyMobileQcCnt),
+          competition: COMP_LABEL[String(item.compIdx)] ?? String(item.compIdx ?? "") ?? null,
+          cpc: null,
+        };
+      } else if (includeRelated && relRaw) {
+        // 검색광고가 함께 반환하는 연관키워드 — 검색량 포함
+        related.push({
+          keyword: relRaw,
+          volumePc: parseCount(item.monthlyPcQcCnt),
+          volumeMo: parseCount(item.monthlyMobileQcCnt),
+          competition: COMP_LABEL[String(item.compIdx)] ?? String(item.compIdx ?? "") ?? null,
+        });
+      }
     }
+    related.sort((a, b) => (b.volumePc ?? 0) + (b.volumeMo ?? 0) - ((a.volumePc ?? 0) + (a.volumeMo ?? 0)));
 
     // 2) 모바일 1위 예상 입찰가 → CPC 근사치 (실패해도 검색량은 반환)
     try {
@@ -99,7 +113,7 @@ export async function POST(req: NextRequest) {
       /* CPC 실패 무시 */
     }
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ results, related: includeRelated ? related.slice(0, 120) : undefined });
   } catch (e) {
     return NextResponse.json({ results: {}, error: String(e) }, { status: 200 });
   }
