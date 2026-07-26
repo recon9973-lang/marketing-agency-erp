@@ -6,12 +6,14 @@ import { formatVolume, JNode, Stage, STAGES, STAGE_META } from "@/lib/journeymap
 
 export function DetailPanel({
   node,
+  regionHint,
   onUpdate,
   onAddChild,
   onDelete,
   onClose,
 }: {
   node: JNode;
+  regionHint?: string;
   onUpdate: (id: string, patch: Partial<JNode>) => void;
   onAddChild: (parentId: string) => void;
   onDelete: (id: string) => void;
@@ -150,30 +152,48 @@ export function DetailPanel({
           </div>
         )}
 
-        {isKeyword && (
-          <div className="mt-2 rounded-lg border bg-slate-50 p-3 text-xs text-slate-500">
-            <p>
-              🔗 실제 검색 결과:{" "}
-              <a
-                className="text-blue-600 underline"
-                href={`https://search.naver.com/search.naver?query=${encodeURIComponent(node.keyword)}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                네이버
-              </a>{" "}
-              ·{" "}
-              <a
-                className="text-blue-600 underline"
-                href={`https://www.google.com/search?q=${encodeURIComponent(node.keyword)}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                구글
-              </a>
-            </p>
-          </div>
-        )}
+        {isKeyword &&
+          (() => {
+            // 키워드에 지역이 없으면 지역을 붙여 검색 — 전국 결과가 아닌 해당 지역 결과를 보여주기 위함
+            const norm = (s: string) => s.toLowerCase().replace(/\s+/g, "");
+            const searchQuery =
+              regionHint && !norm(node.keyword).includes(norm(regionHint))
+                ? `${regionHint} ${node.keyword}`
+                : node.keyword;
+            return (
+              <div className="mt-2 space-y-1.5 rounded-lg border bg-slate-50 p-3 text-xs text-slate-500">
+                {node.source === "naver_kin" && node.sourceUrl && (
+                  <p>
+                    💬{" "}
+                    <a className="text-blue-600 underline" href={node.sourceUrl} target="_blank" rel="noreferrer">
+                      지식iN 원본 질문 보기
+                    </a>{" "}
+                    — 환자가 실제로 올린 질문입니다
+                  </p>
+                )}
+                <p>
+                  🔗 실제 검색 결과({searchQuery}):{" "}
+                  <a
+                    className="text-blue-600 underline"
+                    href={`https://search.naver.com/search.naver?query=${encodeURIComponent(searchQuery)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    네이버
+                  </a>{" "}
+                  ·{" "}
+                  <a
+                    className="text-blue-600 underline"
+                    href={`https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    구글
+                  </a>
+                </p>
+              </div>
+            );
+          })()}
       </div>
 
       <div className="space-y-2 border-t px-4 py-3">

@@ -468,6 +468,7 @@ function MapInner() {
         {selectedNode && (
           <DetailPanel
             node={selectedNode}
+            regionHint={project.profile.regionSigungu}
             onUpdate={patchNode}
             onAddChild={addChild}
             onDelete={deleteNode}

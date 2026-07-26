@@ -27,19 +27,23 @@ export async function GET(req: NextRequest) {
     });
     if (!res.ok) throw new Error(`kin ${res.status}`);
     const data = await res.json();
-    const items: string[] = (data.items || [])
-      .map((it: { title?: string }) =>
-        String(it.title || "")
-          .replace(/<[^>]+>/g, "")
-          .replace(/&quot;/g, '"')
-          .replace(/&amp;/g, "&")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/[?？!.]+$/g, "")
-          .trim()
-      )
-      .filter((t: string) => t.length >= 4 && t.length <= 40);
-    return NextResponse.json({ items: Array.from(new Set(items)).slice(0, 8) });
+    const seen = new Set<string>();
+    const items: { title: string; link: string }[] = [];
+    for (const it of data.items || []) {
+      const title = String(it.title || "")
+        .replace(/<[^>]+>/g, "")
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/[?？!.]+$/g, "")
+        .trim();
+      if (title.length < 4 || title.length > 40 || seen.has(title)) continue;
+      seen.add(title);
+      items.push({ title, link: String(it.link || "") });
+      if (items.length >= 8) break;
+    }
+    return NextResponse.json({ items });
   } catch (e) {
     return NextResponse.json({ items: [], error: String(e) }, { status: 200 });
   }
