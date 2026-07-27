@@ -63,7 +63,7 @@
 [Providers]                      [Port]              [로직 M1~M5]      [오케스트레이터]   [화면]
 NaverProvider  (🟢 실측)  ┐                                                              /geo-scan
 AiProvider     (🔵 4-AI)  ├──→  SearchDataPort  ──→  scanner/cep/     ──→  runPipeline ──→ /geo-cep
-MockProvider   (⚪ 목)    ┘      (단일 인터페이스)     content/path/                        /geo-path
+MockProvider   (⚪ 목)    ┘      (단일 인터페이스)     content/path/                        /journeymap(구 geo-path)
                                                      campaign                              /geo-studio
 ```
 
@@ -96,7 +96,7 @@ interface SearchDataPort {
 | 클러스터 상세·검색량 | M2 + Naver 검색량 | 🟢 | 로직✅/실측❌ |
 | GPT 리뷰(종합·페르소나·CEP) | M2+M3 → 탭 UI 신규 | 🔵 | 로직✅/탭UI❌ |
 | 상위 URL 분석 | Naver `serpTop` → 표 신규 | 🟢 | ❌ |
-| 검색 경로 그래프 | M4 → `/geo-path` | 🔵근사 | ✅ (2026-07-18) |
+| 검색 경로 그래프 | M4 → `/journeymap(구 geo-path)` | 🔵근사 | ✅ (2026-07-18) |
 | 과거 비교·검색량 변동 | 시계열(P3, schema 필요) | 🟢 | ❌ |
 | 유저 특성(성별·연령) | Naver `demographics` | 🟡 | ❌ |
 | 브랜드검색지수 vs TV CM | 신규(P3) | 🟢 | ❌ |
@@ -131,7 +131,7 @@ interface SearchDataPort {
 ## 8. 현재 자산 (2026-07-18 기준)
 
 - 로직 이식: M1·M2·M4·M5 완전, M3 분석코어(생성계열 builder/templates/simulator/llms_txt 미이식·ERP 중복).
-- 화면: `/geo-scan /geo-cep /geo-content /geo-path /geo-planner /geo-studio(+리포트)`.
-- 시각화: 검색 경로 그래프 SVG(`/geo-path`).
+- 화면: `/geo-scan /geo-cep /geo-content /journeymap(구 geo-path) /geo-planner /geo-studio(+리포트)`.
+- 시각화: 검색 경로 그래프 SVG(`/journeymap(구 geo-path)`).
 - 테스트: 골든/배선 **87건** 통과. `schema.prisma` 무변경 유지 중.
 - 전부 목(mock) 데이터 → P2에서 네이버 실측으로 교체 예정.

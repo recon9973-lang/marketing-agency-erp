@@ -30,7 +30,7 @@ async function notifyAdmins(actorId: string, orgId: string | null, version: numb
       type: "GEO_UPGRADE",
       title: `GEO 학습 업그레이드 #${version} 제안`,
       body: summary,
-      link: "/geo-learning",
+      link: "/geo?tab=learning",
       targetType: "GeoModelVersion",
       orgId
     }))
@@ -76,7 +76,7 @@ export async function proposeGeoModel(): Promise<ActionResult<{ proposed: boolea
     const meta = await requestMeta();
     await recordAudit(db, { actorId: user.id, action: "geo.model.propose", targetType: "GeoModelVersion", targetId: created.id, afterState: { version, summary: model.summary }, ...meta });
 
-    revalidatePath("/geo-learning");
+    revalidatePath("/geo");
     return { proposed: true, version };
   });
 }
@@ -100,7 +100,7 @@ export async function applyGeoModel(input: unknown): Promise<ActionResult<{ vers
     const meta = await requestMeta();
     await recordAudit(db, { actorId: user.id, action: "geo.model.apply", targetType: "GeoModelVersion", targetId: target.id, afterState: { version: target.version }, ...meta });
 
-    revalidatePath("/geo-learning");
+    revalidatePath("/geo");
     return { version: target.version };
   });
 }
@@ -148,7 +148,7 @@ export async function rollbackGeoModel(input: unknown): Promise<ActionResult<{ a
     const meta = await requestMeta();
     await recordAudit(db, { actorId: user.id, action: "geo.model.rollback", targetType: "GeoModelVersion", targetId: target.id, afterState: { activeVersion: target.version, mode: p.data.toVersion != null ? "number" : "period" }, ...meta });
 
-    revalidatePath("/geo-learning");
+    revalidatePath("/geo");
     return { activeVersion: target.version };
   });
 }
@@ -196,7 +196,7 @@ export async function rollbackWeightKind(input: unknown): Promise<ActionResult<{
     const meta = await requestMeta();
     await recordAudit(db, { actorId: user.id, action: "geo.model.partial_rollback", targetType: "GeoModelVersion", targetId: created.id, afterState: { version, kind: p.data.kind }, ...meta });
 
-    revalidatePath("/geo-learning");
+    revalidatePath("/geo");
     return { version };
   });
 }

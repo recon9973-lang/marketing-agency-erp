@@ -15,7 +15,7 @@ TS 이식 방법 확립(파이썬 목→골든 픽스처→TS→골든 테스트
 | **M1 스캐너** | ✅ 7건 | ✅ | `/geo-scan` · GEO 스캐너 |
 | **M2 CEP 파인더** | ✅ 19건 | ✅ | `/geo-cep` · CEP 파인더 |
 | **M3 콘텐츠 빌더** | ✅ 16건 | ✅ | `/geo-content` · GEO 콘텐츠 |
-| **M4 Path Analyzer** | ✅ 14건 | ✅ | `/geo-path` · GEO 여정 |
+| **M4 Path Analyzer** | ✅ 14건 | ✅ | `/journeymap(구 geo-path)` · GEO 여정 |
 | **M5 채널플래너** | ✅ 22건 | ✅ | `/geo-planner` · GEO 캠페인 |
 
 - **골든 78건 통과**(파이썬 원본과 수치·문자열 완전 일치 — 정확 float·k-means·JSON-LD·TA·언급집계). `schema.prisma` 무변경 → 다른 ERP 업그레이드와 **충돌 0**.

@@ -30,7 +30,7 @@
 - [ ] 설문 **발송** + **알림톡** 버튼. 발송 후 결과 안내줄(발송됨=초록 / 미연동·실패=주의).
 
 ### 6. GEO 시뮬 화면 정직 배너
-- [ ] `/geo-path`·`/geo-content`·`/geo-planner` 상단에 데모/규칙기반/추정 배너 표시.
+- [ ] `/journeymap(구 geo-path)`·`/geo-content`·`/geo-planner` 상단에 데모/규칙기반/추정 배너 표시.
 
 ## 스키마 변경 (이 세션 유일)
 - `CalendarEvent.assigneeId`(nullable) + `@@index`, `User.assignedEvents`. **additive** — `prisma db push`로 배포 시 자동 적용(무손실). C4 배포에서 적용 확인됨.

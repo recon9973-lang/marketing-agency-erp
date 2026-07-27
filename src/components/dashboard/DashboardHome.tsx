@@ -3,8 +3,7 @@ import type { Route } from "next";
 import {
   AlertTriangle, ArrowRight, Bot, BriefcaseBusiness, CalendarClock, CircleCheck, ClipboardList,
   CreditCard, Eye, FileSignature, FileText, ImageIcon, Link2, MessageCircleQuestion, Plane,
-  ShieldCheck, Sparkles, Wallet
-} from "lucide-react";
+  ShieldCheck, Sparkles, Wallet, Video } from "lucide-react";
 import { Role } from "@/domain/types";
 import { ClientConfirmations } from "@/components/dashboard/ClientConfirmations";
 import { ClientMonitor } from "@/components/dashboard/ClientMonitor";
@@ -83,7 +82,8 @@ export function DashboardHome({
   clientMonitor = [],
   confirmations = EMPTY_CONFIRMATIONS,
   leadPipeline = { byStatus: {}, recontactDueThisWeek: 0 },
-  geoSummary = null
+  geoSummary = null,
+  upcomingMeetingCount = 0
 }: {
   userName: string;
   role: Role;
@@ -93,6 +93,7 @@ export function DashboardHome({
   confirmations?: Confirmations;
   leadPipeline?: LeadPipelineSummary;
   geoSummary?: GeoDashboardSummary | null;
+  upcomingMeetingCount?: number;
 }) {
   const kpis = kpisFor(role, summary);
   const riskCount = riskItems.reduce((n, r) => n + (r.high > 0 ? 1 : 0), 0);
@@ -269,6 +270,8 @@ export function DashboardHome({
           <Reminder icon={CalendarClock} tone="blue" label="다가오는 마감" value={summary.upcomingDeadlineCount} href={"/work" as Route} />
           <Reminder icon={AlertTriangle} tone="rose" label="지연 업무" value={summary.delayedWorkCount} href={"/work" as Route} />
           <Reminder icon={Plane} tone="green" label="휴가 승인 대기" value={summary.pendingLeaveCount} href={"/reports?doc=leave" as Route} />
+          <Reminder icon={Video} tone="blue" label="예정 회의 (② 미팅)" value={upcomingMeetingCount} href={"/meetings" as Route} />
+          <Reminder icon={FileText} tone="amber" label="월간 보고서 업무 (⑤ 리포트)" value={summary.reportTaskCount} href={"/reports" as Route} />
         </div>
       </section>
     </div>

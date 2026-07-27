@@ -27,9 +27,15 @@ export type KeywordVolume = {
   estimated: boolean;
 };
 
+
+// 검색광고 시크릿 — 배포 환경마다 NAVER_AD_SECRET / NAVER_AD_SECRET_KEY 로 이름이 갈려 있어 둘 다 인정한다.
+function adSecret(): string | undefined {
+  return process.env.NAVER_AD_SECRET ?? process.env.NAVER_AD_SECRET_KEY;
+}
+
 export function naverSearchConfigured(): boolean {
   return Boolean(
-    process.env.NAVER_AD_API_KEY && (process.env.NAVER_AD_SECRET ?? process.env.NAVER_AD_SECRET_KEY) && process.env.NAVER_AD_CUSTOMER_ID
+    process.env.NAVER_AD_API_KEY && adSecret() && process.env.NAVER_AD_CUSTOMER_ID
   );
 }
 
@@ -140,7 +146,7 @@ export async function fetchKeywordExpansion(
   }
 
   const apiKey = process.env.NAVER_AD_API_KEY as string;
-  const secret = process.env.NAVER_AD_SECRET as string;
+  const secret = adSecret() as string;
   const customerId = process.env.NAVER_AD_CUSTOMER_ID as string;
   const timestamp = String(Date.now());
   const signature = sign(timestamp, "GET", KEYWORDS_PATH, secret);
@@ -221,7 +227,7 @@ export async function fetchBidEstimates(
   if (!naverSearchConfigured() || cleaned.length === 0) return out;
 
   const apiKey = process.env.NAVER_AD_API_KEY as string;
-  const secret = process.env.NAVER_AD_SECRET as string;
+  const secret = adSecret() as string;
   const customerId = process.env.NAVER_AD_CUSTOMER_ID as string;
   const timestamp = String(Date.now());
   const signature = sign(timestamp, "POST", BID_PATH, secret);
@@ -273,7 +279,7 @@ export async function fetchRelatedKeywords(seed: string, limit = 100): Promise<R
   if (!naverSearchConfigured()) return []; // 미연동 → 데모 표기는 호출부(가짜 키워드 생성 금지)
 
   const apiKey = process.env.NAVER_AD_API_KEY as string;
-  const secret = process.env.NAVER_AD_SECRET as string;
+  const secret = adSecret() as string;
   const customerId = process.env.NAVER_AD_CUSTOMER_ID as string;
   const timestamp = String(Date.now());
   const signature = sign(timestamp, "GET", KEYWORDS_PATH, secret);
@@ -325,7 +331,7 @@ export async function fetchKeywordVolumes(keywords: string[]): Promise<KeywordVo
   }
 
   const apiKey = process.env.NAVER_AD_API_KEY as string;
-  const secret = process.env.NAVER_AD_SECRET as string;
+  const secret = adSecret() as string;
   const customerId = process.env.NAVER_AD_CUSTOMER_ID as string;
   const timestamp = String(Date.now());
   const signature = sign(timestamp, "GET", KEYWORDS_PATH, secret);

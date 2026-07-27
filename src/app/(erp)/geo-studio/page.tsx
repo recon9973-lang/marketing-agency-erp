@@ -15,9 +15,9 @@ type Stage = { id: string; label: string; sub: string; href: string };
 const STAGES: Stage[] = [
   { id: "M1", label: "스캔", sub: "AI 인용 측정", href: "/geo-scan" },
   { id: "M2", label: "CEP 발굴", sub: "진입점 탐색", href: "/geo-cep" },
-  { id: "M3", label: "콘텐츠", sub: "GEO 게이트", href: "/geo-content" },
+  { id: "M3", label: "콘텐츠", sub: "GEO 게이트", href: "/geo?tab=content-diagnosis" },
   { id: "M4", label: "여정", sub: "키워드 여정맵", href: "/journeymap" },
-  { id: "M5", label: "캠페인", sub: "실행 계획", href: "/geo-planner" }
+  { id: "M5", label: "캠페인", sub: "실행 계획", href: "/geo?tab=campaign" }
 ];
 
 export default async function GeoStudioPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -202,7 +202,7 @@ export default async function GeoStudioPage({ searchParams }: { searchParams: Pr
                 <a href={`/geo-studio/report?${reportQs}`} className="inline-block rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">
                   ⬇ 진단 리포트 내보내기 (.md)
                 </a>
-                <a href={`/geo-planner`} className="inline-block rounded-lg border border-emerald-300 bg-card px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">
+                <a href={`/geo?tab=campaign`} className="inline-block rounded-lg border border-emerald-300 bg-card px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">
                   캠페인 상세 · 태스크/캘린더 →
                 </a>
               </div>

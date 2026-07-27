@@ -22,7 +22,7 @@
 ## 2. 현행 진단 — GEO 시스템이 둘
 
 - **`geo-engine/` (실측 엔진)** → `/geo` 모니터링. 4대 AI API를 실호출해 인용을 탐지하고 `GeoCitationScore`에 저장. **진짜 실측**(키 설정 시). VENOM GEO의 정당한 코어.
-- **`geo-studio/` (M1~M5)** → `/geo-scan`·`/geo-cep`·`/geo-path`·`/geo-planner`. 파이썬 프로토타입 이식본으로 **`mockResponse`·`mockEmbedding` 목업**. 검색량·SERP만 네이버 실측 프로바이더 연결.
+- **`geo-studio/` (M1~M5)** → `/geo-scan`·`/geo-cep`·`/journeymap(구 geo-path)`·`/geo-planner`. 파이썬 프로토타입 이식본으로 **`mockResponse`·`mockEmbedding` 목업**. 검색량·SERP만 네이버 실측 프로바이더 연결.
 
 문제: 실측 엔진이 있는데 **화면은 목업 스튜디오를 보여준다.**
 
@@ -72,7 +72,7 @@
 
 ## 4. 실측 전환 로드맵 (우선순위 — real-first)
 
-1. **정직성 레이어 먼저** — 모든 GEO 지표에 4-tier 배지. 목업 화면(`/geo-scan`·`/geo-cep`·`/geo-path`)을
+1. **정직성 레이어 먼저** — 모든 GEO 지표에 4-tier 배지. 목업 화면(`/geo-scan`·`/geo-cep`·`/journeymap(구 geo-path)`)을
    "데모 · 실측 미연결"로 명시(가짜 숫자 흐림/빈 상태). `mocked` 플래그가 이미 스캐너에 있음 → UI로 승격.
 2. **임베딩 프로바이더 연동**(OpenAI `text-embedding-3`) — `cep/finder.ts`가 이미 주입 구조.
    → CEP 군집·상위 URL 유사도 **실측화**.

@@ -78,8 +78,9 @@ export function buildScorecard(input: ScorecardInput): Scorecard | null {
   }
   subs.push({ key: "growth", label: "성장 모멘텀", score: clamp(growthScore), note: growthNote });
 
-  // 종합 — 경쟁 40% · 수요 35% · 성장 25%
-  const overall = Math.round(subs[0].score * 0.4 + subs[1].score * 0.35 + subs[2].score * 0.25);
+  // 종합 — 경쟁 40% · 수요 35% · 성장 25% (인덱스 대신 키 조회 — push 순서가 바뀌어도 안전)
+  const scoreOf = (key: string) => subs.find((s) => s.key === key)?.score ?? 0;
+  const overall = Math.round(scoreOf("competition") * 0.4 + scoreOf("demand") * 0.35 + scoreOf("growth") * 0.25);
   const grade = gradeOf(overall);
 
   // 강점/약점 — 부문 점수 상·하위로 도출
