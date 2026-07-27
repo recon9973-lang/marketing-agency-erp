@@ -5,8 +5,13 @@
 
 import { useState, useTransition } from "react";
 import { inviteEmployee, changeRole, setExpensePolicy, setSettingsAccess, getOrCreateLoginLink } from "@/server/actions/employees";
+import { approveSignup } from "@/server/actions/signup";
 
 type Employee = { id: string; name: string; email: string; role: string; status: string; canAccessSettings: boolean };
+
+const STATUS_LABEL: Record<string, string> = {
+  PENDING: "승인대기", ACTIVE: "활성", INVITED: "초대됨", INACTIVE: "비활성", SUSPENDED: "정지"
+};
 
 export function EmployeeSettings({ employees, isSuperAdmin, adminCanManageExpense }: { employees: Employee[]; isSuperAdmin: boolean; adminCanManageExpense: boolean }) {
   const [pending, start] = useTransition();
@@ -41,6 +46,14 @@ export function EmployeeSettings({ employees, isSuperAdmin, adminCanManageExpens
   function setRole(userId: string, role: string) {
     start(async () => { const res = await changeRole({ userId, role }); if (!res.ok) setError(res.error); });
   }
+  /** 승인대기(PENDING) → 활성(ACTIVE). 현재 역할 그대로 승인. */
+  function activate(userId: string, role: string) {
+    setError(null);
+    start(async () => {
+      const res = await approveSignup({ userId, role: role === "ADMIN" ? "ADMIN" : "MARKETER" });
+      if (!res.ok) setError("활성화(승인)에 실패했습니다.");
+    });
+  }
   function toggleExpense(v: boolean) {
     start(async () => { const res = await setExpensePolicy({ adminCanManageExpense: v }); if (!res.ok) setError(res.error); });
   }
@@ -68,7 +81,14 @@ export function EmployeeSettings({ employees, isSuperAdmin, adminCanManageExpens
             <tr key={e.id} className="border-t">
               <td className="py-2">{e.name}</td>
               <td>{e.email}</td>
-              <td><span className="text-xs text-slate-500">{e.status}</span></td>
+              <td>
+                <span className={`text-xs ${e.status === "PENDING" ? "font-semibold text-amber-600" : "text-slate-500"}`}>{STATUS_LABEL[e.status] ?? e.status}</span>
+                {e.status === "PENDING" && (
+                  <button type="button" onClick={() => activate(e.id, e.role)} disabled={pending} className="ml-1.5 rounded-md bg-emerald-600 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                    활성화
+                  </button>
+                )}
+              </td>
               <td>
                 {e.role === "SUPER_ADMIN" ? (
                   <span className="text-xs text-slate-500">최고관리자</span>
