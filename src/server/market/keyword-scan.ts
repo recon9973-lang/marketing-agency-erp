@@ -30,17 +30,31 @@ const SPECIALTY_TERMS: Record<string, string[]> = {
   요양병원: ["요양병원", "재활", "장기요양"]
 };
 
-/** resolve.label("대구 달서구") → 지역 결합 접두("달서구"). 시/군/구 마지막 토큰. */
-function regionPrefix(label: string): string {
-  const toks = label.trim().split(/\s+/).filter(Boolean);
-  return toks[toks.length - 1] || label.trim();
+/** resolve.label("대구 수성구") → 지역 토큰들(["대구","수성구"], 공백 제거). 광역+시군구. */
+function regionTokens(label: string): string[] {
+  return label
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((t) => t.replace(/\s+/g, ""))
+    .filter((t) => t.length >= 2);
 }
 
-/** 지역 + 진료과 → 시드 키워드(최대 5, 검색광고 도구 상한). */
+/**
+ * 지역 + 진료과 → 시드 키워드(최대 5, 검색광고 도구 상한).
+ * 시군구(수성구) 접두를 기본으로, 광역(대구)이 따로 있으면 대표어 1개는 광역 접두도 포함
+ * → "대구 지역 키워드"가 빠지지 않게 한다.
+ */
 export function buildSeedKeywords(regionLabel: string, specialty: string | null): string[] {
-  const gu = regionPrefix(regionLabel).replace(/\s+/g, "");
+  const toks = regionTokens(regionLabel);
+  const district = toks[toks.length - 1] || regionLabel.trim().replace(/\s+/g, "");
+  const metro = toks.length > 1 ? toks[0] : "";
   const terms = (specialty && SPECIALTY_TERMS[specialty]) || ["병원", "의원"];
-  return [...new Set(terms.map((t) => `${gu}${t}`))].slice(0, 5);
+  const seeds: string[] = [];
+  if (terms[0]) seeds.push(`${district}${terms[0]}`); // [0] 시군구+대표(수성구한방병원)
+  if (metro && terms[0]) seeds.push(`${metro}${terms[0]}`); // [1] 광역+대표(대구한방병원) — 대구 누락 방지
+  for (const t of terms.slice(1)) seeds.push(`${district}${t}`); // 시군구+나머지
+  return [...new Set(seeds)].slice(0, 5);
 }
 
 export type Saturation = "여유" | "보통" | "과열";
@@ -76,8 +90,16 @@ export async function scanKeywords(regionLabel: string, specialty: string | null
   const seeds = buildSeedKeywords(regionLabel, specialty);
   const exp = await fetchKeywordExpansion(seeds).catch(() => ({ rows: [] as KeywordFull[], connected: false, truncated: 0 }));
   const seedSet = new Set(seeds.map((s) => s.replace(/\s+/g, "")));
+  // 지역 한정: 연관키워드에서 지역 토큰(대구/수성구 등)이 없는 전국 대표어(이비인후과·도수치료 등)는 제외.
+  // 지역 상권 분석엔 전국 볼륨이 노이즈이므로 시드 또는 지역명 포함 키워드만 남긴다.
+  const tokens = regionTokens(regionLabel);
+  const isLocal = (kw: string) => {
+    const k = kw.replace(/\s+/g, "");
+    return seedSet.has(k) || tokens.some((t) => k.includes(t));
+  };
+  const localRows = tokens.length > 0 ? exp.rows.filter((r) => isLocal(r.keyword)) : exp.rows;
   // 시드 우선 + 검색량 상위 연관 → 상위 max개.
-  const sorted = [...exp.rows].sort((a, b) => {
+  const sorted = [...localRows].sort((a, b) => {
     const sa = seedSet.has(a.keyword.replace(/\s+/g, "")) ? 1 : 0;
     const sb = seedSet.has(b.keyword.replace(/\s+/g, "")) ? 1 : 0;
     if (sa !== sb) return sb - sa;
