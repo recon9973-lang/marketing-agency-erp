@@ -245,14 +245,24 @@ export async function fetchBidEstimates(
       body
     });
     if (!res.ok) {
-      console.warn(`[naver-ad] 입찰가 조회 실패 ${res.status}`);
+      const bodyText = await res.text().catch(() => "");
+      console.warn(`[naver-ad] 입찰가 조회 실패 ${res.status}: ${bodyText.slice(0, 300)}`);
       return out;
     }
-    // 네이버 응답: { device, items: [{ keyword, key, position, bid }] } (estimate 아님).
-    const json = (await res.json()) as { items?: Array<{ keyword?: string; key?: string; bid?: number }> };
-    for (const e of json.items ?? []) {
+    // 네이버 평균노출 입찰가 응답: { device, estimate: [{ keyword, position, bid }] }.
+    // (요청 바디는 items[], 응답은 estimate[] — 과거 items로 잘못 파싱해 CPC 전건 null이던 버그 수정.)
+    const json = (await res.json()) as {
+      estimate?: Array<{ keyword?: string; key?: string; bid?: number }>;
+      items?: Array<{ keyword?: string; key?: string; bid?: number }>;
+    };
+    const list = json.estimate ?? json.items ?? [];
+    let matched = 0;
+    for (const e of list) {
       const k = (e.keyword ?? e.key ?? "").trim();
-      if (k && typeof e.bid === "number") out.set(k, e.bid);
+      if (k && typeof e.bid === "number") { out.set(k, e.bid); matched += 1; }
+    }
+    if (matched === 0) {
+      console.warn(`[naver-ad] 입찰가 응답 파싱 0건(estimate 배열 확인). keys=${Object.keys(json).join(",")}`);
     }
   } catch (e) {
     console.warn(`[naver-ad] 입찰가 조회 예외: ${String(e).slice(0, 120)}`);

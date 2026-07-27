@@ -172,7 +172,7 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       key: "naverSearchAd",
       label: "네이버 검색광고 (검색량)",
       category: "데이터·광고",
-      configured: has("NAVER_AD_API_KEY", "NAVER_AD_SECRET", "NAVER_AD_CUSTOMER_ID"),
+      configured: has("NAVER_AD_API_KEY", "NAVER_AD_CUSTOMER_ID") && hasAny("NAVER_AD_SECRET", "NAVER_AD_SECRET_KEY"),
       envVars: ["NAVER_AD_API_KEY", "NAVER_AD_SECRET", "NAVER_AD_CUSTOMER_ID"],
       description: "키워드 월간 검색수",
       usedIn: "검색량 조회 · 컨설팅·인사이트 · GEO Studio(CEP)",
