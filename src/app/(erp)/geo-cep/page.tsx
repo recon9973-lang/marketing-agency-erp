@@ -381,7 +381,7 @@ export default async function GeoCepPage({ searchParams }: { searchParams: Promi
               <summary className="cursor-pointer text-sm font-bold text-ink">최우선 CEP → 콘텐츠 브리프 (M3 입력)</summary>
               <p className="mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] leading-relaxed text-sky-800">
                 <b>용도:</b> 점수 1위 CEP를 바탕으로 만든 <b>콘텐츠 작성 지시서(브리프)</b>입니다.
-                이 내용을 <a href="/geo-content" className="font-semibold underline">GEO 콘텐츠 빌더(M3)</a>에 넣으면 AI 답변에 인용되기 좋은 글로 작성·재작성됩니다.
+                이 내용을 <a href="/geo?tab=content-diagnosis" className="font-semibold underline">GEO 콘텐츠 빌더(M3)</a>에 넣으면 AI 답변에 인용되기 좋은 글로 작성·재작성됩니다.
               </p>
               <pre className="mt-3 max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-xl border border-line bg-surface p-3 text-[12px] leading-relaxed text-slate-700">
                 {briefMd}

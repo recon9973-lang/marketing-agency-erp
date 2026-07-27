@@ -10,8 +10,8 @@ const TOOLS: Tool[] = [
   { href: "/geo-scan", code: "M1", label: "스캐너", desc: "4-AI 브랜드 인용율 스캔", passClient: true },
   { href: "/geo-cep", code: "M2", label: "CEP 파인더", desc: "카테고리 진입점 발굴·클러스터", passClient: true },
   { href: "/journeymap", code: "M4", label: "키워드 여정맵", desc: "키워드 발굴·검색여정·진단", passClient: false },
-  { href: "/geo-content", code: "M3", label: "콘텐츠 진단", desc: "E-E-A-T·FAQ·BLUF 점검", passClient: false },
-  { href: "/geo-planner", code: "M5", label: "캠페인 플래너", desc: "목표→채널믹스→ROI→일정", passClient: false },
+  { href: "/geo?tab=content-diagnosis", code: "M3", label: "콘텐츠 진단", desc: "E-E-A-T·FAQ·BLUF 점검", passClient: true },
+  { href: "/geo?tab=campaign", code: "M5", label: "캠페인 플래너", desc: "목표→채널믹스→ROI→일정", passClient: true },
   { href: "/geo-studio", code: "◎", label: "GEO 스튜디오", desc: "통합 대시보드·주간 리포트", passClient: true }
 ];
 
@@ -25,7 +25,7 @@ export function GeoToolLinks({ clientId }: { clientId: string }) {
       <p className="mb-3 text-[11px] text-slate-500">이 거래처로 이어서 분석 — 스캔·CEP·여정·콘텐츠·플래너를 한곳에서</p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {TOOLS.map((t) => {
-          const href = (t.passClient ? `${t.href}?client=${clientId}` : t.href) as Route;
+          const href = (t.passClient ? `${t.href}${t.href.includes("?") ? "&" : "?"}client=${clientId}` : t.href) as Route;
           return (
             <Link
               key={t.href}

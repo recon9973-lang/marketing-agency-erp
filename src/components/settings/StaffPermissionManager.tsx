@@ -35,11 +35,17 @@ const FEATURE_DESC: Record<FeatureKey, string> = {
   compliance: "의료광고법 검수",
   ideas: "아이디어 → 실행계획서",
   meetings: "회의록 작성·열람",
-  vault: "공용 파일 보관함"
+  vault: "공용 파일 보관함",
+  work: "업무 배정·상태·마감 관리",
+  journeymap: "키워드 검색여정 마인드맵·진단",
+  insights: "거래처별 채널 성과·검색 순위",
+  calendar: "업무 일정 통합 캘린더",
+  chat: "팀 채팅·협업방",
+  reports: "결재·월간 보고서·주간보고·연차 문서"
 };
 
 // 그룹 순서(표시용).
-const FEATURE_GROUPS = ["영업·계약", "분석·GEO", "제작", "보고·결재", "관리"];
+const FEATURE_GROUPS = ["홈", "① 분석·진단", "② 미팅·제안", "③ 계약", "④ 실행", "⑤ 리포트·결재", "⑥ 모니터링", "관리"];
 
 const ROLE_META: Record<string, { label: string; icon: typeof User; tone: string; desc: string }> = {
   SUPER_ADMIN: { label: "최고관리자", icon: Crown, tone: "text-amber-600 bg-amber-50 border-amber-200", desc: "모든 기능·전체 거래처·최종 결재. 권한 제한 없음." },

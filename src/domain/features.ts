@@ -4,6 +4,12 @@
 import { Role } from "./types";
 
 export type FeatureKey =
+  | "work"
+  | "journeymap"
+  | "insights"
+  | "calendar"
+  | "chat"
+  | "reports"
   | "finance"
   | "contracts"
   | "leads"
@@ -23,28 +29,37 @@ export type FeatureKey =
   | "vault";
 
 export const CONTROLLABLE_FEATURES: { key: FeatureKey; label: string; href: string; group: string }[] = [
-  // 영업·계약
-  { key: "leads", label: "영업 리드", href: "/leads", group: "영업·계약" },
-  { key: "contracts", label: "계약서", href: "/contracts", group: "영업·계약" },
-  // 분석·GEO
-  { key: "geo", label: "GEO", href: "/geo", group: "분석·GEO" },
-  { key: "keywords", label: "검색량 조회", href: "/keywords", group: "분석·GEO" },
-  { key: "market", label: "상권분석", href: "/market", group: "분석·GEO" },
-  { key: "strategy", label: "마케팅 전략", href: "/strategy", group: "분석·GEO" },
-  { key: "seo", label: "SEO 진단", href: "/seo", group: "분석·GEO" },
-  { key: "worklog", label: "업무 보고", href: "/worklog", group: "분석·GEO" },
-  // 제작
-  { key: "manuscript", label: "원고 스튜디오", href: "/manuscript", group: "제작" },
-  { key: "studio", label: "스튜디오", href: "/studio", group: "제작" },
-  { key: "magazine", label: "매거진", href: "/magazine", group: "제작" },
-  { key: "compliance", label: "의료법 검수", href: "/compliance", group: "제작" },
-  { key: "ideas", label: "아이디어", href: "/ideas", group: "제작" },
-  // 보고·결재
-  { key: "meetings", label: "회의록", href: "/meetings", group: "보고·결재" },
-  { key: "vault", label: "보관함", href: "/vault", group: "보고·결재" },
+  // 홈
+  { key: "chat", label: "채팅", href: "/chat", group: "홈" },
+  // ① 분석·진단
+  { key: "leads", label: "영업 리드", href: "/leads", group: "① 분석·진단" },
+  { key: "market", label: "상권분석", href: "/market", group: "① 분석·진단" },
+  { key: "keywords", label: "검색량 조회", href: "/keywords", group: "① 분석·진단" },
+  { key: "journeymap", label: "키워드 여정맵", href: "/journeymap", group: "① 분석·진단" },
+  { key: "seo", label: "SEO 진단", href: "/seo", group: "① 분석·진단" },
+  { key: "geo", label: "GEO 진단", href: "/geo", group: "① 분석·진단" },
+  { key: "strategy", label: "마케팅 전략", href: "/strategy", group: "① 분석·진단" },
+  // ② 미팅·제안
+  { key: "meetings", label: "회의록", href: "/meetings", group: "② 미팅·제안" },
+  // ③ 계약
+  { key: "contracts", label: "계약서", href: "/contracts", group: "③ 계약" },
+  // ④ 실행
+  { key: "work", label: "업무관리", href: "/work", group: "④ 실행" },
+  { key: "calendar", label: "캘린더", href: "/calendar", group: "④ 실행" },
+  { key: "manuscript", label: "원고 스튜디오", href: "/manuscript", group: "④ 실행" },
+  { key: "studio", label: "스튜디오", href: "/studio", group: "④ 실행" },
+  { key: "magazine", label: "매거진", href: "/magazine", group: "④ 실행" },
+  { key: "ideas", label: "아이디어", href: "/ideas", group: "④ 실행" },
+  { key: "compliance", label: "의료법 검수", href: "/compliance", group: "④ 실행" },
+  // ⑤ 리포트·결재
+  { key: "worklog", label: "업무 보고", href: "/worklog", group: "⑤ 리포트·결재" },
+  { key: "reports", label: "결재", href: "/reports", group: "⑤ 리포트·결재" },
+  { key: "vault", label: "보관함", href: "/vault", group: "⑤ 리포트·결재" },
+  // ⑥ 모니터링
+  { key: "insights", label: "거래처 인사이트", href: "/insights", group: "⑥ 모니터링" },
   // 관리
   { key: "finance", label: "재무/정산", href: "/finance", group: "관리" },
-  { key: "leave", label: "연차/근태", href: "/leave", group: "관리" }
+  { key: "leave", label: "연차/근태", href: "/reports?doc=leave", group: "관리" }
 ];
 
 const FEATURE_KEYS = new Set<string>(CONTROLLABLE_FEATURES.map((f) => f.key));

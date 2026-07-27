@@ -53,7 +53,7 @@
 
 1. **모듈 간 파이프라인 강제가 없음.** `Lead.status`·`Client.stage`는 자유 문자열이고 전이 로직은 `domain/` 헬퍼에만 있어 **순서를 강제하지 않는다.** 계약 안 한 거래처에도 콘텐츠를 만들 수 있음. → *"레일이 없다."*
 2. **데이터 인계 이음새 결손.** 계약서에서 기존 거래처를 골라도 갑 정보가 빈칸(→ 최근 수정), 컨설팅이 Client에만 묶여 리드 단계서 못 만듦 등, **한 번 넣은 정보가 다음 단계로 안 흐른다.**
-3. **GEO가 7개 형제 라우트로 파편화**(`/geo`, `/geo-studio`, `/geo-scan`, `/geo-cep`, `/geo-path`, `/geo-planner`, `/geo-content`) — 같은 데이터층을 쓰지만 **병렬 도구로 흩어져** 하나의 흐름으로 안 보임. "toolbox 느낌"의 최대 원인.
+3. **GEO가 7개 형제 라우트로 파편화**(`/geo`, `/geo-studio`, `/geo-scan`, `/geo-cep`, `/journeymap(구 geo-path)`, `/geo-planner`, `/geo-content`) — 같은 데이터층을 쓰지만 **병렬 도구로 흩어져** 하나의 흐름으로 안 보임. "toolbox 느낌"의 최대 원인.
 4. **자동화 스캐폴드가 선언만 되고 배선 안 됨.** `Product.defaultTasks/defaultSurveyQuestions/defaultReportMetrics`가 "계약→업무·설문·보고서 자동생성"을 약속하지만 하류 생성이 PARTIAL.
 5. **크론 의존 신선도.** 일일 순위·GEO·인사이트 갱신이 `CRON_SECRET`에 게이트 → 없으면 "실측" 데이터가 조용히 멈춤.
 

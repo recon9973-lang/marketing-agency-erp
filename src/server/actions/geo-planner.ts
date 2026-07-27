@@ -134,7 +134,7 @@ export async function saveGeoCampaignPlan(input: unknown): Promise<ActionResult<
         createdById: user.id
       }
     });
-    revalidatePath("/geo-planner");
+    revalidatePath("/geo");
     return { id: saved.id };
   });
 }
@@ -149,6 +149,6 @@ export async function deleteGeoCampaignPlan(input: unknown): Promise<ActionResul
     if (!plan) throw new Error("NOT_FOUND");
     if (plan.createdById !== user.id) throw new Error("FORBIDDEN");
     await db.geoCampaignPlan.delete({ where: { id: p.data.id } });
-    revalidatePath("/geo-planner");
+    revalidatePath("/geo");
   });
 }
