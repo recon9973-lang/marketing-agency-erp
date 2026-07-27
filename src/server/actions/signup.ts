@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { db } from "@/server/db";
 import { signIn } from "@/server/auth";
+import { hashPassword } from "@/server/security/password";
 import { Role, UserStatus } from "@/domain/types";
 import { getDefaultOrgId } from "@/server/org";
 import {
@@ -20,7 +21,8 @@ import {
 
 const requestSchema = z.object({
   email: z.string().trim().email(),
-  name: z.string().trim().min(1).max(60)
+  name: z.string().trim().min(1).max(60),
+  password: z.string().min(8).max(72)
 });
 
 /** 셀프 가입 요청 — 공개(로그인 불필요). PENDING 사용자로 등록, 관리자 승인 전 로그인 불가. */
@@ -37,17 +39,22 @@ export async function requestSignup(input: unknown): Promise<ActionResult> {
 
     const orgId = await getDefaultOrgId().catch(() => null);
 
-    // 운영 DB의 UserStatus enum에 'PENDING' 값이 없으면(마이그레이션/additive-sync 지연) 가입 생성이
-    // invalid enum 오류로 실패한다. 생성 직전에 멱등 additive DDL로 값을 보장한다(트랜잭션 밖에서 선실행).
+    // 운영 DB의 UserStatus enum에 'PENDING' 값이 없거나 passwordHash 컬럼이 없으면(마이그레이션/additive-sync
+    // 지연) 가입 생성이 실패한다. 생성 직전에 멱등 additive DDL로 보장한다(트랜잭션 밖에서 선실행).
     try {
       await db.$executeRawUnsafe(`ALTER TYPE "UserStatus" ADD VALUE IF NOT EXISTS 'PENDING'`);
     } catch (e) {
       console.warn("[signup] UserStatus enum 보강 실패(무시):", String(e).slice(0, 140));
     }
+    try {
+      await db.$executeRawUnsafe('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "passwordHash" TEXT');
+    } catch (e) {
+      console.warn("[signup] passwordHash 컬럼 보강 실패(무시):", String(e).slice(0, 140));
+    }
 
-    // 핵심: PENDING 사용자 생성(이것만 성공하면 가입 요청은 접수된 것).
+    // 핵심: PENDING 사용자 생성(비밀번호 해시 포함). 승인되면 이 비밀번호로 로그인.
     const u = await db.user.create({
-      data: { email, name, role: Role.MARKETER, status: UserStatus.PENDING, orgId: orgId ?? undefined },
+      data: { email, name, role: Role.MARKETER, status: UserStatus.PENDING, passwordHash: hashPassword(p.data.password), orgId: orgId ?? undefined },
       select: { id: true }
     });
 
@@ -75,7 +82,7 @@ export async function requestSignup(input: unknown): Promise<ActionResult> {
 
 const approveSchema = z.object({ userId: z.string().min(1), role: z.enum(["ADMIN", "MARKETER"]) });
 
-/** 가입 요청 승인 — 관리자 이상. PENDING → INVITED + 역할 지정, 로그인 링크 메일 발송. */
+/** 가입 요청 승인 — 관리자 이상. PENDING → ACTIVE + 역할 지정(가입 시 설정한 비밀번호로 로그인). */
 export async function approveSignup(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
     const user = await requireUser();
@@ -89,11 +96,11 @@ export async function approveSignup(input: unknown): Promise<ActionResult> {
 
     const meta = await requestMeta();
     await db.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: target.id }, data: { status: UserStatus.INVITED, role: p.data.role as never, isActive: true } });
+      await tx.user.update({ where: { id: target.id }, data: { status: UserStatus.ACTIVE, role: p.data.role as never, isActive: true } });
       await recordAudit(tx, { actorId: user.id, action: "signup.approve", targetType: "User", targetId: target.id, afterState: { role: p.data.role }, ...meta });
     });
 
-    // 승인 즉시 로그인(매직) 링크 메일 발송 — 베스트에포트(실패해도 승인은 유효).
+    // 승인 알림(매직 링크) 메일 — 베스트에포트. 비밀번호 로그인이 기본이며, 링크는 대체 수단.
     try {
       await signIn("nodemailer", { email: target.email, redirect: false, redirectTo: "/dashboard" });
     } catch {
