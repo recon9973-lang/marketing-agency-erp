@@ -53,6 +53,7 @@ function MapInner() {
   const [riskOnly, setRiskOnly] = useState(false);
   const [brandOnly, setBrandOnly] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [volumeRefreshing, setVolumeRefreshing] = useState<string | null>(null);
   const [viewTab, setViewTab] = useState<"map" | "diagnosis">("map");
   const [foreignIds, setForeignIds] = useState<string[]>([]);
   const startedRef = useRef(false);
@@ -121,6 +122,66 @@ function MapInner() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, project?.id, project?.status]);
+
+  // 검색량 다시 조회 — 수집 시점에 조용히 실패했거나 비어 있는 노드를 소급 조회한다.
+  // (검색량은 원래 수집 때 1회만 조회되고, 실패해도 표시가 없어 "-" 로 남는 문제의 해결책)
+  const refreshVolumes = useCallback(async () => {
+    if (!project || volumeRefreshing) return;
+    const targets = project.nodes.filter(
+      (n) => n.kind === "keyword" && n.source !== "naver_kin" && n.source !== "google_paa" && n.volumePc == null && n.volumeMo == null
+    );
+    if (targets.length === 0) {
+      alert("조회할 키워드가 없습니다. (지식iN·구글 질문 문장은 검색광고 API 에 데이터가 없어 제외되며, 이미 값이 있는 노드는 건너뜁니다)");
+      return;
+    }
+    const byKey = new Map(targets.map((n) => [n.keyword, n.id]));
+    const keys = Array.from(byKey.keys()).slice(0, 150);
+    let filled = 0;
+    let failed = false;
+    const updated = new Map<string, { volumePc: number | null; volumeMo: number | null; competition: string | null; cpc: number | null }>();
+    for (let i = 0; i < keys.length; i += 5) {
+      setVolumeRefreshing(`검색량 조회 중… ${Math.min(i + 5, keys.length)}/${keys.length}`);
+      try {
+        const res = await fetch("/api/journeymap/volume", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ keywords: keys.slice(i, i + 5) }),
+        });
+        const data = await res.json();
+        if (data.unconfigured) {
+          alert("네이버 검색광고 API 키가 설정되지 않아 검색량을 조회할 수 없습니다.");
+          setVolumeRefreshing(null);
+          return;
+        }
+        for (const [kw, m] of Object.entries<{ volumePc: number | null; volumeMo: number | null; competition: string | null; cpc: number | null }>(data.results || {})) {
+          const id = byKey.get(kw);
+          if (!id) continue;
+          updated.set(id, m);
+          if (m.volumePc != null || m.volumeMo != null) filled++;
+        }
+      } catch {
+        failed = true;
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    if (updated.size > 0) {
+      updateProject(project.id, {
+        nodes: project.nodes.map((n) => {
+          const m = updated.get(n.id);
+          return m ? { ...n, volumePc: m.volumePc, volumeMo: m.volumeMo, competition: m.competition, cpc: m.cpc } : n;
+        }),
+      });
+    }
+    setVolumeRefreshing(null);
+    alert(
+      failed
+        ? `조회 중 오류가 발생했습니다. ${filled}개만 채워졌습니다 — 잠시 후 다시 시도하세요.`
+        : filled > 0
+          ? `검색량 조회 완료 — ${filled}개 키워드에 값이 채워졌습니다. 나머지는 네이버에 데이터가 없는 키워드입니다.`
+          : "네이버 검색광고에 데이터가 있는 키워드가 없었습니다. (검색량이 매우 적은 롱테일 키워드는 원래 데이터가 없습니다)"
+    );
+  }, [project, volumeRefreshing, updateProject]);
 
   const patchNode = useCallback(
     (nodeId: string, patch: Partial<JNode>) => {
@@ -327,7 +388,15 @@ function MapInner() {
           </button>
         )}
         {project.sourceNote && <span className="text-xs text-amber-600">⚠️ {project.sourceNote}</span>}
-        <div className="relative ml-auto">
+        <button
+          onClick={refreshVolumes}
+          disabled={!!volumeRefreshing}
+          className="ml-auto rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          title="수집 때 조회에 실패했거나 비어 있는 키워드의 월간 검색량·CPC·경쟁도를 다시 조회합니다"
+        >
+          {volumeRefreshing || "📊 검색량 다시 조회"}
+        </button>
+        <div className="relative">
           <button
             onClick={() => setExportOpen((v) => !v)}
             className="rounded-lg bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
