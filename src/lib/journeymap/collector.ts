@@ -193,7 +193,7 @@ export async function findForeignNodeIds(
   const verifyLocal = makeLocalVerifier(profile);
   const out: string[] = [];
   for (const n of nodes) {
-    if (n.kind !== "keyword" || n.source === "user") continue;
+    if (n.kind !== "keyword" || n.source === "user" || n.source === "google_paa") continue;
     if (hasForeignRegion(n.keyword, own)) {
       out.push(n.id);
       continue;
