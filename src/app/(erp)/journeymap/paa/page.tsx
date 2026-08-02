@@ -148,7 +148,7 @@ export default function PaaPage() {
           <button
             onClick={() => recommendCombos(query)}
             disabled={!query.trim() || !!loading}
-            className="rounded-lg border border-blue-200 px-4 py-2.5 text-sm font-semibold text-blue-600 hover:bg-blue-50 disabled:opacity-40"
+            className="rounded-lg border border-blue-200 px-4 py-2.5 text-sm font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 disabled:opacity-40"
             title="지역·시술 조합별 네이버 검색 추이를 비교해 우선순위를 추천합니다"
           >
             📈 지역 조합 추천
@@ -172,7 +172,7 @@ export default function PaaPage() {
                     setQuery(c.query);
                     setCombos(null);
                   }}
-                  className="group flex w-full items-center gap-2 rounded px-1 py-1 text-left hover:bg-blue-100/60"
+                  className="group flex w-full items-center gap-2 rounded px-1 py-1 text-left hover:bg-blue-100/60 dark:hover:bg-blue-900/40"
                 >
                   <span className="w-40 truncate text-xs font-semibold text-slate-700">{c.query}</span>
                   <span className="relative h-3.5 flex-1 overflow-hidden rounded bg-white">
@@ -261,7 +261,7 @@ export default function PaaPage() {
               {snapshots.map((s) => {
                 const age = daysAgo(s.createdAt);
                 return (
-                  <tr key={s.id} className="border-b last:border-0 hover:bg-slate-50">
+                  <tr key={s.id} className="border-b last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800">
                     <td className="px-3 py-3">
                       <input
                         type="checkbox"
@@ -300,14 +300,14 @@ export default function PaaPage() {
                       <button
                         onClick={() => router.push(`/journeymap/paa/${s.id}`)}
                         disabled={!!loading}
-                        className="mr-1.5 rounded border px-2.5 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 disabled:opacity-40"
+                        className="mr-1.5 rounded border px-2.5 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 disabled:opacity-40"
                       >
                         보기
                       </button>
                       <button
                         onClick={() => analyze(s.query, s.advertiser || "", true)}
                         disabled={!!loading}
-                        className="mr-1.5 rounded border px-2.5 py-1 text-xs hover:bg-slate-100 disabled:opacity-40"
+                        className="mr-1.5 rounded border px-2.5 py-1 text-xs hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40"
                         title="캐시를 무시하고 새로 수집합니다 (API 비용 발생, 기존 스냅샷은 보존)"
                       >
                         다시 분석
@@ -315,7 +315,7 @@ export default function PaaPage() {
                       <button
                         onClick={() => deleteSnapshot(s)}
                         disabled={!!loading}
-                        className="rounded border px-2.5 py-1 text-xs text-red-500 hover:bg-red-50 disabled:opacity-40"
+                        className="rounded border px-2.5 py-1 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-950 disabled:opacity-40"
                       >
                         삭제
                       </button>

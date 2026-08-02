@@ -504,7 +504,7 @@ function SnapshotInner() {
         </button>
         <button
           onClick={openJourneyMap}
-          className="rounded-lg border px-3.5 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+          className="rounded-lg border px-3.5 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
           title="편집·필터·내보내기가 있는 기존 검색여정 지도로 엽니다"
         >
           🗺️ 검색여정 지도로 편집
@@ -595,7 +595,7 @@ function SnapshotInner() {
                 </p>
                 <p className="mt-1 text-sm font-bold leading-snug">{selectedQ.question.text}</p>
               </div>
-              <button onClick={() => setSelectedQ(null)} className="rounded p-1 text-slate-400 hover:bg-slate-100">
+              <button onClick={() => setSelectedQ(null)} className="rounded p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
                 ✕
               </button>
             </div>
@@ -648,7 +648,7 @@ function SnapshotInner() {
                       </button>
                       <button
                         onClick={generateDraft}
-                        className="rounded-lg border px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                        className="rounded-lg border px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
                       >
                         🔄 다시 생성
                       </button>
