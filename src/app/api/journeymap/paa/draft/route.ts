@@ -6,9 +6,44 @@ import { requireStaff } from "../../guard";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-// 환자 질문 1건 → 의료광고법 준수 블로그 초안 생성 + 결과물 리스크 재검수
+// 환자 질문 1건 → 웹 검색 근거 기반·AI 글쓰기 스타일(GEO/E-E-A-T) 블로그 초안 생성
+// + 실제 검색 출처로 "참고 자료" 자동 구성(URL 날조 원천 차단) + 의료광고법 재검수
 
 const MODEL = "claude-opus-5";
+
+// 공신력 도메인 화이트리스트 — 이 안에서만 웹 검색이 실행된다.
+// 국내 공공·협회 + 주요 대학병원 + 해외 의료기관. (목록에 없는 도메인은 검색 결과에서 제외)
+const TRUSTED_DOMAINS = [
+  // 공공기관
+  "kdca.go.kr", "health.kdca.go.kr", "hira.or.kr", "nhis.or.kr", "mohw.go.kr",
+  // 협회·학회
+  "kma.org", "akom.org", "kda.or.kr", "kams.or.kr",
+  // 대학병원·상급종합병원
+  "snuh.org", "snubh.org", "amc.seoul.kr", "samsunghospital.com",
+  "severance.healthcare", "yuhs.or.kr", "cmcseoul.or.kr", "kumc.or.kr",
+  "khmc.or.kr", "ajoumc.or.kr", "gilhospital.com", "eumc.ac.kr",
+  "pnuh.or.kr", "knuh.kr", "cnuh.com", "jbuh.co.kr",
+  // 해외 의료기관·공공 의학정보
+  "mayoclinic.org", "clevelandclinic.org", "medlineplus.gov", "nih.gov",
+  "pubmed.ncbi.nlm.nih.gov", "cdc.gov", "who.int", "nhs.uk", "hopkinsmedicine.org",
+];
+
+// AI 글쓰기 스타일 (ai-content-writer 스킬 — GEO/AEO·E-E-A-T 집필 원칙)
+const WRITING_STYLE = [
+  "AI 글쓰기 스타일(GEO/E-E-A-T)을 반드시 적용한다:",
+  "① 역피라미드 즉답형 리드 — 첫 문단(약 200자)에 핵심 결론을 완결형 문장('~입니다')으로 먼저 제시한다. 서론·인사말로 시작하지 않는다.",
+  "② Q&A 구조 — 소제목(##/###)은 환자가 실제로 검색할 법한 질문형 문장으로 쓰고, 소제목 바로 아래 첫 문장에서 직답한다.",
+  "③ 데이터 구조화 — 비교할 내용은 마크다운 표 1개 이상, 절차·단계는 번호 리스트, 핵심 요점은 불릿으로 정리한다. 흐트러진 장문 단락을 만들지 않는다.",
+  "④ 고유 프레임워크 — '3단계 확인법', '4가지 선택 기준'처럼 숫자를 부여한 자체 분석틀을 1개 만들어 본문의 축으로 쓴다.",
+  "⑤ 반대 관점 1회 — '흔히 A로 알려져 있지만, 실제로는 B입니다' 형태로 통념을 교정하는 대목을 1회 포함한다(검색 근거가 있는 내용으로만).",
+  "⑥ FAQ 5~7개 — 마지막에 연관 질문 5~7개를 Q&A로 배치하고, 각 답변은 150자 이상으로 실질적 정보를 담는다.",
+  "⑦ E-E-A-T — 전문 용어는 첫 등장 시 한 줄로 쉽게 풀이하고, '진료 현장에서 자주 받는 질문' 수준의 일반적 경험 서술을 활용하되 특정 환자의 경험담·후기는 만들지 않는다(의료광고법 금지). 장점만 나열하지 말고 한계·주의점도 명시해 신뢰를 준다.",
+].join("\n");
+
+interface SourceRef {
+  url: string;
+  title: string;
+}
 
 export async function POST(req: NextRequest) {
   const denied = await requireStaff();
@@ -29,59 +64,116 @@ export async function POST(req: NextRequest) {
     const channel = isLocal ? "네이버 플레이스·지역 랜딩페이지" : "블로그 정보성 원고";
     const client = new Anthropic();
 
-    const response = await client.messages.create({
+    const system = [
+      "당신은 한국 병원 마케팅 전문 콘텐츠 작가다. 의료광고법(제56조)을 엄격히 준수한다.",
+      "절대 금지: 치료효과 보장(100%, 완치, 부작용 없음, 영구적), 최상급·비교 표현(최고, 1등, 유일), 가격 유인(최저가, 할인, 이벤트, 무료), 치료경험담 유도, 타 병원 비방.",
+      "허용: 객관적 시술 정보, 과정 설명, 일반적 회복 안내, '개인차가 있습니다' 고지.",
+      "근거 기반 작성: 웹 검색 도구로 대학병원·공공기관·학회의 실제 자료를 확인하고, 검색으로 확인된 내용만 사실·수치로 서술한다. 검색 결과에 없는 가격·기간·성공률·통계는 절대 만들어 쓰지 않는다. 비용 질문에는 '병원·상태에 따라 다르며 정확한 비용은 병원의 비급여 진료비 고지를 확인하시라'는 안내로 답한다.",
+      "'## 참고 자료' 섹션은 직접 작성하지 마라 — 시스템이 실제 검색 출처로 자동 첨부한다.",
+      WRITING_STYLE,
+      "구성: 제목(#) → 즉답형 리드 → 질문형 소제목 본문 4~6개(원리·절차·비용/보험·주의사항 등, 표·리스트 활용) → FAQ 5~7개 → 부작용·개인차 고지 문장.",
+      "분량 필수 준수: 전체 2,500~3,000자(공백 포함). 본문 소제목 섹션마다 350~500자로 충분히 상세하게 쓴다. 2,500자 미만 출력은 잘못된 것이다.",
+      "출력은 마크다운. 제목은 # 으로 시작.",
+    ].join("\n");
+
+    const messages: Anthropic.MessageParam[] = [
+      {
+        role: "user",
+        content: [
+          `메인 키워드: ${query}`,
+          `환자 질문: ${question}`,
+          category ? `카테고리: ${category}` : "",
+          `게재 채널: ${channel}`,
+          advertiser ? `병원명: ${advertiser} (병원명은 마지막 문의 안내에서 1회만 언급)` : "",
+          "",
+          "먼저 웹 검색으로 이 질문에 대한 공신력 있는 의학 근거를 확인한 뒤, 그 근거를 바탕으로 환자 질문에 정면으로 답하는 원고 초안을 작성하라.",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      },
+    ];
+
+    // 서버 측 검색 루프 — 긴 검색 턴은 pause_turn 으로 돌아올 수 있어 이어서 재요청한다
+    let response = await client.messages.create({
       model: MODEL,
-      max_tokens: 6000,
+      max_tokens: 8000,
       output_config: { effort: "low" },
-      system: [
-        "당신은 한국 병원 마케팅 전문 콘텐츠 작가다. 의료광고법(제56조)을 엄격히 준수한다.",
-        "절대 금지: 치료효과 보장(100%, 완치, 부작용 없음, 영구적), 최상급·비교 표현(최고, 1등, 유일), 가격 유인(최저가, 할인, 이벤트, 무료), 치료경험담 유도, 타 병원 비방.",
-        "허용: 객관적 시술 정보, 과정 설명, 일반적 회복 안내, '개인차가 있습니다' 고지.",
-        "사실 날조 금지: 구체적 가격·기간·성공률 등 수치를 임의로 제시하지 않는다. 비용 질문에는 '병원·상태에 따라 다르며 정확한 비용은 병원의 비급여 진료비 고지를 확인하시라'는 안내로 답한다.",
-        "근거 기반 작성: 대학병원·종합병원 건강정보, 질병관리청, 건강보험심사평가원, 관련 학회 등 공신력 있는 기관에서 일반적으로 알려진 의학 정보 수준으로만 서술한다. 본문 끝에 '## 참고 자료' 섹션을 두고 참고한 기관명과 자료 종류만 나열한다(예: '질병관리청 국가건강정보포털 — 해당 질환 건강정보'). 존재가 확실하지 않은 URL·논문 제목·통계 수치는 절대 만들어 쓰지 않는다.",
-        "AI 검색(GEO) 최적화 구조로 작성: ① 핵심 답변 3줄 요약을 맨 위에 ② 소제목 4~6개의 본문(질문에 직접 답하는 Q&A 흐름 — 원리·절차·비용/보험·주의사항 등) ③ FAQ 3~5개(짧은 질문·답변) ④ '## 참고 자료' ⑤ 부작용·개인차 고지 문장 포함.",
-        "분량 필수 준수: 전체 2,500~3,000자(공백 포함). 본문 소제목 섹션마다 350~500자로 충분히 상세하게 쓴다. 2,500자 미만 출력은 잘못된 것이다.",
-        "출력은 마크다운. 제목은 # 으로 시작.",
-      ].join("\n"),
-      messages: [
+      system,
+      tools: [
         {
-          role: "user",
-          content: [
-            `메인 키워드: ${query}`,
-            `환자 질문: ${question}`,
-            category ? `카테고리: ${category}` : "",
-            `게재 채널: ${channel}`,
-            advertiser ? `병원명: ${advertiser} (병원명은 마지막 문의 안내에서 1회만 언급)` : "",
-            "",
-            "이 환자 질문에 정면으로 답하는 원고 초안을 작성하라.",
-          ]
-            .filter(Boolean)
-            .join("\n"),
+          type: "web_search_20250305",
+          name: "web_search",
+          max_uses: 3,
+          allowed_domains: TRUSTED_DOMAINS,
         },
       ],
+      messages,
     });
+    for (let i = 0; i < 3 && response.stop_reason === "pause_turn"; i++) {
+      messages.push({ role: "assistant", content: response.content });
+      response = await client.messages.create({
+        model: MODEL,
+        max_tokens: 8000,
+        output_config: { effort: "low" },
+        system,
+        tools: [
+          {
+            type: "web_search_20250305",
+            name: "web_search",
+            max_uses: 3,
+            allowed_domains: TRUSTED_DOMAINS,
+          },
+        ],
+        messages,
+      });
+    }
     if (response.stop_reason === "refusal") {
       return NextResponse.json({ error: "AI 가 초안 생성을 거절했습니다." }, { status: 502 });
     }
-    const textBlock = response.content.find((b) => b.type === "text");
-    let draft = textBlock && textBlock.type === "text" ? textBlock.text : "";
-    if (!draft) return NextResponse.json({ error: "초안이 비어 있습니다." }, { status: 502 });
 
-    // 분량 미달 시 확장 2차 패스 — LLM 이 글자 수 목표를 자주 밑돌아 자동 상세화한다
+    // 본문: 모든 텍스트 블록 결합 (검색 사용 시 텍스트가 여러 블록으로 나뉜다)
+    let draft = response.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("");
+    if (!draft.trim()) return NextResponse.json({ error: "초안이 비어 있습니다." }, { status: 502 });
+
+    // 실제 검색 출처 수집 — 인용(citation)의 URL·제목만 사용 (AI 가 출처를 지어낼 수 없다)
+    const sources: SourceRef[] = [];
+    const seenUrls = new Set<string>();
+    for (const block of response.content) {
+      if (block.type !== "text" || !block.citations) continue;
+      for (const c of block.citations) {
+        if (c.type === "web_search_result_location" && c.url && !seenUrls.has(c.url)) {
+          seenUrls.add(c.url);
+          sources.push({ url: c.url, title: c.title || c.url });
+        }
+      }
+    }
+
+    // 분량 미달 시 확장 2차 패스 (검색 근거가 이미 있어 드물게만 발동)
     if (draft.length < 2300) {
       const expandRes = await client.messages.create({
         model: MODEL,
         max_tokens: 6000,
         output_config: { effort: "low" },
         system:
-          "당신은 의료광고법을 준수하는 병원 콘텐츠 편집자다. 전달받은 원고의 구조·제목·참고 자료·고지 문구는 유지하면서 각 본문 섹션과 FAQ 답변을 더 상세하게 확장한다. 효과 보장·최상급·가격 유인 표현과 임의 수치는 계속 금지. 결과는 전체 2,500~3,000자(공백 포함)의 완성 원고만 출력한다.",
+          "당신은 의료광고법을 준수하는 병원 콘텐츠 편집자다. 전달받은 원고의 구조·제목·고지 문구는 유지하면서 각 본문 섹션과 FAQ 답변을 더 상세하게 확장한다. 효과 보장·최상급·가격 유인 표현은 계속 금지. 원고에 없는 수치·출처·인용을 새로 만들지 마라. 결과는 전체 2,500~3,000자(공백 포함)의 완성 원고만 출력한다.",
         messages: [{ role: "user", content: draft }],
       });
       if (expandRes.stop_reason !== "refusal") {
-        const expandBlock = expandRes.content.find((b) => b.type === "text");
-        const expanded = expandBlock && expandBlock.type === "text" ? expandBlock.text : "";
+        const expanded = expandRes.content
+          .filter((b): b is Anthropic.TextBlock => b.type === "text")
+          .map((b) => b.text)
+          .join("");
         if (expanded.length > draft.length) draft = expanded;
       }
+    }
+
+    // 참고 자료: 시스템이 실제 검색 출처로 구성해 첨부 (최대 8건)
+    if (sources.length > 0) {
+      const refLines = sources.slice(0, 8).map((s) => `- [${s.title}](${s.url})`);
+      draft = `${draft.trim()}\n\n## 참고 자료\n${refLines.join("\n")}\n\n> 위 출처는 원고 작성 시 실제 검색으로 확인된 페이지입니다. 게재 전 원문을 한 번 더 확인하세요.`;
     }
 
     // 생성 결과물을 기존 리스크 엔진으로 문장 단위 재검수
@@ -102,7 +194,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ draft, riskHits });
+    return NextResponse.json({ draft, riskHits, sources });
   } catch (err) {
     console.error("초안 생성 오류:", err);
     return NextResponse.json({ error: "초안 생성 중 오류가 발생했습니다." }, { status: 500 });
