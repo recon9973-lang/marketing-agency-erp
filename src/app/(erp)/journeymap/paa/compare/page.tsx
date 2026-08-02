@@ -148,14 +148,20 @@ function CompareInner() {
       {/* 비교 요약 */}
       <div className="grid grid-cols-2 gap-3 p-4 lg:grid-cols-4">
         {[
+          // 잉크색은 slate 클래스로 — ERP 전역 다크 브리지가 자동 반전 (액센트만 인라인)
           { label: "A에만 있는 질문", value: result.onlyA.length, color: "#2a78d6" },
-          { label: "공통 질문", value: result.common.length, color: "#52514e" },
+          { label: "공통 질문", value: result.common.length, color: null },
           { label: "B에만 있는 질문", value: result.onlyB.length, color: "#eb6834" },
-          { label: "질문 겹침율", value: `${overlapPct}%`, color: "#0b0b0b" },
+          { label: "질문 겹침율", value: `${overlapPct}%`, color: null },
         ].map((t) => (
           <div key={t.label} className="rounded-2xl border bg-white p-4 shadow-sm">
             <p className="text-xs text-slate-400">{t.label}</p>
-            <p className="mt-1 text-2xl font-bold" style={{ color: t.color }}>{t.value}</p>
+            <p
+              className="mt-1 text-2xl font-bold text-slate-900"
+              style={t.color ? { color: t.color } : undefined}
+            >
+              {t.value}
+            </p>
           </div>
         ))}
       </div>
