@@ -34,9 +34,23 @@ import { RiskLevel, Stage, STAGE_META } from "@/lib/journeymap/types";
 
 // dataviz 검증 팔레트 (라이트 서페이스, 순서 고정)
 const CAT_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
-const INK = { primary: "#0b0b0b", secondary: "#52514e", muted: "#898781" };
 const STATUS = { critical: "#d03b3b" };
 const SEQ_BLUE = "#2a78d6";
+// 텍스트 잉크는 인라인 hex 대신 slate 클래스 사용 — ERP 전역 다크 브리지(globals.css)가 자동 반전.
+
+// ERP 테마(data-theme)와 캔버스 다크모드 동기화 — 기존 map/[id] 페이지와 같은 패턴
+function useColorMode(): "light" | "dark" {
+  const [colorMode, setColorMode] = useState<"light" | "dark">("light");
+  useEffect(() => {
+    const el = document.documentElement;
+    const update = () => setColorMode(el.getAttribute("data-theme") === "dark" ? "dark" : "light");
+    update();
+    const obs = new MutationObserver(update);
+    obs.observe(el, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => obs.disconnect();
+  }, []);
+  return colorMode;
+}
 
 interface SnapshotDetail {
   snapshotId: string;
@@ -67,7 +81,7 @@ type MindFlowNode = Node<MindNodeData, "mind">;
 function MindNodeInner({ data }: NodeProps<MindFlowNode>) {
   if (data.kind === "center") {
     return (
-      <div className="rounded-2xl bg-slate-900 px-6 py-3.5 text-white shadow-lg">
+      <div className="rounded-2xl bg-slate-900 px-6 py-3.5 text-white shadow-lg dark:ring-1 dark:ring-slate-500">
         <Handle type="source" position={Position.Right} className="!bg-slate-400" />
         <p className="text-base font-bold">{data.label}</p>
       </div>
@@ -120,9 +134,7 @@ function MindNodeInner({ data }: NodeProps<MindFlowNode>) {
           {data.risk === "red" ? "🔴" : "🟡"}
         </span>
       )}
-      <p className="text-[13px] leading-snug" style={{ color: INK.primary }}>
-        {data.label}
-      </p>
+      <p className="text-[13px] leading-snug text-slate-900">{data.label}</p>
       {data.isLocal && <p className="mt-0.5 text-[10px] font-semibold text-emerald-700">📍 지역 질문</p>}
     </div>
   );
@@ -219,17 +231,9 @@ function buildFlow(
 function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-2xl border bg-white p-4 shadow-sm">
-      <p className="text-xs" style={{ color: INK.muted }}>
-        {label}
-      </p>
-      <p className="mt-1 text-2xl font-bold" style={{ color: INK.primary }}>
-        {value}
-      </p>
-      {sub && (
-        <p className="mt-0.5 text-[11px]" style={{ color: INK.secondary }}>
-          {sub}
-        </p>
-      )}
+      <p className="text-xs text-slate-400">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
+      {sub && <p className="mt-0.5 text-[11px] text-slate-500">{sub}</p>}
     </div>
   );
 }
@@ -238,18 +242,14 @@ function HBar({ label, value, max, color }: { label: string; value: number; max:
   const pct = max > 0 ? (value / max) * 100 : 0;
   return (
     <div className="group flex items-center gap-2 py-1" title={`${label}: ${value}개`}>
-      <span className="w-40 truncate text-right text-xs" style={{ color: INK.secondary }}>
-        {label}
-      </span>
+      <span className="w-40 truncate text-right text-xs text-slate-500">{label}</span>
       <div className="relative h-4 flex-1 overflow-hidden rounded bg-slate-100">
         <div
           className="h-full transition-opacity group-hover:opacity-80"
           style={{ width: `${pct}%`, background: color, borderRadius: "0 4px 4px 0" }}
         />
       </div>
-      <span className="w-10 text-xs font-semibold tabular-nums" style={{ color: INK.primary }}>
-        {value}
-      </span>
+      <span className="w-10 text-xs font-semibold tabular-nums text-slate-900">{value}</span>
     </div>
   );
 }
@@ -274,31 +274,33 @@ function Donut({ localCount, generalCount }: { localCount: number; generalCount:
           strokeLinecap={localPct > 0 && localPct < 1 ? "round" : "butt"}
           transform="rotate(-90 55 55)"
         />
-        <text x="55" y="52" textAnchor="middle" fontSize="18" fontWeight="700" fill={INK.primary}>
+        <text
+          x="55"
+          y="52"
+          textAnchor="middle"
+          fontSize="18"
+          fontWeight="700"
+          fill="currentColor"
+          className="text-slate-900"
+        >
           {Math.round(localPct * 100)}%
         </text>
-        <text x="55" y="68" textAnchor="middle" fontSize="9" fill={INK.muted}>
+        <text x="55" y="68" textAnchor="middle" fontSize="9" fill="currentColor" className="text-slate-400">
           지역 질문
         </text>
       </svg>
       <div className="space-y-1.5 text-xs">
         <p className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm" style={{ background: SEQ_BLUE }} />
-          <span style={{ color: INK.secondary }}>지역 질문</span>
-          <b className="tabular-nums" style={{ color: INK.primary }}>
-            {localCount}개
-          </b>
+          <span className="text-slate-500">지역 질문</span>
+          <b className="tabular-nums text-slate-900">{localCount}개</b>
         </p>
         <p className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "#eb6834" }} />
-          <span style={{ color: INK.secondary }}>일반 질문</span>
-          <b className="tabular-nums" style={{ color: INK.primary }}>
-            {generalCount}개
-          </b>
+          <span className="text-slate-500">일반 질문</span>
+          <b className="tabular-nums text-slate-900">{generalCount}개</b>
         </p>
-        <p className="pt-1 text-[10px]" style={{ color: INK.muted }}>
-          지역 → 플레이스·랜딩 / 일반 → 블로그
-        </p>
+        <p className="pt-1 text-[10px] text-slate-400">지역 → 플레이스·랜딩 / 일반 → 블로그</p>
       </div>
     </div>
   );
@@ -316,6 +318,7 @@ function SnapshotInner() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { addProject } = useProjectStore();
+  const colorMode = useColorMode();
   const [snap, setSnap] = useState<SnapshotDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
@@ -473,30 +476,24 @@ function SnapshotInner() {
       <div className="grid shrink-0 grid-cols-2 gap-3 border-b bg-slate-50 p-4 lg:grid-cols-4">
         <StatTile label="정제된 환자 질문" value={`${stats.total}개`} sub={`원시 수집 ${snap.rawCount}건에서 정제`} />
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
-          <p className="text-xs" style={{ color: INK.muted }}>
-            지역 질문 비율
-          </p>
+          <p className="text-xs text-slate-400">지역 질문 비율</p>
           <div className="mt-1">
             <Donut localCount={stats.localCount} generalCount={stats.generalCount} />
           </div>
         </div>
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
-          <p className="mb-1.5 text-xs" style={{ color: INK.muted }}>
-            검색여정 단계 분포
-          </p>
+          <p className="mb-1.5 text-xs text-slate-400">검색여정 단계 분포</p>
           {STAGES_ORDER.map((s) => (
             <HBar key={s} label={STAGE_META[s].label} value={stats.stageCount[s]} max={maxStage} color={STAGE_META[s].color} />
           ))}
         </div>
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
-          <p className="mb-1.5 text-xs" style={{ color: INK.muted }}>
-            의료법 리스크
-          </p>
+          <p className="mb-1.5 text-xs text-slate-400">의료법 리스크</p>
           <div className="flex items-center gap-4">
-            <p className="text-2xl font-bold" style={{ color: stats.red > 0 ? STATUS.critical : INK.primary }}>
+            <p className="text-2xl font-bold text-slate-900" style={stats.red > 0 ? { color: STATUS.critical } : undefined}>
               {stats.red + stats.yellow}건
             </p>
-            <div className="space-y-0.5 text-xs" style={{ color: INK.secondary }}>
+            <div className="space-y-0.5 text-xs text-slate-500">
               <p>
                 <span style={{ color: STATUS.critical }}>🔴 금지 표현</span> {stats.red}건
               </p>
@@ -505,9 +502,7 @@ function SnapshotInner() {
               </p>
             </div>
           </div>
-          <p className="mt-1.5 text-[10px]" style={{ color: INK.muted }}>
-            참고용 안내 — 법률 자문을 대체하지 않습니다
-          </p>
+          <p className="mt-1.5 text-[10px] text-slate-400">참고용 안내 — 법률 자문을 대체하지 않습니다</p>
         </div>
       </div>
 
@@ -527,6 +522,7 @@ function SnapshotInner() {
           nodes={flow.nodes}
           edges={flow.edges}
           nodeTypes={nodeTypes}
+          colorMode={colorMode}
           onNodeClick={(_, node) => {
             const m = node.id.match(/^q(\d+)_(\d+)$/);
             if (!m || !snap) return;
@@ -543,10 +539,10 @@ function SnapshotInner() {
           maxZoom={3}
           proOptions={{ hideAttribution: true }}
         >
-          <Background gap={24} color="#e2e8f0" />
+          <Background gap={24} color={colorMode === "dark" ? "#334155" : "#e2e8f0"} />
           <Controls position="bottom-left" />
         </ReactFlow>
-        <p className="pointer-events-none absolute left-3 top-3 rounded-md bg-white/90 px-2.5 py-1 text-[11px] text-slate-500 shadow-sm">
+        <p className="pointer-events-none absolute left-3 top-3 rounded-md bg-white/95 px-2.5 py-1 text-[11px] text-slate-500 shadow-sm">
           💡 질문 카드를 클릭하면 블로그 초안을 만들 수 있습니다
         </p>
 
