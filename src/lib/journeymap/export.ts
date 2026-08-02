@@ -2,7 +2,9 @@
 
 import { toPng, toSvg } from "html-to-image";
 import { getNodesBounds, type Node as RFNode } from "@xyflow/react";
-import { JNode, Project, STAGE_META } from "./types";
+import { PaaTree } from "./paa";
+import { scanRisk } from "./risk";
+import { JNode, Project, Stage, STAGE_META } from "./types";
 
 function download(dataUrl: string, filename: string) {
   const a = document.createElement("a");
@@ -108,4 +110,67 @@ export function exportJson(project: Project) {
     })),
   };
   downloadBlob(JSON.stringify(tree, null, 2), "application/json", `journeymap_${project.mainKeyword}.json`);
+}
+
+// ── PAA 콘텐츠 캘린더 — 지역/일반 + 여정 단계 기준 채널 자동 배정 (journeymap 단독판 이식)
+function paaChannelFor(stage: Stage, isLocal: boolean): { channel: string; guide: string } {
+  if (isLocal) {
+    return {
+      channel: "네이버 플레이스 · 지역 랜딩페이지",
+      guide: "지역명을 제목과 본문에 자연스럽게 포함하고, 플레이스 FAQ·예약 링크와 연결하세요.",
+    };
+  }
+  switch (stage) {
+    case "exploration":
+      return {
+        channel: "블로그 정보성 원고",
+        guide: "원리·증상을 쉬운 언어로 설명하고 핵심 요약 3줄을 글 상단에 배치하세요 (FAQ 스키마 연동).",
+      };
+    case "comparison":
+      return {
+        channel: "블로그 비교·FAQ 원고",
+        guide: "객관적 기준(재료·수명·관리)을 표로 정리하고, 비용은 비급여 고지 형태로만 안내하세요.",
+      };
+    case "decision":
+      return {
+        channel: "플레이스 FAQ · 상담 안내",
+        guide: "상담·예약 절차와 준비물을 안내하고, 의료진 정보는 과장 없이 객관적으로 제공하세요.",
+      };
+    case "retention":
+      return {
+        channel: "인스타그램 카드뉴스 · 숏폼",
+        guide: "회복 일정·주의사항을 카드형 시각 자료로 정리해 직관적으로 전달하세요.",
+      };
+  }
+}
+
+export function exportPaaCalendar(tree: PaaTree, query: string) {
+  const header = ["발행 주차", "여정 단계", "카테고리", "환자 질문", "질문 유형", "추천 채널", "실행 가이드", "의료법 리스크"];
+  const rows: string[][] = [];
+  let week = 1;
+  for (const cat of tree.categories) {
+    for (const q of cat.questions) {
+      const { channel, guide } = paaChannelFor(cat.stage, q.isLocal);
+      const risk = scanRisk(q.text);
+      rows.push([
+        `${week}주차`,
+        STAGE_META[cat.stage].label,
+        cat.name,
+        q.text,
+        q.isLocal ? "지역 질문" : "일반 질문",
+        channel,
+        guide,
+        risk.level === "red"
+          ? `🔴 금지: ${risk.reasons.map((r) => r.description).join(" / ")}`
+          : risk.level === "yellow"
+            ? `🟡 주의: ${risk.reasons.map((r) => r.description).join(" / ")}`
+            : "-",
+      ]);
+      week++;
+    }
+  }
+  const csv = [header, ...rows]
+    .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  downloadBlob(csv, "text/csv;charset=utf-8", `PAA_콘텐츠캘린더_${query}.csv`);
 }

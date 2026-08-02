@@ -1882,3 +1882,18 @@ model UploadedAsset {
   @@index([orgId, createdAt])
   @@index([ownerId])
 }
+
+/// PAA(환자 질문) 분석 스냅샷 — journeymap 확장. 키워드별 지식iN 질문을 AI 구조화한
+/// 트리를 영구 보관한다(7일 캐시 아님 — 삭제 전까지 유지, 재분석은 새 행 추가).
+model PaaSnapshot {
+  id         String   @id @default(cuid())
+  query      String // 정규화된 전체 키워드 (예: "대구 임플란트")
+  region     String? // 분해된 지역 (예: "대구")
+  topic      String? // 분해된 시술/주제 (예: "임플란트")
+  advertiser String? // 광고주(병원)명
+  result     Json // 구조화 트리 (PaaTree)
+  rawCount   Int // 수집 원시 질문 수
+  createdAt  DateTime @default(now())
+
+  @@index([query, createdAt])
+}

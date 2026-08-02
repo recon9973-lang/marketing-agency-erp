@@ -23,12 +23,20 @@ export default function JourneymapDashboard() {
             메인 키워드 + 병원 정보를 입력하면 환자 검색여정(탐색→비교→결정→유지)을 자동 생성합니다.
           </p>
         </div>
-        <Link
-          href="/journeymap/new"
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-        >
-          + 새 마인드맵
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/journeymap/paa"
+            className="rounded-lg border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
+          >
+            💬 환자 질문 분석
+          </Link>
+          <Link
+            href="/journeymap/new"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            + 새 마인드맵
+          </Link>
+        </div>
       </div>
 
       <div className="mb-6 flex items-center gap-3">
