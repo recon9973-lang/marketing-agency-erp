@@ -1,16 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useProjectStore } from "@/lib/journeymap/store";
+import { deleteProjectRemote, syncProjects } from "@/lib/journeymap/sync";
 import { STAGE_META, STAGES } from "@/lib/journeymap/types";
 import { exportCsv } from "@/lib/journeymap/export";
 
 export default function JourneymapDashboard() {
-  const { projects, removeProject } = useProjectStore();
+  const { projects, addProject, removeProject } = useProjectStore();
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
+  const [syncing, setSyncing] = useState(true);
   useEffect(() => setMounted(true), []);
+
+  // 서버 동기화 — 어느 브라우저에서 열어도 같은 목록이 보이도록 병합 (최초 1회)
+  const syncedRef = useRef(false);
+  useEffect(() => {
+    if (!mounted || syncedRef.current) return;
+    syncedRef.current = true;
+    const { projects: current, removeProject: rm } = useProjectStore.getState();
+    syncProjects(
+      current,
+      addProject,
+      (id, next) => {
+        rm(id);
+        addProject(next);
+      },
+      rm
+    ).finally(() => setSyncing(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted]);
 
   const filtered = projects.filter((p) => p.mainKeyword.includes(query) || p.profile.name.includes(query));
 
@@ -46,6 +66,7 @@ export default function JourneymapDashboard() {
           placeholder="🔍 프로젝트 검색 (키워드·병원명)"
           className="w-80 rounded-lg border px-4 py-2 text-sm focus:border-blue-500 focus:outline-none"
         />
+        {syncing && <span className="text-xs text-slate-400">☁️ 서버와 동기화 중…</span>}
         <div className="ml-auto flex gap-2 text-xs text-slate-500">
           {STAGES.map((s) => (
             <span key={s} className="flex items-center gap-1">
@@ -95,7 +116,10 @@ export default function JourneymapDashboard() {
                   </button>
                   <button
                     onClick={() => {
-                      if (confirm(`"${p.mainKeyword} × ${p.profile.name}" 프로젝트를 삭제할까요?`)) removeProject(p.id);
+                      if (confirm(`"${p.mainKeyword} × ${p.profile.name}" 프로젝트를 삭제할까요?`)) {
+                        removeProject(p.id);
+                        void deleteProjectRemote(p.id);
+                      }
                     }}
                     className="ml-auto rounded border px-2 py-1 text-red-500 hover:bg-red-50"
                   >
