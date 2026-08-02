@@ -33,8 +33,9 @@ const STRUCTURE_SCHEMA = {
               properties: {
                 text: { type: "string" },
                 isLocal: { type: "boolean" },
+                source: { type: "string", enum: ["naver", "google"] },
               },
-              required: ["text", "isLocal"],
+              required: ["text", "isLocal", "source"],
               additionalProperties: false,
             },
           },
@@ -87,16 +88,38 @@ async function fetchGooglePaa(query: string): Promise<string[]> {
     .filter((q) => q.length >= 5);
 }
 
-// 두 소스 병렬 수집 — 한쪽 실패는 다른 쪽으로 계속 진행
-async function collectQuestions(query: string): Promise<string[]> {
-  const [naver, google] = await Promise.allSettled([fetchNaverKin(query), fetchGooglePaa(query)]);
-  return [
-    ...(naver.status === "fulfilled" ? naver.value : []),
-    ...(google.status === "fulfilled" ? google.value : []),
-  ];
+interface RawQuestion {
+  text: string;
+  source: "naver" | "google";
 }
 
-async function structureWithAI(query: string, rawQuestions: string[]): Promise<PaaTree> {
+// 두 소스 병렬 수집(출처 태그 유지) — 한쪽 실패는 다른 쪽으로 계속 진행.
+// 구글 PAA 박스는 붙여쓰기에 민감하므로 지역+주제를 띄어쓰기 형태로 정규화해 조회한다
+// (예: "마산한의원" → "마산 한의원" — SerpAPI 호출 수는 동일하게 1회).
+async function collectQuestions(query: string): Promise<RawQuestion[]> {
+  const { region, topic } = parseRegion(query);
+  const googleQuery = region && topic ? `${region} ${topic}` : query;
+  const [naver, google] = await Promise.allSettled([fetchNaverKin(query), fetchGooglePaa(googleQuery)]);
+  const out: RawQuestion[] = [];
+  if (naver.status === "fulfilled") for (const t of naver.value) out.push({ text: t, source: "naver" });
+  if (google.status === "fulfilled") for (const t of google.value) out.push({ text: t, source: "google" });
+  return out;
+}
+
+// 텍스트 기준 중복 제거 (공백 무시, 먼저 수집된 출처 유지)
+function dedupeRaw(items: RawQuestion[]): RawQuestion[] {
+  const seen = new Set<string>();
+  const out: RawQuestion[] = [];
+  for (const it of items) {
+    const key = it.text.toLowerCase().replace(/\s+/g, "");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(it);
+  }
+  return out;
+}
+
+async function structureWithAI(query: string, rawQuestions: RawQuestion[]): Promise<PaaTree> {
   const client = new Anthropic();
   const response = await client.messages.create({
     model: MODEL,
@@ -106,11 +129,11 @@ async function structureWithAI(query: string, rawQuestions: string[]): Promise<P
       format: { type: "json_schema", schema: STRUCTURE_SCHEMA },
     },
     system:
-      "당신은 병원 마케팅 데이터 아키텍트다. 환자들의 원시 질문 목록을 의미 기준 4~6개 대분류로 묶고, 각 대분류에 검색여정 단계를 배정하며, 질문은 원래 의미를 보존한 간결한 완성형 문장으로 정제한다. 광고성·중복 질문은 병합하되 인위적으로 새 질문을 만들지 않는다. 각 질문에 isLocal(특정 지역·위치에 묶인 질문인지)을 판정한다. 단계 배정 기준: 원리·증상·정보 탐색=exploration, 후기·가격·병원 간 비교·추천 요청=comparison, 어디로 갈지 결정·예약·상담=decision, 시술 후 회복·관리·부작용 대처=retention.",
+      "당신은 병원 마케팅 데이터 아키텍트다. 환자들의 원시 질문 목록을 의미 기준 4~6개 대분류로 묶고, 각 대분류에 검색여정 단계를 배정하며, 질문은 원래 의미를 보존한 간결한 완성형 문장으로 정제한다. 광고성·중복 질문은 병합하되 인위적으로 새 질문을 만들지 않는다. 메인 키워드의 진료 주제와 무관한 질문(예: 병원 키워드에 국회의원·부동산 질문)은 제외한다. 각 질문에 isLocal(특정 지역·위치에 묶인 질문인지)과 source(원본 출처 태그 [네이버]→naver, [구글]→google, 병합 시 다수 출처)를 기록한다. 단계 배정 기준: 원리·증상·정보 탐색=exploration, 후기·가격·병원 간 비교·추천 요청=comparison, 어디로 갈지 결정·예약·상담=decision, 시술 후 회복·관리·부작용 대처=retention.",
     messages: [
       {
         role: "user",
-        content: `메인 키워드: ${query}\n\n원시 질문 목록:\n${rawQuestions.map((q) => `- ${q}`).join("\n")}`,
+        content: `메인 키워드: ${query}\n\n원시 질문 목록:\n${rawQuestions.map((q) => `- [${q.source === "google" ? "구글" : "네이버"}] ${q.text}`).join("\n")}`,
       },
     ],
   });
@@ -161,7 +184,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { region, topic } = parseRegion(query);
-    let rawQuestions = Array.from(new Set(await collectQuestions(query)));
+    let rawQuestions = dedupeRaw(await collectQuestions(query));
 
     // 좁은 지역이라 질문이 적으면 상위 지역으로 한 단계씩 넓혀 보충 수집
     const MIN_QUESTIONS = 10;
@@ -175,7 +198,7 @@ export async function POST(req: NextRequest) {
         try {
           const more = await collectQuestions(broaderQuery);
           if (more.length > 0) {
-            rawQuestions = Array.from(new Set([...rawQuestions, ...more]));
+            rawQuestions = dedupeRaw([...rawQuestions, ...more]);
             expanded.push(broaderQuery);
           }
         } catch {

@@ -69,6 +69,7 @@ type MindNodeData = {
   color: string;
   stage?: Stage;
   isLocal?: boolean;
+  qSource?: "naver" | "google";
   risk?: RiskLevel;
   collapsed?: boolean;
   childCount?: number;
@@ -135,7 +136,12 @@ function MindNodeInner({ data }: NodeProps<MindFlowNode>) {
         </span>
       )}
       <p className="text-[13px] leading-snug text-slate-900">{data.label}</p>
-      {data.isLocal && <p className="mt-0.5 text-[10px] font-semibold text-emerald-700">📍 지역 질문</p>}
+      {(data.isLocal || data.qSource === "google") && (
+        <p className="mt-0.5 flex gap-2 text-[10px] font-semibold">
+          {data.isLocal && <span className="text-emerald-700">📍 지역 질문</span>}
+          {data.qSource === "google" && <span className="text-blue-600">G 구글</span>}
+        </p>
+      )}
     </div>
   );
 }
@@ -196,7 +202,7 @@ function buildFlow(
           id: `q${i}_${j}`,
           parentId: catId,
           size: questionSize(q.text),
-          data: { label: q.text, kind: "question", color, isLocal: q.isLocal, risk: risk.level },
+          data: { label: q.text, kind: "question", color, isLocal: q.isLocal, qSource: q.source, risk: risk.level },
         });
       });
     }

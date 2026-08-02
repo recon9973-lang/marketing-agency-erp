@@ -110,6 +110,8 @@ function KeywordNodeInner({ data, selected }: NodeProps<KeywordFlowNode>) {
             ? "G"
             : n.source === "naver_kin"
             ? "지식iN"
+            : n.source === "google_paa"
+            ? "구글PAA"
             : n.source === "naver_rel"
             ? "연관"
             : n.source === "seed"
