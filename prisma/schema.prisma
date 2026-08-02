@@ -1897,3 +1897,17 @@ model PaaSnapshot {
 
   @@index([query, createdAt])
 }
+
+/// 여정맵 프로젝트 서버 저장 — 브라우저 localStorage 한계(기기·프로필별 목록 상이,
+/// 브라우저 데이터 삭제 시 유실) 해결. data 에 Project 전체(JSON)를 담는다.
+/// updatedAt 은 클라이언트 편집 시각 기준(LWW 병합용) — @updatedAt 자동 갱신을 쓰지 않는다.
+model JourneymapProject {
+  id          String   @id // 클라이언트 생성 id (p_...)
+  mainKeyword String
+  hospital    String
+  data        Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+
+  @@index([updatedAt])
+}

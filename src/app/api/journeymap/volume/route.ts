@@ -41,6 +41,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // 조회는 성공했는데 응답에 행이 없는 키워드 = 네이버 집계상 검색량이 사실상 0인 키워드.
+  // "-"(미조회)와 구분하기 위해 0으로 명시한다. (API 실패/추정치뿐인 경우는 채우지 않음)
+  const anyReal = rows.some((r) => !r.estimated);
+  if (anyReal) {
+    for (const orig of keywords) {
+      if (!results[orig]) results[orig] = { volumePc: 0, volumeMo: 0, competition: null, cpc: null };
+    }
+  }
+
   // 모바일 1위 예상 입찰가 → CPC 근사치(실패해도 검색량은 반환)
   const bids = await fetchBidEstimates(keywords.map((k) => k.replace(/\s+/g, "")), "MOBILE", 1);
   for (const [key, bid] of bids) {

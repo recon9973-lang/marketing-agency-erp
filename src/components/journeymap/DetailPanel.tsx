@@ -128,7 +128,7 @@ export function DetailPanel({
           <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-snug text-slate-500">
             {node.source === "naver_kin"
               ? "ℹ️ 지식iN 질문형 키워드는 검색광고 API에 검색량 데이터가 없어 \"-\"로 표시됩니다."
-              : "ℹ️ 검색량은 상위 150개 키워드만 조회합니다. 이 키워드는 조회 대상에 포함되지 않았거나 데이터가 없는 키워드입니다."}
+              : "ℹ️ 아직 검색량을 조회하지 않은 키워드입니다. 지도 상단 \"검색량 다시 조회\" 버튼으로 조회할 수 있습니다. (조회 후에도 검색량이 없으면 0으로 표시됩니다)"}
           </p>
         )}
 

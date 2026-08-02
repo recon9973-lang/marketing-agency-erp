@@ -24,6 +24,7 @@ import { exportCsv, exportJson, exportPng, exportSvg } from "@/lib/journeymap/ex
 import { countDescendants, layoutTree } from "@/lib/journeymap/layout";
 import { scanRisk } from "@/lib/journeymap/risk";
 import { uid, useProjectStore } from "@/lib/journeymap/store";
+import { fetchProjectRemote, pushProject } from "@/lib/journeymap/sync";
 import { JNode, Stage, STAGES, STAGE_META } from "@/lib/journeymap/types";
 
 const nodeTypes: NodeTypes = { jnode: KeywordNode };
@@ -38,7 +39,7 @@ export default function MapPage() {
 
 function MapInner() {
   const { id } = useParams<{ id: string }>();
-  const { projects, updateProject } = useProjectStore();
+  const { projects, addProject, updateProject } = useProjectStore();
   const project = projects.find((p) => p.id === id);
 
   const [mounted, setMounted] = useState(false);
@@ -54,6 +55,7 @@ function MapInner() {
   const [brandOnly, setBrandOnly] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [volumeRefreshing, setVolumeRefreshing] = useState<string | null>(null);
+  const [remoteTried, setRemoteTried] = useState(false);
   const [viewTab, setViewTab] = useState<"map" | "diagnosis">("map");
   const [foreignIds, setForeignIds] = useState<string[]>([]);
   const startedRef = useRef(false);
@@ -62,6 +64,22 @@ function MapInner() {
   const [colorMode, setColorMode] = useState<"light" | "dark">("light");
 
   useEffect(() => setMounted(true), []);
+
+  // 이 브라우저에 없는 프로젝트면 서버에서 불러온다 (다른 기기에서 만든 지도 열람)
+  useEffect(() => {
+    if (!mounted || project || remoteTried) return;
+    setRemoteTried(true);
+    fetchProjectRemote(id).then((remote) => {
+      if (remote) addProject(remote);
+    });
+  }, [mounted, project, remoteTried, id, addProject]);
+
+  // 편집 자동 저장 — 변경 2초 후 서버에 반영 (수집 중에는 완료 후 저장)
+  useEffect(() => {
+    if (!project || project.status === "collecting") return;
+    const t = setTimeout(() => void pushProject(project), 2000);
+    return () => clearTimeout(t);
+  }, [project]);
 
   // ERP 테마(data-theme)와 캔버스 다크모드 동기화 — 다크모드에서 미니맵이 흰 사각형으로 보이는 문제 해결
   useEffect(() => {
