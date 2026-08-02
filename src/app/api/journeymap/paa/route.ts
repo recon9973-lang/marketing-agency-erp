@@ -63,7 +63,7 @@ function stripHtml(s: string): string {
 async function fetchNaverKin(query: string): Promise<string[]> {
   const creds = naverOpenApiCreds();
   if (!creds) return [];
-  const url = `https://openapi.naver.com/v1/search/kin.json?query=${encodeURIComponent(query)}&display=30&sort=sim`;
+  const url = `https://openapi.naver.com/v1/search/kin.json?query=${encodeURIComponent(query)}&display=100&sort=sim`;
   const res = await fetch(url, {
     headers: { "X-Naver-Client-Id": creds.id, "X-Naver-Client-Secret": creds.secret },
     signal: AbortSignal.timeout(5000),
@@ -119,17 +119,64 @@ function dedupeRaw(items: RawQuestion[]): RawQuestion[] {
   return out;
 }
 
+
+// ── 전량 보존 정합: AI 가 빠뜨린 지식iN 질문을 원문 그대로 되살린다 (모델 무관 보장).
+// 구글 질문은 무관 질문(국회의원류)이 섞여 AI 의 관련성 필터를 신뢰한다.
+function tokenSet(s: string): Set<string> {
+  return new Set(
+    s.toLowerCase().replace(/[^가-힣a-z0-9\s]/g, " ").split(/\s+/).filter((t) => t.length >= 2)
+  );
+}
+function tokenOverlap(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  a.forEach((t) => { if (b.has(t)) inter++; });
+  return inter / Math.min(a.size, b.size);
+}
+function reconcileMissing(
+  tree: PaaTree,
+  raw: RawQuestion[],
+  region: string | null,
+  query: string
+): void {
+  // 키워드 자체 단어는 모든 질문에 들어가므로 변별 단어에서 제외
+  const stop = tokenSet(query);
+  const distinct = (text: string) => {
+    const t = tokenSet(text);
+    stop.forEach((x) => t.delete(x));
+    return t;
+  };
+  const outTokens = tree.categories.flatMap((c) => c.questions.map((q) => distinct(q.text)));
+  const regionTokens = region ? region.split(" ") : [];
+  const missing = raw.filter((r) => {
+    if (r.source !== "naver") return false;
+    const rd = distinct(r.text);
+    if (rd.size === 0) return false; // 키워드 단어뿐인 일반 질문은 커버된 것으로 간주
+    return !outTokens.some((o) => tokenOverlap(rd, o) >= 0.5);
+  });
+  if (missing.length === 0) return;
+  tree.categories.push({
+    name: "기타 수집 질문",
+    stage: "exploration",
+    questions: missing.map((m) => ({
+      text: m.text.trim(),
+      isLocal: regionTokens.some((t) => m.text.includes(t)),
+      source: m.source,
+    })),
+  });
+}
+
 async function structureWithAI(query: string, rawQuestions: RawQuestion[]): Promise<PaaTree> {
   const client = new Anthropic();
   const response = await client.messages.create({
     model: MODEL,
-    max_tokens: 4096,
+    max_tokens: 8192,
     output_config: {
       effort: "low",
       format: { type: "json_schema", schema: STRUCTURE_SCHEMA },
     },
     system:
-      "당신은 병원 마케팅 데이터 아키텍트다. 환자들의 원시 질문 목록을 의미 기준 4~6개 대분류로 묶고, 각 대분류에 검색여정 단계를 배정하며, 질문은 원래 의미를 보존한 간결한 완성형 문장으로 정제한다. 광고성·중복 질문은 병합하되 인위적으로 새 질문을 만들지 않는다. 메인 키워드의 진료 주제와 무관한 질문(예: 병원 키워드에 국회의원·부동산 질문)은 제외한다. 각 질문에 isLocal(특정 지역·위치에 묶인 질문인지)과 source(원본 출처 태그 [네이버]→naver, [구글]→google, 병합 시 다수 출처)를 기록한다. 단계 배정 기준: 원리·증상·정보 탐색=exploration, 후기·가격·병원 간 비교·추천 요청=comparison, 어디로 갈지 결정·예약·상담=decision, 시술 후 회복·관리·부작용 대처=retention.",
+      "당신은 병원 마케팅 데이터 아키텍트다. 환자들의 원시 질문 목록을 의미 기준 4~8개 대분류로 묶고, 각 대분류에 검색여정 단계를 배정하며, 질문은 원래 의미를 보존한 간결한 완성형 문장으로 정제한다. 규칙: 입력된 모든 질문을 빠짐없이 출력에 포함한다(메인 키워드와 무관한 질문만 제외). 문장까지 사실상 같은 완전 중복만 하나로 합치고, 유사해도 관점·상황이 다르면 각각 유지한다. 출력 질문 수가 입력의 85% 미만이면 잘못 처리한 것이다. 인위적으로 새 질문을 만들지 않는다. 메인 키워드의 진료 주제와 무관한 질문(예: 병원 키워드에 국회의원·부동산 질문)은 제외한다. 각 질문에 isLocal(특정 지역·위치에 묶인 질문인지)과 source(원본 출처 태그 [네이버]→naver, [구글]→google, 병합 시 다수 출처)를 기록한다. 단계 배정 기준: 원리·증상·정보 탐색=exploration, 후기·가격·병원 간 비교·추천 요청=comparison, 어디로 갈지 결정·예약·상담=decision, 시술 후 회복·관리·부작용 대처=retention.",
     messages: [
       {
         role: "user",
@@ -215,6 +262,7 @@ export async function POST(req: NextRequest) {
     }
 
     const tree = await structureWithAI(query, rawQuestions);
+    reconcileMissing(tree, rawQuestions, region, query);
     if (expanded.length > 0) tree.expanded = expanded;
 
     const snapshot = await db.paaSnapshot.create({
