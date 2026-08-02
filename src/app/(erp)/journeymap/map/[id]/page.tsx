@@ -400,7 +400,7 @@ function MapInner() {
         {(redCount > 0 || yellowCount > 0) && (
           <button
             onClick={() => setRiskOnly((v) => !v)}
-            className={`rounded-full border px-3 py-1 text-xs ${riskOnly ? "border-red-300 bg-red-50" : "hover:bg-slate-50"}`}
+            className={`rounded-full border px-3 py-1 text-xs ${riskOnly ? "border-red-300 bg-red-50" : "hover:bg-slate-50 dark:hover:bg-slate-800"}`}
           >
             🔴 {redCount} · 🟡 {yellowCount} — {riskOnly ? "전체 보기" : "리스크만 보기"}
           </button>
@@ -409,7 +409,7 @@ function MapInner() {
         <button
           onClick={refreshVolumes}
           disabled={!!volumeRefreshing}
-          className="ml-auto rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          className="ml-auto rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
           title="수집 때 조회에 실패했거나 비어 있는 키워드의 월간 검색량·CPC·경쟁도를 다시 조회합니다"
         >
           {volumeRefreshing || "📊 검색량 다시 조회"}
@@ -436,7 +436,7 @@ function MapInner() {
                     item.fn();
                     setExportOpen(false);
                   }}
-                  className="block w-full px-4 py-2 text-left text-sm hover:bg-slate-50"
+                  className="block w-full px-4 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   {item.label}
                 </button>

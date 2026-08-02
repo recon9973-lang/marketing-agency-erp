@@ -46,7 +46,7 @@ export default function JourneymapDashboard() {
         <div className="flex items-center gap-2">
           <Link
             href="/journeymap/paa"
-            className="rounded-lg border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
+            className="rounded-lg border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950"
           >
             💬 환자 질문 분석
           </Link>
@@ -111,7 +111,7 @@ export default function JourneymapDashboard() {
                   </div>
                 </Link>
                 <div className="mt-3 flex gap-2 border-t pt-3 text-xs">
-                  <button onClick={() => exportCsv(p)} className="rounded border px-2 py-1 text-slate-600 hover:bg-slate-50">
+                  <button onClick={() => exportCsv(p)} className="rounded border px-2 py-1 text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800">
                     CSV
                   </button>
                   <button
@@ -121,7 +121,7 @@ export default function JourneymapDashboard() {
                         void deleteProjectRemote(p.id);
                       }
                     }}
-                    className="ml-auto rounded border px-2 py-1 text-red-500 hover:bg-red-50"
+                    className="ml-auto rounded border px-2 py-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
                   >
                     삭제
                   </button>
