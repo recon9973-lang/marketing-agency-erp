@@ -7,6 +7,7 @@ import { JNode, Project, Stage } from "./types";
 export interface PaaQuestion {
   text: string;
   isLocal: boolean; // 지역 의존 질문 여부 (지역→플레이스·랜딩 / 일반→블로그)
+  source?: "naver" | "google"; // 원본 출처 (구버전 스냅샷은 없음 → 네이버 취급)
 }
 
 export interface PaaCategory {
@@ -107,7 +108,7 @@ export function treeToProject(
         kind: "keyword",
         depth: 2,
         stage: cat.stage,
-        source: "naver_kin",
+        source: q.source === "google" ? "google_paa" : "naver_kin",
         score: q.isLocal ? 70 : 55, // 지역 질문은 전환 의도가 높아 가중
         riskLevel: risk.level,
         riskReasons: risk.reasons,
