@@ -42,6 +42,7 @@ import type { FavoriteRow } from "@/server/repositories/user-favorite";
 import { Role } from "@/domain/types";
 import { canUseFeature, CONTROLLABLE_FEATURES, type FeatureKey } from "@/domain/features";
 import { BrandLogo } from "@/components/erp/BrandLogo";
+import { APP_VERSION } from "@/lib/changelog";
 import { ThemeToggle } from "@/components/erp/ThemeToggle";
 import { NotificationBell } from "@/components/collab/NotificationBell";
 import { CommandPalette } from "@/components/search/CommandPalette";
@@ -533,7 +534,9 @@ export function AppShell({
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-ink">{ROLE_LABEL[role]}</p>
-              <p className="text-[10px] text-slate-400">Marketing ERP</p>
+              <Link href="/changelog" className="text-[10px] text-slate-400 hover:text-blue-500 hover:underline">
+                Marketing ERP v{APP_VERSION}
+              </Link>
             </div>
             <form action={logout}>
               <button
