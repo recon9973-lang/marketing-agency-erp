@@ -337,6 +337,7 @@ function SnapshotInner() {
     riskHits: { line: string; level: string; description: string }[];
   } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [volume, setVolume] = useState<{ kw: string; pc: number | null; mo: number | null } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -350,6 +351,28 @@ function SnapshotInner() {
       }
     })();
   }, [id]);
+
+  // 핵심 키워드(지역+주제)의 월간 검색량 — 질문 문장이 아닌 키워드로 조회해야 데이터가 있다
+  useEffect(() => {
+    if (!snap) return;
+    const kw = snap.topic ? (snap.region ? `${snap.region} ${snap.topic}` : snap.topic) : snap.query;
+    (async () => {
+      try {
+        const res = await fetch("/api/journeymap/volume", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ keywords: [kw] }),
+        });
+        const data = await res.json();
+        const m = data.results?.[kw];
+        if (m && (m.volumePc != null || m.volumeMo != null)) {
+          setVolume({ kw, pc: m.volumePc, mo: m.volumeMo });
+        }
+      } catch {
+        // 검색량은 부가 정보 — 실패해도 화면을 막지 않는다
+      }
+    })();
+  }, [snap]);
 
   const toggle = useCallback((i: number) => {
     setCollapsed((prev) => {
@@ -462,6 +485,14 @@ function SnapshotInner() {
             title="이 지역만으로는 질문이 적어 상위 지역 질문을 함께 수집했습니다"
           >
             🔎 {snap.tree.expanded.join(" · ")} 범위 확장 수집
+          </span>
+        )}
+        {volume && (
+          <span
+            className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700"
+            title={`네이버 검색광고 기준 "${volume.kw}" 월간 검색수`}
+          >
+            📊 월간검색 PC {volume.pc ?? "-"} · 모바일 {volume.mo ?? "-"}
           </span>
         )}
         <button
