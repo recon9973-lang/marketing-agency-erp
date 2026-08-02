@@ -74,6 +74,28 @@ async function fetchNaverKin(query: string): Promise<string[]> {
     .filter((t) => t.length >= 5);
 }
 
+// 구글 PAA(People Also Ask) — SERPAPI_KEY 가 있을 때만 작동, 없으면 조용히 건너뜀
+async function fetchGooglePaa(query: string): Promise<string[]> {
+  const key = process.env.SERPAPI_KEY;
+  if (!key) return [];
+  const url = `https://serpapi.com/search?engine=google&q=${encodeURIComponent(query)}&hl=ko&gl=kr&api_key=${key}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) throw new Error(`serpapi ${res.status}`);
+  const data = (await res.json()) as { related_questions?: { question?: string }[] };
+  return (data.related_questions || [])
+    .map((item) => (item.question || "").trim())
+    .filter((q) => q.length >= 5);
+}
+
+// 두 소스 병렬 수집 — 한쪽 실패는 다른 쪽으로 계속 진행
+async function collectQuestions(query: string): Promise<string[]> {
+  const [naver, google] = await Promise.allSettled([fetchNaverKin(query), fetchGooglePaa(query)]);
+  return [
+    ...(naver.status === "fulfilled" ? naver.value : []),
+    ...(google.status === "fulfilled" ? google.value : []),
+  ];
+}
+
 async function structureWithAI(query: string, rawQuestions: string[]): Promise<PaaTree> {
   const client = new Anthropic();
   const response = await client.messages.create({
@@ -139,7 +161,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { region, topic } = parseRegion(query);
-    let rawQuestions = Array.from(new Set(await fetchNaverKin(query)));
+    let rawQuestions = Array.from(new Set(await collectQuestions(query)));
 
     // 좁은 지역이라 질문이 적으면 상위 지역으로 한 단계씩 넓혀 보충 수집
     const MIN_QUESTIONS = 10;
@@ -151,7 +173,7 @@ export async function POST(req: NextRequest) {
         const broaderQuery = [broaderRegion, topic].filter(Boolean).join(" ").trim();
         if (!broaderQuery || broaderQuery === query) continue;
         try {
-          const more = await fetchNaverKin(broaderQuery);
+          const more = await collectQuestions(broaderQuery);
           if (more.length > 0) {
             rawQuestions = Array.from(new Set([...rawQuestions, ...more]));
             expanded.push(broaderQuery);
