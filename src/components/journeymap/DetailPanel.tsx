@@ -7,6 +7,8 @@ import { formatVolume, JNode, Stage, STAGES, STAGE_META } from "@/lib/journeymap
 export function DetailPanel({
   node,
   regionHint,
+  mainKeyword,
+  advertiser,
   onUpdate,
   onAddChild,
   onDelete,
@@ -14,13 +16,48 @@ export function DetailPanel({
 }: {
   node: JNode;
   regionHint?: string;
+  mainKeyword?: string;
+  advertiser?: string;
   onUpdate: (id: string, patch: Partial<JNode>) => void;
   onAddChild: (parentId: string) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
 }) {
   const [keyword, setKeyword] = useState(node.keyword);
+  const [draftLoading, setDraftLoading] = useState(false);
+  const [draft, setDraft] = useState<{ text: string; riskHits: { line: string; description: string }[] } | null>(null);
+  const [copied, setCopied] = useState(false);
   useEffect(() => setKeyword(node.keyword), [node.id, node.keyword]);
+  useEffect(() => {
+    setDraft(null);
+    setCopied(false);
+  }, [node.id]);
+
+  const generateDraft = async () => {
+    setDraftLoading(true);
+    setDraft(null);
+    try {
+      const norm = (s: string) => s.toLowerCase().replace(/\s+/g, "");
+      const res = await fetch("/api/journeymap/paa/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: node.keyword,
+          category: "",
+          isLocal: Boolean(regionHint && norm(node.keyword).includes(norm(regionHint))),
+          query: mainKeyword || node.keyword,
+          advertiser: advertiser || "",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) setDraft({ text: `⚠️ ${data.error || "원고 생성에 실패했습니다."}`, riskHits: [] });
+      else setDraft({ text: data.draft, riskHits: data.riskHits || [] });
+    } catch {
+      setDraft({ text: "⚠️ 서버 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.", riskHits: [] });
+    } finally {
+      setDraftLoading(false);
+    }
+  };
 
   const saveKeyword = () => {
     const v = keyword.trim();
@@ -209,18 +246,79 @@ export function DetailPanel({
       </div>
 
       <div className="space-y-2 border-t px-4 py-3">
-        <button onClick={() => onAddChild(node.id)} className="w-full rounded-lg border px-3 py-2 text-sm hover:bg-slate-50">
+        {isKeyword && (
+          <button
+            onClick={generateDraft}
+            disabled={draftLoading}
+            className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+          >
+            {draftLoading ? "🔄 원고 작성 중… (10~30초)" : "✍️ 이 키워드로 원고 생성"}
+          </button>
+        )}
+        <button
+          onClick={() => onAddChild(node.id)}
+          className="w-full rounded-lg border px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+        >
           + 하위 키워드 추가
         </button>
         {isKeyword && (
           <button
             onClick={() => onDelete(node.id)}
-            className="w-full rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+            className="w-full rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
           >
             노드 삭제 (하위 포함)
           </button>
         )}
       </div>
+
+      {draft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setDraft(null)}>
+          <div
+            className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b px-5 py-3">
+              <h3 className="text-sm font-bold">✍️ 원고 초안 — {node.keyword}</h3>
+              <button onClick={() => setDraft(null)} className="text-slate-400 hover:text-slate-700">
+                ×
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {draft.riskHits.length > 0 && (
+                <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs">
+                  <p className="mb-1 font-bold">⚠️ 리스크 재검수: {draft.riskHits.length}건 발견 — 게재 전 수정 필요</p>
+                  {draft.riskHits.slice(0, 4).map((h, i) => (
+                    <p key={i} className="text-slate-600">
+                      &ldquo;{h.line}&rdquo; — {h.description}
+                    </p>
+                  ))}
+                </div>
+              )}
+              <div className="whitespace-pre-wrap text-sm leading-relaxed">{draft.text}</div>
+            </div>
+            {!draft.text.startsWith("⚠️") && (
+              <div className="flex justify-end gap-2 border-t px-5 py-3">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(draft.text);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                  {copied ? "✅ 복사됨" : "📋 원고 복사"}
+                </button>
+                <button
+                  onClick={() => setDraft(null)}
+                  className="rounded-lg border px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  닫기
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
