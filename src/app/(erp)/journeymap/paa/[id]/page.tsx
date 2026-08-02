@@ -136,12 +136,14 @@ function MindNodeInner({ data }: NodeProps<MindFlowNode>) {
         </span>
       )}
       <p className="text-[13px] leading-snug text-slate-900">{data.label}</p>
-      {(data.isLocal || data.qSource === "google") && (
-        <p className="mt-0.5 flex gap-2 text-[10px] font-semibold">
-          {data.isLocal && <span className="text-emerald-700">📍 지역 질문</span>}
-          {data.qSource === "google" && <span className="text-blue-600">G 구글</span>}
-        </p>
-      )}
+      <p className="mt-0.5 flex gap-2 text-[10px] font-semibold">
+        {data.qSource === "google" ? (
+          <span className="text-blue-600">G 구글</span>
+        ) : (
+          <span className="text-[#03c75a]">N 지식iN</span>
+        )}
+        {data.isLocal && <span className="text-emerald-700">📍 지역 질문</span>}
+      </p>
     </div>
   );
 }
