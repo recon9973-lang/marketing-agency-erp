@@ -78,8 +78,11 @@ function MapInner() {
   }, [stageFilter, riskOnly, brandOnly, project?.status, fitView]);
 
   // ── 소급 타지역 검사: 저장된 맵을 열면 실측 검증으로 타지역 의심 노드를 찾아 배너 표시
+  // PAA(환자 질문) 변환 프로젝트는 제외 — 질문 문장에는 인접 생활권 지역명(창원·마산 등)이
+  // 자연스럽게 섞이므로 키워드용 타지역 검사가 오탐을 낸다.
   useEffect(() => {
     if (!mounted || !project || (project.status !== "done" && project.status !== "partial_done")) return;
+    if (project.id.startsWith("paa_")) return;
     let cancelled = false;
     findForeignNodeIds(project.nodes, project.mainKeyword, project.profile)
       .then((ids) => {
