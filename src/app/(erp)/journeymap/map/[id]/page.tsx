@@ -638,6 +638,8 @@ function MapInner() {
           <DetailPanel
             node={selectedNode}
             regionHint={project.profile.regionSigungu}
+            mainKeyword={project.mainKeyword}
+            advertiser={project.profile.name}
             onUpdate={patchNode}
             onAddChild={addChild}
             onDelete={deleteNode}
