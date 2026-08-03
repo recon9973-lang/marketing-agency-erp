@@ -11,6 +11,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.3.1",
+    date: "2026-08-03",
+    title: "원고 생성 시간 초과 수정",
+    items: [
+      "원고 생성이 60초 제한에 걸려 \"서버 요청 실패\"로 끊기던 문제 수정 (제한 300초로 확대)",
+      "실패 시 원인·재시도 안내 문구 표시, 소요 시간 안내를 1~3분으로 현실화",
+    ],
+  },
+  {
     version: "1.3.0",
     date: "2026-08-03",
     title: "버전 표시·변경 이력",

@@ -4,7 +4,9 @@ import { scanRisk } from "@/lib/journeymap/risk";
 import { requireStaff } from "../../guard";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// 웹 검색 최대 3회 + 분량 미달 시 2차 확장까지 하면 60초를 넘기기 쉽다.
+// 60초였을 때 Vercel 이 요청을 끊어 화면에 "서버 요청 실패" 만 떴다.
+export const maxDuration = 300;
 
 // 환자 질문 1건 → 웹 검색 근거 기반·AI 글쓰기 스타일(GEO/E-E-A-T) 블로그 초안 생성
 // + 실제 검색 출처로 "참고 자료" 자동 구성(URL 날조 원천 차단) + 의료광고법 재검수

@@ -53,7 +53,10 @@ export function DetailPanel({
       if (!res.ok) setDraft({ text: `⚠️ ${data.error || "원고 생성에 실패했습니다."}`, riskHits: [] });
       else setDraft({ text: data.draft, riskHits: data.riskHits || [] });
     } catch {
-      setDraft({ text: "⚠️ 서버 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.", riskHits: [] });
+      setDraft({
+        text: "⚠️ 서버 응답이 도중에 끊겼습니다. 원고 생성이 오래 걸려 시간 제한에 걸렸을 수 있습니다 — 버튼을 다시 눌러 재시도해 주세요.",
+        riskHits: [],
+      });
     } finally {
       setDraftLoading(false);
     }
@@ -252,7 +255,7 @@ export function DetailPanel({
             disabled={draftLoading}
             className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
           >
-            {draftLoading ? "🔄 원고 작성 중… (10~30초)" : "✍️ 이 키워드로 원고 생성"}
+            {draftLoading ? "🔄 원고 작성 중… (1~3분)" : "✍️ 이 키워드로 원고 생성"}
           </button>
         )}
         <button
