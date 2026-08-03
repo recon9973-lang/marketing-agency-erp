@@ -425,7 +425,10 @@ function SnapshotInner() {
       if (!res.ok) setDraft({ text: `⚠️ ${data.error || "초안 생성에 실패했습니다."}`, riskHits: [] });
       else setDraft({ text: data.draft, riskHits: data.riskHits || [] });
     } catch {
-      setDraft({ text: "⚠️ 서버 요청에 실패했습니다.", riskHits: [] });
+      setDraft({
+        text: "⚠️ 서버 응답이 도중에 끊겼습니다. 원고 생성이 오래 걸려 시간 제한에 걸렸을 수 있습니다 — 질문 카드를 다시 클릭해 재시도해 주세요.",
+        riskHits: [],
+      });
     } finally {
       setDraftLoading(false);
     }
@@ -615,7 +618,7 @@ function SnapshotInner() {
                   </button>
                 </div>
               )}
-              {draftLoading && <p className="py-8 text-center text-sm text-blue-600">🔄 초안 작성 중… (10~20초)</p>}
+              {draftLoading && <p className="py-8 text-center text-sm text-blue-600">🔄 초안 작성 중… 신뢰 기관 자료를 검색해 작성하므로 1~3분 걸립니다</p>}
               {draft && (
                 <div>
                   {draft.riskHits.length > 0 ? (
