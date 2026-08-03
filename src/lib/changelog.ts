@@ -11,6 +11,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.3.2",
+    date: "2026-08-03",
+    title: "원고 문체 개선 — 본문은 서술형",
+    items: [
+      "원고 본문까지 전부 질문-답변 형식이 되던 문제 수정 (사용자 피드백: FAQ가 있는데 본문까지 문답이면 중복)",
+      "본문 소제목은 명사형·주장형 서술로, 질문형 문장은 FAQ 섹션에만",
+    ],
+  },
+  {
     version: "1.3.1",
     date: "2026-08-03",
     title: "원고 생성 시간 초과 수정",
