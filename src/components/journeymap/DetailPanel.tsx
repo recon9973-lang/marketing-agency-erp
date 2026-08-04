@@ -70,6 +70,10 @@ export function DetailPanel({
   };
 
   const isKeyword = node.kind === "keyword";
+  // 메인 키워드(center)도 검색량·검색 링크·원고 생성은 보여야 한다 — kind 가 keyword 가
+  // 아니라는 이유로 상세가 통째로 비면 "노드 상세 안 나옴" 으로 읽힌다(사용자 보고).
+  // 단계 변경·이름 수정·삭제는 계속 keyword 전용(메인 키워드는 지도의 뿌리라 제외).
+  const showInfo = isKeyword || node.kind === "center";
 
   return (
     <aside className="flex w-72 shrink-0 flex-col border-l bg-white">
@@ -122,7 +126,7 @@ export function DetailPanel({
           </div>
         )}
 
-        {isKeyword && (
+        {showInfo && (
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-lg bg-slate-50 p-2.5">
               <p className="text-[11px] text-slate-500">월간 검색량(PC)</p>
@@ -147,7 +151,9 @@ export function DetailPanel({
             <div className="rounded-lg bg-slate-50 p-2.5">
               <p className="text-[11px] text-slate-500">출처 · 심도</p>
               <p className="font-bold">
-                {node.source === "naver_ac"
+                {node.kind === "center"
+                  ? "메인 키워드"
+                  : node.source === "naver_ac"
                   ? "네이버"
                   : node.source === "google_ac"
                   ? "구글"
@@ -164,7 +170,7 @@ export function DetailPanel({
           </div>
         )}
 
-        {isKeyword && node.volumePc == null && node.volumeMo == null && (
+        {showInfo && node.volumePc == null && node.volumeMo == null && (
           <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-snug text-slate-500">
             {node.source === "naver_kin"
               ? "ℹ️ 지식iN 질문형 키워드는 검색광고 API에 검색량 데이터가 없어 \"-\"로 표시됩니다."
@@ -204,7 +210,7 @@ export function DetailPanel({
           </div>
         )}
 
-        {isKeyword &&
+        {showInfo &&
           (() => {
             // 키워드에 지역이 없으면 지역을 붙여 검색 — 전국 결과가 아닌 해당 지역 결과를 보여주기 위함
             const norm = (s: string) => s.toLowerCase().replace(/\s+/g, "");
@@ -249,7 +255,7 @@ export function DetailPanel({
       </div>
 
       <div className="space-y-2 border-t px-4 py-3">
-        {isKeyword && (
+        {showInfo && (
           <button
             onClick={generateDraft}
             disabled={draftLoading}
