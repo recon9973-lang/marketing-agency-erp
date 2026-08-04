@@ -146,7 +146,12 @@ function MapInner() {
   const refreshVolumes = useCallback(async () => {
     if (!project || volumeRefreshing) return;
     const targets = project.nodes.filter(
-      (n) => n.kind === "keyword" && n.source !== "naver_kin" && n.source !== "google_paa" && n.volumePc == null && n.volumeMo == null
+      (n) =>
+        (n.kind === "keyword" || n.kind === "center") &&
+        n.source !== "naver_kin" &&
+        n.source !== "google_paa" &&
+        n.volumePc == null &&
+        n.volumeMo == null
     );
     if (targets.length === 0) {
       alert("조회할 키워드가 없습니다. (지식iN·구글 질문 문장은 검색광고 API 에 데이터가 없어 제외되며, 이미 값이 있는 노드는 건너뜁니다)");

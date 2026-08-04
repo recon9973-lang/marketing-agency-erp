@@ -11,6 +11,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.4.1",
+    date: "2026-08-04",
+    title: "메인 키워드 노드 상세 표시",
+    items: [
+      "마인드맵에서 메인 키워드(중앙 노드)를 클릭하면 상세가 비어 보이던 문제 수정 — 검색량·실제 검색 링크·원고 생성 표시",
+      "\"검색량 다시 조회\"가 메인 키워드의 검색량도 함께 채움",
+    ],
+  },
+  {
     version: "1.4.0",
     date: "2026-08-03",
     title: "출처를 인용한 문장 아래 개별 표기",
